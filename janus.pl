@@ -2,6 +2,7 @@
 use strict;
 BEGIN { push @INC, '.' }
 use Unreal;
+use Interface;
 use IO::Select;
 
 my $read = IO::Select->new();
@@ -24,6 +25,10 @@ my $net2 = Unreal->new(
 
 $net1->connect();
 $net2->connect();
+
+my $int = Interface->new();
+$int->link($net1);
+$int->link($net2);
 
 $read->add([$net1->{sock}, $net1]);
 $read->add([$net2->{sock}, $net2]);
