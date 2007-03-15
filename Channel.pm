@@ -93,6 +93,41 @@ sub link {
 	1;
 }
 
+sub delink {
+	my($chan, $net) = @_;
+	my $id = $net->id();
+	return unless exists $chan->{nets}->{$id};
+	my %chanh;
+	my $split = \%chanh;
+	bless $split;
+
+	$split->{nets}->{$id} = delete $chan->{nets}->{$id};
+	my $name = $split->{names}->{$id} = delete $chan->{names}->{$id};
+	$net->{chans}->{lc $name} = $split;
+
+	$split->{ts} = $chan->{ts}; # TODO also copy modes, topic
+	for my $nid (keys %{$chan->{nicks}}) {
+		if ($chan->{nicks}->{$nid}->{homenet}->id() eq $id) {
+			my $nick = $split->{nicks}->{$nid} = delete $chan->{nicks}->{$nid};
+			$split->{nmode}->{$nid} = delete $chan->{nmode}->{$nid};
+			$chan->send($net, +{
+				type => 'PART',
+				src => $nick,
+				dst => $chan,
+				msg => 'Channel delinked',
+			});
+		} else {
+			my $nick = $chan->{nicks}->{$nid};
+			$split->send(undef, +{
+				type => 'PART',
+				src => $nick,
+				dst => $split,
+				msg => 'Channel delinked',
+			});
+		}
+	}
+}
+
 # get name on a network
 sub str {
 	my($chan,$net) = @_;

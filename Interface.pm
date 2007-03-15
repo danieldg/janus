@@ -46,6 +46,19 @@ my %cmds = (
 			msg => 'Unknown command. Use "help" to see available commands',
 		});
 	}, help => sub {
+		my($net, $nick) = @_;
+		for ('Janus2 Help',
+			' link $localchan $network $remotechan - links a channel with a remote network',
+			' delink $chan - delinks a channel from all other networks',
+		) {
+			$nick->send(undef, +{
+				type => 'MSG',
+				src => $net->{janus},
+				dst => $nick,
+				notice => 1,
+				msg => $_,
+			});
+		}
 	}, 'link' => sub {
 		my($net, $nick) = @_;
 		my($cname1, $nname2, $cname2) = /(#\S+)\s+(\S+)\s*(#\S+)/ or return;
@@ -60,6 +73,18 @@ my %cmds = (
 			dst => $nick,
 			notice => 1,
 			msg => $ok ? 'Channels linked' : 'Failed to link',
+		});
+	}, 'delink' => sub {
+		my($net, $nick, $cname) = @_;
+		my $snet = $nick->{homenet};
+		my $chan = $snet->chan($cname);
+		$chan->delink($snet);
+		$nick->send(undef, +{
+			type => 'MSG',
+			src => $net->{janus},
+			dst => $nick,
+			notice => 1,
+			msg => 'Channels delinked',
 		});
 	}
 );
