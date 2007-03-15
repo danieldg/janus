@@ -34,17 +34,24 @@ sub id {
 
 sub nick {
 	my($net, $name) = @_;
-	$net->{nicks}->{$name};
+	$net->{nicks}->{lc $name};
 }
 
 sub chan {
 	my($net, $name, $new) = @_;
-	unless (exists $net->{chans}->{$name}) {
-		warn unless $new;
+	unless (exists $net->{chans}->{lc $name}) {
+		warn "$name" unless $new;
 		my $id = $net->{id};
 		$net->{chans}->{$name} = Channel->new($net, $name);
 	}
-	$net->{chans}->{$name};
+	$net->{chans}->{lc $name};
+}
+
+sub item {
+	my($net, $item) = @_;
+	return $net->{nicks}->{lc $item} if exists $net->{nicks}->{lc $item};
+	return $net->{chans}->{lc $item} if exists $net->{chans}->{lc $item};
+	return $net;
 }
 
 sub str {

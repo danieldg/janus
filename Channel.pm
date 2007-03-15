@@ -72,7 +72,7 @@ sub link {
 	my($chan1,$chan2) = @_;
 	
 	for my $id (keys %{$chan1->{nets}}) {
-		return () if exists $chan2->{nets}->{$id};
+		return 0 if exists $chan2->{nets}->{$id};
 	}
 	
 	my %chanh;
@@ -90,6 +90,7 @@ sub link {
 	for my $nick (values %{$chan2->{nicks}}) {
 		_ljoin $nick, $chan, $chan2, $chan1->{nets};
 	}
+	1;
 }
 
 # get name on a network

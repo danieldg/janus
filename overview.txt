@@ -3,6 +3,7 @@ Network
 	{klines} - array of Kline objects
 	connect([sock]) - try to connect to the network or use the given sock as a connection from the network
 	id() - network's tag, must be unique
+	item(name) - return a Nick, Channel, or Network for the nick, channel, or server name given
 	nick(name) - returns a currently existing nick of this name
 	channel(name, [new]) - returns a channel of this name, optionally creating if $new is 1, destroying if -1
 	request_nick(Nick, request) - gives the Nick a local network name, based on the requested one
@@ -27,8 +28,9 @@ Channel
 	send(Network except, Action) - sendto_all_butone
 
 Nick
-	{homenick nickts ident host ip name} - basic info; also {swhois home_server servicets chost vhost ip_64}
-	{homenet} - this nick's origin (individual networks can add more info to their Nick objects)
+	{homenet} - source Network for the nick
+	{homenick nickts ident host ip name} - basic info
+ 		for Unreal nicks: {swhois home_server servicets chost vhost ip_64}
 	id() - nick's tag, must be unique
 	vhost() - user's visible host (cloaked or vhost); {host} is actual host
 	umode(delta) - change umodes
