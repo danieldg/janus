@@ -1,0 +1,122 @@
+Janus2 Design
+
+A main loop does select() and pulls lines out. 
+Each line is passed to the Network object, which is a converter between
+Action objects and a specific protocol/inet socket.
+
+The handler for each irc event calls common code in Nick/Channel objects
+to update global state; this code iterates through all Network objects
+who would "know" about a particular change and sends the event through an
+interface there.
+
+Total interfaces:
+	ircd --> ircd s2s protocol --> Network
+	Network --> Action --> Nick/Channel
+	Nick/Channel --> Action --> JanusNetwork
+	JanusNetwork --> j2j protocol -> JanusNetwork
+	JanusNetwork --> Action --> Nick/Channel
+	Nick/Channel --> Action --> Network
+	Network --> ircd s2s protocol --> ircd
+
+Action: hash
+	type : string 
+	src : (Nick/Network) [Nick wherever possible, Network else]
+	dst : (Nick/Channel) [src == dst for self host change etc.]
+	other keys as needed for the specicific type
+
+j2j line exmple: 
+	type=PRIVMSG src=3A dst=2B msg="Hello there"
+
+j2j protocol would simply be Action objects with Nick/Channel converted to
+a guid. guid would be: [JanusNumeric][id] where JanusNumeric is a single 
+character and id is any sequence of characters. Suggested characters 
+are the set [0-9a-zA-Z] although parsing should handle [^:, \t\r\n]
+
+Once an Action is created by the protocol, it is passed to its destination's
+	->act() handler which handles the state updates and retransmissions
+
+Nick object:
+	Represents a single user; unique across all networks the user may be on
+	Contains a list of networks the user is on, and their (local) nick
+	Contains a list of Channel objects for all channels the user is in
+	->act(Action) : update some nick info or send privmsg to this user
+	->nick(Network, [add]) : returns the nick of the user on the network;
+		if 'add' is true, joins the network if needed, else returns null
+	->send(Network, Action) : relays the given Action to all networks the nick
+		is on, except the given Network (usually the source), which may be undef
+	->homenet() : Network object of this nick
+	->join_bounce(Channel, mode) : attempts to prepare a channel join
+		success: connects the nick to all needed nets; returns undef
+		failure: returns a KICK Action created from the rejecting G:line
+
+Channel object:
+	Represents a single channel; contains network/channel name correspondance
+		for allowing netA:#foo to map to netB:#bar
+	Is created for shared and unshared channels (?? subclass for these)
+	Maintains sets of bans; extended bans (/^~.:/) are global+verbatim for now
+		if a ban matches /(.*)TAG!(.+@.*?)(TAG)?/ or /(.*)!(.+@.*)TAG/
+			the ban "$1!$2" added to the network identified by TAG;
+			all other networks have the ban added as-is
+		Otherwise the ban is global
+		Ban removal may result in up to 4 bans being removed with added tagging
+	->act() : update topic/modes or privmsg the channel
+	->send(Network,Action) : relays the given Action to all networks the channel
+		is on, except the given Network (usually the source), which may be undef
+	->timesync(new-ts) : prepares a timesync for this channel
+		returns 0 if the timestamp is equal or if we are too lazy to resync
+
+Network object:
+	Represents a network; contains a hash of Nick and Channel objects
+		which are seen by this network (%nick is both remote and local users)
+	Also contains a list of servers/home nicks for SQUIT
+	->send(Action) : sends an Action to the given network
+	->id() : unique ID for this network
+
+	->nick(string) : returns the Nick object for the string; does NOT create
+	->chan(string, [create]) : returns the Channel object for the string
+		creates if 'create' is 1, else complains loudly and creates anyway
+
+-------------------------------------------------------------------------------
+
+Communication methods:
+
+Single hub routing all connections in a star
+	All messages between 2 networks go through center
+	Single point of failure
+	Simplifies janus daemon as it needs only 2 connections
+
+Each daemon is a hub and does ircd-style routing
+	Messages between unrelated networks go through hub-like nodes
+	Meta-Netsplits act normally
+
+Each daemon is a hub and has connections to all other hubs
+	Messages travel the minimum possible distance
+	Meta-Netsplits will desync the visible members channels until restored
+
+Mesh IRC networking
+	Combination of (2) and (3) where (3) is used initially but falls back
+	to (2) when a link is broken.
+	Complex. Needs route finding and detection of broken links, and
+	messages will "fall through the cracks" on a non-visible split
+
+
+Other object possibilities, rejected:
+
+Command[1]:
+	A command from some source network; retains a link to that network
+		$parsed = Command->parse($net, ':bob PRIVMSG #foo :Hello there')
+		$created = Command->new($bob, PRIVMSG => $foo, 'Hello there')
+	->nick($n) : retrieves the Nth paramater and interprets it as a nick
+		$cmd->nick(0) = Nick object for bob
+	->channel($n) : retrieves the Nth paramater and interprets it as a nick
+		$cmd->channel(2) = Channel object for #foo
+	->text($n) : retrieves the Nth parameter of the command in plain text
+		$cmd->text(3) = 'Hello there'
+	->sjb64($n) : for unreal PROTOCTL SJB64; decodes to int or server name
+	->deparse(Network) : converts back to a string ready to be sent
+
+Command[2]:
+	@parsed = $net->parse(':bob PRIVMSG #foo :Hello there')
+	Using an internal table for interpretation, translates to:
+		@cmd = (Nick, 'PRIVMSG', Channel, 'Hello there')
+	$net->send(@cmd) converts back
