@@ -30,13 +30,18 @@ sub umode {
 	$n->{umode} = join '', sort keys %m;
 }
 
-# send to all but possibly one network
+# send to all but possibly one network for NICKINFO
+# send to home network for MSG
 sub send {
 	my($nick, $except, $act) = @_;
 	$except = $except ? $except->id() : 0;
-	for my $id (keys %{$nick->{nets}}) {
-		next if $id eq $except;
-		$nick->{nets}->{$id}->send($act);
+	if ($act->{type} eq 'MSG') {
+		$nick->{homenet}->send($act);
+	} else {
+		for my $id (keys %{$nick->{nets}}) {
+			next if $id eq $except;
+			$nick->{nets}->{$id}->send($act);
+		}
 	}
 }
 
