@@ -4,10 +4,9 @@ use Nick;
 use strict;
 use warnings;
 
-our $inick = 'janus';
-
 sub new {
 	my $class = shift;
+	my $inick = shift || 'janus';
 	my %neth = (
 		id => 'janus',
 	);
@@ -23,7 +22,7 @@ sub new {
 		name => 'Janus Control Interface',
 		umode => 'oS',
 	);
-	$net->{nicks}->{$inick} = $nick;
+	$net->{nicks}->{lc $inick} = $nick;
 	$net->{janus} = $nick;
 	$net;
 }

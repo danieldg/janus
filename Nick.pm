@@ -77,13 +77,13 @@ sub connect {
 sub _join {
 	my($nick,$chan) = @_;
 	my $name = $chan->str($nick->{homenet});
-	$nick->{chans}->{$name} = $chan;
+	$nick->{chans}->{lc $name} = $chan;
 }
 
 sub _part {
 	my($nick,$chan) = @_;
 	my $name = $chan->str($nick->{homenet});
-	delete $nick->{chans}->{$name};
+	delete $nick->{chans}->{lc $name};
 }
 
 sub id {

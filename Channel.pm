@@ -64,7 +64,7 @@ sub _mergenet {
 		my $name = $src->{names}->{$id};
 		$chan->{nets}->{$id} = $net;
 		$chan->{names}->{$id} = $name;
-		$net->{chans}->{$name} = $chan;
+		$net->{chans}->{lc $name} = $chan;
 	}
 }
 
@@ -98,6 +98,8 @@ sub str {
 	my($chan,$net) = @_;
 	$chan->{names}->{$net->id()};
 }
+
+sub id { die }
 
 # send to all but possibly one network
 sub send {

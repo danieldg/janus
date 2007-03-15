@@ -42,7 +42,7 @@ sub chan {
 	unless (exists $net->{chans}->{lc $name}) {
 		warn "$name" unless $new;
 		my $id = $net->{id};
-		$net->{chans}->{$name} = Channel->new($net, $name);
+		$net->{chans}->{lc $name} = Channel->new($net, $name);
 	}
 	$net->{chans}->{lc $name};
 }
@@ -65,21 +65,21 @@ sub str {
 # Request a nick on a remote network (CONNECT/JOIN must be sent AFTER this)
 sub request_nick {
 	my($net, $nick, $reqnick) = @_;
-	if (exists $net->{nicks}->{$reqnick}) {
+	if (exists $net->{nicks}->{lc $reqnick}) {
 		my $tag = '/'.$nick->{homenet}->id();
 		$reqnick = substr($reqnick, 0, 30 - length $tag) . $tag;
-		if (exists $net->{nicks}->{$reqnick}) {
+		if (exists $net->{nicks}->{lc $reqnick}) {
 			warn "Collision with tagged nick"; # TODO kill or change tag
 		}
 	}
-	$net->{nicks}->{$reqnick} = $nick;
+	$net->{nicks}->{lc $reqnick} = $nick;
 	return $reqnick;
 }
 
 # Release a nick on a remote network (PART/QUIT must be sent BEFORE this)
 sub release_nick {
 	my($net, $req) = @_;
-	delete $net->{nicks}->{$req};
+	delete $net->{nicks}->{lc $req};
 }
 
 1;
