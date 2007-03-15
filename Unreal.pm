@@ -130,7 +130,7 @@ sub pm_notice {
 			msg => $_[3],
 			notice => $notice,
 		};
-	} elsif ($_[2] =~ /(\S+?)(@\S+)?/) {
+	} elsif ($_[2] =~ /^(\S+?)(@\S+)?$/) {
 		# nick message, possibly with a server mask
 		# server mask is ignored as the server is going to be wrong anyway
 		return {
@@ -309,6 +309,24 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 			dst => $net->chan($_[2]),
 			msg => @_ ==4 ? $_[3] : '',
 		};
+	}, KICK => sub {
+		my $net = shift;
+		return {
+			type => 'KICK',
+			src => $net->item($_[0]),
+			dst => $net->chan($_[2]),
+			kickee => $net->nick($_[3]),
+			msg => $_[4],
+		};
+	}, MODE => sub {
+		my $net = shift;
+		return {
+			type => 'MODE',
+			src => $net->item($_[0]),
+			dst => $net->item($_[2]),
+			mode => $_[3],
+			args => join ' ', @_[4 .. $#_],
+		};
 	},
 	TOPIC => \&ignore, # TODO
 # Server actions
@@ -356,6 +374,9 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 		my($net,$act) = @_;
 		join ' ', ':'.$act->{src}->str($net), 'KICK', $act->{dst}->str($net),
 			$act->{kickee}->str($net), ':'.$act->{msg};
+	}, MODE => sub {
+		join ' ', ':'.$act->{src}->str($net), 'MODE', $act->{dst}->str($net),
+			$act->{mode}, $act->{args};
 	}, MSG => sub {
 		my($net,$act) = @_;
 		join ' ', ':'.$act->{src}->str($net), ($act->{notice} ? 'NOTICE' : 'PRIVMSG'), 
