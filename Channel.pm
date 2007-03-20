@@ -6,7 +6,16 @@ use warnings;
 
 sub new {
 	my($class,$net,$name) = @_;
-	my %chash; my $chan = \%chash;
+	my %chash = (
+		ts => 0,
+		topic => '',
+		topicts => 0,
+		topicset => '',
+		ban_b => [],
+		ban_e => [],
+		ban_I => [],
+		mode => {},
+	); my $chan = \%chash;
 	my $id = $net->id();
 	weaken($chan->{nets}->{$id} = $net);
 	$chan->{names}->{$id} = $name;
@@ -68,6 +77,14 @@ sub _mergenet {
 	}
 }
 
+sub _modecpy {
+	my($chan, $src) = @_;
+	local $_;
+	$chan->{$_} = $src->{$_} for qw/ts topic topicts topicset/;
+	$chan->{$_} = [ @{$src->{$_}} ] for qw/ban_b ban_e ban_I/;
+	$chan->{mode} = { %{$src->{mode}} };
+}
+
 sub link {
 	my($chan1,$chan2) = @_;
 	
@@ -78,11 +95,43 @@ sub link {
 	my %chanh;
 	my $chan = \%chanh;
 	bless $chan;
-	$chan->{ts} = $chan1->{ts};
+	if ($chan1->{ts} == $chan2->{ts}) {
+		# Equal timestamps; recovering from a split. Merge any information
+		# chan1 wins ties since they asked for the link
+		if ($chan1->{topicts} >= $chan2->{topicts}) {
+			$chan->{$_} = $chan1->{$_} for qw/topic topicts topicset/;
+			$chan2->send(undef, +{
+				type => 'TOPIC',
+				dst => $chan2,
+				topic => $chan->{topic},
+				topicts => $chan->{topicts},
+				topicset => $chan->{topicset},
+			}) unless $chan1->{topic} eq $chan2->{topic};
+		} else {
+			$chan->{$_} = $chan2->{$_} for qw/topic topicts topicset/;
+			$chan1->send(undef, +{
+				type => 'TOPIC',
+				dst => $chan1,
+				topic => $chan->{topic},
+				topicts => $chan->{topicts},
+				topicset => $chan->{topicset},
+			}) unless $chan1->{topic} eq $chan2->{topic};
+		}
+		$chan->{ts} = $chan1->{ts};
+		$chan->{$_} = [ @{$chan1->{$_}}, @{$chan2->{$_}} ] for qw/ban_b ban_e ban_I/;
+		my %m = %{$chan2->{mode}};
+		$m{$_} = $chan1->{mode}->{$_} for keys %{$chan1->{mode}};
+		$chan->{mode} = \%m;
+	} elsif (!$chan1->{ts} || ($chan1->{ts} > $chan2->{ts} && $chan2->{ts})) {
+		$chan->_modecpy($chan2);
+		$chan1->timesync(1); # mode wipe
+	} else {
+		$chan->_modecpy($chan1);
+		$chan2->timesync(1); # mode wipe
+	}
+
 	$chan->_mergenet($chan1);
 	$chan->_mergenet($chan2);
-
-	# TODO merge in the modes, decide on a topic; use timestamps on all this
 
 	for my $nick (values %{$chan1->{nicks}}) {
 		_ljoin $nick, $chan, $chan1, $chan2->{nets};
@@ -97,15 +146,19 @@ sub delink {
 	my($chan, $net) = @_;
 	my $id = $net->id();
 	return unless exists $chan->{nets}->{$id};
-	my %chanh;
+	delete $chan->{nets}->{$id};
+	my $name = delete $chan->{names}->{$id};
+
+	my %chanh = (
+		nets => { $id => $net },
+		names => { $id => $name },
+	);
 	my $split = \%chanh;
 	bless $split;
+	$split->_modecpy($chan);
 
-	$split->{nets}->{$id} = delete $chan->{nets}->{$id};
-	my $name = $split->{names}->{$id} = delete $chan->{names}->{$id};
 	$net->{chans}->{lc $name} = $split;
 
-	$split->{ts} = $chan->{ts}; # TODO also copy modes, topic
 	for my $nid (keys %{$chan->{nicks}}) {
 		if ($chan->{nicks}->{$nid}->{homenet}->id() eq $id) {
 			my $nick = $split->{nicks}->{$nid} = delete $chan->{nicks}->{$nid};
@@ -189,10 +242,46 @@ my %actions = (
 		my $nick = $act->{src};
 		$chan->part($nick);
 	}, MODE => sub {
-		# TODO
-	}, BAN => sub {
-		# TODO
-	},
+		my($chan, $act) = @_;
+		local $_;
+		my $net = $act->{interp};
+		my @args = @{$act->{args}};
+		my $pm = '+';
+		for my $i (split //, $act->{mode}) {
+			if ($i =~ /[+-]/) {
+				$pm = $_;
+			} elsif (-1 != index $net->{chmode_lvl}, $i) {
+				my $nick = shift @args;
+				my %l = map { $_ => 1 } split //, $chan->{nmode}->{$nick->id()};
+				delete $l{$i}; 
+				$l{$i} = 1 if $pm eq '+';
+				$chan->{nmode}->{$nick->id()} = join '', keys %l;
+			} elsif (-1 != index $net->{chmode_list}, $i) {
+				if ($pm eq '+') {
+					push @{$chan->{'ban_'.$i}}, shift @args;
+				} else {
+					my $b = shift @args;
+					@{$chan->{'ban_'.$i}} = grep { $_ ne $b } @{$chan->{'ban_'.$i}};
+				}
+			} elsif (-1 != index $net->{chmode_val}, $i) {
+				$chan->{mode}->{$i} = shift @args;
+				delete $chan->{mode}->{$i} if $pm eq '-';
+			} elsif (-1 != index $net->{chmode_val2}, $i) {
+				$chan->{mode}->{$i} = shift @args if $pm eq '+';
+				delete $chan->{mode}->{$i} if $pm eq '-';
+			} elsif (-1 != index $net->{chmode_bit}, $i) {
+				$chan->{mode}->{$i} = 1;
+				delete $chan->{mode}->{$i} if $pm eq '-';
+			} else {
+				warn "Unknown mode '$_' from net $net";
+			}
+		}
+	}, TOPIC => sub {
+		my($chan, $act) = @_;
+		$chan->{topic} = $act->{topic};
+		$chan->{topicts} = $act->{topicts} || time;
+		$chan->{topicset} = $act->{topicset} || $act->{src}->{homenick};
+	}
 );
 
 sub act {

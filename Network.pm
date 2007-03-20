@@ -1,7 +1,7 @@
 package Network;
 use Channel;
 use Scalar::Util qw(weaken);
-use IO::Socket::INET;
+use IO::Socket::INET6;
 
 sub new {
 	my $class = shift;
@@ -16,7 +16,7 @@ sub connect {
 		$net->{sock} = shift;
 		$net->intro(1);
 	} else {
-		my $sock = IO::Socket::INET->new(
+		my $sock = IO::Socket::INET6->new(
 			PeerAddr => $net->{linkaddr},
 			PeerPort => $net->{linkport},
 		) or return 0;
@@ -45,6 +45,43 @@ sub chan {
 		$net->{chans}->{lc $name} = Channel->new($net, $name);
 	}
 	$net->{chans}->{lc $name};
+}
+
+sub _ban {
+	# TODO translate bans
+	$_[0];
+}
+
+sub _modeargs {
+	my $net = shift;
+	my $mode = shift;
+	my @args;
+	local $_;
+	my $pm = '+';
+	for (split //, $mode) {
+		if (/[+-]/) {
+			$pm = $_;
+		} elsif (-1 != index $net->{chmode_lvl}, $_) {
+			push @args, $net->nick(shift);
+		} elsif (-1 != index $net->{chmode_list}, $_) {
+			push @args, $net->_ban(shift);
+		} elsif (-1 != index $net->{chmode_val}, $_) {
+			push @args, shift;
+		} elsif (-1 != index $net->{chmode_val2}, $_) {
+			push @args, shift if $pm eq '+';
+		} elsif (-1 != index $net->{chmode_bit}, $_) {
+		} else {
+			warn "Unknown mode '$_'";
+		}
+	}
+	\@args;
+}
+
+sub _mode_interp {
+	my($net, $act) = @_;
+	# TODO translate stuff
+	my @args = map { ref $_ ? $_->str($net) : $_ } @{$act->{args}};
+	$act->{mode}, @args;
 }
 
 sub item {

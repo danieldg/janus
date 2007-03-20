@@ -5,9 +5,11 @@ use Unreal;
 use Interface;
 use IO::Select;
 
+$| = 1;
+
 my $read = IO::Select->new();
 my $net1 = Unreal->new(
-	linkaddr => '127.0.0.1',
+	linkaddr => '::1',
 	linkport => 8001,
 	linkname => 'janus1.testnet',
 	linkpass => 'pass',
@@ -15,23 +17,35 @@ my $net1 = Unreal->new(
 	id => 'test1',
 );
 my $net2 = Unreal->new(
-	linkaddr => '127.0.0.1',
+	linkaddr => '::1',
 	linkport => 8002,
 	linkname => 'janus2.testnet',
 	linkpass => 'pass',
 	numeric => 45,
 	id => 'test2',
 );
+my $net3 = Unreal->new(
+	linkaddr => '::1',
+	linkport => 8003,
+	linkname => 'janus3.testnet',
+	linkpass => 'pass',
+	numeric => 46,
+	id => 'test3',
+);
+
 
 $net1->connect();
 $net2->connect();
+$net3->connect();
 
 my $int = Interface->new();
 $int->link($net1);
 $int->link($net2);
+$int->link($net3);
 
 $read->add([$net1->{sock}, $net1]);
 $read->add([$net2->{sock}, $net2]);
+$read->add([$net3->{sock}, $net3]);
 
 while ($read->count()) {
 	my @r = $read->can_read();
@@ -51,12 +65,6 @@ while ($read->count()) {
 				$dst->act($act);
 				$dst->send($net, $act);
 				$dst->postact($act);
-			}
-
-			if ($line =~ /LINKNOW/) {
-				my $c1 = $net1->{chans}->{'#opers'};
-				my $c2 = $net2->{chans}->{'#opers'};
-				$c1->link($c2);
 			}
 		}
 		if (!$len) {

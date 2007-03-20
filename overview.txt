@@ -72,8 +72,14 @@ JOIN: Nick -> Channel
 
 MODE: [Nick, Network] -> Channel
 	mode - first part of NORMAL modestring
-	args - subsequent strings
+	args - array of arguments (either strings or Nicks)
+	interp - Network whose type should be used for channel mode translation source
 
 KICK: [Nick, Network] -> Channel
 	kickee - Nick
 	reason - reason
+
+TOPIC: * -> Channel
+	topic - topic
+	topicts - set timestamp of topic
+	topicset - string of topic setter

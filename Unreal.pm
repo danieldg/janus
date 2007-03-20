@@ -31,7 +31,13 @@ sub intro {
 		'PROTOCTL NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL UMODE2 TKLEXT',
 		"SERVER $net->{linkname} 1 :U2309-hX6eE-$net->{numeric} Janus Network Link",
 	);
+	$net->{chmode_lvl} = 'vhoaq';
+	$net->{chmode_list} = 'beI';
+	$net->{chmode_val} = 'kfL';
+	$net->{chmode_val2} = 'lj';
+	$net->{chmode_bit} = 'psmntirRcOAQKVCuzNSMTG';
 }
+
 
 # parse one line of input
 sub parse {
@@ -271,35 +277,36 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 		my $joins = pop;
 
 		my @acts = ();
-		my $mode = shift || '+';
+		my $cmode = $_[4] || '+';
 
 		for (split /\s+/, $joins) {
 			if (/^([&"'])(.+)/) {
-				$mode .= $1;
+				$cmode .= $1;
 				push @_, $2;
 			} else {
 				/^([*~@%+]*)(.+)/ or warn;
-				my $mode = $1;
+				my $nmode = $1;
 				my $nick = $net->nick($2);
-				$mode =~ tr/*~@%+/qaohv/;
+				$nmode =~ tr/*~@%+/qaohv/;
 				if ($chan->try_join($nick)) {
 					push @acts, +{
 						type => 'JOIN',
 						src => $nick,
 						dst => $chan,
-						mode => $mode,
+						mode => $nmode,
 					};
 				}
 			}
 		}
-		$mode =~ tr/&"'/beI/;
+		$cmode =~ tr/&"'/beI/;
 		push @acts, +{
 			type => 'MODE',
+			interp => $net,
 			src => $net,
 			dst => $chan,
-			mode => $mode,
-			args => join ' ', @_[4 .. $#_],
-		} unless $mode eq '+';
+			mode => $cmode,
+			args => $net->_modeargs($cmode, @_[5 .. $#_]),
+		} unless $cmode eq '+';
 		return @acts;
 	}, PART => sub {
 		my $net = shift;
@@ -320,15 +327,30 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 		};
 	}, MODE => sub {
 		my $net = shift;
+		$_[3] =~ s/^&//; # mode bounces. Bounce away...
 		return {
 			type => 'MODE',
+			interp => $net,
 			src => $net->item($_[0]),
 			dst => $net->item($_[2]),
 			mode => $_[3],
-			args => join ' ', @_[4 .. $#_],
+			args => $net->_modeargs(@_[3 .. $#_]),
 		};
+	}, TOPIC => sub {
+		my $net = shift;
+		my %act = (
+			type => 'TOPIC',
+			dst => $net->chan($_[2]),
+			topic => $_[-1],
+		);
+		if (defined $_[0]) {
+			my $src = $act{src} = $net->item($_[0]);
+			$act{topicset} = $src->str($net);
+		}
+		$act{topicset} = $_[3] if @_ > 4;
+		$act{topicts} = $_[4] if @_ > 5;
+		\%act;
 	},
-	TOPIC => \&ignore, # TODO
 # Server actions
 	SERVER => \&ignore, # TODO PROTOCTL NOQUIT
 	SQUIT => \&ignore,  # TODO PROTOCTL NOQUIT
@@ -375,8 +397,12 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 		join ' ', ':'.$act->{src}->str($net), 'KICK', $act->{dst}->str($net),
 			$act->{kickee}->str($net), ':'.$act->{msg};
 	}, MODE => sub {
-		join ' ', ':'.$act->{src}->str($net), 'MODE', $act->{dst}->str($net),
-			$act->{mode}, $act->{args};
+		my($net,$act) = @_;
+		join ' ', ':'.$act->{src}->str($net), 'MODE', $act->{dst}->str($net), $net->_mode_interp($act);
+	}, TOPIC => sub {
+		my($net,$act) = @_;
+		my $src = $act->{src} ? ':'.$act->{src}->str($net).' ' : '';
+		$src.'TOPIC '.$act->{dst}->str($net)." $act->{topicset} $act->{topicts} :$act->{topic}";
 	}, MSG => sub {
 		my($net,$act) = @_;
 		join ' ', ':'.$act->{src}->str($net), ($act->{notice} ? 'NOTICE' : 'PRIVMSG'), 
