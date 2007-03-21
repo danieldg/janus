@@ -30,7 +30,7 @@ sub intro {
 	}
 	$net->send(
 		"PASS :$net->{linkpass}",
-		'PROTOCTL NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL UMODE2 TKLEXT',
+		'PROTOCTL NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL UMODE2 TKLEXT SJB64',
 		"SERVER $net->{linkname} 1 :U2309-hX6eE-$net->{numeric} Janus Network Link",
 	);
 	$net->{chmode_lvl} = 'vhoaq';
@@ -153,8 +153,26 @@ sub pm_notice {
 		};
 	}
 }
+my $unreal64_table = join '', 0 .. 9, 'A'..'Z', 'a'..'z', '{}';
 
-sub sjb64 { return $_[1]; } # TODO PROTOCTL SJB64
+sub sjbint {
+	my $t = $_[1];
+	return $t unless $t =~ s/^!//;
+	local $_;
+	my $v = 0;
+	$v = 64*$v + index $unreal64_table, $_ for split //, $t;
+	$v;
+}
+
+sub sjb64 {
+	my $n = $_[1];
+	my $b = '';
+	while ($n) {
+		$b = substr($unreal64_table, $n & 63, 1) . $b;
+		$n = int($n / 64);
+	}
+	'!'.$b;
+}
 sub srvname { return $_[1]; } # TODO PROTOCTL NS
 
 %fromirc = (
@@ -170,7 +188,7 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 				dst => $nick,
 				nick => $_[2],
 			);
-			$a{nickts} = $net->sjb64($_[3]) if @_ == 4;
+			$a{nickts} = $net->sjbint($_[3]) if @_ == 4;
 			return \%a;
 		}
 		# NICKv2 introduction
@@ -178,11 +196,11 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 			homenet => $net,
 			homenick => $_[2],
 		#	hopcount => $_[3],
-			nickts => $net->sjb64($_[4]),
+			nickts => $net->sjbint($_[4]),
 			ident => $_[5],
 			host => $_[6],
 			home_server => $net->srvname($_[7]),
-			servicests => $net->sjb64($_[8]),
+			servicests => $net->sjbint($_[8]),
 			name => $_[-1],
 		);
 		if (@_ >= 12) {
@@ -273,7 +291,7 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 	}, SJOIN => sub {
 		my $net = shift;
 		my $chan = $net->chan($_[3], 1);
-		$chan->timesync($net->sjb64($_[2])); # TODO actually sync
+		$chan->timesync($net->sjbint($_[2])); # TODO actually sync
 		my $joins = pop;
 
 		my @acts;
@@ -341,7 +359,7 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 			$act{topicset} = $src->str($net);
 		}
 		$act{topicset} = $_[3] if @_ > 4;
-		$act{topicts} = $_[4] if @_ > 5;
+		$act{topicts} = $net->sjbint($_[4]) if @_ > 5;
 		\%act;
 	},
 # Server actions
@@ -376,14 +394,14 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 		my $vhost = $nick->vhost();
 		$mode =~ s/[xt]//g;
 		$mode .= 'xt';
-		join ' ', 'NICK', $nick->str($net), 1, $nick->{nickts}, $nick->{ident}, $nick->{host},
+		join ' ', 'NICK', $nick->str($net), 1, $net->sjb64($nick->{nickts}), $nick->{ident}, $nick->{host},
 			$net->{linkname}, 0, $mode, $vhost, ($nick->{ip_64} || '*'), ':'.$nick->{name};
 	}, JOIN => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
 		my $mode = $act->{mode} || '';
 		$mode =~ tr/qaohv/*~@%+/;
-		join ' ', 'SJOIN', $chan->{ts}, $chan->str($net), ":$mode".$act->{src}->str($net);
+		join ' ', 'SJOIN', $net->sjb64($chan->{ts}), $chan->str($net), ":$mode".$act->{src}->str($net);
 	}, PART => sub {
 		my($net,$act) = @_;
 		':'.$act->{src}->str($net).' PART '.$act->{dst}->str($net).' :'.$act->{msg};
@@ -397,7 +415,8 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 	}, TOPIC => sub {
 		my($net,$act) = @_;
 		my $src = $act->{src} ? ':'.$act->{src}->str($net).' ' : '';
-		$src.'TOPIC '.$act->{dst}->str($net)." $act->{topicset} $act->{topicts} :$act->{topic}";
+		my $ts = $net->sjb64($act->{topicts});
+		$src.'TOPIC '.$act->{dst}->str($net)." $act->{topicset} $ts :$act->{topic}";
 	}, MSG => sub {
 		my($net,$act) = @_;
 		join ' ', ':'.$act->{src}->str($net), ($act->{notice} ? 'NOTICE' : 'PRIVMSG'), 
