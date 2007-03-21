@@ -22,17 +22,6 @@ sub new {
 	bless $chan, $class;
 }
 
-sub _kick_kline {
-	my($chan, $nick, $dst, $line) = @_;
-	$dst->send(+{
-		type => 'KICK',
-		src => $line->{net},
-		dst => $chan,
-		kickee => $nick,
-		reason => "K:lined by $line->{net}->{netname} ($line->{reason})",
-	});
-}
-
 sub _ljoin {
 	my($nick, $chan, $src, $nets) = @_;
 	my $id = $nick->id();
@@ -40,30 +29,33 @@ sub _ljoin {
 	for my $net (values %$nets) {
 		my $line = $nick->is_klined($net);
 		if ($line) {
-			$src->part($nick);
-			for $net (values %{$src->{nets}}) {
-				$chan->_kick_kline($nick, $net, $line);
+			return +{
+				type => 'KICK',
+				src => $line->{net},
+				dst => $chan,
+				sendto => [ values %{$src->{nets}} ],
+				kickee => $nick,
+				reason => "K:lined by $line->{net}->{netname} ($line->{reason})",
 			}
-			return 0;
 		}
 	}
+	my @act;
 	for my $net (values %$nets) {
-		$nick->connect($net);
+		push @act, $nick->connect($net);
 	}
 	$nick->_join($chan);
 
 	my $mode = $src->{nmode}->{$id};
 	$chan->{nicks}->{$id} = $nick;
 	$chan->{nmode}->{$id} = $mode;
-	for my $net (values %$nets) {
-		$net->send(+{
-			type => 'JOIN',
-			src => $nick,
-			dst => $chan,
-			mode => $mode,
-		});
-	}
-	1;
+	push @act, +{
+		type => 'JOIN',
+		src => $nick,
+		dst => $chan,
+		sendto => [ values %$nets ],
+		mode => $mode,
+	};
+	@act;
 }
 
 sub _mergenet {
@@ -85,100 +77,7 @@ sub _modecpy {
 	$chan->{mode} = { %{$src->{mode}} };
 }
 
-sub link {
-	my($chan1,$chan2) = @_;
-	
-	for my $id (keys %{$chan1->{nets}}) {
-		return 0 if exists $chan2->{nets}->{$id};
-	}
-	
-	my %chanh;
-	my $chan = \%chanh;
-	bless $chan;
-	if ($chan1->{ts} == $chan2->{ts}) {
-		# Equal timestamps; recovering from a split. Merge any information
-		# chan1 wins ties since they asked for the link
-		if ($chan1->{topicts} >= $chan2->{topicts}) {
-			$chan->{$_} = $chan1->{$_} for qw/topic topicts topicset/;
-			$chan2->send(undef, +{
-				type => 'TOPIC',
-				dst => $chan2,
-				topic => $chan->{topic},
-				topicts => $chan->{topicts},
-				topicset => $chan->{topicset},
-			}) unless $chan1->{topic} eq $chan2->{topic};
-		} else {
-			$chan->{$_} = $chan2->{$_} for qw/topic topicts topicset/;
-			$chan1->send(undef, +{
-				type => 'TOPIC',
-				dst => $chan1,
-				topic => $chan->{topic},
-				topicts => $chan->{topicts},
-				topicset => $chan->{topicset},
-			}) unless $chan1->{topic} eq $chan2->{topic};
-		}
-		$chan->{ts} = $chan1->{ts};
-		$chan->{$_} = [ @{$chan1->{$_}}, @{$chan2->{$_}} ] for qw/ban_b ban_e ban_I/;
-		my %m = %{$chan2->{mode}};
-		$m{$_} = $chan1->{mode}->{$_} for keys %{$chan1->{mode}};
-		$chan->{mode} = \%m;
-	} elsif (!$chan1->{ts} || ($chan1->{ts} > $chan2->{ts} && $chan2->{ts})) {
-		$chan->_modecpy($chan2);
-		$chan1->timesync(1); # mode wipe
-	} else {
-		$chan->_modecpy($chan1);
-		$chan2->timesync(1); # mode wipe
-	}
-
-	$chan->_mergenet($chan1);
-	$chan->_mergenet($chan2);
-
-	for my $nick (values %{$chan1->{nicks}}) {
-		_ljoin $nick, $chan, $chan1, $chan2->{nets};
-	}
-	for my $nick (values %{$chan2->{nicks}}) {
-		_ljoin $nick, $chan, $chan2, $chan1->{nets};
-	}
-	1;
-}
-
 sub delink {
-	my($chan, $net) = @_;
-	my $id = $net->id();
-	return unless exists $chan->{nets}->{$id};
-	delete $chan->{nets}->{$id};
-	my $name = delete $chan->{names}->{$id};
-
-	my %chanh = (
-		nets => { $id => $net },
-		names => { $id => $name },
-	);
-	my $split = \%chanh;
-	bless $split;
-	$split->_modecpy($chan);
-
-	$net->{chans}->{lc $name} = $split;
-
-	for my $nid (keys %{$chan->{nicks}}) {
-		if ($chan->{nicks}->{$nid}->{homenet}->id() eq $id) {
-			my $nick = $split->{nicks}->{$nid} = delete $chan->{nicks}->{$nid};
-			$split->{nmode}->{$nid} = delete $chan->{nmode}->{$nid};
-			$chan->send($net, +{
-				type => 'PART',
-				src => $nick,
-				dst => $chan,
-				msg => 'Channel delinked',
-			});
-		} else {
-			my $nick = $chan->{nicks}->{$nid};
-			$split->send(undef, +{
-				type => 'PART',
-				src => $nick,
-				dst => $split,
-				msg => 'Channel delinked',
-			});
-		}
-	}
 }
 
 # get name on a network
@@ -189,40 +88,49 @@ sub str {
 
 sub id { die }
 
-# send to all but possibly one network
-sub send {
-	my($chan, $except, $act) = @_;
-	$except = $except ? $except->id() : 0;
-	for my $id (keys %{$chan->{nets}}) {
-		next if $id eq $except;
-		$chan->{nets}->{$id}->send($act);
-	}
+sub sendto {
+	my($chan,$act,$except) = @_;
+	my %n = %{$chan->{nets}};
+	delete $n{$except->id()} if $except;
+	values %n;
 }
 
 sub try_join {
 	my($chan,$nick) = @_;
 	for my $id (keys %{$chan->{nets}}) {
 		my $net = $chan->{nets}->{$id};
-		my $bounce = $nick->is_klined($net);
-		if ($bounce) {
-			$chan->_kick_kline($nick, $nick->{homenet}, $bounce);
-			return 0;
+		my $line = $nick->is_klined($net);
+		if ($line) {
+			return +{
+				type => 'KICK',
+				src => $line->{net},
+				dst => $chan,
+				sendto => [ $nick->{homenet} ],
+				kickee => $nick,
+				reason => "K:lined by $line->{net}->{netname} ($line->{reason})",
+			};
 		}
 	}
+	my @acts;
 	for my $id (keys %{$chan->{nets}}) {
 		my $net = $chan->{nets}->{$id};
-		$nick->connect($net);
+		push @acts, $nick->connect($net);
 	}
 	$chan->{nicks}->{$nick->id()} = $nick;
 	$nick->_join($chan);
-	1;
+	push @acts, +{
+		type => 'JOIN',
+		src => $nick,
+		dst => $chan,
+		mode => $_[2],
+	};
+	@acts;
 }
 
-sub part {
+sub _part {
 	my($chan,$nick) = @_;
 	delete $chan->{nicks}->{$nick->id()};
 	delete $chan->{nmode}->{$nick->id()};
-	$nick->_part($chan);
 }
 
 sub timesync {
@@ -231,65 +139,190 @@ sub timesync {
 	# TODO wipe modes if older $ts given
 }
 
-my %actions = (
-	JOIN => sub {
-		my($chan, $act) = @_;
-		my $nick = $act->{src};
-		return unless $act->{mode};
-		$chan->{nmode}->{$nick->id()} = $act->{mode};
-	}, PART => sub {
-		my($chan, $act) = @_;
-		my $nick = $act->{src};
-		$chan->part($nick);
-	}, MODE => sub {
-		my($chan, $act) = @_;
-		local $_;
-		my $net = $act->{interp};
-		my @args = @{$act->{args}};
-		my $pm = '+';
-		for my $i (split //, $act->{mode}) {
-			if ($i =~ /[+-]/) {
-				$pm = $_;
-			} elsif (-1 != index $net->{chmode_lvl}, $i) {
-				my $nick = shift @args;
-				my %l = map { $_ => 1 } split //, $chan->{nmode}->{$nick->id()};
-				delete $l{$i}; 
-				$l{$i} = 1 if $pm eq '+';
-				$chan->{nmode}->{$nick->id()} = join '', keys %l;
-			} elsif (-1 != index $net->{chmode_list}, $i) {
-				if ($pm eq '+') {
-					push @{$chan->{'ban_'.$i}}, shift @args;
-				} else {
-					my $b = shift @args;
-					@{$chan->{'ban_'.$i}} = grep { $_ ne $b } @{$chan->{'ban_'.$i}};
-				}
-			} elsif (-1 != index $net->{chmode_val}, $i) {
-				$chan->{mode}->{$i} = shift @args;
-				delete $chan->{mode}->{$i} if $pm eq '-';
-			} elsif (-1 != index $net->{chmode_val2}, $i) {
-				$chan->{mode}->{$i} = shift @args if $pm eq '+';
-				delete $chan->{mode}->{$i} if $pm eq '-';
-			} elsif (-1 != index $net->{chmode_bit}, $i) {
-				$chan->{mode}->{$i} = 1;
-				delete $chan->{mode}->{$i} if $pm eq '-';
-			} else {
-				warn "Unknown mode '$_' from net $net";
+sub modload {
+	my($me, $janus) = @_;
+	$janus->hook_add($me, 
+		JOIN => act => sub {
+			my $act = shift;
+			my $nick = $act->{src};
+			my $chan = $act->{dst};
+			if ($act->{mode}) {
+				$chan->{nmode}->{$nick->id()} = $act->{mode};
 			}
-		}
-	}, TOPIC => sub {
-		my($chan, $act) = @_;
-		$chan->{topic} = $act->{topic};
-		$chan->{topicts} = $act->{topicts} || time;
-		$chan->{topicset} = $act->{topicset} || $act->{src}->{homenick};
-	}
-);
+			undef;
+		}, PART => postact => sub {
+			my $act = shift;
+			my $nick = $act->{src};
+			my $chan = $act->{dst};
+			$chan->_part($nick);
+			undef;
+		}, KICK => postact => sub {
+			my $act = shift;
+			my $nick = $act->{kickee};
+			my $chan = $act->{dst};
+			$chan->_part($nick);
+			undef;
+		}, MODE => act => sub {
+			my $act = shift;
+			local $_;
+			my $net = $act->{interp};
+			my $chan = $act->{dst};
+			my @args = @{$act->{args}};
+			my $pm = '+';
+			for my $i (split //, $act->{mode}) {
+				if ($i =~ /[+-]/) {
+					$pm = $i;
+				} elsif (-1 != index $net->{chmode_lvl}, $i) {
+					my $nick = shift @args;
+					my %l = map { $_ => 1 } split //, ($chan->{nmode}->{$nick->id()} || '');
+					delete $l{$i}; 
+					$l{$i} = 1 if $pm eq '+';
+					$chan->{nmode}->{$nick->id()} = join '', keys %l;
+				} elsif (-1 != index $net->{chmode_list}, $i) {
+					if ($pm eq '+') {
+						push @{$chan->{'ban_'.$i}}, shift @args;
+					} else {
+						my $b = shift @args;
+						@{$chan->{'ban_'.$i}} = grep { $_ ne $b } @{$chan->{'ban_'.$i}};
+					}
+				} elsif (-1 != index $net->{chmode_val}, $i) {
+					$chan->{mode}->{$i} = shift @args;
+					delete $chan->{mode}->{$i} if $pm eq '-';
+				} elsif (-1 != index $net->{chmode_val2}, $i) {
+					$chan->{mode}->{$i} = shift @args if $pm eq '+';
+					delete $chan->{mode}->{$i} if $pm eq '-';
+				} elsif (-1 != index $net->{chmode_bit}, $i) {
+					$chan->{mode}->{$i} = 1;
+					delete $chan->{mode}->{$i} if $pm eq '-';
+				} else {
+					warn "Unknown mode '$_' from net $net";
+				}
+			}
+			undef;
+		}, TOPIC => act => sub {
+			my $act = shift;
+			my $chan = $act->{dst};
+			$chan->{topic} = $act->{topic};
+			$chan->{topicts} = $act->{topicts} || time;
+			$chan->{topicset} = $act->{topicset} || $act->{src}->{homenick};
+			undef;
+		}, LINK => presend => sub {
+			my $act = shift;
+			my($chan1,$chan2) = ($act->{dst}, $act->{add});
+	
+			for my $id (keys %{$chan1->{nets}}) {
+				return +{
+					type => 'MSG',
+					dst => $act->{src},
+					notice => 1,
+					msg => "Cannot link: this channel would be in $id twice",
+				} if exists $chan2->{nets}->{$id};
+			}
+			$act;
+			# TODO append Channel information when masking Janus-Janus info
+		}, LINK => act => sub {
+			my $act = shift;
+			my($chan1,$chan2) = ($act->{dst}, $act->{add});
 
-sub act {
-	my($chan, $act) = @_;
-	my $type = $act->{type};
-	return unless exists $actions{$type};
-	$actions{$type}->(@_);
+			my %chanh;
+			my $chan = \%chanh;
+			bless $chan;
+			my @acts;
+
+			if ($chan1->{ts} == $chan2->{ts}) {
+				# Equal timestamps; recovering from a split. Merge any information
+				# chan1 wins ties since they asked for the link
+				print "Link on equal TS\n";
+				if ($chan1->{topicts} >= $chan2->{topicts}) {
+					$chan->{$_} = $chan1->{$_} for qw/topic topicts topicset/;
+					push @acts, +{
+						type => 'TOPIC',
+						dst => $chan2,
+						topic => $chan->{topic},
+						topicts => $chan->{topicts},
+						topicset => $chan->{topicset},
+					} unless $chan1->{topic} eq $chan2->{topic};
+				} else {
+					$chan->{$_} = $chan2->{$_} for qw/topic topicts topicset/;
+					push @acts, +{
+						type => 'TOPIC',
+						dst => $chan1,
+						topic => $chan->{topic},
+						topicts => $chan->{topicts},
+						topicset => $chan->{topicset},
+					} unless $chan1->{topic} eq $chan2->{topic};
+				}
+				$chan->{ts} = $chan1->{ts};
+				$chan->{$_} = [ @{$chan1->{$_}}, @{$chan2->{$_}} ] for qw/ban_b ban_e ban_I/;
+				my %m = %{$chan2->{mode}};
+				$m{$_} = $chan1->{mode}->{$_} for keys %{$chan1->{mode}};
+				$chan->{mode} = \%m;
+			} elsif (!$chan1->{ts} || ($chan1->{ts} > $chan2->{ts} && $chan2->{ts})) {
+				print "Channel 2 wins TS\n";
+				$chan->_modecpy($chan2);
+				$chan1->timesync(1); # mode wipe
+			} else {
+				print "Channel 1 wins TS\n";
+				$chan->_modecpy($chan1);
+				$chan2->timesync(1); # mode wipe
+			}
+
+			$chan->_mergenet($chan1);
+			$chan->_mergenet($chan2);
+
+			for my $nick (values %{$chan1->{nicks}}) {
+				push @acts, _ljoin $nick, $chan, $chan1, $chan2->{nets};
+			}
+			for my $nick (values %{$chan2->{nicks}}) {
+				push @acts, _ljoin $nick, $chan, $chan2, $chan1->{nets};
+			}
+			
+			@acts;
+		}, DELINK => act => sub {
+			my $act = shift;
+			my $chan = $act->{dst};
+			my $net = $act->{net};
+			my $id = $net->id();
+			return () unless exists $chan->{nets}->{$id};
+			delete $chan->{nets}->{$id};
+			my $name = delete $chan->{names}->{$id};
+
+			my %chanh = (
+				nets => { $id => $net },
+				names => { $id => $name },
+			);
+			my $split = \%chanh;
+			bless $split;
+			$split->_modecpy($chan);
+
+			$net->{chans}->{lc $name} = $split;
+
+			my @act;
+			for my $nid (keys %{$chan->{nicks}}) {
+				if ($chan->{nicks}->{$nid}->{homenet}->id() eq $id) {
+					my $nick = $split->{nicks}->{$nid} = $chan->{nicks}->{$nid};
+					$split->{nmode}->{$nid} = $chan->{nmode}->{$nid};
+					$nick->_join($split);
+					push @act, +{
+						type => 'PART',
+						src => $nick,
+						dst => $chan,
+						msg => 'Channel delinked',
+					};
+				} else {
+					my $nick = $chan->{nicks}->{$nid};
+					push @act, +{
+						type => 'PART',
+						src => $nick,
+						dst => $split,
+						sendto => [ $net ],
+						msg => 'Channel delinked',
+					};
+				}
+			}
+			@act;
+		},
+	);
 }
 
-sub postact {
-}
+1;

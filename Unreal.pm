@@ -1,5 +1,7 @@
 package Unreal;
 use base 'Network';
+use strict;
+use warnings;
 use Nick;
 
 my %fromirc;
@@ -80,7 +82,7 @@ sub send {
 		}
 	}
 	print "OUT\@$net->{id} $_\n" for @out;
-	$net->{sock}->print(map "$_\n", @out);
+	$net->{sock}->print(map "$_\r\n", @out);
 }
 
 sub vhost {
@@ -104,6 +106,7 @@ sub nickact {
 	#(SET|CHG)(HOST|IDENT|NAME)
 	my $net = shift;
 	my($type, $act) = ($_[2] =~ /(SET|CHG)(HOST|IDENT|NAME)/i);
+	$act =~ s/host/vhost/i;
 
 	my %a = (
 		type => 'NICKINFO',
@@ -139,10 +142,12 @@ sub pm_notice {
 	} elsif ($_[2] =~ /^(\S+?)(@\S+)?$/) {
 		# nick message, possibly with a server mask
 		# server mask is ignored as the server is going to be wrong anyway
+		my $dst = $net->nick($1);
+		return () if !$dst && $_[2] eq 'AUTH';
 		return {
 			type => 'MSG',
 			src => $src,
-			dst => $net->nick($1),
+			dst => $dst,
 			msg => $_[3],
 			notice => $notice,
 		};
@@ -220,6 +225,7 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 		my $src = $net->nick($_[0]);
 		my $dst = $net->nick($_[2]);
 
+		return () unless $dst; # killing an already dead nick
 		if ($dst->{homenet}->id() eq $net->id()) {
 			return {
 				type => 'QUIT',
@@ -236,7 +242,7 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 		};
 	}, UMODE2 => sub {
 		my $net = shift;
-		my $nick = $net->nick($_[0]),
+		my $nick = $net->nick($_[0]);
 		return {
 			type => 'NICKINFO',
 			src => $nick,
@@ -261,13 +267,7 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 		my @act;
 		for (split /,/, $_[2]) {
 			my $chan = $net->chan($_, 1);
-			if ($chan->try_join($nick)) {
-				push @act, +{
-					type => 'JOIN',
-					src => $nick,
-					dst => $chan,
-				}
-			}
+			push @act, $chan->try_join($nick);
 		}
 		@act;
 	}, SJOIN => sub {
@@ -276,7 +276,7 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 		$chan->timesync($net->sjb64($_[2])); # TODO actually sync
 		my $joins = pop;
 
-		my @acts = ();
+		my @acts;
 		my $cmode = $_[4] || '+';
 
 		for (split /\s+/, $joins) {
@@ -288,14 +288,7 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 				my $nmode = $1;
 				my $nick = $net->nick($2);
 				$nmode =~ tr/*~@%+/qaohv/;
-				if ($chan->try_join($nick)) {
-					push @acts, +{
-						type => 'JOIN',
-						src => $nick,
-						dst => $chan,
-						mode => $nmode,
-					};
-				}
+				push @acts, $chan->try_join($nick, $nmode);
 			}
 		}
 		$cmode =~ tr/&"'/beI/;
@@ -361,6 +354,8 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 		();
 	},
 	PONG => \&ignore,
+	PASS => \&ignore,
+	PROTOCTL => \&ignore,
 	NETINFO => \&ignore,
 	EOS => \&ignore,
 
@@ -411,6 +406,9 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 		my($net,$act) = @_;
 		my $id = $net->id();
 		":$act->{from}->{$id} NICK $act->{to}->{$id} $act->{dst}->{nickts}";
+	}, NICKINFO => sub {
+		# TODO
+		'';
 	}, QUIT => sub {
 		my($net,$act) = @_;
 		':'.$act->{src}->str($net).' QUIT :'.$act->{msg};

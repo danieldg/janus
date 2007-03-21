@@ -32,21 +32,17 @@ sub umode {
 
 # send to all but possibly one network for NICKINFO
 # send to home network for MSG
-sub send {
-	my($nick, $except, $act) = @_;
-	$except = $except ? $except->id() : 0;
+sub sendto {
+	my($nick, $act, $except) = @_;
 	if ($act->{type} eq 'MSG') {
-		$nick->{homenet}->send($act);
+		my $net = $nick->{homenet};
+		return $net if exists $act->{src}->{nets}->{$net->id()};
+		return ();
 	} else {
-		for my $id (keys %{$nick->{nets}}) {
-			next if $id eq $except;
-			$nick->{nets}->{$id}->send($act);
-		}
+		my %n = %{$nick->{nets}};
+		delete $n{$except->id()} if $except;
+		return values %n;
 	}
-}
-
-sub regex {
-	0;
 }
 
 sub is_klined {
@@ -59,19 +55,24 @@ sub is_klined {
 	undef;
 }
 
+sub is_on {
+	my($nick, $net) = @_;
+	return exists $nick->{nets}->{$net->id()};
+}
+
 sub connect {
 	my($nick, $net) = @_;
 	my $id = $net->id();
-	return if exists $nick->{nets}->{$id};
+	return () if exists $nick->{nets}->{$id};
 	my $rnick = $net->request_nick($nick, $nick->{homenick});
 	$nick->{nets}->{$id} = $net;
 	$nick->{nicks}->{$id} = $rnick;
-	$net->send({
+	return +{
 		type => 'CONNECT',
 		src => $nick,
 		dst => $net,
 		expire => 0,
-	});
+	};
 }
 
 sub _join {
@@ -84,6 +85,30 @@ sub _part {
 	my($nick,$chan) = @_;
 	my $name = $chan->str($nick->{homenet});
 	delete $nick->{chans}->{lc $name};
+	$nick->_netclean(%{$chan->{nets}});
+}
+
+sub _netclean {
+	my $nick = shift;
+	my %nets = @_ ? @_ : %{$nick->{nets}};
+	delete $nets{$nick->{homenet}->id()};
+	for my $chan (values %{$nick->{chans}}) {
+		for my $id (keys %{$chan->{nets}}) {
+			delete $nets{$id};
+		}
+	}
+	for my $id (keys %nets) {
+		my $net = $nets{$id};
+		$net->send({
+			type => 'QUIT',
+			src => $nick,
+			dst => $nick,
+			msg => 'Left all shared channels',
+		});
+		delete $nick->{nets}->{$id};
+		my $rnick = delete $nick->{nicks}->{$id};
+		$net->release_nick($rnick);
+	}
 }
 
 sub id {
@@ -102,45 +127,61 @@ sub vhost {
 	$net->vhost($nick);
 }
 
-my %actions = (
-	NICK => sub {
-		my($nick,$act) = @_;
-		my $old = $nick->{homenick};
-		my $new = $act->{nick};
-		$nick->{homenick} = $new;
-		for my $id (keys %{$nick->{nets}}) {
-			my $net = $nick->{nets}->{$id};
-			my $from = $nick->{nicks}->{$id};
-			my $to = $net->request_nick($nick, $new);
-			$net->release_nick($from);
-			$nick->{nicks}->{$id} = $to;
+sub modload {
+	my($me, $janus) = @_;
+	$janus->hook_add($me, 
+		NICK => act => sub {
+			my $act = shift;
+			my $nick = $act->{dst};
+			my $old = $nick->{homenick};
+			my $new = $act->{nick};
+			$nick->{nickts} = $act->{nickts} if $act->{nickts};
+			$nick->{homenick} = $new;
+			for my $id (keys %{$nick->{nets}}) {
+				my $net = $nick->{nets}->{$id};
+				my $from = $nick->{nicks}->{$id};
+				my $to = $net->request_nick($nick, $new);
+				$net->release_nick($from);
+				$nick->{nicks}->{$id} = $to;
 			
-			$act->{from}->{$id} = $from;
-			$act->{to}->{$id} = $to;
-		}
-	},
-);
-
-sub act {
-	my($nick, $act) = @_;
-	my $type = $act->{type};
-	return $act unless exists $actions{$type};
-	$actions{$type}->(@_);
-}
-
-sub postact {
-	my($nick, $act) = @_;
-	return unless $act->{type} eq 'QUIT';
-	
-	for my $id (keys %{$nick->{chans}}) {
-		my $chan = $nick->{chans}->{$id};
-		$chan->part($nick);
-	}
-	for my $id (keys %{$nick->{nets}}) {
-		my $net = $nick->{nets}->{$id};
-		my $name = $nick->{nicks}->{$id};
-		$net->release_nick($name);
-	}
+				$act->{from}->{$id} = $from;
+				$act->{to}->{$id} = $to;
+			}
+			undef;
+		}, NICKINFO => act => sub {
+			my $act = shift;
+			my $nick = $act->{dst};
+			if ($act->{item} eq 'mode') {
+				$nick->umode($act->{value});
+			} else {
+				$nick->{$act->{item}} = $act->{value};
+			}
+			undef;
+		}, QUIT => postact => sub {
+			my $act = shift;
+			my $nick = $act->{dst};
+			for my $id (keys %{$nick->{chans}}) {
+				my $chan = $nick->{chans}->{$id};
+				$chan->_part($nick);
+			}
+			for my $id (keys %{$nick->{nets}}) {
+				my $net = $nick->{nets}->{$id};
+				my $name = $nick->{nicks}->{$id};
+				$net->release_nick($name);
+			}
+			undef;
+		}, PART => postact => sub {
+			my $act = shift;
+			my $nick = $act->{src};
+			my $chan = $act->{dst};
+			$nick->_part($chan);
+		}, KICK => postact => sub {
+			my $act = shift;
+			my $nick = $act->{kickee};
+			my $chan = $act->{dst};
+			$nick->_part($chan);
+		},
+	);
 }
 
 1;

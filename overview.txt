@@ -18,14 +18,12 @@ Unreal (or other network implementations)
 
 Channel
 	{nicks} - Nick objects by ID
+	{nets} - Network objects by ID
 	{nmode} - string like 'qo' by ID of nick
 	str(Network) - this channel's name
 	link(Channel) - unify the channels; the passed-in object should be dropped from reference
-	try_join(Nick) - joins the nick to the channel; returns 1 for success and 0 if they were kicked (glined)
-	part(Nick) - removes the nick from the channel. Destroys if unlinked and 0 members
+	try_join(Nick) - joins the nick to the channel; returns the action (JOIN or KICK)
 	timesync(int) - sets the timestamp; wipes the modes of the channel if the int is lower than stored stamp
-	act(Action) - state change hook for TOPIC/MODE
-	send(Network except, Action) - sendto_all_butone
 
 Nick
 	{homenet} - source Network for the nick
@@ -35,10 +33,8 @@ Nick
 	vhost() - user's visible host (cloaked or vhost); {host} is actual host
 	umode(delta) - change umodes
 	is_klined(Network) - returns a kline from the given net matching this nick, if any
+	is_on(Network) - true if the net is on the network already
 	connect(Network) - join to the given network (check klines before doing this please)
-	act(Action) - state change hook for NICK/NICKINFO
-	postact(Action) - cleanup after QUIT
-	send(Network except, Action) - sendto_all_butone
 
 Kline
 	{reason}

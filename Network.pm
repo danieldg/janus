@@ -24,7 +24,6 @@ sub connect {
 		$net->{sock} = $sock;
 		$net->intro(0);
 	}
-	$net->{recvq} = '';
 	1;
 }
 
