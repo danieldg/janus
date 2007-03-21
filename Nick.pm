@@ -151,11 +151,12 @@ sub modload {
 		}, NICKINFO => act => sub {
 			my $act = shift;
 			my $nick = $act->{dst};
-			if ($act->{item} eq 'mode') {
-				$nick->umode($act->{value});
-			} else {
-				$nick->{$act->{item}} = $act->{value};
-			}
+			$nick->{$act->{item}} = $act->{value};
+			undef;
+		}, UMODE => act => sub {
+			my $act = shift;
+			my $nick = $act->{dst};
+			$nick->umode($act->{value});
 			undef;
 		}, QUIT => postact => sub {
 			my $act = shift;

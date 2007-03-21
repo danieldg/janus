@@ -6,7 +6,116 @@ use Nick;
 
 my %fromirc;
 my %toirc;
-my %token2cmd; # TODO actually fill when PROTOCTL TOKEN enabled
+my %cmd2token = (qw/
+		PRIVMSG     !
+		NICK        &
+		SERVER      '
+		TOPIC       )
+		INVITE      *
+		VERSION     +
+		SQUIT       -
+		KILL        .
+		LINKS       0
+		STATS       2
+		HELP        4
+		ERROR       5
+		AWAY        6
+		CONNECT     7
+		PING        8
+		PONG        9
+		PASS        <
+		TIME        >
+		ADMIN       @
+		SETHOST     AA
+		NACHAT      AC
+		SETIDENT    AD
+		SETNAME     AE
+		LAG         AF
+		SDESC       AG
+		KNOCK       AI
+		CREDITS     AJ
+		LICENSE     AK
+		CHGHOST     AL
+		RPING       AM
+		RPONG       AN
+		NETINFO     AO
+		SENDUMODE   AP
+		ADDMOTD     AQ
+		ADDOMOTD    AR
+		SVSMOTD     AS
+		SMO         AU
+		OPERMOTD    AV
+		TSCTL       AW
+		SAJOIN      AX
+		SAPART      AY
+		CHGIDENT    AZ
+		NOTICE      B
+		SWHOIS      BA
+		SVSO        BB
+		SVSFLINE    BC
+		TKL         BD
+		VHOST       BE
+		BOTMOTD     BF
+		HTM         BH
+		DCCDENY     BI
+		UNDCCDENY   BJ
+		CHGNAME     BK
+		SHUN        BL
+		CYCLE       BP
+		MODULE      BQ
+		SVSNLINE    BR
+		SVSPART     BT
+		SVSLUSERS   BU
+		SVSSNO      BV
+		SVS2SNO     BW
+		SVSJOIN     BX
+		SVSSILENCE  Bs
+		SVSWATCH    Bw
+		JOIN        C
+		PART        D
+		LUSERS      E
+		EOS         ES
+		MOTD        F
+		MODE        G
+		KICK        H
+		REHASH      O
+		RESTART     P
+		CLOSE       Q
+		SENDSNO     Ss
+		DNS         T
+		TEMPSHUN    Tz
+		SILENCE     U
+		AKILL       V
+		UNKLINE     X
+		RAKILL      Y
+		GLOBOPS     ]
+		LOCOPS      ^
+		PROTOCTL    _
+		TRACE       b
+		SQLINE      c
+		UNSQLINE    d
+		SVSNICK     e
+		SVSNOOP     f
+		SVSKILL     h
+		SVSMODE     n
+		SAMODE      o
+		CHATOPS     p
+		UNZLINE     r
+		RULES       t
+		MAP         u
+		SVS2MODE    v
+		DALINFO     w
+		ADMINCHAT   x
+		UMODE2      |
+		SJOIN       ~
+/,		INFO =>    '/',
+		WHOIS =>   '#',
+		QUIT =>    ',',
+		WATCH =>   '`',
+);
+
+my %token2cmd;
+$token2cmd{$cmd2token{$_}} = $_ for keys %cmd2token;
 
 sub debug {
 	print @_, "\n";
@@ -30,7 +139,7 @@ sub intro {
 	}
 	$net->send(
 		"PASS :$net->{linkpass}",
-		'PROTOCTL NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL UMODE2 TKLEXT SJB64',
+		'PROTOCTL TOKEN SJB64 NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL UMODE2 TKLEXT',
 		"SERVER $net->{linkname} 1 :U2309-hX6eE-$net->{numeric} Janus Network Link",
 	);
 	$net->{chmode_lvl} = 'vhoaq';
@@ -44,7 +153,7 @@ sub intro {
 # parse one line of input
 sub parse {
 	my ($net, $line) = @_;
-	print "IN\@$net->{id} $line\n";
+	debug "IN\@$net->{id} $line";
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
 	push @args, $msg if defined $msg;
@@ -55,7 +164,7 @@ sub parse {
 		unshift @args, undef;
 	}
 	my $cmd = $args[1];
-	$cmd = $token2cmd{$cmd} if exists $token2cmd{$cmd};
+	$cmd = $args[1] = $token2cmd{$cmd} if exists $token2cmd{$cmd};
 	unless (exists $fromirc{$cmd}) {
 		debug "Unknown command $cmd";
 		return ();
@@ -81,7 +190,7 @@ sub send {
 			push @out, $act;
 		}
 	}
-	print "OUT\@$net->{id} $_\n" for @out;
+	debug "OUT\@$net->{id} $_" for @out;
 	$net->{sock}->print(map "$_\r\n", @out);
 }
 
@@ -262,10 +371,9 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 		my $net = shift;
 		my $nick = $net->nick($_[0]);
 		return {
-			type => 'NICKINFO',
+			type => 'UMODE',
 			src => $nick,
 			dst => $nick,
-			item => 'mode',
 			value => $_[2],
 		}
 	},
@@ -386,6 +494,34 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 	WALLOPS => \&ignore,
 );
 
+sub _out {
+	my($net,$itm) = @_;
+	return $itm unless ref $itm;
+	$itm->str($net);
+}
+
+sub cmd1 {
+	my($net,$cmd) = (shift,shift);
+	my $out = $cmd2token{$cmd};
+	if (@_) {
+		my $end = $net->_out(pop @_);
+		$out .= ' '.$net->_out($_) for @_;
+		$out .= ' :'.$end;
+	}
+	$out;
+}
+
+sub cmd2 {
+	my($net,$src,$cmd) = (shift,shift,shift);
+	my $out = ':'.$net->_out($src).' '.$cmd2token{$cmd};
+	if (@_) {
+		my $end = $net->_out(pop @_);
+		$out .= ' '.$net->_out($_) for @_;
+		$out .= ' :'.$end;
+	}
+	$out;
+}
+
 %toirc = (
 	CONNECT => sub {
 		my($net,$act) = @_;
@@ -394,43 +530,51 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 		my $vhost = $nick->vhost();
 		$mode =~ s/[xt]//g;
 		$mode .= 'xt';
-		join ' ', 'NICK', $nick->str($net), 1, $net->sjb64($nick->{nickts}), $nick->{ident}, $nick->{host},
-			$net->{linkname}, 0, $mode, $vhost, ($nick->{ip_64} || '*'), ':'.$nick->{name};
+		# TODO set hopcount to 2 and use $nick->{homenet}->id().'.janus' or similar as server name
+		$net->cmd1(NICK => $nick, 1, $net->sjb64($nick->{nickts}), $nick->{ident}, $nick->{host},
+			$net->{linkname}, 0, $mode, $vhost, ($nick->{ip_64} || '*'), $nick->{name});
 	}, JOIN => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
 		my $mode = $act->{mode} || '';
 		$mode =~ tr/qaohv/*~@%+/;
-		join ' ', 'SJOIN', $net->sjb64($chan->{ts}), $chan->str($net), ":$mode".$act->{src}->str($net);
+		$net->cmd1(SJOIN => $net->sjb64($chan->{ts}), $chan->str($net), $mode.$act->{src}->str($net));
 	}, PART => sub {
 		my($net,$act) = @_;
-		':'.$act->{src}->str($net).' PART '.$act->{dst}->str($net).' :'.$act->{msg};
+		$net->cmd2($act->{src}, PART => $act->{dst}, $act->{msg});
 	}, KICK => sub {
 		my($net,$act) = @_;
-		join ' ', ':'.$act->{src}->str($net), 'KICK', $act->{dst}->str($net),
-			$act->{kickee}->str($net), ':'.$act->{msg};
+		$net->cmd2($act->{src}, KICK => $act->{dst}, $act->{kickee}, $act->{msg});
 	}, MODE => sub {
 		my($net,$act) = @_;
-		join ' ', ':'.$act->{src}->str($net), 'MODE', $act->{dst}->str($net), $net->_mode_interp($act);
+		$net->cmd2($act->{src}, MODE => $act->{dst}, $net->_mode_interp($act));
 	}, TOPIC => sub {
 		my($net,$act) = @_;
-		my $src = $act->{src} ? ':'.$act->{src}->str($net).' ' : '';
-		my $ts = $net->sjb64($act->{topicts});
-		$src.'TOPIC '.$act->{dst}->str($net)." $act->{topicset} $ts :$act->{topic}";
+		my @t = (TOPIC => $act->{dst}, $act->{topicset}, $net->sjb64($act->{topicts}), $act->{topic});
+		if ($act->{src}) {
+			$net->cmd2($act->{src},@t);
+		} else {
+			$net->cmd1(@t);
+		}
 	}, MSG => sub {
 		my($net,$act) = @_;
-		join ' ', ':'.$act->{src}->str($net), ($act->{notice} ? 'NOTICE' : 'PRIVMSG'), 
-			$act->{dst}->str($net), ':'.$act->{msg};
+		$net->cmd2($act->{src}, ($act->{notice} ? 'NOTICE' : 'PRIVMSG'), 
+			$act->{dst}, $act->{msg});
 	}, NICK => sub {
 		my($net,$act) = @_;
 		my $id = $net->id();
-		":$act->{from}->{$id} NICK $act->{to}->{$id} $act->{dst}->{nickts}";
+		$net->cmd2($act->{from}->{$id}, NICK => $act->{to}->{$id}, $act->{dst}->{nickts});
 	}, NICKINFO => sub {
-		# TODO
-		'';
+		my($net,$act) = @_;
+		my $item = $act->{item};
+		$item =~ s/vhost/host/;
+		$net->cmd2($act->{dst}, 'SET'.uc($item), $act->{value});
+	}, UMODE => sub {
+		my($net,$act) = @_;
+		$net->cmd2($act->{dst}, UMODE2 => $act->{value});
 	}, QUIT => sub {
 		my($net,$act) = @_;
-		':'.$act->{src}->str($net).' QUIT :'.$act->{msg};
+		$net->cmd2($act->{dst}, QUIT => $act->{msg});
 	},
 );
 

@@ -44,8 +44,12 @@ Kline
 
 Actions:
 NICKINFO: Nick -> Nick
-	item - one of 'host ident name mode swhois'
+	item - one of 'host ident name swhois'
 	value - string to set
+
+UMODE: * -> Nick
+	value - string
+	items - array of english terms
 
 MSG: Nick -> [Nick, Channel]
 	msg - message
