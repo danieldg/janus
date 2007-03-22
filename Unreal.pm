@@ -139,7 +139,7 @@ sub intro {
 	}
 	$net->send(
 		"PASS :$net->{linkpass}",
-		'PROTOCTL TOKEN SJB64 NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL UMODE2 TKLEXT',
+		'PROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS UMODE2 TKLEXT SJB64',
 		"SERVER $net->{linkname} 1 :U2309-hX6eE-$net->{numeric} Janus Network Link",
 	);
 	$net->{chmode_lvl} = 'vhoaq';
@@ -157,10 +157,9 @@ sub parse {
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
 	push @args, $msg if defined $msg;
-#	if ($args[0] =~ /^@(\S+)$/) {
-#		$args[0] = $snumeric{$1};
-#	} els
-	if ($args[0] !~ s/^://) {
+	if ($args[0] =~ /^@(\S+)$/) {
+		$args[0] = $net->srvname($1);
+	} elsif ($args[0] !~ s/^://) {
 		unshift @args, undef;
 	}
 	my $cmd = $args[1];
@@ -280,9 +279,13 @@ sub sjb64 {
 		$b = substr($unreal64_table, $n & 63, 1) . $b;
 		$n = int($n / 64);
 	}
-	'!'.$b;
+	$_[2] ? $b : '!'.$b;
 }
-sub srvname { return $_[1]; } # TODO PROTOCTL NS
+sub srvname {
+	my($net,$num) = @_;
+	return $net->{srvname}->{$num} if exists $net->{srvname}->{$num};
+	return $num;
+}
 
 %fromirc = (
 # User Operations
@@ -471,12 +474,58 @@ sub srvname { return $_[1]; } # TODO PROTOCTL NS
 		\%act;
 	},
 # Server actions
-	SERVER => \&ignore, # TODO PROTOCTL NOQUIT
-	SQUIT => \&ignore,  # TODO PROTOCTL NOQUIT
-	PING => sub {
+	SERVER => sub {
+		my $net = shift;
+		# :src SERVER name hopcount [numeric] description
+		my $name = lc $_[2];
+		my $desc = $_[-1];
+
+		my $snum = $net->sjb64((@_ > 5          ? $_[4] : 
+				($desc =~ s/^U\d+-\S+-(\d+) //) ? $1    : 0), 1);
+
+		$net->{server}->{$name} = {
+			parent => lc ($_[0] || $net->{linkname}),
+			hops => $_[3],
+			numeric => $snum,
+		};
+		$net->{srvname}->{$snum} = $name if $snum;
+
+		();
+	}, SQUIT => sub {
+		my $net = shift;
+		my $netid = $net->id();
+		my $srv = $net->srvname($_[2]);
+		my $splitfrom = $net->{server}->{$srv}->{parent};
+		
+		my %sgone = (lc $srv => 1);
+		my $k = 0;
+		while ($k != scalar keys %sgone) {
+			# loop to traverse each layer of the map
+			$k = scalar keys %sgone;
+			for (keys %{$net->{server}}) {
+				$sgone{$_} = 1 if $sgone{$net->{server}->{$_}->{parent}};
+			}
+		}
+		delete $net->{srvname}->{$net->{server}{$_}{numeric}} for keys %sgone;
+		delete $net->{server}->{$_} for keys %sgone;
+
+		my @quits;
+		for my $n (keys %{$net->{nicks}}) {
+			my $nick = $net->{nicks}->{$n};
+			next unless $nick->{homenet}->id() eq $netid;
+			next unless $sgone{lc $nick->{home_server}};
+			push @quits, +{
+				type => 'QUIT',
+				src => $net,
+				dst => $nick,
+				msg => "$splitfrom $srv",
+			}
+		}
+		@quits;
+	}, PING => sub {
 		my $net = shift;
 		my $from = $_[3] || $net->{linkname};
-		$net->send("PONG $from $_[2]");
+		$net->send($net->cmd1('PONG', $from, $_[2]));
 		();
 	},
 	PONG => \&ignore,
