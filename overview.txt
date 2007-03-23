@@ -19,7 +19,6 @@ Unreal (or other network implementations)
 Channel
 	{nicks} - Nick objects by ID
 	{nets} - Network objects by ID
-	{nmode} - string like 'qo' by ID of nick
 	str(Network) - this channel's name
 	link(Channel) - unify the channels; the passed-in object should be dropped from reference
 	try_join(Nick) - joins the nick to the channel; returns the action (JOIN or KICK)
@@ -33,7 +32,7 @@ Nick
 	vhost() - user's visible host (cloaked or vhost); {host} is actual host
 	umode(delta) - change umodes
 	is_klined(Network) - returns a kline from the given net matching this nick, if any
-	is_on(Network) - true if the net is on the network already
+	is_on(Network) - true if the nick is on the network already
 	connect(Network) - join to the given network (check klines before doing this please)
 
 Kline
@@ -68,12 +67,11 @@ KILL: [Nick, Network] -> Nick - Cross-Network kill
 	msg - message
 
 JOIN: Nick -> Channel
-	mode - subset of 'qaohv' to apply at join
+	mode - hash of n_ channel modes to apply during the join
 
 MODE: [Nick, Network] -> Channel
-	mode - first part of NORMAL modestring
+	mode - array representing +/- items: qw/+invite +op -voice/
 	args - array of arguments (either strings or Nicks)
-	interp - Network whose type should be used for channel mode translation source
 
 KICK: [Nick, Network] -> Channel
 	kickee - Nick

@@ -54,33 +54,50 @@ sub _ban {
 sub _modeargs {
 	my $net = shift;
 	my $mode = shift;
+	my @modes;
 	my @args;
 	local $_;
 	my $pm = '+';
 	for (split //, $mode) {
 		if (/[+-]/) {
 			$pm = $_;
-		} elsif (-1 != index $net->{chmode_lvl}, $_) {
-			push @args, $net->nick(shift);
-		} elsif (-1 != index $net->{chmode_list}, $_) {
-			push @args, $net->_ban(shift);
-		} elsif (-1 != index $net->{chmode_val}, $_) {
-			push @args, shift;
-		} elsif (-1 != index $net->{chmode_val2}, $_) {
-			push @args, shift if $pm eq '+';
-		} elsif (-1 != index $net->{chmode_bit}, $_) {
-		} else {
-			warn "Unknown mode '$_'";
+			next;
 		}
+		my $txt = $net->{txt2cmode}->{$_};
+		my $type = substr $txt,0,1;
+		if ($type eq 'n') {
+			push @args, $net->nick(shift);
+		} elsif ($type eq 'l') {
+			push @args, $net->_ban(shift);
+		} elsif ($type eq 'v') {
+			push @args, shift;
+		} elsif ($type eq 's') {
+			push @args, shift if $pm eq '+';
+		} elsif ($type ne 'r') {
+			warn "Unknown mode '$_' ($txt)";
+		}
+		push @modes, $pm.$txt;
 	}
-	\@args;
+	(\@modes, \@args);
 }
 
 sub _mode_interp {
 	my($net, $act) = @_;
-	# TODO translate stuff
-	my @args = map { ref $_ ? $_->str($net) : $_ } @{$act->{args}};
-	$act->{mode}, @args;
+	my $pm = '';
+	my $mode;
+	my @argin = @{$act->{args}};
+	my @args;
+	for my $mtxt (@{$act->{mode}}) {
+		my($ipm,$txt) = ($mtxt =~ /^([-+])(.*)/) or warn $mtxt;
+		my $itm = ($txt =~ /^[nlv]/ || $mtxt =~ /^\+s/) ? shift @argin : undef;
+		if (exists $net->{cmode2txt}->{$txt}) {
+			push @args, ref $itm ? $itm->str($net) : $itm if defined $itm;
+			$mode .= $ipm if $ipm ne $pm;
+			$mode .= $net->{cmode2txt}->{$txt};
+			$pm = $ipm;
+		}
+	}
+	$mode, @args;
 }
 
 sub item {

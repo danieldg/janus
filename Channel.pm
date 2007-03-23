@@ -165,37 +165,34 @@ sub modload {
 		}, MODE => act => sub {
 			my $act = shift;
 			local $_;
-			my $net = $act->{interp};
 			my $chan = $act->{dst};
 			my @args = @{$act->{args}};
-			my $pm = '+';
-			for my $i (split //, $act->{mode}) {
-				if ($i =~ /[+-]/) {
-					$pm = $i;
-				} elsif (-1 != index $net->{chmode_lvl}, $i) {
+			for my $itxt (@{$act->{mode}}) {
+				my $pm = substr $itxt, 0, 1;
+				my $t = substr $itxt, 1, 1;
+				my $i = substr $itxt, 1;
+				if ($t eq 'n') {
 					my $nick = shift @args;
-					my %l = map { $_ => 1 } split //, ($chan->{nmode}->{$nick->id()} || '');
-					delete $l{$i}; 
-					$l{$i} = 1 if $pm eq '+';
-					$chan->{nmode}->{$nick->id()} = join '', keys %l;
-				} elsif (-1 != index $net->{chmode_list}, $i) {
+					$chan->{nmode}->{$nick->id()}->{$i} = 1 if $pm eq '+';
+					delete $chan->{nmode}->{$nick->id()}->{$i} if $pm eq '-';
+				} elsif ($t eq 'l') {
 					if ($pm eq '+') {
-						push @{$chan->{'ban_'.$i}}, shift @args;
+						push @{$chan->{mode}->{$i}}, shift @args;
 					} else {
 						my $b = shift @args;
-						@{$chan->{'ban_'.$i}} = grep { $_ ne $b } @{$chan->{'ban_'.$i}};
+						@{$chan->{mode}->{$i}} = grep { $_ ne $b } @{$chan->{mode}->{$i}};
 					}
-				} elsif (-1 != index $net->{chmode_val}, $i) {
+				} elsif ($t eq 'v') {
 					$chan->{mode}->{$i} = shift @args;
 					delete $chan->{mode}->{$i} if $pm eq '-';
-				} elsif (-1 != index $net->{chmode_val2}, $i) {
+				} elsif ($t eq 's') {
 					$chan->{mode}->{$i} = shift @args if $pm eq '+';
 					delete $chan->{mode}->{$i} if $pm eq '-';
-				} elsif (-1 != index $net->{chmode_bit}, $i) {
+				} elsif ($t eq 'r') {
 					$chan->{mode}->{$i} = 1;
 					delete $chan->{mode}->{$i} if $pm eq '-';
 				} else {
-					warn "Unknown mode '$_' from net $net";
+					warn "Unknown mode '$itxt'";
 				}
 			}
 			undef;

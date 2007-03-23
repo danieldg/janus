@@ -117,6 +117,88 @@ my %cmd2token = (qw/
 my %token2cmd;
 $token2cmd{$cmd2token{$_}} = $_ for keys %cmd2token;
 
+my %umode2txt = (qw/
+	o oper
+	O oper_local
+	C coadmin
+	A admin
+	a svs_admin
+	N netadmin
+	S service
+	H hideoper
+	h helpop
+	g globops
+	W whois_notice
+
+	B bot
+	i invisible
+	G badword
+	p hide_chans
+	q no_kick
+	r registered
+	s snomask
+	t vhost
+	v dcc_reject
+	w wallops
+	x vhost_x
+	z ssl
+	V webtv
+
+	d deaf_chan
+	R deaf_regpriv
+	T deaf_ctcp
+/);
+
+my %txt2umode;
+$txt2umode{$umode2txt{$_}} = $_ for keys %umode2txt;
+
+# Text prefixes:
+#  n - nick access level
+#  l - list (bans)
+#  v - value (key)
+#  s - value-on-set (limit)
+#  r - regular (moderate)
+
+my %cmode2txt = (qw/
+	v n_voice
+	h n_halfop
+	o n_op
+	a n_admin
+	q n_owner
+	b l_ban
+	c r_colorblock
+	e l_except
+	I l_invex
+	f v_flood3.2
+	i r_invite
+	j s_joinlimit
+	k v_key
+	l s_limit
+	m r_moderated
+	n r_mustjoin
+	p r_private
+	r r_register
+	s r_secret
+	t r_topic
+	z r_sslonly
+	A r_operadmin
+	C r_ctcpblock
+	G r_badword
+	M r_regmoderated
+	L r_forward
+	N r_norenick
+	O r_oper
+	Q r_nokick
+	R r_reginvite
+	S r_colorstrip
+	T r_noticeblock
+	V r_noinvite
+	u r_auditorium
+/);
+
+my %txt2cmode;
+$txt2cmode{$cmode2txt{$_}} = $_ for keys %cmode2txt;
+
 sub debug {
 	print @_, "\n";
 }
@@ -126,6 +208,10 @@ sub str {
 }
 
 sub intro {
+	unless (ref $_[0]) {
+		my $class = shift;
+		bless $_[0], $class;
+	}
 	my $net = shift;
 	if ($_[0]) {
 		# temporary until SERVER message handling properly set up
@@ -142,13 +228,11 @@ sub intro {
 		'PROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS UMODE2 TKLEXT SJB64',
 		"SERVER $net->{linkname} 1 :U2309-hX6eE-$net->{numeric} Janus Network Link",
 	);
-	$net->{chmode_lvl} = 'vhoaq';
-	$net->{chmode_list} = 'beI';
-	$net->{chmode_val} = 'kfL';
-	$net->{chmode_val2} = 'lj';
-	$net->{chmode_bit} = 'psmntirRcOAQKVCuzNSMTG';
+	$net->{txt2cmode} = \%txt2cmode;
+	$net->{txt2umode} = \%txt2umode;
+	$net->{cmode2txt} = \%cmode2txt;
+	$net->{umode2txt} = \%umode2txt;
 }
-
 
 # parse one line of input
 sub parse {
@@ -195,9 +279,8 @@ sub send {
 
 sub vhost {
 	my $nick = $_[1];
-	local $_ = $nick->{umode};
-	return $nick->{vhost} if /t/;
-	return $nick->{chost} if /x/;
+	return $nick->{vhost} if $nick->{mode}->{vhost};
+	return $nick->{chost} if $nick->{mode}->{vhost_x};
 	$nick->{host};
 }
 
@@ -416,19 +499,19 @@ sub srvname {
 				/^([*~@%+]*)(.+)/ or warn;
 				my $nmode = $1;
 				my $nick = $net->nick($2);
-				$nmode =~ tr/*~@%+/qaohv/;
-				push @acts, $chan->try_join($nick, $nmode);
+				my %mh = map { tr/*~@%+/qaohv/; $cmode2txt{$_} => 1 } split //, $nmode;
+				push @acts, $chan->try_join($nick, \%mh);
 			}
 		}
 		$cmode =~ tr/&"'/beI/;
+		my($modes,$args) = $net->_modeargs($cmode, @_[5 .. $#_]);
 		push @acts, +{
 			type => 'MODE',
-			interp => $net,
 			src => $net,
 			dst => $chan,
-			mode => $cmode,
-			args => $net->_modeargs($cmode, @_[5 .. $#_]),
-		} unless $cmode eq '+';
+			mode => $modes,
+			args => $args, 
+		} if @$modes;
 		return @acts;
 	}, PART => sub {
 		my $net = shift;
@@ -450,13 +533,13 @@ sub srvname {
 	}, MODE => sub {
 		my $net = shift;
 		$_[3] =~ s/^&//; # mode bounces. Bounce away...
+		my($modes,$args) = $net->_modeargs(@_[3 .. $#_]);
 		return {
 			type => 'MODE',
-			interp => $net,
 			src => $net->item($_[0]),
 			dst => $net->item($_[2]),
-			mode => $_[3],
-			args => $net->_modeargs(@_[3 .. $#_]),
+			mode => $modes,
+			args => $args,
 		};
 	}, TOPIC => sub {
 		my $net = shift;
@@ -575,7 +658,7 @@ sub cmd2 {
 	CONNECT => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{src};
-		my $mode = '+'.$nick->{umode};
+		my $mode = join '', '+', map $txt2umode{$_}, keys %{$nick->{mode}};
 		my $vhost = $nick->vhost();
 		$mode =~ s/[xt]//g;
 		$mode .= 'xt';
@@ -585,7 +668,10 @@ sub cmd2 {
 	}, JOIN => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
-		my $mode = $act->{mode} || '';
+		my $mode = '';
+		if ($act->{mode}) {
+			$mode .= $cmode2txt{$_} for keys %{$act->{mode}};
+		}
 		$mode =~ tr/qaohv/*~@%+/;
 		$net->cmd1(SJOIN => $net->sjb64($chan->{ts}), $chan->str($net), $mode.$act->{src}->str($net));
 	}, PART => sub {

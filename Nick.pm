@@ -14,20 +14,20 @@ sub new {
 }
 
 sub umode {
-	my $n = shift;
+	my $nick = shift;
+	my $net = $nick->{homenet};
 	local $_;
-	my %m = map { $_ => 1 } split //, ($n->{umode} || '');
 	my $pm = '+';
 	for (split //, shift) {
+		my $txt = $net->{umode2txt}->{$_};
 		if (/[+-]/) {
 			$pm = $_;
 		} elsif ($pm eq '+') {
-			$m{$_} = 1;
+			$nick->{mode}->{$txt} = 1;
 		} elsif ($pm eq '-') {
-			delete $m{$_};
+			delete $nick->{mode}->{$txt};
 		}
 	}
-	$n->{umode} = join '', sort keys %m;
 }
 
 # send to all but possibly one network for NICKINFO
