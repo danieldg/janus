@@ -1,0 +1,64 @@
+$act->{sendto} is an arrayref if it exists; list of networks to send to
+type: src -> dst
+
+dst must be Nick, Channel
+src must be either a Nick, Network, or undef
+	undef should be replaced by the Janus Nick if needed
+
+CONNECT: Nick -> Network (exception to dst rule)
+
+QUIT: * -> Nick
+	msg - quit message (already prefixed with Quit: if needed)
+	killer - Nick that did a local kill on the dst nick
+		(in this case, msg is "Killed ($msg)")
+		TODO: possibly change to just $msg
+
+KILL: * -> Nick
+	msg - kill message
+	this is ONLY for cross-janus kills as it is translated to a series 
+		of KICK actions in a parse hook
+
+NICK: * -> Nick
+	nick - new base nick
+	After the act hook in Nick, all local networks have members in hashes:
+	from{$id} - source nick for network $id
+	to{$id} - destination nick for network $id
+
+NICKINFO: * -> Nick
+	item - one of 'host ident name swhois'
+	value - string to set
+
+UMODE: * -> Nick
+	value - mode change string
+
+JOIN: Nick -> Channel
+	mode - hash of n_ channel modes to apply during the join
+
+PART: Nick -> Channel
+	msg - part message
+
+KICK: * -> Channel
+	kickee - Nick
+	reason - reason
+
+MODE: * -> Channel
+	mode - array representing +/- items
+		Ex: qw/-invite +key +op -voice/
+	args - array of arguments (either strings or Nicks)
+		Ex: ['secret', Nick::me, Nick::annoying]
+
+TOPIC: * -> Channel
+	topic - topic
+	topicts - set timestamp of topic
+	topicset - STRING of topic setter
+
+MSG: [Nick, undef] -> *
+	msg - message
+	notice - 1 if this is a NOTICE, 0 if PRIVMSG
+	prefix - if exists, is one of '~&@%+' for @#channel messages
+
+LINK: Nick -> undef
+	chan1, chan2 - channels to merge
+
+DELINK: Nick -> Channel
+	net - Network to drop

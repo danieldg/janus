@@ -41,43 +41,4 @@ Kline
 	{expire}
 	match(Nick)
 
-Actions:
-NICKINFO: Nick -> Nick
-	item - one of 'host ident name swhois'
-	value - string to set
-
-UMODE: * -> Nick
-	value - string
-	items - array of english terms
-
-MSG: Nick -> [Nick, Channel]
-	msg - message
-	notice - 1 if this is a NOTICE, 0 if PRIVMSG
-	prefix - undef or one of '~&@%+' for @#channel messages
-
-NICK: Nick -> Nick
-	nick - new base nick; after passing to Nick::act - 
-	from{$id} - source nick for network $id
-	to{$id} - destination nick for network $id
-
-QUIT: Nick -> Nick - Quit or local-network kill
-	msg - message
-
-KILL: [Nick, Network] -> Nick - Cross-Network kill
-	msg - message
-
-JOIN: Nick -> Channel
-	mode - hash of n_ channel modes to apply during the join
-
-MODE: [Nick, Network] -> Channel
-	mode - array representing +/- items: qw/+invite +op -voice/
-	args - array of arguments (either strings or Nicks)
-
-KICK: [Nick, Network] -> Channel
-	kickee - Nick
-	reason - reason
-
-TOPIC: * -> Channel
-	topic - topic
-	topicts - set timestamp of topic
-	topicset - string of topic setter
+Actions: see actions.txt

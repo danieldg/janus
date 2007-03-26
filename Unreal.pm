@@ -429,7 +429,6 @@ sub srvname {
 		my $nick = $net->nick($_[0]);
 		return {
 			type => 'QUIT',
-			src => $nick,
 			dst => $nick,
 			msg => $_[2],
 		};
@@ -442,9 +441,9 @@ sub srvname {
 		if ($dst->{homenet}->id() eq $net->id()) {
 			return {
 				type => 'QUIT',
-				src => $src,
 				dst => $dst,
 				msg => "Killed ($_[3])",
+				killer => $src,
 			};
 		}
 		return {
@@ -458,7 +457,6 @@ sub srvname {
 		my $nick = $net->nick($_[0]);
 		return {
 			type => 'UMODE',
-			src => $nick,
 			dst => $nick,
 			value => $_[2],
 		}

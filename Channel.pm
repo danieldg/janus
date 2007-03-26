@@ -205,7 +205,7 @@ sub modload {
 			undef;
 		}, LINK => presend => sub {
 			my $act = shift;
-			my($chan1,$chan2) = ($act->{dst}, $act->{add});
+			my($chan1,$chan2) = ($act->{chan1}, $act->{chan2});
 	
 			for my $id (keys %{$chan1->{nets}}) {
 				return +{
@@ -219,7 +219,7 @@ sub modload {
 			# TODO append Channel information when masking Janus-Janus info
 		}, LINK => act => sub {
 			my $act = shift;
-			my($chan1,$chan2) = ($act->{dst}, $act->{add});
+			my($chan1,$chan2) = ($act->{chan1}, $act->{chan2});
 
 			my %chanh;
 			my $chan = \%chanh;

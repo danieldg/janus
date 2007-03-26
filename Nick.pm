@@ -71,7 +71,6 @@ sub connect {
 		type => 'CONNECT',
 		src => $nick,
 		dst => $net,
-		expire => 0,
 	};
 }
 

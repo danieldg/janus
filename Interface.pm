@@ -36,8 +36,8 @@ my %cmds = (
 		return +{
 			type => 'LINK',
 			src => $nick,
-			dst => $chan1,
-			add => $chan2,
+			chan1 => $chan1,
+			chan2 => $chan2,
 		};
 	}, 'delink' => sub {
 		my($net, $nick, $cname) = @_;
