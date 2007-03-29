@@ -157,7 +157,7 @@ sub modload {
 			my $nick = $act->{dst};
 			$nick->umode($act->{value});
 			undef;
-		}, QUIT => postact => sub {
+		}, QUIT => cleanup => sub {
 			my $act = shift;
 			my $nick = $act->{dst};
 			for my $id (keys %{$nick->{chans}}) {
@@ -170,12 +170,12 @@ sub modload {
 				$net->release_nick($name);
 			}
 			undef;
-		}, PART => postact => sub {
+		}, PART => cleanup => sub {
 			my $act = shift;
 			my $nick = $act->{src};
 			my $chan = $act->{dst};
 			$nick->_part($chan);
-		}, KICK => postact => sub {
+		}, KICK => cleanup => sub {
 			my $act = shift;
 			my $nick = $act->{kickee};
 			my $chan = $act->{dst};

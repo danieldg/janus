@@ -9,16 +9,22 @@ my %cmds = (
 		my($net, $nick, $msg) = @_;
 		return +{
 			type => 'MSG',
-			src => $net->{janus},
 			dst => $nick,
 			notice => 1,
 			msg => 'Unknown command. Use "help" to see available commands',
+		};
+	}, unauth => sub {
+		my($net, $nick, $msg) = @_;
+		return +{
+			type => 'MSG',
+			dst => $nick,
+			notice => 1,
+			msg => 'You must be an IRC operator to use this service',
 		};
 	}, help => sub {
 		my($net, $nick) = @_;
 		return map +{
 			type => 'MSG',
-			src => $net->{janus},
 			dst => $nick,
 			notice => 1,
 			msg => $_,
@@ -95,6 +101,7 @@ sub modload {
 				local $_ = $act->{msg};
 				s/^\s*(\S+)\s*// or return;
 				my $cmd = exists $cmds{lc $1} ? lc $1 : 'unk';
+				$cmd = 'unauth' unless $nick->{mode}->{oper};
 				return $cmds{$cmd}->($int, $nick, $_);
 			} elsif ($dst->isa('Nick') && !$nick->is_on($dst->{homenet})) {
 				return () if $act->{notice};
@@ -107,6 +114,11 @@ sub modload {
 				}
 			}
 			return undef;
+		}, MSG => postact => sub {
+			my $act = shift;
+			return undef if defined $act->{src};
+			$act->{src} = $int->{janus};
+			$act;
 		},
 	);
 }

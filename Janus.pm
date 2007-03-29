@@ -3,12 +3,13 @@ use strict;
 use warnings;
 # Action levels:
 #  parse - possible reparse point (/msg janus *)
-#  presend - executed before Janus broadcast (add sync information)
+#  check - reject unauthorized and/or impossible commands
 #  --- Action broadcast to other Janus servers
 #  preact - Join to all needed networks
 #  act - Main processing
+#  postact - add extra information for sending
 #  --- Action sent to ->{sendto} networks
-#  postact - Reference deletion (part/quit/etc)
+#  cleanup - Reference deletion (part/quit/etc)
 
 sub new {
 	my $class = shift;
@@ -88,14 +89,15 @@ sub in_net {
 	my($j,$src,@act) = @_;
 	local $_;
 	@act = map { $j->_hook(parse => $_) } @act;
-	@act = map { $j->_hook(presend => $_) } @act;
+	@act = map { $j->_hook(check => $_) } @act;
 	for (@act) {
 		# TODO send to other Janus servers
 	}
 	@act = map { $j->_hook(preact => $_) } @act;
 	@act = map { $j->_hook(act => $_) } @act;
+	@act = map { $j->_hook(postact => $_) } @act;
 	_send $src, $_ for @act;
-	$j->_hook(postact => $_, 1) for @act;
+	$j->_hook(cleanup => $_, 1) for @act;
 }
 
 sub in_janus {
@@ -103,8 +105,9 @@ sub in_janus {
 	local $_;
 	@act = map { $j->_hook(preact => $_) } @act;
 	@act = map { $j->_hook(act => $_) } @act;
+	@act = map { $j->_hook(postact => $_) } @act;
 	_send undef, $_ for @act;
-	$j->_hook(postact => $_, 1) for @act;
+	$j->_hook(cleanup => $_, 1) for @act;
 } 
 
 1;

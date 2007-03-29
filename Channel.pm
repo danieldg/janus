@@ -150,13 +150,13 @@ sub modload {
 				$chan->{nmode}->{$nick->id()} = $act->{mode};
 			}
 			undef;
-		}, PART => postact => sub {
+		}, PART => cleanup => sub {
 			my $act = shift;
 			my $nick = $act->{src};
 			my $chan = $act->{dst};
 			$chan->_part($nick);
 			undef;
-		}, KICK => postact => sub {
+		}, KICK => cleanup => sub {
 			my $act = shift;
 			my $nick = $act->{kickee};
 			my $chan = $act->{dst};
@@ -203,7 +203,7 @@ sub modload {
 			$chan->{topicts} = $act->{topicts} || time;
 			$chan->{topicset} = $act->{topicset} || $act->{src}->{homenick};
 			undef;
-		}, LINK => presend => sub {
+		}, LINK => check => sub {
 			my $act = shift;
 			my($chan1,$chan2) = ($act->{chan1}, $act->{chan2});
 	
