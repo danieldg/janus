@@ -1,20 +1,36 @@
 package Janus;
 use strict;
 use warnings;
-# Action levels:
-#  parse - possible reparse point (/msg janus *)
+# Actions: arguments: (Janus, Action)
+#  parse - possible reparse point (/msg janus *) - only for local origin
 #  check - reject unauthorized and/or impossible commands
-#  --- Action broadcast to other Janus servers
-#  preact - Join to all needed networks
-#  act - Main processing
-#  postact - add extra information for sending
-#  --- Action sent to ->{sendto} networks
-#  cleanup - Reference deletion (part/quit/etc)
+#  act - Main state processing
+#  send - for both local and remote
+#  cleanup - Reference deletion
+#
+# parse and check hooks should return one of the tribool items:
+#  undef if the action was not modified
+#  0 if the action was modified (to detect duplicate hooks)
+#  1 if the action was rejected (should be dropped)
+#
+# act and cleanup hooks ignore the return values.
+#  $act itself should NEVER be modified at this point
+#  Object linking must remain intact in the act hook
 
 sub new {
 	my $class = shift;
-	my %j;
+	my %j = (
+		hook => {},
+	);
 	bless \%j, $class;
+}
+
+sub child {
+	my $clone = shift;
+	my %j = (
+		hook => $clone->{hook},
+	);
+	bless \%j;
 }
 
 sub hook_add {
@@ -36,36 +52,38 @@ sub hook_del {
 }
 
 sub _hook {
-	my($j, $lvl, $act, $multi) = @_;
-	$j->_hook_t($act->{type}, $lvl, $act, $multi);
-}
-
-sub _hook_t {
-	my($j, $type, $lvl, $act, $multi) = @_;
+	my($j, $type, $lvl, @args) = @_;
 	local $_;
 	my $hook = $j->{hook}->{$type}->{$lvl};
-	return $multi ? () : $act unless $hook;
-
-	my $taken = $multi;
-	my @out;
+	return unless $hook;
 	
 	for my $mod (sort keys %$hook) {
-		my @r = $hook->{$mod}->($act);
-		if (@r && !defined $r[0]) {
-			# return undef; do nothing
-		} else {
-			push @out, @r;
-			if (!$multi) {
-				warn "Multiple modifying hooks for $type:$lvl ($taken, $mod)" if $taken;
-				$taken = $mod;
-			}
+		$hook->{$mod}->($j, @args);
+	}
+}
+
+sub _mod_hook {
+	my($j, $type, $lvl, @args) = @_;
+	local $_;
+	my $hook = $j->{hook}->{$type}->{$lvl};
+	return undef unless $hook;
+
+	my $rv = undef;
+	my $taken;
+	
+	for my $mod (sort keys %$hook) {
+		my $r = $hook->{$mod}->($j, @args);
+		if (defined $r) {
+			warn "Multiple modifying hooks found for $type:$lvl ($taken, $mod)" if $taken;
+			$taken = $mod;
+			$rv = $r;
 		}
 	}
-	$taken ? @out : $act;
+	$rv;
 }
 
 sub _send {
-	my($except,$act) = @_;
+	my($j,$act) = @_;
 	my @to;
 	if (exists $act->{sendto}) {
 		@to = @{$act->{sendto}};
@@ -75,45 +93,70 @@ sub _send {
 	} elsif ($act->{dst}->isa('Network')) {
 		@to = $act->{dst};
 	} else {
-		@to = $act->{dst}->sendto($act, $except);
+		@to = $act->{dst}->sendto($act, $j->{except});
 	}
 	for my $net (@to) {
 		$net->send($act);
 	}
 }
 
-sub link {
-	my($j,$net) = @_;
-	$j->_hook_t(NETLINK => presend => $net);
-	# TODO send
-	$j->_hook_t(NETLINK => preact => $net);
-	_send undef, $_ for $j->_hook_t(NETLINK => act => $net, 1);
-	$j->_hook_t(NETLINK => postact => $net);
+sub _runq {
+	my $j = shift;
+	my $q = delete $j->{queue};
+	return unless $q;
+	for my $act (@$q) {
+		$j->_run($act);
+		$j->_runq();
+	}
 }
 
-sub in_net {
-	my($j,$src,@act) = @_;
-	local $_;
-	@act = map { $j->_hook(parse => $_) } @act;
-	@act = map { $j->_hook(check => $_) } @act;
-	for (@act) {
-		# TODO send to other Janus servers
+sub link {
+	my($j,$net) = @_;
+	# TODO define sequence
+	$j->_hook(NETLINK => act => $net);
+	$j->_runq();
+}
+
+
+sub _run {
+	my($j, $act) = @_;
+	return if $j->_mod_hook($act->{type}, check => $act);
+	$j->_hook($act->{type}, act => $act);
+	$j->_send($act);
+	$j->_hook($act->{type}, cleanup => $act);
+}
+
+sub insert {
+	my $j = shift;
+	$j = $j->child();
+	for my $act (@_) {
+		$j->_run($act);
+		$j->_runq();
 	}
-	@act = map { $j->_hook(preact => $_) } @act;
-	@act = map { $j->_hook(act => $_) } @act;
-	@act = map { $j->_hook(postact => $_) } @act;
-	_send $src, $_ for @act;
-	$j->_hook(cleanup => $_, 1) for @act;
+}
+
+sub append {
+	my $j = shift;
+	push @{$j->{queue}}, @_;
+}
+
+sub in_local {
+	my($j,$src,@act) = @_;
+	$j->{except} = $src;
+	for my $act (@act) {
+		unless ($j->_mod_hook($act->{type}, parse => $act)) {
+			$j->_run($act);
+		}
+		$j->_runq();
+	}
+	delete $j->{except};
 }
 
 sub in_janus {
 	my($j,@act) = @_;
-	local $_;
-	@act = map { $j->_hook(preact => $_) } @act;
-	@act = map { $j->_hook(act => $_) } @act;
-	@act = map { $j->_hook(postact => $_) } @act;
-	_send undef, $_ for @act;
-	$j->_hook(cleanup => $_, 1) for @act;
+	for my $act (@act) {
+		$j->_run($act);
+	}
 } 
 
 1;

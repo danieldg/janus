@@ -68,7 +68,7 @@ while ($read->count()) {
 			($line, $recvq) = split /[\r\n]+/, $recvq, 2;
 			my @parsed = $net->parse($line);
 			if ($net->isa('Network')) {
-				$janus->in_net($net, @parsed);
+				$janus->in_local($net, @parsed);
 			} else {
 				die "TODO: in_janus";
 			}

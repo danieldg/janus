@@ -5,7 +5,8 @@ dst must be Nick, Channel
 src must be either a Nick, Network, or undef
 	undef should be replaced by the Janus Nick if needed
 
-CONNECT: Nick -> Network (exception to dst rule)
+CONNECT: * -> Nick
+	net - Network
 
 QUIT: * -> Nick
 	msg - quit message (already prefixed with Quit: if needed)
@@ -15,6 +16,7 @@ QUIT: * -> Nick
 
 KILL: * -> Nick
 	msg - kill message
+	net - network to remove the nick from
 	this is ONLY for cross-janus kills as it is translated to a series 
 		of KICK actions in a parse hook
 

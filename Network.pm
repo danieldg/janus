@@ -48,7 +48,7 @@ sub chan {
 
 sub _ban {
 	# TODO translate bans
-	$_[0];
+	$_[1];
 }
 
 sub _modeargs {

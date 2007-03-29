@@ -49,39 +49,27 @@ sub sendto {
 	}
 }
 
-sub is_klined {
-	my($nick, $net) = @_;
-	return undef if exists $nick->{nets}->{$net->id()};
-		# we are not klined if we're already in
-	for my $line (@{$net->{klines}}) {
-		return $line if $line->match($nick);
-	}
-	undef;
-}
-
 sub is_on {
 	my($nick, $net) = @_;
 	return exists $nick->{nets}->{$net->id()};
 }
 
-sub connect {
-	my($nick, $net) = @_;
-	my $id = $net->id();
-	return () if exists $nick->{nets}->{$id};
-	my $rnick = $net->request_nick($nick, $nick->{homenick});
-	$nick->{nets}->{$id} = $net;
-	$nick->{nicks}->{$id} = $rnick;
-	return +{
-		type => 'CONNECT',
-		src => $nick,
-		dst => $net,
-	};
-}
 
-sub _join {
-	my($nick,$chan) = @_;
+sub rejoin {
+	my($nick,$j,$chan) = @_;
 	my $name = $chan->str($nick->{homenet});
 	$nick->{chans}->{lc $name} = $chan;
+
+	return if $nick->{homenet}->{jlink};
+		
+	for my $id (keys %{$chan->{nets}}) {
+		next if $nick->{nets}->{$id};
+		$j->insert(+{
+			type => 'CONNECT',
+			dst => $nick,
+			net => $chan->{nets}->{$id},
+		});
+	}
 }
 
 sub _part {
@@ -131,67 +119,97 @@ sub vhost {
 }
 
 sub modload {
-	my($me, $janus) = @_;
-	$janus->hook_add($me, 
-		NICK => act => sub {
-			my $act = shift;
-			my $nick = $act->{dst};
-			my $old = $nick->{homenick};
-			my $new = $act->{nick};
-			return () if (lc $old) eq (lc $new);
-			# Not transmitting case changes is the easiset way to do it
-			# If this is ever changed: the local network's bookkeeping is easy
-			# remote networks could have this nick tagged; they can untag but 
-			# only if they can assure that it is impossible to be collided
+ my($me, $janus) = @_;
+ $janus->hook_add($me, 
+	CONNECT => act => sub {
+		my($j, $act) = @_;
+		my $nick = $act->{dst};
+		my $net = $act->{net};
+		my $id = $net->id();
+		warn if exists $nick->{nets}->{$id};
+		$nick->{nets}->{$id} = $net;
+		return if $net->{jlink};
+		my $rnick = $net->request_nick($nick, $nick->{homenick});
+		$nick->{nicks}->{$id} = $rnick;
+	}, NICK => check => sub {
+		my($j,$act) = @_;
+		my $old = lc $act->{dst}->{homenick};
+		my $new = lc $act->{nick};
+		return 1 if $old eq $new;
+		undef;
+		# Not transmitting case changes is the easiset way to do it
+		# If this is ever changed: the local network's bookkeeping is easy
+		# remote networks could have this nick tagged; they can untag but 
+		# only if they can assure that it is impossible to be collided
+	}, NICK => act => sub {
+		my $act = $_[1];
+		my $nick = $act->{dst};
+		my $old = $nick->{homenick};
+		my $new = $act->{nick};
 
-			$nick->{nickts} = $act->{nickts} if $act->{nickts};
-			$nick->{homenick} = $new;
-			for my $id (keys %{$nick->{nets}}) {
-				my $net = $nick->{nets}->{$id};
-				my $from = $nick->{nicks}->{$id};
-				my $to = $net->request_nick($nick, $new);
-				$net->release_nick($from);
-				$nick->{nicks}->{$id} = $to;
+		$nick->{nickts} = $act->{nickts} if $act->{nickts};
+		$nick->{homenick} = $new;
+		for my $id (keys %{$nick->{nets}}) {
+			my $net = $nick->{nets}->{$id};
+			next if $net->{jlink};
+			my $from = $nick->{nicks}->{$id};
+			my $to = $net->request_nick($nick, $new);
+			$net->release_nick($from);
+			$nick->{nicks}->{$id} = $to;
+	
+			$act->{from}->{$id} = $from;
+			$act->{to}->{$id} = $to;
+		}
+	}, NICKINFO => act => sub {
+		my $act = $_[1];
+		my $nick = $act->{dst};
+		$nick->{$act->{item}} = $act->{value};
+	}, UMODE => act => sub {
+		my $act = $_[1];
+		my $nick = $act->{dst};
+		$nick->umode($act->{value});
+	}, QUIT => cleanup => sub {
+		my $act = $_[1];
+		my $nick = $act->{dst};
+		for my $id (keys %{$nick->{chans}}) {
+			my $chan = $nick->{chans}->{$id};
+			$chan->part($nick);
+		}
+		for my $id (keys %{$nick->{nets}}) {
+			my $net = $nick->{nets}->{$id};
+			next if $net->{jlink};
+			my $name = $nick->{nicks}->{$id};
+			$net->release_nick($name);
+		}
+	}, JOIN => act => sub {
+		my($j,$act) = @_;
+		my $nick = $act->{src};
+		my $chan = $act->{dst};
+
+		my $name = $chan->str($nick->{homenet});
+		$nick->{chans}->{lc $name} = $chan;
+
+		return if $nick->{homenet}->{jlink};
 		
-				$act->{from}->{$id} = $from;
-				$act->{to}->{$id} = $to;
-			}
-			undef;
-		}, NICKINFO => act => sub {
-			my $act = shift;
-			my $nick = $act->{dst};
-			$nick->{$act->{item}} = $act->{value};
-			undef;
-		}, UMODE => act => sub {
-			my $act = shift;
-			my $nick = $act->{dst};
-			$nick->umode($act->{value});
-			undef;
-		}, QUIT => cleanup => sub {
-			my $act = shift;
-			my $nick = $act->{dst};
-			for my $id (keys %{$nick->{chans}}) {
-				my $chan = $nick->{chans}->{$id};
-				$chan->_part($nick);
-			}
-			for my $id (keys %{$nick->{nets}}) {
-				my $net = $nick->{nets}->{$id};
-				my $name = $nick->{nicks}->{$id};
-				$net->release_nick($name);
-			}
-			undef;
-		}, PART => cleanup => sub {
-			my $act = shift;
-			my $nick = $act->{src};
-			my $chan = $act->{dst};
-			$nick->_part($chan);
-		}, KICK => cleanup => sub {
-			my $act = shift;
-			my $nick = $act->{kickee};
-			my $chan = $act->{dst};
-			$nick->_part($chan);
-		},
-	);
+		for my $id (keys %{$chan->{nets}}) {
+			next if $nick->{nets}->{$id};
+			$j->insert(+{
+				type => 'CONNECT',
+				dst => $nick,
+				net => $chan->{nets}->{$id},
+			});
+		}
+	}, PART => cleanup => sub {
+		my $act = $_[1];
+		my $nick = $act->{src};
+		my $chan = $act->{dst};
+		$nick->_part($chan);
+	}, KICK => cleanup => sub {
+		my $act = $_[1];
+		my $nick = $act->{kickee};
+		my $chan = $act->{dst};
+		$nick->_part($chan);
+	});
 }
 
 1;

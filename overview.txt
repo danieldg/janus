@@ -1,44 +1,59 @@
+Janus
+	{nets} - linked networks by ID
+	insert(Action) - run hooks on the given action now, before continuing parse
+		used to slip CONNECT events in before a JOIN
+	append(Action) - run hooks on the given action after it is done processing
+	hook_add(modulename, (type, level, sub), (type, level, sub), ...) - add hooks
+	hook_del(modulename) - delete hooks
+	in_local(LocalNet) - local input
+	in_janus(InterJanus) - remote input
+
 Network
 	{netname} - User-readable name for the network
-	{klines} - array of Kline objects
-	connect([sock]) - try to connect to the network or use the given sock as a connection from the network
+	{jlink} - if defined, the InterJanus object that this network is seen
 	id() - network's tag, must be unique
+
+RemoteNet
+	no methods; exists as a placeholder
+
+LocalNet
+	connect([sock]) - try to connect to the network or use the given sock as a connection from the network
 	item(name) - return a Nick, Channel, or Network for the nick, channel, or server name given
 	nick(name) - returns a currently existing nick of this name
 	channel(name, [new]) - returns a channel of this name, optionally creating if $new is 1, destroying if -1
+	get_kline(Nick) - returns a kline matching the nick, if any
 	request_nick(Nick, request) - gives the Nick a local network name, based on the requested one
 	release_nick(nickname) - this nick is now unused
 
-Unreal (or other network implementations)
+Unreal (or other network implementations); subclass of LocalNet
 	intro([incoming]) - send out server introduction/password
 	parse(line) - create a list of Action objects based on a line of input
 		not all input lines must create an action; local connects do not
 	send(Action ...) - send the given Action objects to the given network
 	vhost(Nick) - get the current visible host of the given nick
 
+InterJanus 
+	id() - tag, must be unique in Network space and InterJanus space
+
 Channel
 	{nicks} - Nick objects by ID
 	{nets} - Network objects by ID
-	str(Network) - this channel's name
-	link(Channel) - unify the channels; the passed-in object should be dropped from reference
-	try_join(Nick) - joins the nick to the channel; returns the action (JOIN or KICK)
-	timesync(int) - sets the timestamp; wipes the modes of the channel if the int is lower than stored stamp
+	str(LocalNetwork) - channel name
+	part(Nick) - remove records of this nick (for quitting nicks)
 
 Nick
+	id() - nick's tag, must be unique
 	{homenet} - source Network for the nick
 	{homenick nickts ident host ip name} - basic info
- 		for Unreal nicks: {swhois home_server servicets chost vhost ip_64}
-	id() - nick's tag, must be unique
+
+LocalNick
+	Specific network typess can define extra information
+		Unreal: {swhois home_server servicets chost vhost ip_64}
 	vhost() - user's visible host (cloaked or vhost); {host} is actual host
-	umode(delta) - change umodes
-	is_klined(Network) - returns a kline from the given net matching this nick, if any
-	is_on(Network) - true if the nick is on the network already
-	connect(Network) - join to the given network (check klines before doing this please)
+	is_on(Network) - true if the nick is on the network (at the moment)
 
 Kline
 	{reason}
 	{net}
 	{expire}
 	match(Nick)
-
-Actions: see actions.txt

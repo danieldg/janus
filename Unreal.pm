@@ -477,7 +477,11 @@ sub srvname {
 		my @act;
 		for (split /,/, $_[2]) {
 			my $chan = $net->chan($_, 1);
-			push @act, $chan->try_join($nick);
+			push @act, +{
+				type => 'JOIN',
+				src => $nick,
+				dst => $chan,
+			};
 		}
 		@act;
 	}, SJOIN => sub {
@@ -498,7 +502,12 @@ sub srvname {
 				my $nmode = $1;
 				my $nick = $net->nick($2);
 				my %mh = map { tr/*~@%+/qaohv/; $cmode2txt{$_} => 1 } split //, $nmode;
-				push @acts, $chan->try_join($nick, \%mh);
+				push @acts, +{
+					type => 'JOIN',
+					src => $nick,
+					dst => $chan,
+					mode => \%mh,
+				};
 			}
 		}
 		$cmode =~ tr/&"'/beI/;
@@ -655,7 +664,8 @@ sub cmd2 {
 %toirc = (
 	CONNECT => sub {
 		my($net,$act) = @_;
-		my $nick = $act->{src};
+		my $nick = $act->{dst};
+		return if $act->{net}->id() ne $net->id();
 		my $mode = join '', '+', map $txt2umode{$_}, keys %{$nick->{mode}};
 		my $vhost = $nick->vhost();
 		$mode =~ s/[xt]//g;
