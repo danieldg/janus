@@ -66,11 +66,17 @@ sub _hook_t {
 
 sub _send {
 	my($except,$act) = @_;
-	my @to = 
-		exists $act->{sendto} ? @{$act->{sendto}} :
-		$act->{dst}->isa('Network') ? $act->{dst} :
-		$act->{dst}->sendto($act, $except);
-	# TODO filter out remote nets
+	my @to;
+	if (exists $act->{sendto}) {
+		@to = @{$act->{sendto}};
+	} elsif (!$act->{dst}) {
+		warn "Action $act of type $act->{type} does not have a destination or sendto list";
+		return
+	} elsif ($act->{dst}->isa('Network')) {
+		@to = $act->{dst};
+	} else {
+		@to = $act->{dst}->sendto($act, $except);
+	}
 	for my $net (@to) {
 		$net->send($act);
 	}

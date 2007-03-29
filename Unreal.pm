@@ -483,7 +483,7 @@ sub srvname {
 	}, SJOIN => sub {
 		my $net = shift;
 		my $chan = $net->chan($_[3], 1);
-		$chan->timesync($net->sjbint($_[2])); # TODO actually sync
+		$chan->timesync($net->sjbint($_[2]));
 		my $joins = pop;
 
 		my @acts;
@@ -668,7 +668,7 @@ sub cmd2 {
 		my $chan = $act->{dst};
 		my $mode = '';
 		if ($act->{mode}) {
-			$mode .= $cmode2txt{$_} for keys %{$act->{mode}};
+			$mode .= $txt2cmode{$_} for keys %{$act->{mode}};
 		}
 		$mode =~ tr/qaohv/*~@%+/;
 		$net->cmd1(SJOIN => $net->sjb64($chan->{ts}), $chan->str($net), $mode.$act->{src}->str($net));

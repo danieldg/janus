@@ -7,7 +7,7 @@ use warnings;
 sub new {
 	my($class,$net,$name) = @_;
 	my %chash = (
-		ts => 0,
+		ts => time + 60,
 		topic => '',
 		topicts => 0,
 		topicset => '',
@@ -77,9 +77,6 @@ sub _modecpy {
 	$chan->{mode} = { %{$src->{mode}} };
 }
 
-sub delink {
-}
-
 # get name on a network
 sub str {
 	my($chan,$net) = @_;
@@ -131,12 +128,27 @@ sub _part {
 	my($chan,$nick) = @_;
 	delete $chan->{nicks}->{$nick->id()};
 	delete $chan->{nmode}->{$nick->id()};
+	return if keys %{$chan->{nicks}};
+	# destroy channel
+	for my $id (keys %{$chan->{nets}}) {
+		my $name = $chan->{names}->{$id};
+		delete $chan->{nets}->{$id}->{chans}->{$name};
+	}
+}
+
+sub DESTROY {
+	print "DBG: Channel $_[0] deallocated\n";
 }
 
 sub timesync {
-	my($chan, $ts) = @_;
-	$chan->{ts} = $ts;
-	# TODO wipe modes if older $ts given
+	my($chan, $new) = @_;
+	return unless $new > 1000000; #don't EVER destroy channel TSes with that annoying Unreal message
+	my $old = $chan->{ts};
+	return if $old <= $new; # we are actually not resetting the TS, how nice!
+	# Wipe modes in preparation for an overriding merge
+	$chan->{ts} = $new;
+	$chan->{nmode} = {};
+	$chan->{mode} = {};
 }
 
 sub modload {
@@ -249,21 +261,21 @@ sub modload {
 						topicset => $chan->{topicset},
 					} unless $chan1->{topic} eq $chan2->{topic};
 				}
-				$chan->{ts} = $chan1->{ts};
 				$chan->{$_} = [ @{$chan1->{$_}}, @{$chan2->{$_}} ] for qw/ban_b ban_e ban_I/;
 				my %m = %{$chan2->{mode}};
 				$m{$_} = $chan1->{mode}->{$_} for keys %{$chan1->{mode}};
 				$chan->{mode} = \%m;
-			} elsif (!$chan1->{ts} || ($chan1->{ts} > $chan2->{ts} && $chan2->{ts})) {
+			} elsif ($chan1->{ts} > $chan2->{ts}) {
 				print "Channel 2 wins TS\n";
 				$chan->_modecpy($chan2);
-				$chan1->timesync(1); # mode wipe
 			} else {
 				print "Channel 1 wins TS\n";
 				$chan->_modecpy($chan1);
-				$chan2->timesync(1); # mode wipe
 			}
 
+			$chan1->timesync($chan2->{ts}); # mode wipe if needed
+			$chan2->timesync($chan1->{ts}); # mode wipe if needed
+			$chan->{ts} = $chan1->{ts}; # the timestamps are now equal so just copy #1 because it's first
 			$chan->_mergenet($chan1);
 			$chan->_mergenet($chan2);
 

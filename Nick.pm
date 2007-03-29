@@ -13,6 +13,10 @@ sub new {
 	bless $nick, $class;
 }
 
+sub DESTROY {
+	print "DBG: $_[0] deallocated\n";
+}
+
 sub umode {
 	my $nick = shift;
 	my $net = $nick->{homenet};
@@ -134,6 +138,12 @@ sub modload {
 			my $nick = $act->{dst};
 			my $old = $nick->{homenick};
 			my $new = $act->{nick};
+			return () if (lc $old) eq (lc $new);
+			# Not transmitting case changes is the easiset way to do it
+			# If this is ever changed: the local network's bookkeeping is easy
+			# remote networks could have this nick tagged; they can untag but 
+			# only if they can assure that it is impossible to be collided
+
 			$nick->{nickts} = $act->{nickts} if $act->{nickts};
 			$nick->{homenick} = $new;
 			for my $id (keys %{$nick->{nets}}) {
@@ -142,7 +152,7 @@ sub modload {
 				my $to = $net->request_nick($nick, $new);
 				$net->release_nick($from);
 				$nick->{nicks}->{$id} = $to;
-			
+		
 				$act->{from}->{$id} = $from;
 				$act->{to}->{$id} = $to;
 			}

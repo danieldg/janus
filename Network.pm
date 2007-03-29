@@ -59,11 +59,11 @@ sub _modeargs {
 	local $_;
 	my $pm = '+';
 	for (split //, $mode) {
-		if (/[+-]/) {
+		if (/[-+]/) {
 			$pm = $_;
 			next;
 		}
-		my $txt = $net->{txt2cmode}->{$_};
+		my $txt = $net->{cmode2txt}->{$_} || 'UNK';
 		my $type = substr $txt,0,1;
 		if ($type eq 'n') {
 			push @args, $net->nick(shift);
@@ -90,11 +90,13 @@ sub _mode_interp {
 	for my $mtxt (@{$act->{mode}}) {
 		my($ipm,$txt) = ($mtxt =~ /^([-+])(.*)/) or warn $mtxt;
 		my $itm = ($txt =~ /^[nlv]/ || $mtxt =~ /^\+s/) ? shift @argin : undef;
-		if (exists $net->{cmode2txt}->{$txt}) {
+		if (exists $net->{txt2cmode}->{$txt}) {
 			push @args, ref $itm ? $itm->str($net) : $itm if defined $itm;
 			$mode .= $ipm if $ipm ne $pm;
-			$mode .= $net->{cmode2txt}->{$txt};
+			$mode .= $net->{txt2cmode}->{$txt};
 			$pm = $ipm;
+		} else {
+			warn "Unsupported channel mode '$txt' for network";
 		}
 	}
 	$mode, @args;

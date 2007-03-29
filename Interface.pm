@@ -55,7 +55,7 @@ my %cmds = (
 			dst => $chan,
 			net => $snet,
 		};
-	}
+	}, 'die' => sub { exit 0 },
 );
 
 sub modload {
