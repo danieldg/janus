@@ -89,7 +89,7 @@ sub _send {
 		@to = @{$act->{sendto}};
 	} elsif (!$act->{dst}) {
 		warn "Action $act of type $act->{type} does not have a destination or sendto list";
-		return
+		return;
 	} elsif ($act->{dst}->isa('Network')) {
 		@to = $act->{dst};
 	} else {
@@ -120,7 +120,11 @@ sub link {
 
 sub _run {
 	my($j, $act) = @_;
-	return if $j->_mod_hook($act->{type}, check => $act);
+	if ($j->_mod_hook($act->{type}, check => $act)) {
+		print "Check hook stole $act->{type}\n";
+		return;
+	}
+	print "Acting on $act->{type}\n";
 	$j->_hook($act->{type}, act => $act);
 	$j->_send($act);
 	$j->_hook($act->{type}, cleanup => $act);
@@ -140,11 +144,25 @@ sub append {
 	push @{$j->{queue}}, @_;
 }
 
+sub jmsg {
+	my($j, $dst) = (shift, shift);
+	local $_;
+	$j->append(map +{
+		type => 'MSG',
+		src => $j->{janus},
+		dst => $dst,
+		notice => !$dst->isa('Channel'), # channel notice == annoying
+		msg => $_,
+	}, @_);
+}
+
 sub in_local {
 	my($j,$src,@act) = @_;
 	$j->{except} = $src;
 	for my $act (@act) {
-		unless ($j->_mod_hook($act->{type}, parse => $act)) {
+		if ($j->_mod_hook($act->{type}, parse => $act)) {
+			print "Parse hook stole $act->{type}\n";
+		} else {
 			$j->_run($act);
 		}
 		$j->_runq();

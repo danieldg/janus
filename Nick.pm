@@ -14,7 +14,7 @@ sub new {
 }
 
 sub DESTROY {
-	print "DBG: $_[0] deallocated\n";
+	print "DBG: $_[0] $_[0]->{homenick} deallocated\n";
 }
 
 sub umode {

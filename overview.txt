@@ -3,6 +3,7 @@ Janus
 	insert(Action) - run hooks on the given action now, before continuing parse
 		used to slip CONNECT events in before a JOIN
 	append(Action) - run hooks on the given action after it is done processing
+	jmsg(dest, strings) - send notices to the given nick/msgs to given channel from the janus nick
 	hook_add(modulename, (type, level, sub), (type, level, sub), ...) - add hooks
 	hook_del(modulename) - delete hooks
 	in_local(LocalNet) - local input

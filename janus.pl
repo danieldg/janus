@@ -22,24 +22,30 @@ my $net1 = Unreal->new(
 	linkport => 8001,
 	linkname => 'janus1.testnet',
 	linkpass => 'pass',
+	linktype => 'plain',
 	numeric => 44,
-	id => 'test1',
+	id => 't1',
+	netname => 'Test 1',
 );
 my $net2 = Unreal->new(
 	linkaddr => '::1',
 	linkport => 8002,
 	linkname => 'janus2.testnet',
 	linkpass => 'pass',
+	linktype => 'plain',
 	numeric => 45,
-	id => 'test2',
+	id => 't2',
+	netname => 'Test 2',
 );
 my $net3 = Unreal->new(
 	linkaddr => '::1',
 	linkport => 8003,
 	linkname => 'janus3.testnet',
 	linkpass => 'pass',
+	linktype => 'plain',
 	numeric => 46,
-	id => 'test3',
+	id => 't3',
+	netname => 'Test 3',
 );
 
 $net1->connect();

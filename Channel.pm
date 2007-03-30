@@ -11,9 +11,6 @@ sub new {
 		topic => '',
 		topicts => 0,
 		topicset => '',
-		ban_b => [],
-		ban_e => [],
-		ban_I => [],
 		mode => {},
 	); my $chan = \%chash;
 	my $id = $net->id();
@@ -135,7 +132,8 @@ sub part {
 }
 
 sub DESTROY {
-	print "DBG: Channel $_[0] deallocated\n";
+	my $name = join ',', map $_.$_[0]->{names}->{$_}, keys %{$_[0]->{names}};
+	print "DBG: $_[0] $name deallocated\n";
 }
 
 sub timesync {
@@ -236,9 +234,12 @@ sub modload {
 		# otherwise go along with the channel sync
 		my $topctl = $tsctl ? $tsctl : ($chan1->{topicts} <=> $chan2->{topicts});
 
-		my %chanh;
+		my %chanh = (
+			mode => {},
+		);
 		my $chan = \%chanh;
 		bless $chan;
+		$act->{chan} = $chan;
 
 		# basic strategy: Modify the two channels in-place to have the same modes as we create
 		# the unified channel
@@ -332,6 +333,7 @@ sub modload {
 				mode => $chan->{nmode}->{$nick->id()},
 			}) if $send;
 		}
+		$act->{sendto} = [ values %{$chan->{nets}} ];
 	}, DELINK => act => sub {
 		my($j,$act) = @_;
 		my $send = $act->{src}->{homenet}->{jlink} ? 0 : 1;
@@ -339,6 +341,7 @@ sub modload {
 		my $net = $act->{net};
 		my $id = $net->id();
 		return unless exists $chan->{nets}->{$id};
+		$act->{sendto} = [ values %{$chan->{nets}} ]; # before the splitting
 		delete $chan->{nets}->{$id};
 		return if $net->{jlink};
 
@@ -353,6 +356,7 @@ sub modload {
 		);
 		my $split = \%chanh;
 		bless $split;
+		$act->{split} = $split;
 		$split->_modecpy($chan);
 		$net->{chans}->{lc $name} = $split;
 

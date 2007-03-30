@@ -61,6 +61,8 @@ MSG: [Nick, undef] -> *
 
 LINK: Nick -> undef
 	chan1, chan2 - channels to merge
+	chan - merged channel (only exists after the act stage)
 
 DELINK: Nick -> Channel
 	net - Network to drop
+	split - split off channel (only exists after the act stage)

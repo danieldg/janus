@@ -25,22 +25,26 @@ my %cmds = (
 		});
 	}, help => sub {
 		my($j, $nick) = @_;
-		$j->append(map +{
-			type => 'MSG',
-			src => $j->{janus},
-			dst => $nick,
-			notice => 1,
-			msg => $_,
-		}, ('Janus2 Help',
+		$j->jmsg($nick, 'Janus2 Help',
 			' link $localchan $network $remotechan - links a channel with a remote network',
 			' delink $chan - delinks a channel from all other networks',
-		));
+		);
+	}, list => sub {
+		my($j, $nick) = @_;
+		$j->jmsg($nick, 'Linked networks: '.join ' ', sort keys %{$j->{nets}});
+		# TODO display available channels when that is set up
 	}, 'link' => sub {
 		# TODO evaluate for jlink nets
 		my($j, $nick) = @_;
-		my($cname1, $nname2, $cname2) = /(#\S+)\s+(\S+)\s*(#\S+)/ or return;
+		my($cname1, $nname2, $cname2) = /(#\S+)\s+(\S+)\s*(#\S+)/ or do {
+			$j->jmsg($nick, 'Usage: link $localchan $network $remotechan');
+			return;
+		};
 		my $net1 = $nick->{homenet};
-		my $net2 = $j->{nets}->{lc $nname2} or return;
+		my $net2 = $j->{nets}->{lc $nname2} or do {
+			$j->jmsg($nick, "Cannot find network $nname2");
+			return;
+		};
 		my $chan1 = $net1->chan($cname1, 1);
 		my $chan2 = $net2->chan($cname2, 1);
 		$j->append(+{

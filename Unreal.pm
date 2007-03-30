@@ -718,6 +718,21 @@ sub cmd2 {
 	}, QUIT => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{dst}, QUIT => $act->{msg});
+	}, LINK => sub {
+		my($net,$act) = @_;
+		my $nick = $act->{src}->str($net) || 'remote oper';
+		my $chan = $act->{chan}->str($net);
+		$net->cmd1(GLOBOPS => "Channel $chan linked by $nick");
+	}, DELINK => sub {
+		my($net,$act) = @_;
+		if ($act->{net}->id() eq $net->id()) {
+			my $name = $act->{split}->str($net);
+			my $nick = $act->{src}->str($net);
+			$net->cmd1(GLOBOPS => "Channel $name delinked by $nick");
+		} else {
+			my $name = $act->{dst}->str($net);
+			$net->cmd1(GLOBOPS => "Network $act->{net}->{netname} dropped channel $name");
+		}			
 	},
 );
 
