@@ -2,6 +2,7 @@ package Network;
 use Channel;
 use Scalar::Util qw(weaken);
 use IO::Socket::INET6;
+use IO::Socket::SSL 'inet6';
 
 sub new {
 	my $class = shift;
@@ -10,21 +11,34 @@ sub new {
 	bless $net, $class;
 }
 
+#this is to select ssl or not, non/ssl, for ipv4 ::ffff:127.0.0.1
+my $contype = "non";
+
 sub connect {
-	my $net = shift;
-	if (@_) {
-		$net->{sock} = shift;
-		$net->intro(1);
-	} else {
-		my $sock = IO::Socket::INET6->new(
-			PeerAddr => $net->{linkaddr},
-			PeerPort => $net->{linkport},
-		) or return 0;
-		$sock->autoflush(1);
-		$net->{sock} = $sock;
-		$net->intro(0);
-	}
-	1;
+my $net = shift;
+if (@_) {
+ $net->{sock} = shift;
+ $net->intro(1);
+}
+elsif ($contype eq "non")   {
+ my $sock = IO::Socket::INET6->new(
+ PeerAddr => $net->{linkaddr},
+ PeerPort => $net->{linkport}, ) or return 0;
+ $sock->autoflush(1);
+ $net->{sock} = $sock;
+ $net->intro(0);
+}
+elsif ($contype eq "ssl")   {
+ my $sock = IO::Socket::SSL->new(
+ PeerAddr => $net->{linkaddr},
+ PeerPort => $net->{linkport}, ) or return 0;
+ $sock->autoflush(1);
+ $net->{sock} = $sock;
+ $net->intro(0);
+}
+else { warn "ERROR: ", IO::Socket::SSL::errstr();}
+
+1;
 }
 
 sub id {
@@ -48,7 +62,7 @@ sub chan {
 
 sub _ban {
 	# TODO translate bans
-	$_[1];
+	$_[0];
 }
 
 sub _modeargs {
