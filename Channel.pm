@@ -252,25 +252,27 @@ sub modload {
 		if ($topctl >= 0) {
 			print "Channel 1 wins control of topic\n";
 			$chan->{$_} = $chan1->{$_} for qw/topic topicts topicset/;
-			if ($send && $chan1->{topic} ne $chan2->{topic}) {
+			if ($chan1->{topic} ne $chan2->{topic}) {
 				$j->append(+{
 					type => 'TOPIC',
 					dst => $chan2,
 					topic => $chan->{topic},
 					topicts => $chan->{topicts},
 					topicset => $chan->{topicset},
+					nojlink => 1,
 				});
 			}
 		} else {
 			print "Channel 2 wins control of topic\n";
 			$chan->{$_} = $chan2->{$_} for qw/topic topicts topicset/;
-			if ($send && $chan1->{topic} ne $chan2->{topic}) {
+			if ($chan1->{topic} ne $chan2->{topic}) {
 				$j->append(+{
 					type => 'TOPIC',
 					dst => $chan1,
 					topic => $chan->{topic},
 					topicts => $chan->{topicts},
 					topicset => $chan->{topicset},
+					nojlink => 1,
 				});
 			}
 		}
@@ -321,7 +323,8 @@ sub modload {
 				dst => $chan,
 				sendto => $nets2,
 				mode => $chan->{nmode}->{$nick->id()},
-			}) if $send;
+				nojlink => 1,
+			});
 		}
 		for my $nick (values %{$chan2->{nicks}}) {
 			$chan->_ljoin($j, $nick, $chan2);
@@ -331,11 +334,11 @@ sub modload {
 				dst => $chan,
 				sendto => $nets1,
 				mode => $chan->{nmode}->{$nick->id()},
-			}) if $send;
+				nojlink => 1,
+			});
 		}
 	}, DELINK => act => sub {
 		my($j,$act) = @_;
-		my $send = $act->{src}->{homenet}->{jlink} ? 0 : 1;
 		my $chan = $act->{dst};
 		my $net = $act->{net};
 		my $id = $net->id();
@@ -369,7 +372,8 @@ sub modload {
 					src => $nick,
 					dst => $chan,
 					msg => 'Channel delinked',
-				}) if $send;
+					nojlink => 1,
+				});
 			} else {
 				my $nick = $chan->{nicks}->{$nid};
 				$j->append(+{
@@ -378,7 +382,8 @@ sub modload {
 					dst => $split,
 					sendto => [ $net ],
 					msg => 'Channel delinked',
-				}) unless $net->{jlink};
+					nojlink => 1,
+				});
 			}
 		}
 	});

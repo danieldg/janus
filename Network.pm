@@ -157,18 +157,21 @@ sub modload {
 	NETSPLIT => act => sub {
 		my($j, $act) = @_;
 		my $net = $act->{net};
-		for my $id (keys %{$net->{nicks}}) {
+		my $tid = $net->id();
+		for my $nick (values %{$net->{nicks}}) {
+			next if $nick->{homenet}->id() ne $tid;
 			$j->append(+{
 				type => 'QUIT',
-				dst => $net->{nicks}->{$id},
-				msg => "hub.janus $id.janus",
+				dst => $nick,
+				msg => "hub.janus $tid.janus",
 				nojlink => 1,
 			});
 		}
-		for my $id (keys %{$net->{chans}}) {
+		for my $chan (values %{$net->{chans}}) {
 			$j->append(+{
 				type => 'DELINK',
-				dst => $net->{chans}->{$id},
+				dst => $chan,
+				net => $net,
 				sendto => [],
 			});
 		}

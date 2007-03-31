@@ -727,12 +727,18 @@ sub cmd2 {
 		my($net,$act) = @_;
 		if ($act->{net}->id() eq $net->id()) {
 			my $name = $act->{split}->str($net);
-			my $nick = $act->{src}->str($net);
+			my $nick = $act->{src} ? $act->{src}->str($net) : 'janus';
 			$net->cmd1(GLOBOPS => "Channel $name delinked by $nick");
 		} else {
 			my $name = $act->{dst}->str($net);
 			$net->cmd1(GLOBOPS => "Network $act->{net}->{netname} dropped channel $name");
 		}			
+	}, NETLINK => sub {
+		my($net,$act) = @_;
+		my $new = $act->{net};
+		my $id = $new->id();
+		$net->cmd1(GLOBOPS => "Janus Network $id ($new->{netname}) is now linked");
+	}, NETSPLIT => sub {
 	},
 );
 
