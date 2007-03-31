@@ -51,6 +51,12 @@ my %cmds = (
 			dst => $chan,
 			net => $snet,
 		});
+	}, rehash => sub {
+		my $j = shift;
+		$j->append(+{
+			type => 'REHASH',
+			sendto => [],
+		});
 	}, 'die' => sub { exit 0 },
 );
 
@@ -61,6 +67,7 @@ sub modload {
 
 	my %neth = (
 		id => 'janus',
+		netname => 'Janus',
 	);
 	my $int = \%neth;
 	bless $int, $class;

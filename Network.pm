@@ -11,6 +11,10 @@ sub new {
 	bless $net, $class;
 }
 
+sub DESTROY {
+	print "DBG: $_[0] $_[0]->{netname} deallocated\n";
+}
+
 sub connect {
 	my $net = shift;
 	if (@_) {

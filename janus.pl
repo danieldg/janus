@@ -15,52 +15,59 @@ my $janus = Janus->new();
 Channel->modload($janus);
 Nick->modload($janus);
 Network->modload($janus);
-
 Interface->modload($janus);
 
 my $read = IO::Select->new();
-my $net1 = Unreal->new(
-	linkaddr => '::1',
-	linkport => 8001,
-	linkname => 'janus1.testnet',
-	linkpass => 'pass',
-	linktype => 'plain',
-	numeric => 44,
-	id => 't1',
-	netname => 'Test 1',
-);
-my $net2 = Unreal->new(
-	linkaddr => '::1',
-	linkport => 8002,
-	linkname => 'janus2.testnet',
-	linkpass => 'pass',
-	linktype => 'plain',
-	numeric => 45,
-	id => 't2',
-	netname => 'Test 2',
-);
-my $net3 = Unreal->new(
-	linkaddr => '::1',
-	linkport => 8003,
-	linkname => 'janus3.testnet',
-	linkpass => 'pass',
-	linktype => 'plain',
-	numeric => 46,
-	id => 't3',
-	netname => 'Test 3',
-);
 
-$net1->connect();
-$net2->connect();
-$net3->connect();
+sub nlink {
+	my($id, @args) = @_;
+	return if exists $janus->{nets}->{$id};
+	my $net = Unreal->new(
+		id => $id,
+		@args,
+	);
+	$net->connect();
+	$janus->link($net);
+	$read->add([$net->{sock}, '', $net]);
+}
 
-$janus->link($net1);
-$janus->link($net2);
-$janus->link($net3);
+sub rehash {
+	nlink('t1', 
+		linkaddr => '::1',
+		linkport => 8001,
+		linkname => 'janus1.testnet',
+		linkpass => 'pass',
+		linktype => 'plain',
+		numeric => 44,
+		netname => 'Test 1',
+	);
+	nlink('t2',
+		linkaddr => '::1',
+		linkport => 8002,
+		linkname => 'janus2.testnet',
+		linkpass => 'pass',
+		linktype => 'plain',
+		numeric => 45,
+		netname => 'Test 2',
+	);
+	nlink('t3',
+		linkaddr => '::1',
+		linkport => 8003,
+		linkname => 'janus3.testnet',
+		linkpass => 'pass',
+		linktype => 'plain',
+		numeric => 46,
+		netname => 'Test 3',
+	);
+}
 
-$read->add([$net1->{sock}, '', $net1]);
-$read->add([$net2->{sock}, '', $net2]);
-$read->add([$net3->{sock}, '', $net3]);
+rehash;
+
+$janus->hook_add('main',
+	REHASH => act => sub {
+		rehash;
+	}
+);
 
 while ($read->count()) {
 	my @r = $read->can_read();
