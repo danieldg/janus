@@ -383,14 +383,13 @@ sub srvname {
 		if (@_ < 10) {
 			# Nick Change
 			my $nick = $net->nick($_[0]) or return ();
-			my %a = (
+			return +{
 				type => 'NICK',
 				src => $nick,
 				dst => $nick,
 				nick => $_[2],
-			);
-			$a{nickts} = $net->sjbint($_[3]) if @_ == 4;
-			return \%a;
+				nickts => (@_ == 4 ? $net->sjbint($_[3]) : time),
+			};
 		}
 		# NICKv2 introduction
 		my $nick = Nick->new(
@@ -428,8 +427,31 @@ sub srvname {
 				$nick->{ip} = $_;
 			}
 		}
-		$net->{nicks}->{lc $_[2]} = $nick;
-		return (); #not transmitted to remote nets or acted upon until joins
+		my @out;
+		if (exists $net->{nicks}->{lc $_[2]}) {
+			# nick collision
+			my $cnick = $net->{nicks}->{lc $_[2]};
+			if ($cnick->{nickts} >= $nick->{nickts}) {
+				# the existing nick did not win; re-tag it
+				push @out, +{
+					type => 'CONNECT',
+					dst => $cnick,
+					net => $net,
+					reconnect => 1,
+					nojlink => 1,
+				};
+			}
+			if ($cnick->{nickts} <= $nick->{nickts}) {
+				# the new nick did not win; kill it
+				$net->send($net->cmd1(KILL => $_[2], "Nick Collision");
+				delete $net->{nicks}->{lc $_[2]};
+			} else {
+				$net->{nicks}->{lc $_[2]} = $nick;
+			}
+		} else {
+			$net->{nicks}->{lc $_[2]} = $nick;
+		}
+		@out; #not transmitted to remote nets or acted upon until joins
 	}, QUIT => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[0]) or return ();

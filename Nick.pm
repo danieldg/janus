@@ -127,7 +127,9 @@ sub modload {
 		my $nick = $act->{dst};
 		my $net = $act->{net};
 		my $id = $net->id();
-		warn if exists $nick->{nets}->{$id};
+		if (exists $nick->{nets}->{$id}) {
+			warn "Nick alredy exists" unless $act->{reconnect};
+		}
 		$nick->{nets}->{$id} = $net;
 		return if $net->{jlink};
 		my $rnick = $net->request_nick($nick, $nick->{homenick});
