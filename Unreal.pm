@@ -721,7 +721,7 @@ sub cmd2 {
 	}, LINK => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{src}->str($net) || 'remote oper';
-		my $chan = $act->{chan}->str($net);
+		my $chan = $act->{dst}->str($net);
 		$net->cmd1(GLOBOPS => "Channel $chan linked by $nick");
 	}, DELINK => sub {
 		my($net,$act) = @_;

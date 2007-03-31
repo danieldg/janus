@@ -1,11 +1,12 @@
 #!/usr/bin/perl -w
 use strict;
 BEGIN { push @INC, '.' }
-use Unreal;
 use Janus;
 use Channel;
 use Nick;
+use Network;
 use Interface;
+use Unreal;
 use IO::Select;
 
 $| = 1;
@@ -13,6 +14,7 @@ $| = 1;
 my $janus = Janus->new();
 Channel->modload($janus);
 Nick->modload($janus);
+Network->modload($janus);
 
 Interface->modload($janus);
 
@@ -82,7 +84,7 @@ while ($read->count()) {
 		$$l[1] = $recvq;
 		if (!$len) {
 			$read->remove($l);
-			$net->netsplit();
+			$janus->delink($net);
 		}
 	}
 }

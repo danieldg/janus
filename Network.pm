@@ -150,4 +150,29 @@ sub release_nick {
 	delete $net->{nicks}->{lc $req};
 }
 
+sub modload {
+ my($me, $janus) = @_;
+ return unless $me eq 'Network';
+ $janus->hook_add($me,
+	NETSPLIT => act => sub {
+		my($j, $act) = @_;
+		my $net = $act->{net};
+		for my $id (keys %{$net->{nicks}}) {
+			$j->append(+{
+				type => 'QUIT',
+				dst => $net->{nicks}->{$id},
+				msg => "hub.janus $id.janus",
+				nojlink => 1,
+			});
+		}
+		for my $id (keys %{$net->{chans}}) {
+			$j->append(+{
+				type => 'DELINK',
+				dst => $net->{chans}->{$id},
+				sendto => [],
+			});
+		}
+	});
+}
+
 1;

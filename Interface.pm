@@ -7,22 +7,10 @@ use warnings;
 my %cmds = (
 	unk => sub {
 		my($j, $nick) = @_;
-		$j->append(+{
-			type => 'MSG',
-			src => $j->{janus},
-			dst => $nick,
-			notice => 1,
-			msg => 'Unknown command. Use "help" to see available commands',
-		});
+		$j->jmsg($nick, 'Unknown command. Use "help" to see available commands');
 	}, unauth => sub {
 		my($j, $nick) = @_;
-		$j->append(+{
-			type => 'MSG',
-			src => $j->{janus},
-			dst => $nick,
-			notice => 1,
-			msg => 'You must be an IRC operator to use this service',
-		});
+		$j->jmsg($nick, 'You must be an IRC operator to use this service');
 	}, help => sub {
 		my($j, $nick) = @_;
 		$j->jmsg($nick, 'Janus2 Help',
@@ -94,15 +82,12 @@ sub modload {
 	
 	$janus->hook_add($class, 
 		NETLINK => act => sub {
-			my($j,$net) = @_;
-			my $id = $net->id();
-			$j->{nets}->{$id} = $net;
+			my($j,$act) = @_;
 			$j->append(+{
 				type => 'CONNECT',
 				dst => $j->{janus},
-				net => $net,
+				net => $act->{net},
 			});
-			# TODO send out GLOBOPS on all nets or something
 		}, MSG => parse => sub {
 			my($j,$act) = @_;
 			my $nick = $act->{src};

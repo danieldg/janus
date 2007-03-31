@@ -112,11 +112,30 @@ sub _runq {
 
 sub link {
 	my($j,$net) = @_;
-	# TODO define sequence
-	$j->_hook(NETLINK => act => $net);
+	my $id = $net->id();
+	$j->{nets}->{$id} = $net;
+
+	$j->_run(+{
+		type => 'NETLINK',
+		net => $net,
+		sendto => [ values %{$j->{nets}} ],
+	});
 	$j->_runq();
 }
 
+sub delink {
+	my($j,$net) = @_;
+	my $id = $net->id();
+	delete $j->{nets}->{$id};
+	$j->{except} = $net;
+	$j->_run(+{
+		type => 'NETSPLIT',
+		net => $net,
+		sendto => [ values %{$j->{nets}} ],
+	});
+	$j->_runq();
+	delete $j->{except};
+}
 
 sub _run {
 	my($j, $act) = @_;

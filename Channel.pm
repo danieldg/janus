@@ -239,7 +239,7 @@ sub modload {
 		);
 		my $chan = \%chanh;
 		bless $chan;
-		$act->{chan} = $chan;
+		$act->{dst} = $chan;
 
 		# basic strategy: Modify the two channels in-place to have the same modes as we create
 		# the unified channel
@@ -333,7 +333,6 @@ sub modload {
 				mode => $chan->{nmode}->{$nick->id()},
 			}) if $send;
 		}
-		$act->{sendto} = [ values %{$chan->{nets}} ];
 	}, DELINK => act => sub {
 		my($j,$act) = @_;
 		my $send = $act->{src}->{homenet}->{jlink} ? 0 : 1;

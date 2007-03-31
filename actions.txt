@@ -1,9 +1,15 @@
-$act->{sendto} is an arrayref if it exists; list of networks to send to
+Special fields:
+	sendto: an arrayref identifying the list of networks to send to
+		specify this only when creating the action
+		Exception: LINK and DELINK, as they do the list merging needed
+	nojlink: do not send to remote janus networks
+		used i.e. for QUITs from a NETSPLIT, where the NETSPLIT itself is sent
+		across the jlink, so sending the QUITs too would be a waste of bandwidth
+
 type: src -> dst
 
-dst must be Nick, Channel
+dst must be Nick or Channel. Can be undef if {sendto} is specified.
 src must be either a Nick, Network, or undef
-	undef should be replaced by the Janus Nick if needed
 
 CONNECT: * -> Nick
 	net - Network
@@ -12,7 +18,6 @@ QUIT: * -> Nick
 	msg - quit message (already prefixed with Quit: if needed)
 	killer - Nick that did a local kill on the dst nick
 		(in this case, msg is "Killed ($msg)")
-		TODO: possibly change to just $msg
 
 KILL: * -> Nick
 	msg - kill message
@@ -59,10 +64,16 @@ MSG: [Nick, undef] -> *
 	notice - 1 if this is a NOTICE, 0 if PRIVMSG
 	prefix - if exists, is one of '~&@%+' for @#channel messages
 
-LINK: Nick -> undef
+LINK: * -> undef
+	dst - merged channel, added in the act stage
 	chan1, chan2 - channels to merge
-	chan - merged channel (only exists after the act stage)
 
-DELINK: Nick -> Channel
+DELINK: * -> Channel
 	net - Network to drop
 	split - split off channel (only exists after the act stage)
+
+NETLINK:
+	net - new network
+
+NETSPLIT:
+	net - gone network
