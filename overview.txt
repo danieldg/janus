@@ -20,8 +20,8 @@ RemoteNet
 LocalNet
 	connect([sock]) - try to connect to the network or use the given sock as a connection from the network
 	item(name) - return a Nick, Channel, or Network for the nick, channel, or server name given
-	nick(name) - returns a currently existing nick of this name
-	channel(name, [new]) - returns a channel of this name, optionally creating if $new is 1, destroying if -1
+	nick(name, [or_undef]) - returns a currently existing nick of this name, or undef if the argument is 1
+	channel(name, [new]) - returns a channel of this name, optionally creating if $new is 1
 	get_kline(Nick) - returns a kline matching the nick, if any
 	request_nick(Nick, request) - gives the Nick a local network name, based on the requested one
 	release_nick(nickname) - this nick is now unused

@@ -23,7 +23,7 @@ sub umode {
 	local $_;
 	my $pm = '+';
 	for (split //, shift) {
-		my $txt = $net->{umode2txt}->{$_};
+		my $txt = $net->{params}->{umode2txt}->{$_};
 		if (/[+-]/) {
 			$pm = $_;
 		} elsif ($pm eq '+') {
@@ -95,6 +95,7 @@ sub _netclean {
 			src => $nick,
 			dst => $nick,
 			msg => 'Left all shared channels',
+			nojlink => 1,
 		});
 		delete $nick->{nets}->{$id};
 		my $rnick = delete $nick->{nicks}->{$id};

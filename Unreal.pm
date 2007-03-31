@@ -207,6 +207,14 @@ sub str {
 	$_[1]->{linkname};
 }
 
+my %unreal_net = (
+	txt2cmode => \%txt2cmode,
+	txt2umode => \%txt2umode,
+	cmode2txt => \%cmode2txt,
+	umode2txt => \%umode2txt,
+	nicklen => 30,
+);
+
 sub intro {
 	unless (ref $_[0]) {
 		my $class = shift;
@@ -228,10 +236,7 @@ sub intro {
 		'PROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS UMODE2 TKLEXT SJB64',
 		"SERVER $net->{linkname} 1 :U2309-hX6eE-$net->{numeric} Janus Network Link",
 	);
-	$net->{txt2cmode} = \%txt2cmode;
-	$net->{txt2umode} = \%txt2umode;
-	$net->{cmode2txt} = \%cmode2txt;
-	$net->{umode2txt} = \%umode2txt;
+	$net->{params} = \%unreal_net;
 }
 
 # parse one line of input
@@ -316,7 +321,8 @@ sub ignore {
 sub pm_notice {
 	my $net = shift;
 	my $notice = $_[1] eq 'NOTICE' || $_[1] eq 'B';
-	my $src = $net->nick($_[0]);
+	return () if $_[2] eq 'AUTH' && $_[0] =~ /\./;
+	my $src = $net->nick($_[0]) or return ();
 	if ($_[2] =~ /^\$/) {
 		# server broadcast message. No action; these are confined to source net
 		return ();
@@ -334,7 +340,7 @@ sub pm_notice {
 		# nick message, possibly with a server mask
 		# server mask is ignored as the server is going to be wrong anyway
 		my $dst = $net->nick($1);
-		return () if !$dst && $_[2] eq 'AUTH';
+		return () unless $dst;
 		return {
 			type => 'MSG',
 			src => $src,
@@ -376,7 +382,7 @@ sub srvname {
 		my $net = shift;
 		if (@_ < 10) {
 			# Nick Change
-			my $nick = $net->nick($_[0]);
+			my $nick = $net->nick($_[0]) or return ();
 			my %a = (
 				type => 'NICK',
 				src => $nick,
@@ -426,7 +432,7 @@ sub srvname {
 		return (); #not transmitted to remote nets or acted upon until joins
 	}, QUIT => sub {
 		my $net = shift;
-		my $nick = $net->nick($_[0]);
+		my $nick = $net->nick($_[0]) or return ();
 		return {
 			type => 'QUIT',
 			dst => $nick,
@@ -434,10 +440,9 @@ sub srvname {
 		};
 	}, KILL => sub {
 		my $net = shift;
-		my $src = $net->nick($_[0]);
-		my $dst = $net->nick($_[2]);
+		my $src = $net->nick($_[0], 1);
+		my $dst = $net->nick($_[2]) or return ();
 
-		return () unless $dst; # killing an already dead nick
 		if ($dst->{homenet}->id() eq $net->id()) {
 			return {
 				type => 'QUIT',
@@ -454,7 +459,7 @@ sub srvname {
 		};
 	}, UMODE2 => sub {
 		my $net = shift;
-		my $nick = $net->nick($_[0]);
+		my $nick = $net->nick($_[0]) or return ();
 		return {
 			type => 'UMODE',
 			dst => $nick,
@@ -473,7 +478,7 @@ sub srvname {
 # Channel Actions
 	JOIN => sub {
 		my $net = shift;
-		my $nick = $net->nick($_[0]);
+		my $nick = $net->nick($_[0]) or return ();
 		my @act;
 		for (split /,/, $_[2]) {
 			my $chan = $net->chan($_, 1);
@@ -500,7 +505,7 @@ sub srvname {
 			} else {
 				/^([*~@%+]*)(.+)/ or warn;
 				my $nmode = $1;
-				my $nick = $net->nick($2);
+				my $nick = $net->nick($2) or next;
 				my %mh = map { tr/*~@%+/qaohv/; $cmode2txt{$_} => 1 } split //, $nmode;
 				push @acts, +{
 					type => 'JOIN',
@@ -522,19 +527,21 @@ sub srvname {
 		return @acts;
 	}, PART => sub {
 		my $net = shift;
+		my $nick = $net->nick($_[0]) or return ();
 		return {
 			type => 'PART',
-			src => $net->nick($_[0]),
+			src => $nick,
 			dst => $net->chan($_[2]),
 			msg => @_ ==4 ? $_[3] : '',
 		};
 	}, KICK => sub {
 		my $net = shift;
+		my $nick = $net->nick($_[3]) or return ();
 		return {
 			type => 'KICK',
 			src => $net->item($_[0]),
 			dst => $net->chan($_[2]),
-			kickee => $net->nick($_[3]),
+			kickee => $nick,
 			msg => $_[4],
 		};
 	}, MODE => sub {

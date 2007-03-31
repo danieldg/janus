@@ -95,6 +95,12 @@ sub modload {
 				dst => $j->{janus},
 				net => $act->{net},
 			});
+		}, NETSPLIT => act => sub {
+			my($j,$act) = @_;
+			my $net = $act->{net};
+			delete $j->{janus}->{nets}->{$net->id()};
+			my $jnick = delete $j->{janus}->{nicks}->{$net->id()};
+			$net->release_nick($jnick);
 		}, MSG => parse => sub {
 			my($j,$act) = @_;
 			my $nick = $act->{src};
