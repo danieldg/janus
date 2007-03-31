@@ -132,7 +132,7 @@ sub modload {
 		}
 		$nick->{nets}->{$id} = $net;
 		return if $net->{jlink};
-		my $rnick = $net->request_nick($nick, $nick->{homenick});
+		my $rnick = $net->request_nick($nick, $nick->{homenick}, $act->{reconnect});
 		$nick->{nicks}->{$id} = $rnick;
 	}, NICK => check => sub {
 		my($j,$act) = @_;

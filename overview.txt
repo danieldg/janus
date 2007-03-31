@@ -23,7 +23,7 @@ LocalNet
 	nick(name, [or_undef]) - returns a currently existing nick of this name, or undef if the argument is 1
 	channel(name, [new]) - returns a channel of this name, optionally creating if $new is 1
 	get_kline(Nick) - returns a kline matching the nick, if any
-	request_nick(Nick, request) - gives the Nick a local network name, based on the requested one
+	request_nick(Nick, request, [force_tag]) - gives the Nick a local network name, based on the requested one
 	release_nick(nickname) - this nick is now unused
 
 Unreal (or other network implementations); subclass of LocalNet

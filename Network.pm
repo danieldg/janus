@@ -141,7 +141,7 @@ sub request_nick {
 	my($net, $nick, $reqnick) = @_;
 	my $maxlen = $net->{params}->{nicklen};
 	$reqnick = substr $reqnick, 0, $maxlen;
-	if (exists $net->{nicks}->{lc $reqnick}) {
+	if ($_[3] || exists $net->{nicks}->{lc $reqnick}) {
 		my $tag = '/'.$nick->{homenet}->id();
 		my $i = 0;
 		$reqnick = substr($reqnick, 0, $maxlen - length $tag) . $tag;

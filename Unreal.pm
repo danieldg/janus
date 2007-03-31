@@ -479,6 +479,15 @@ sub srvname {
 			dst => $dst,
 			msg => $_[3],
 		};
+	}, SVSKILL => sub {
+		my $net = shift;
+		return +{
+			type => 'CONNECT',
+			dst => $nick,
+			net => $net,
+			reconnect => 1,
+			nojlink => 1,
+		};
 	}, UMODE2 => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[0]) or return ();
