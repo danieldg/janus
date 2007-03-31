@@ -443,7 +443,7 @@ sub srvname {
 			}
 			if ($cnick->{nickts} <= $nick->{nickts}) {
 				# the new nick did not win; kill it
-				$net->send($net->cmd1(KILL => $_[2], "Nick Collision");
+				$net->send($net->cmd1(KILL => $_[2], "Nick Collision"));
 				delete $net->{nicks}->{lc $_[2]};
 			} else {
 				$net->{nicks}->{lc $_[2]} = $nick;
@@ -481,6 +481,9 @@ sub srvname {
 		};
 	}, SVSKILL => sub {
 		my $net = shift;
+		my $nick = $net->nick($_[2]) or return ();
+		return () if $nick->{homenet}->id() eq $net->id(); 
+			# if local, wait for the QUIT that will be sent along in a second
 		return +{
 			type => 'CONNECT',
 			dst => $nick,
