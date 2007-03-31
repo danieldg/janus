@@ -52,7 +52,7 @@ sub _modecpy {
 }
 
 sub _mode_delta {
-	my($chan, $dst, $j) = @_;
+	my($chan, $dst) = @_;
 	my %add = %{$dst->{mode}};
 	my(@modes, @args);
 	for my $txt (keys %{$chan->{mode}}) {
@@ -102,6 +102,7 @@ sub _mode_delta {
 			push @modes, '+'.$txt;
 		}
 	}
+	(\@modes, \@args);
 }
 
 # get name on a network
@@ -213,13 +214,7 @@ sub modload {
 
 		for my $id (keys %{$chan1->{nets}}) {
 			if (exists $chan2->{nets}->{$id}) {
-				$j->append(+{
-					type => 'MSG',
-					src => $j->{janus},
-					dst => $act->{src},
-					notice => 1,
-					msg => "Cannot link: this channel would be in $id twice",
-				});
+				$j->jmsg($act->{src}, "Cannot link: this channel would be in $id twice");
 				return 1;
 			}
 		}
@@ -229,6 +224,9 @@ sub modload {
 		my $send = $act->{src}->{homenet}->{jlink} ? 0 : 1;
 		my($chan1,$chan2) = ($act->{chan1}, $act->{chan2});
 		
+		my $nets1 = [ values %{$chan1->{nets}} ];
+		my $nets2 = [ values %{$chan2->{nets}} ];
+
 		my $tsctl = ($chan2->{ts} <=> $chan1->{ts});
 		# topic timestamps are backwards: later topic change is taken IF the creation stamps are the same
 		# otherwise go along with the channel sync
@@ -255,7 +253,8 @@ sub modload {
 			if ($chan1->{topic} ne $chan2->{topic}) {
 				$j->append(+{
 					type => 'TOPIC',
-					dst => $chan2,
+					dst => $chan,
+					sendto => $nets2,
 					topic => $chan->{topic},
 					topicts => $chan->{topicts},
 					topicset => $chan->{topicset},
@@ -268,7 +267,8 @@ sub modload {
 			if ($chan1->{topic} ne $chan2->{topic}) {
 				$j->append(+{
 					type => 'TOPIC',
-					dst => $chan1,
+					dst => $chan,
+					sendto => $nets1,
 					topic => $chan->{topic},
 					topicts => $chan->{topicts},
 					topicset => $chan->{topicset},
@@ -306,14 +306,29 @@ sub modload {
 			}
 		}
 
-		$chan1->_mode_delta($chan, $j) if $send;
-		$chan2->_mode_delta($chan, $j) if $send;
+		{
+			my ($mode, $marg) = $chan1->_mode_delta($chan, $j);
+			$j->append(+{
+				type => 'MODE',
+				dst => $chan1,
+				sendto => $nets1,
+				mode => $mode,
+				args => $marg,
+				nojlink => 1,
+			}) if @$mode;
+			($mode, $marg) = $chan2->_mode_delta($chan, $j);
+			$j->append(+{
+				type => 'MODE',
+				dst => $chan2,
+				sendto => $nets2,
+				mode => $mode,
+				args => $marg,
+				nojlink => 1,
+			}) if @$mode;
+		}
 
 		$chan->_mergenet($chan1);
 		$chan->_mergenet($chan2);
-
-		my $nets1 = [ values %{$chan1->{nets}} ];
-		my $nets2 = [ values %{$chan2->{nets}} ];
 
 		for my $nick (values %{$chan1->{nicks}}) {
 			$chan->_ljoin($j,$nick, $chan1);
