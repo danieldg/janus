@@ -301,17 +301,27 @@ sub vhost {
 sub nickact {
 	#(SET|CHG)(HOST|IDENT|NAME)
 	my $net = shift;
-	my($type, $act) = ($_[2] =~ /(SET|CHG)(HOST|IDENT|NAME)/i);
+	my($type, $act) = (lc($_[1]) =~ /(SET|CHG)(HOST|IDENT|NAME)/i);
 	$act =~ s/host/vhost/i;
-
+	
+	my $src = $net->nick($_[0]);
+	my $dst = $type eq 'set' ? $src : $net->nick($_[2]);
 	my %a = (
 		type => 'NICKINFO',
-		src => $net->nick($_[0]),
+		src => $src,
+		dst => $dst,
 		item => lc $act,
 		value => $_[-1],
 	);
-	$a{dst} = $type eq 'SET' ? $a{src} : $net->nick($_[2]);
-	\%a;
+	if ($act eq 'vhost' && !($dst->{mode}->{vhost} || $dst->{mode}->{vhost_x})) {
+		return (\%a, +{
+			type => 'UMODE',
+			dst => $dst,
+			value => '+xt',
+		});
+	} else {
+		return \%a;
+	}
 }
 
 sub ignore {
@@ -752,10 +762,32 @@ sub cmd2 {
 		my($net,$act) = @_;
 		my $item = $act->{item};
 		$item =~ s/vhost/host/;
-		$net->cmd2($act->{dst}, 'SET'.uc($item), $act->{value});
+		if ($act->{dst}->{homenet}->id() eq $net->id()) {
+			my $src = $act->{src}->is_on($net) ? $act->{src} : $net->{linkname};
+			$net->cmd2($src, 'CHG'.uc($item), $act->{dst}, $act->{value});
+		} else {
+			$net->cmd2($act->{dst}, 'SET'.uc($item), $act->{value});
+		}
 	}, UMODE => sub {
 		my($net,$act) = @_;
-		$net->cmd2($act->{dst}, UMODE2 => $act->{value});
+		my $pm = '+';
+		local $_;
+		my $mode;
+		my @out;
+		for (split //, $act->{value}) {
+			if (/[-+]/) {
+				$pm = $_;
+				$mode .= $_;
+			} elsif (/[xt]/) {
+				my $vhost = $act->{dst}->vhost();
+				push @out, $net->cmd2($act->{dst}, SETHOST => $vhost) unless @out;
+			} else {
+				$mode .= $_;
+			}
+		}
+		$mode =~ s/[-+]+([-+]|$)/$1/g;
+		push @out, $net->cmd2($act->{dst}, UMODE2 => $mode) if $mode;
+		@out;
 	}, QUIT => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{dst}, QUIT => $act->{msg});
