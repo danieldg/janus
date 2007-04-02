@@ -487,6 +487,7 @@ sub srvname {
 			type => 'KILL',
 			src => $src,
 			dst => $dst,
+			net => $net,
 			msg => $_[3],
 		};
 	}, SVSKILL => sub {
@@ -517,7 +518,6 @@ sub srvname {
 	SETNAME => \&nickact,
 	CHGNAME => \&nickact,
 	SWHOIS => \&ignore,
-	SVSKILL => \&ignore, # the client sends a quit message when this is recieved
 
 # Channel Actions
 	JOIN => sub {
@@ -812,6 +812,9 @@ sub cmd2 {
 		my $id = $new->id();
 		$net->cmd1(GLOBOPS => "Janus Network $id ($new->{netname}) is now linked");
 	}, NETSPLIT => sub {
+		();
+	}, KILL => sub {
+		();
 	},
 );
 

@@ -80,6 +80,16 @@ sub _part {
 	$nick->_netclean(%{$chan->{nets}});
 }
 
+sub _netpart {
+	my($nick, $net) = @_;	
+	my $id = $net->id();
+
+	delete $nick->{nets}->{$id};
+	return if $net->{jlink};
+	my $rnick = delete $nick->{nicks}->{$id};
+	$net->release_nick($rnick);
+}
+
 sub _netclean {
 	my $nick = shift;
 	my %nets = @_ ? @_ : %{$nick->{nets}};
@@ -89,8 +99,7 @@ sub _netclean {
 			delete $nets{$id};
 		}
 	}
-	for my $id (keys %nets) {
-		my $net = $nets{$id};
+	for my $net (values %nets) {
 		# This sending mechanism deliberately bypasses
 		# the message queue because a QUIT is intended
 		# to destroy the nick from all nets, not just one
@@ -99,11 +108,8 @@ sub _netclean {
 			src => $nick,
 			dst => $nick,
 			msg => 'Left all shared channels',
-			nojlink => 1,
-		});
-		delete $nick->{nets}->{$id};
-		my $rnick = delete $nick->{nicks}->{$id};
-		$net->release_nick($rnick);
+		}) unless $net->{jlink};
+		$nick->_netpart($net);
 	}
 }
 
@@ -216,6 +222,25 @@ sub modload {
 		my $nick = $act->{kickee};
 		my $chan = $act->{dst};
 		$nick->_part($chan);
+	}, KILL => act => sub {
+		my($j, $act) = @_;
+		my $nick = $act->{dst};
+		my $net = $act->{net};
+		my $netid = $net->id();
+		$nick->_netpart($net);
+		for my $chan (values %{$nick->{chans}}) {
+			next unless exists $chan->{nets}->{$netid};
+			my $act = {
+				type => 'KICK',
+				src => $act->{src},
+				dst => $chan,
+				kickee => $nick,
+				msg => $act->{msg},
+				nojlink => 1,
+			};
+			$act->{sendto} = [ $chan->sendto($act, $net) ];
+			$j->append($act);
+		}
 	});
 }
 
