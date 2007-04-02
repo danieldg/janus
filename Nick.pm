@@ -68,6 +68,7 @@ sub rejoin {
 			type => 'CONNECT',
 			dst => $nick,
 			net => $chan->{nets}->{$id},
+			nojlink => 1,
 		});
 	}
 }
@@ -90,6 +91,9 @@ sub _netclean {
 	}
 	for my $id (keys %nets) {
 		my $net = $nets{$id};
+		# This sending mechanism deliberately bypasses
+		# the message queue because a QUIT is intended
+		# to destroy the nick from all nets, not just one
 		$net->send({
 			type => 'QUIT',
 			src => $nick,
