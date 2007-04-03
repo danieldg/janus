@@ -13,11 +13,47 @@ my %cmds = (
 		$j->jmsg($nick, 'Janus2 Help',
 			' link $localchan $network $remotechan - links a channel with a remote network',
 			' delink $chan - delinks a channel from all other networks',
+			'These commands are restricted to IRC operators:',
+			' ban list - list all active janus bans',
+			' ban add $expr $reason $expire - add a ban',
+			' ban del $expr - remove a ban',
+			'  Bans are perl regular expressions matched against nick!ident@host%network on any',
+			'  remote joins to a shared channel',
 			' list - shows a list of the linked networks; will eventually show channels too',
 			' rehash - reload the config and attempt to reconnect to split servers',
 			' die - quit immediately',
-			'Some commands may be restricted to IRC operators',
 		);
+	}, ban => sub {
+		my($j, $nick) = @_;
+		my($cmd, @arg) = split /\s+/;
+		return $j->jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
+		my $net = $nick->{homenet};
+		if ($cmd =~ /^l/i) {
+			for my $expr (sort keys %{$net->{ban}}) {
+				my $ban = $net->{ban}->{$expr};
+				my $expire = $ban->{expire} ? 'expires on '.gmtime($ban->{expire}) : 'does not expire';
+				$j->jmsg($nick, "$expr - set by $ban->{setter}, $expire - $ban->{reason}");
+			}
+		} elsif ($cmd =~ /^a/i) {
+			unless ($arg[1]) {
+				$j->jmsg($nick, 'Use: ban add $expr $reason $duration');
+				return;
+			}
+			my %b = (
+				expr => $arg[0],
+				reason => $arg[1],
+				expire => $arg[2] ? $arg[2] + time : 0,
+				setter => $nick->{homenick},
+			);
+			$net->{ban}->{$arg[0]} = \%b;
+			$j->jmsg($nick, 'Ban added');
+		} elsif ($cmd =~ /^d/i) {
+			if (delete $net->{ban}->{$arg[0]}) {
+				$j->jmsg($nick, 'Ban removed');
+			} else {
+				$j->jmsg($nick, 'Could not find ban - use ban list to see a list of all bans');
+			}
+		}
 	}, list => sub {
 		my($j, $nick) = @_;
 		return $j->jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
@@ -79,7 +115,6 @@ my %cmds = (
 		});
 	}, rehash => sub {
 		my($j, $nick) = @_;
-		my $j = shift;
 		return $j->jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
 		$j->append(+{
 			type => 'REHASH',

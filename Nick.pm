@@ -132,7 +132,26 @@ sub vhost {
 sub modload {
  my($me, $janus) = @_;
  $janus->hook_add($me, 
-	CONNECT => act => sub {
+ 	CONNECT => check => sub {
+		my($j, $act) = @_;
+		my $nick = $act->{dst};
+		my $net = $act->{net};
+		return undef if $net->{jlink} || $act->{reconnect};
+
+		my $mask = $nick->{homenick}.'!'.$nick->{ident}.'@'.$nick->{host}.'%'.$nick->{homenet}->id();
+		for my $expr (keys %{$net->{ban}}) {
+			next unless $mask =~ /$expr/;
+			my $ban = $net->{ban}->{$expr};
+			$j->append(+{
+				type => 'KILL',
+				dst => $nick,
+				net => $net,
+				msg => "Banned by $net->{netname}: $ban->{reason}",
+			});
+			return 1;
+		}
+		undef;
+	}, CONNECT => act => sub {
 		my($j, $act) = @_;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
