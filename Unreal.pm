@@ -472,7 +472,7 @@ sub srvname {
 		};
 	}, KILL => sub {
 		my $net = shift;
-		my $src = $net->nick($_[0], 1);
+		my $src = $net->item($_[0]);
 		my $dst = $net->nick($_[2]) or return ();
 
 		if ($dst->{homenet}->id() eq $net->id()) {

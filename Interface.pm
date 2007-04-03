@@ -8,17 +8,19 @@ my %cmds = (
 	unk => sub {
 		my($j, $nick) = @_;
 		$j->jmsg($nick, 'Unknown command. Use "help" to see available commands');
-	}, unauth => sub {
-		my($j, $nick) = @_;
-		$j->jmsg($nick, 'You must be an IRC operator to use this service');
 	}, help => sub {
 		my($j, $nick) = @_;
 		$j->jmsg($nick, 'Janus2 Help',
 			' link $localchan $network $remotechan - links a channel with a remote network',
 			' delink $chan - delinks a channel from all other networks',
+			' list - shows a list of the linked networks; will eventually show channels too',
+			' rehash - reload the config and attempt to reconnect to split servers',
+			' die - quit immediately',
+			'Some commands may be restricted to IRC operators',
 		);
 	}, list => sub {
 		my($j, $nick) = @_;
+		return $j->jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
 		$j->jmsg($nick, 'Linked networks: '.join ' ', sort keys %{$j->{nets}});
 		# TODO display available channels when that is set up
 	}, 'link' => sub {
@@ -33,8 +35,22 @@ my %cmds = (
 			$j->jmsg($nick, "Cannot find network $nname2");
 			return;
 		};
-		my $chan1 = $net1->chan($cname1, 1);
-		my $chan2 = $net2->chan($cname2, 1);
+		my $chan1 = $net1->{chans}->{lc $cname1} or do {
+			$j->jmsg($nick, "Cannot find channel $cname1");
+			return;
+		};
+		my $chan2 = $net2->{chans}->{lc $cname2} or do {
+			$j->jmsg($nick, "Cannot find channel $cname2");
+			return;
+		};
+		
+		unless ($nick->{mode}->{oper}) {
+			unless ($chan1->{nmode}->{$nick->id()}->{n_owner}) {
+				$j->jmsg("You must be a channel owner to use this command");
+				return;
+			}
+		}
+		# TODO switch between LINKREQ and LINK
 		$j->append(+{
 			type => 'LINK',
 			src => $nick,
@@ -44,7 +60,17 @@ my %cmds = (
 	}, 'delink' => sub {
 		my($j, $nick, $cname) = @_;
 		my $snet = $nick->{homenet};
-		my $chan = $snet->chan($cname);
+		my $chan = $snet->chan($cname) or do {
+			$j->jmsg($nick, "Cannot find channel $cname");
+			return;
+		};
+		unless ($nick->{mode}->{oper}) {
+			unless ($chan->{nmode}->{$nick->id()}->{n_owner}) {
+				$j->jmsg("You must be a channel owner to use this command");
+				return;
+			}
+		}
+			
 		$j->append(+{
 			type => 'DELINK',
 			src => $nick,
@@ -52,12 +78,18 @@ my %cmds = (
 			net => $snet,
 		});
 	}, rehash => sub {
+		my($j, $nick) = @_;
 		my $j = shift;
+		return $j->jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
 		$j->append(+{
 			type => 'REHASH',
 			sendto => [],
 		});
-	}, 'die' => sub { exit 0 },
+	}, 'die' => sub {
+		my($j, $nick) = @_;
+		return $j->jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
+		exit 0;
+	},
 );
 
 sub modload {
@@ -110,7 +142,6 @@ sub modload {
 				local $_ = $act->{msg};
 				s/^\s*(\S+)\s*// or return;
 				my $cmd = exists $cmds{lc $1} ? lc $1 : 'unk';
-				$cmd = 'unauth' unless $nick->{mode}->{oper};
 				$cmds{$cmd}->($j, $nick, $_);
 				return 1;
 			} elsif ($dst->isa('Nick') && !$nick->is_on($dst->{homenet})) {
