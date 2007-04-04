@@ -17,7 +17,7 @@ my %cmds = (
 			' ban list - list all active janus bans',
 			' ban add $expr $reason $expire - add a ban',
 			' ban kadd $expr $reason $expire - add a ban, and kill all users matching it',
-			' ban del $expr - remove a ban',
+			' ban del $expr|$index - remove a ban by expression or index in the ban list',
 			'Bans are matched against nick!ident@host%network on any remote joins to a shared channel',
 			' list - shows a list of the linked networks; will eventually show channels too',
 			' rehash - reload the config and attempt to reconnect to split servers',
@@ -28,11 +28,14 @@ my %cmds = (
 		my($cmd, @arg) = split /\s+/;
 		return $j->jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
 		my $net = $nick->{homenet};
+		my @list = sort $net->banlist();
 		if ($cmd =~ /^l/i) {
-			for my $expr (sort keys %{$net->{ban}}) {
+			my $c = 0;
+			for my $expr (@list) {
 				my $ban = $net->{ban}->{$expr};
 				my $expire = $ban->{expire} ? 'expires on '.gmtime($ban->{expire}) : 'does not expire';
-				$j->jmsg($nick, "$ban->{ircexpr} - set by $ban->{setter}, $expire - $ban->{reason}");
+				$c++;
+				$j->jmsg($nick, "$c $ban->{ircexpr} - set by $ban->{setter}, $expire - $ban->{reason}");
 			}
 		} elsif ($cmd =~ /^k?a/i) {
 			unless ($arg[1]) {
@@ -75,13 +78,18 @@ my %cmds = (
 			}
 		} elsif ($cmd =~ /^d/i) {
 			local $_ = $arg[0];
-			unless (s/^~//) { # all expressions starting with a ~ are perl regexes
-				s/(\W)/\\$1/g;
-				s/(\\\?)/./g;  # ? matches one char...
-				s/(\\\*)/.*/g; # * matches any chars...
+			if (/^\d+$/) {
+				$_ = $list[$_ - 1];
+			} else {
+				unless (s/^~//) { # all expressions starting with a ~ are perl regexes
+					s/(\W)/\\$1/g;
+					s/(\\\?)/./g;  # ? matches one char...
+					s/(\\\*)/.*/g; # * matches any chars...
+				}
 			}
-			if (delete $net->{ban}->{$_}) {
-				$j->jmsg($nick, 'Ban removed');
+			my $ban = delete $net->{ban}->{$_};
+			if ($ban) {
+				$j->jmsg($nick, "Ban $ban->{ircexpr} removed");
 			} else {
 				$j->jmsg($nick, 'Could not find ban - use ban list to see a list of all bans');
 			}

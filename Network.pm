@@ -160,6 +160,21 @@ sub release_nick {
 	delete $net->{nicks}->{lc $req};
 }
 
+sub banlist {
+	my $net = shift;
+	my @list = keys %{$net->{ban}};
+	my @good;
+	for my $i (@list) {
+		my $exp = $net->{ban}->{$i}->{expire};
+		if ($exp && $exp < time) {
+			delete $net->{ban}->{$i};
+		} else {
+			push @good, $exp;
+		}
+	}
+	@good;
+}
+
 sub modload {
  my($me, $janus) = @_;
  return unless $me eq 'Network';

@@ -141,7 +141,7 @@ sub modload {
 		return undef if $net->{jlink} || $act->{reconnect};
 
 		my $mask = $nick->{homenick}.'!'.$nick->{ident}.'@'.$nick->{host}.'%'.$nick->{homenet}->id();
-		for my $expr (keys %{$net->{ban}}) {
+		for my $expr ($net->banlist()) {
 			next unless $mask =~ /$expr/;
 			my $ban = $net->{ban}->{$expr};
 			$j->append(+{
