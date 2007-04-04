@@ -691,19 +691,14 @@ sub _out {
 }
 
 sub cmd1 {
-	my($net,$cmd) = (shift,shift);
-	my $out = $cmd2token{$cmd};
-	if (@_) {
-		my $end = $net->_out(pop @_);
-		$out .= ' '.$net->_out($_) for @_;
-		$out .= ' :'.$end;
-	}
-	$out;
+	my $net = shift;
+	$net->cmd2(undef, @_);
 }
 
 sub cmd2 {
 	my($net,$src,$cmd) = (shift,shift,shift);
-	my $out = ':'.$net->_out($src).' '.$cmd2token{$cmd};
+	my $out = defined $src ? ':'.$net->_out($src).' ' : '';
+	$out .= $cmd2token{$cmd};
 	if (@_) {
 		my $end = $net->_out(pop @_);
 		$out .= ' '.$net->_out($_) for @_;
@@ -744,12 +739,8 @@ sub cmd2 {
 		$net->cmd2($act->{src}, MODE => $act->{dst}, $net->_mode_interp($act));
 	}, TOPIC => sub {
 		my($net,$act) = @_;
-		my @t = (TOPIC => $act->{dst}, $act->{topicset}, $net->sjb64($act->{topicts}), $act->{topic});
-		if ($act->{src}) {
-			$net->cmd2($act->{src},@t);
-		} else {
-			$net->cmd1(@t);
-		}
+		$net->cmd2($act->{src}, TOPIC => $act->{dst}, $act->{topicset}, 
+			$net->sjb64($act->{topicts}), $act->{topic});
 	}, MSG => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, ($act->{notice} ? 'NOTICE' : 'PRIVMSG'), 
@@ -814,7 +805,11 @@ sub cmd2 {
 	}, NETSPLIT => sub {
 		();
 	}, KILL => sub {
-		();
+		my($net,$act) = @_;
+		my $killfrom = $act->{net};
+		return () unless $net->id() eq $killfrom->id();
+		return () unless defined $act->{dst}->str($net);
+		$net->cmd2($act->{src}, KILL => $act->{dst}, $act->{msg});
 	},
 );
 

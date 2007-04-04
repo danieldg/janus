@@ -85,15 +85,15 @@ sub _mod_hook {
 sub _send {
 	my($j,$act) = @_;
 	my @to;
-	if (exists $act->{sendto}) {
+	if (exists $act->{sendto} && ref $act->{sendto}) {
 		@to = @{$act->{sendto}};
-	} elsif (!$act->{dst}) {
+	} elsif (!ref $act->{dst}) {
 		warn "Action $act of type $act->{type} does not have a destination or sendto list";
 		return;
 	} elsif ($act->{dst}->isa('Network')) {
 		@to = $act->{dst};
 	} else {
-		@to = $act->{dst}->sendto($act, $j->{except});
+		@to = $act->{dst}->sendto($act, exists $act->{sendto} ? undef : $j->{except});
 	}
 	for my $net (@to) {
 		$net->send($act);
@@ -150,6 +150,13 @@ sub _run {
 }
 
 sub insert {
+	my $j = shift;
+	for my $act (@_) {
+		$j->_run($act);
+	}
+}
+
+sub insert_full {
 	my $j = shift;
 	$j = $j->child();
 	for my $act (@_) {

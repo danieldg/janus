@@ -178,7 +178,7 @@ sub modload {
 				nojlink => 1,
 			};
 		}
-		$j->insert(@clean);
+		$j->insert_full(@clean);
 		for my $chan (values %{$net->{chans}}) {
 			$j->append(+{
 				type => 'DELINK',
@@ -203,7 +203,7 @@ sub modload {
 				nojlink => 1,
 			};
 		}
-		$j->insert(@clean) if @clean;
+		$j->insert_full(@clean) if @clean;
 		warn "nicks still remain after netsplit kills\n" if %{$net->{nicks}};
 		delete $net->{nicks};
 		warn "channels remain after a netsplit\n" if %{$net->{chans}};

@@ -42,6 +42,8 @@ sub sendto {
 		my $net = $nick->{homenet};
 		return $net if exists $act->{src}->{nets}->{$net->id()};
 		return ();
+	} elsif ($act->{type} eq 'CONNECT') {
+		return $act->{net};
 	} else {
 		my %n = %{$nick->{nets}};
 		delete $n{$except->id()} if $except;
@@ -246,7 +248,6 @@ sub modload {
 		my $nick = $act->{dst};
 		my $net = $act->{net};
 		my $netid = $net->id();
-		$nick->_netpart($net);
 		for my $chan (values %{$nick->{chans}}) {
 			next unless exists $chan->{nets}->{$netid};
 			my $act = {
@@ -260,6 +261,11 @@ sub modload {
 			$act->{sendto} = [ $chan->sendto($act, $net) ];
 			$j->append($act);
 		}
+	}, KILL => cleanup => sub {
+		my($j, $act) = @_;
+		my $nick = $act->{dst};
+		my $net = $act->{net};
+		$nick->_netpart($net);
 	});
 }
 

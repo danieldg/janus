@@ -16,9 +16,9 @@ my %cmds = (
 			'These commands are restricted to IRC operators:',
 			' ban list - list all active janus bans',
 			' ban add $expr $reason $expire - add a ban',
+			' ban kadd $expr $reason $expire - add a ban, and kill all users matching it',
 			' ban del $expr - remove a ban',
-			'  Bans are perl regular expressions matched against nick!ident@host%network on any',
-			'  remote joins to a shared channel',
+			'Bans are matched against nick!ident@host%network on any remote joins to a shared channel',
 			' list - shows a list of the linked networks; will eventually show channels too',
 			' rehash - reload the config and attempt to reconnect to split servers',
 			' die - quit immediately',
@@ -32,23 +32,55 @@ my %cmds = (
 			for my $expr (sort keys %{$net->{ban}}) {
 				my $ban = $net->{ban}->{$expr};
 				my $expire = $ban->{expire} ? 'expires on '.gmtime($ban->{expire}) : 'does not expire';
-				$j->jmsg($nick, "$expr - set by $ban->{setter}, $expire - $ban->{reason}");
+				$j->jmsg($nick, "$ban->{ircexpr} - set by $ban->{setter}, $expire - $ban->{reason}");
 			}
-		} elsif ($cmd =~ /^a/i) {
+		} elsif ($cmd =~ /^k?a/i) {
 			unless ($arg[1]) {
 				$j->jmsg($nick, 'Use: ban add $expr $reason $duration');
 				return;
 			}
+			local $_ = $arg[0];
+			unless (s/^~//) { # all expressions starting with a ~ are raw perl regexes
+				s/(\W)/\\$1/g;
+				s/\\\?/./g;  # ? matches one char...
+				s/\\\*/.*/g; # * matches any chars...
+			}
 			my %b = (
-				expr => $arg[0],
+				expr => $_,
+				ircexpr => $arg[0],
 				reason => $arg[1],
 				expire => $arg[2] ? $arg[2] + time : 0,
 				setter => $nick->{homenick},
 			);
-			$net->{ban}->{$arg[0]} = \%b;
-			$j->jmsg($nick, 'Ban added');
+			$net->{ban}->{$_} = \%b;
+			if ($cmd =~ /^a/i) {
+				$j->jmsg($nick, 'Ban added');
+			} else {
+				my $ban = $_;
+				my $c = 0;
+				for my $n (values %{$net->{nicks}}) {
+					next if $n->{homenet}->id() eq $net->id();
+					my $expr = $n->{homenick}.'!'.$n->{ident}.'\@'.$n->{host}.'%'.$n->{homenet}->id();
+					next unless $expr =~ /$ban/;
+					$j->append(+{
+						type => 'KILL',
+						dst => $n,
+						net => $net,
+						sendto => undef,
+						msg => "Banned by $net->{netname}: $arg[1]",
+					});
+					$c++;
+				}
+				$j->jmsg($nick, "Ban added, $c nick(s) killed");
+			}
 		} elsif ($cmd =~ /^d/i) {
-			if (delete $net->{ban}->{$arg[0]}) {
+			local $_ = $arg[0];
+			unless (s/^~//) { # all expressions starting with a ~ are perl regexes
+				s/(\W)/\\$1/g;
+				s/(\\\?)/./g;  # ? matches one char...
+				s/(\\\*)/.*/g; # * matches any chars...
+			}
+			if (delete $net->{ban}->{$_}) {
 				$j->jmsg($nick, 'Ban removed');
 			} else {
 				$j->jmsg($nick, 'Could not find ban - use ban list to see a list of all bans');
