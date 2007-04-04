@@ -169,7 +169,7 @@ sub banlist {
 		if ($exp && $exp < time) {
 			delete $net->{ban}->{$i};
 		} else {
-			push @good, $exp;
+			push @good, $i;
 		}
 	}
 	@good;

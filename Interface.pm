@@ -4,6 +4,16 @@ use Nick;
 use strict;
 use warnings;
 
+sub banify {
+	local $_ = $_[0];
+	unless (s/^~//) { # all expressions starting with a ~ are raw perl regexes
+		s/(\W)/\\$1/g;
+		s/\\\?/./g;  # ? matches one char...
+		s/\\\*/.*/g; # * matches any chars...
+	}
+	$_;
+}
+
 my %cmds = (
 	unk => sub {
 		my($j, $nick) = @_;
@@ -37,34 +47,29 @@ my %cmds = (
 				$c++;
 				$j->jmsg($nick, "$c $ban->{ircexpr} - set by $ban->{setter}, $expire - $ban->{reason}");
 			}
+			$j->jmsg($nick, 'No bans defined') unless @list;
 		} elsif ($cmd =~ /^k?a/i) {
 			unless ($arg[1]) {
 				$j->jmsg($nick, 'Use: ban add $expr $reason $duration');
 				return;
 			}
-			local $_ = $arg[0];
-			unless (s/^~//) { # all expressions starting with a ~ are raw perl regexes
-				s/(\W)/\\$1/g;
-				s/\\\?/./g;  # ? matches one char...
-				s/\\\*/.*/g; # * matches any chars...
-			}
+			my $expr = banify $arg[0];
 			my %b = (
-				expr => $_,
+				expr => $expr,
 				ircexpr => $arg[0],
 				reason => $arg[1],
 				expire => $arg[2] ? $arg[2] + time : 0,
 				setter => $nick->{homenick},
 			);
-			$net->{ban}->{$_} = \%b;
+			$net->{ban}->{$expr} = \%b;
 			if ($cmd =~ /^a/i) {
 				$j->jmsg($nick, 'Ban added');
 			} else {
-				my $ban = $_;
 				my $c = 0;
 				for my $n (values %{$net->{nicks}}) {
 					next if $n->{homenet}->id() eq $net->id();
-					my $expr = $n->{homenick}.'!'.$n->{ident}.'\@'.$n->{host}.'%'.$n->{homenet}->id();
-					next unless $expr =~ /$ban/;
+					my $mask = $n->{homenick}.'!'.$n->{ident}.'\@'.$n->{host}.'%'.$n->{homenet}->id();
+					next unless $mask =~ /$expr/;
 					$j->append(+{
 						type => 'KILL',
 						dst => $n,
@@ -77,21 +82,14 @@ my %cmds = (
 				$j->jmsg($nick, "Ban added, $c nick(s) killed");
 			}
 		} elsif ($cmd =~ /^d/i) {
-			local $_ = $arg[0];
-			if (/^\d+$/) {
-				$_ = $list[$_ - 1];
-			} else {
-				unless (s/^~//) { # all expressions starting with a ~ are perl regexes
-					s/(\W)/\\$1/g;
-					s/(\\\?)/./g;  # ? matches one char...
-					s/(\\\*)/.*/g; # * matches any chars...
+			for (@arg) {
+				my $expr = /^\d+$/ ? $list[$_ - 1] : banify $_;
+				my $ban = delete $net->{ban}->{$expr};
+				if ($ban) {
+					$j->jmsg($nick, "Ban $ban->{ircexpr} removed");
+				} else {
+					$j->jmsg($nick, "Could not find ban $_ - use ban list to see a list of all bans");
 				}
-			}
-			my $ban = delete $net->{ban}->{$_};
-			if ($ban) {
-				$j->jmsg($nick, "Ban $ban->{ircexpr} removed");
-			} else {
-				$j->jmsg($nick, 'Could not find ban - use ban list to see a list of all bans');
 			}
 		}
 	}, list => sub {
