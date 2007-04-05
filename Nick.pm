@@ -17,24 +17,6 @@ sub DESTROY {
 	print "DBG: $_[0] $_[0]->{homenick} deallocated\n";
 }
 
-sub umode {
-	my $nick = shift;
-	my $net = $nick->{homenet};
-	local $_;
-	my $pm = '+';
-	for (split //, shift) {
-		my $txt = $net->{params}->{umode2txt}->{$_};
-		# TODO move this parsing back to Unreal.pm where it belongs
-		if (/[+-]/) {
-			$pm = $_;
-		} elsif ($pm eq '+') {
-			$nick->{mode}->{$txt} = 1;
-		} elsif ($pm eq '-') {
-			delete $nick->{mode}->{$txt};
-		}
-	}
-}
-
 # send to all but possibly one network for NICKINFO
 # send to home network for MSG
 sub sendto {
@@ -197,7 +179,15 @@ sub modload {
 	}, UMODE => act => sub {
 		my $act = $_[1];
 		my $nick = $act->{dst};
-		$nick->umode($act->{value});
+		for my $ltxt (@{$act->{mode}}) {
+			if ($ltxt =~ /\+(.*)/) {
+				$nick->{mode}->{$1} = 1;
+			} elsif ($ltxt =~ /-(.*)/) {
+				delete $nick->{mode}->{$1};
+			} else {
+				warn "Bad umode change $ltxt";
+			}
+		}
 	}, QUIT => cleanup => sub {
 		my $act = $_[1];
 		my $nick = $act->{dst};

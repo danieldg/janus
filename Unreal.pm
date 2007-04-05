@@ -282,13 +282,6 @@ sub send {
 	$net->{sock}->print(map "$_\r\n", @out);
 }
 
-sub vhost {
-	my $nick = $_[1];
-	return $nick->{vhost} if $nick->{mode}->{vhost};
-	return $nick->{chost} if $nick->{mode}->{vhost_x};
-	$nick->{host};
-}
-
 # IRC Parser
 # Arguments:
 # 	$_[0] = Network
@@ -317,7 +310,7 @@ sub nickact {
 		return (\%a, +{
 			type => 'UMODE',
 			dst => $dst,
-			value => '+xt',
+			mode => ['+vhost', '+vhost_x'],
 		});
 	} else {
 		return \%a;
@@ -409,12 +402,14 @@ sub srvname {
 			nickts => $net->sjbint($_[4]),
 			ident => $_[5],
 			host => $_[6],
+			vhost => $_[6],
 			home_server => $net->srvname($_[7]),
 			servicests => $net->sjbint($_[8]),
 			name => $_[-1],
 		);
 		if (@_ >= 12) {
-			$nick->umode($_[9]);
+			$nick->{mode} = +{ map { $umode2txt{$_} => 1 } split //, $_[9] };
+			delete $nick->{mode}->{''};
 			$nick->{vhost} = $_[10];
 		}
 		if (@_ >= 14) {
@@ -439,7 +434,7 @@ sub srvname {
 		}
 		
 		unless ($nick->{mode}->{vhost}) {
-			$nick->{vhost} = $nick->{mode}->{vhost_x} ? $nick->{xhost} : $nick->{host};
+			$nick->{vhost} = $nick->{mode}->{vhost_x} ? $nick->{chost} : $nick->{host};
 		}
 
 		my @out;
@@ -510,12 +505,42 @@ sub srvname {
 	}, UMODE2 => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[0]) or return ();
-		# TODO split up and handle vhost
-		return {
+		my @mode;
+		my $pm = '+';
+		my $vh_pre = $nick->{mode}->{vhost} ? 3 : $nick->{mode}->{vhost_x} ? 1 : 0;
+		my $vh_post = $vh_pre;
+		for (split //, $_[2]) {
+			if (/[-+]/) {
+				$pm = $_;
+			} else {
+				my $txt = $umode2txt{$_};
+				if ($txt eq 'vhost') {
+					warn '+t should not be in a umode' if $pm eq '+';
+					$vh_post = $vh_post & 1;
+				} elsif ($txt eq 'vhost_x') {
+					$vh_post = $pm eq '+' ? $vh_post | 1 : 0;
+				}
+				push @mode, $pm.$txt;
+			}
+		}
+		my @out;
+		push @out, +{
 			type => 'UMODE',
 			dst => $nick,
-			value => $_[2],
-		}
+			mode => \@mode,
+		} if @mode;
+
+		if ($vh_pre != $vh_post) {
+			warn if $vh_post > 1; #invalid
+			my $vhost = $vh_post ? $nick->{chost} : $nick->{host};
+			push @out,{
+				type => 'NICKINFO',
+				dst => $nick,
+				item => 'host',
+				value => $vhost,
+			};
+		}				
+		@out;
 	},
 	SETIDENT => \&nickact,
 	CHGIDENT => \&nickact,
@@ -679,7 +704,18 @@ sub srvname {
 	PASS => \&ignore,
 	PROTOCTL => \&ignore,
 	NETINFO => \&ignore,
-	EOS => \&ignore,
+	EOS => sub {
+		my $net = shift;
+		my $srv = $_[0];
+		if ($net->{server}->{lc $srv}->{parent} eq lc $net->{linkname}) {
+			return +{
+				type => 'LINKED',
+				net => $net,
+				sendto => [],
+			};
+		}
+		();
+	},
 
 # Messages
 	PRIVMSG => \&pm_notice,
@@ -718,7 +754,7 @@ sub cmd2 {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
 		return if $act->{net}->id() ne $net->id();
-		my $mode = join '', '+', map $txt2umode{$_}, keys %{$nick->{mode}};
+		my $mode = join '', '+', sort map $txt2umode{$_}, keys %{$nick->{mode}};
 		$mode =~ s/[xt]//g;
 		$mode .= 'xt';
 		# TODO set hopcount to 2 and use $nick->{homenet}->id().'.janus' or similar as server name
@@ -766,23 +802,19 @@ sub cmd2 {
 		}
 	}, UMODE => sub {
 		my($net,$act) = @_;
-		my $pm = '+';
 		local $_;
-		my $mode;
-		my @out;
-		for (split //, $act->{value}) {
-			if (/[-+]/) {
-				$pm = $_;
-				$mode .= $_;
-			} elsif (/[xt]/) {
-				push @out, $net->cmd2($act->{dst}, SETHOST => $nick->{vhost}) unless @out;
-			} else {
-				$mode .= $_;
+		my $pm = '';
+		my $mode = '';
+		for my $ltxt (@{$act->{mode}}) {
+			my($d,$txt) = $ltxt =~ /([-+])(.+)/ or warn $ltxt;
+			next if $txt eq 'vhost' || $txt eq 'vhost_x'; #never changed
+			if ($pm ne $d) {
+				$pm = $d;
+				$mode .= $pm;
 			}
+			$mode .= $txt2umode{$txt};
 		}
-		$mode =~ s/[-+]+([-+]|$)/$1/g;
-		push @out, $net->cmd2($act->{dst}, UMODE2 => $mode) if $mode;
-		@out;
+		$net->cmd2($act->{dst}, UMODE2 => $mode) if $mode;
 	}, QUIT => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{dst}, QUIT => $act->{msg});

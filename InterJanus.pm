@@ -88,6 +88,15 @@ my %to_ij = (
 		$out .= ' '.$ij->ijstr($_) for sort values %{$nick->{nets}};
 		$out .= '/></CONNECT>';
 		$out;
+	}, NICK => sub {
+		my($ij, $act) = @_;
+		'<NICK dst='.$ij->ijstr($act->{dst}).' nick='.$ij->ijstr($act->{nick}).'/>';
+	}, UMODE => sub {
+		my($ij, $act) = @_;
+		my $out = '<UMODE dst='.$ij->ijstr($act->{dst}).'><N:MODES';
+		$out .= ' '.$_ for @{$act->{mode}};
+		$out .= '/></UMODE>';
+		$out;
 	}, MODE => sub {
 		my($ij, $act) = @_;
 		my $out = '<MODE';
@@ -113,9 +122,7 @@ my %to_ij = (
 	},
 	QUIT => \&ssend,
 	KILL => \&ssend,
-	NICK => \&ignore,
 	NICKINFO => \&ssend,
-	UMODE => \&ssend,
 	PART => \&ssend,
 	KICK => \&ssend,
 	TOPIC => \&ssend,
