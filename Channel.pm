@@ -6,14 +6,15 @@ use warnings;
 
 sub new {
 	my($class,$net,$name) = @_;
+	my $id = $net->id();
 	my %chash = (
 		ts => time + 60,
 		topic => '',
 		topicts => 0,
 		topicset => '',
 		mode => {},
+		keyname => $id.$name,
 	); my $chan = \%chash;
-	my $id = $net->id();
 	weaken($chan->{nets}->{$id} = $net);
 	$chan->{names}->{$id} = $name;
 	bless $chan, $class;
@@ -234,6 +235,7 @@ sub modload {
 
 		my %chanh = (
 			mode => {},
+			keyname => $chan1->{keyname},
 		);
 		my $chan = \%chanh;
 		bless $chan;
@@ -352,17 +354,27 @@ sub modload {
 				nojlink => 1,
 			});
 		}
+	}, DELINK => check => sub {
+		my($j,$act) = @_;
+		my $chan = $act->{dst};
+		my $net = $act->{net};
+		return 1 unless exists $chan->{nets}->{$net->id()};
+		my @nets = keys %{$chan->{nets}};
+		return 1 if @nets == 1;
+		undef;
 	}, DELINK => act => sub {
 		my($j,$act) = @_;
 		my $chan = $act->{dst};
 		my $net = $act->{net};
 		my $id = $net->id();
-		return unless exists $chan->{nets}->{$id};
 		$act->{sendto} = [ values %{$chan->{nets}} ]; # before the splitting
-		delete $chan->{nets}->{$id};
-		return if $net->{jlink};
+		delete $chan->{nets}->{$id} or warn;
 
 		my $name = delete $chan->{names}->{$id};
+		if ($chan->{keyname} eq $name) {
+			my @onets = keys %{$chan->{names}};
+			$chan->{keyname} = $onets[0].$chan->{names}->{$onets[0]};
+		}
 		my %chanh = (
 			nets => { $id => $net },
 			names => { $id => $name },
@@ -370,6 +382,7 @@ sub modload {
 			topic => $chan->{topic},
 			topicts => $chan->{topicts},
 			topicset => $chan->{topicset},
+			keyname => $id.$name,
 		);
 		my $split = \%chanh;
 		bless $split;

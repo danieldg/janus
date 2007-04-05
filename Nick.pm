@@ -24,6 +24,7 @@ sub umode {
 	my $pm = '+';
 	for (split //, shift) {
 		my $txt = $net->{params}->{umode2txt}->{$_};
+		# TODO move this parsing back to Unreal.pm where it belongs
 		if (/[+-]/) {
 			$pm = $_;
 		} elsif ($pm eq '+') {
@@ -79,6 +80,7 @@ sub _part {
 	my($nick,$chan) = @_;
 	my $name = $chan->str($nick->{homenet});
 	delete $nick->{chans}->{lc $name};
+	return if $nick->{homenet}->{jlink};
 	$nick->_netclean(%{$chan->{nets}});
 }
 
@@ -123,12 +125,6 @@ sub id {
 sub str {
 	my($nick,$net) = @_;
 	$nick->{nicks}->{$net->id()};
-}
-
-sub vhost {
-	my $nick = $_[0];
-	my $net = $nick->{homenet};
-	$net->vhost($nick);
 }
 
 sub modload {

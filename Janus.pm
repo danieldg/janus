@@ -1,6 +1,7 @@
 package Janus;
 use strict;
 use warnings;
+use InterJanus;
 # Actions: arguments: (Janus, Action)
 #  parse - possible reparse point (/msg janus *) - only for local origin
 #  check - reject unauthorized and/or impossible commands
@@ -16,6 +17,8 @@ use warnings;
 # act and cleanup hooks ignore the return values.
 #  $act itself should NEVER be modified at this point
 #  Object linking must remain intact in the act hook
+
+my $ij_testlink = InterJanus->new();
 
 sub new {
 	my $class = shift;
@@ -95,7 +98,20 @@ sub _send {
 	} else {
 		@to = $act->{dst}->sendto($act, exists $act->{sendto} ? undef : $j->{except});
 	}
+	my(@real, %jlink);
+		# jlinks are in a hash to remove duplicates
 	for my $net (@to) {
+		my $ij = $net->{jlink};
+		if (defined $ij) {
+			$jlink{$ij->id()} = $ij;
+		} else {
+			push @real, $net;
+		}
+	}
+	for my $ij (values %jlink) {
+		$ij->ij_send($act);
+	}
+	for my $net (@real) {
 		$net->send($act);
 	}
 }
@@ -143,9 +159,9 @@ sub _run {
 		print "Check hook stole $act->{type}\n";
 		return;
 	}
-	print "Acting on $act->{type}\n";
 	$j->_hook($act->{type}, act => $act);
 	$j->_send($act);
+	$ij_testlink->ij_send($act);
 	$j->_hook($act->{type}, cleanup => $act);
 }
 

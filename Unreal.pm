@@ -437,6 +437,11 @@ sub srvname {
 				$nick->{ip} = $_;
 			}
 		}
+		
+		unless ($nick->{mode}->{vhost}) {
+			$nick->{vhost} = $nick->{mode}->{vhost_x} ? $nick->{xhost} : $nick->{host};
+		}
+
 		my @out;
 		if (exists $net->{nicks}->{lc $_[2]}) {
 			# nick collision
@@ -505,6 +510,7 @@ sub srvname {
 	}, UMODE2 => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[0]) or return ();
+		# TODO split up and handle vhost
 		return {
 			type => 'UMODE',
 			dst => $nick,
@@ -713,12 +719,11 @@ sub cmd2 {
 		my $nick = $act->{dst};
 		return if $act->{net}->id() ne $net->id();
 		my $mode = join '', '+', map $txt2umode{$_}, keys %{$nick->{mode}};
-		my $vhost = $nick->vhost();
 		$mode =~ s/[xt]//g;
 		$mode .= 'xt';
 		# TODO set hopcount to 2 and use $nick->{homenet}->id().'.janus' or similar as server name
 		$net->cmd1(NICK => $nick, 1, $net->sjb64($nick->{nickts}), $nick->{ident}, $nick->{host},
-			$net->{linkname}, 0, $mode, $vhost, ($nick->{ip_64} || '*'), $nick->{name});
+			$net->{linkname}, 0, $mode, $nick->{vhost}, ($nick->{ip_64} || '*'), $nick->{name});
 	}, JOIN => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
@@ -770,8 +775,7 @@ sub cmd2 {
 				$pm = $_;
 				$mode .= $_;
 			} elsif (/[xt]/) {
-				my $vhost = $act->{dst}->vhost();
-				push @out, $net->cmd2($act->{dst}, SETHOST => $vhost) unless @out;
+				push @out, $net->cmd2($act->{dst}, SETHOST => $nick->{vhost}) unless @out;
 			} else {
 				$mode .= $_;
 			}
