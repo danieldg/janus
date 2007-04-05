@@ -120,7 +120,7 @@ sub modload {
 
 		my $mask = $nick->{homenick}.'!'.$nick->{ident}.'@'.$nick->{host}.'%'.$nick->{homenet}->id();
 		for my $expr ($net->banlist()) {
-			next unless $mask =~ /$expr/;
+			next unless $mask =~ /^$expr$/;
 			my $ban = $net->{ban}->{$expr};
 			$j->append(+{
 				type => 'KILL',

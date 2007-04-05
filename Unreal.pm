@@ -3,6 +3,7 @@ use base 'Network';
 use strict;
 use warnings;
 use Nick;
+use Interface;
 
 my %fromirc;
 my %toirc;
@@ -724,6 +725,35 @@ sub srvname {
 	SENDSNO => \&ignore,
 	GLOBOPS => \&ignore,
 	WALLOPS => \&ignore,
+	CHATOPS => \&ignore,
+	NACHAT => \&ignore,
+	ADMINCHAT => \&ignore,
+	
+	TKL => sub {
+		my $net = shift;
+		my $iexpr;
+		if ($_[3] eq 'G') {
+			$iexpr = '*!'.$_[4].'@'.$_[5].'%*';
+		} elsif ($_[3] eq 'Q') {
+			$iexpr = $_[5].'!*';
+		}
+		return unless $iexpr;
+		my $expr = &Interface::banify($iexpr);
+		if ($_[2] eq '+') {
+			my %ban = (
+				expr => $expr,
+				ircexpr => $iexpr,
+				setter => $_[6],
+				expire => $_[7],
+				# 8 = set time
+				reason => $_[9],
+			);
+			$net->{ban}->{$expr} = \%ban;
+		} else {
+			delete $net->{ban}->{$expr};
+		}
+		();
+	},
 );
 
 sub _out {
