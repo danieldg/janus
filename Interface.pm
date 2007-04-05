@@ -228,6 +228,21 @@ sub modload {
 				return 1;
 			}
 			undef;
+		}, LINKED => act => sub {
+			my($j,$act) = @_;
+			my $net = $act->{net};
+			if ($net->id() eq 't1') {
+				$j->insert_full(+{
+					type => 'LINK',
+					chan1 => $net->chan('#opers',1),
+					chan2 => $j->{nets}->{t2}->chan('#test',1),
+				});
+				$j->insert_full(+{
+					type => 'LINK',
+					chan1 => $net->chan('#opers',1),
+					chan2 => $j->{nets}->{t3}->chan('#opers',1),
+				});
+			}
 		},
 	);
 }

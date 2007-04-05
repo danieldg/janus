@@ -222,7 +222,6 @@ sub modload {
 		undef;
 	}, LINK => act => sub {
 		my($j,$act) = @_;
-		my $send = $act->{src}->{homenet}->{jlink} ? 0 : 1;
 		my($chan1,$chan2) = ($act->{chan1}, $act->{chan2});
 		
 		my $nets1 = [ values %{$chan1->{nets}} ];
