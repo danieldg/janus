@@ -100,10 +100,11 @@ my %cmds = (
 	}, 'link' => sub {
 		# TODO evaluate for jlink nets
 		my($j, $nick) = @_;
-		my($cname1, $nname2, $cname2) = /(#\S+)\s+(\S+)\s*(#\S+)/ or do {
+		my($cname1, $nname2, $cname2) = /(#\S+)\s+(\S+)\s*(#\S+)?/ or do {
 			$j->jmsg($nick, 'Usage: link $localchan $network $remotechan');
 			return;
 		};
+
 		my $net1 = $nick->{homenet};
 		my $net2 = $j->{nets}->{lc $nname2} or do {
 			$j->jmsg($nick, "Cannot find network $nname2");
@@ -113,24 +114,54 @@ my %cmds = (
 			$j->jmsg($nick, "Cannot find channel $cname1");
 			return;
 		};
-		my $chan2 = $net2->{chans}->{lc $cname2} or do {
-			$j->jmsg($nick, "Cannot find channel $cname2");
+		unless ($chan1->{nmode}->{$nick->id()}->{n_owner} || $nick->{mode}->{oper}) {
+			$j->jmsg($nick, "You must be a channel owner to use this command");
 			return;
-		};
+		}
 		
-		unless ($nick->{mode}->{oper}) {
-			unless ($chan1->{nmode}->{$nick->id()}->{n_owner}) {
-				$j->jmsg("You must be a channel owner to use this command");
+		my $l2name = $net2->{lreq}->{$net1->id()}->{lc $cname2};
+		if ($cname2 && $l2name) {
+			# link request already exists for the given remote channel
+			unless ($l2name eq 'any' || $l2name eq lc $cname1 || $nick->{mode}->{oper}) {
+				$j->jmsg($nick, "Remote channel is requesting to link to $l2name; they need to re-request the link to change this");
 				return;
 			}
+			my $chan2 = $net2->{chans}->{lc $cname2} or do {
+				$j->jmsg($nick, "Cannot find remote channel $cname2");
+				return;
+			};
+			$j->insert_full(+{
+				type => 'LINKREQ',
+				src => $nick,
+				dst => $net2,
+				net => $net1,
+				slink => $cname1,
+				dlink => $cname2,
+				sendto => [ $net2 ],
+				acting => 1,
+				chan => $chan1,
+			});
+			delete $net1->{lreq}->{$net2->id()}->{lc $cname1};
+			delete $net2->{lreq}->{$net1->id()}->{lc $cname2};
+			$j->append(+{
+				type => 'LINK',
+				src => $nick,
+				chan1 => $chan1,
+				chan2 => $chan2,
+			});
+		} else {
+			$j->append(+{
+				type => 'LINKREQ',
+				src => $nick,
+				dst => $net2,
+				net => $net1,
+				slink => $cname1,
+				dlink => ($cname2 || 'any'),
+				sendto => [ $net2 ],
+				chan => $chan1,
+			});
+			$j->jmsg($nick, "Link request sent - the owner of the remote channel must request a link to this channel to complete it");
 		}
-		# TODO switch between LINKREQ and LINK
-		$j->append(+{
-			type => 'LINK',
-			src => $nick,
-			chan1 => $chan1,
-			chan2 => $chan2,
-		});
 	}, 'delink' => sub {
 		my($j, $nick, $cname) = @_;
 		my $snet = $nick->{homenet};
@@ -138,11 +169,9 @@ my %cmds = (
 			$j->jmsg($nick, "Cannot find channel $cname");
 			return;
 		};
-		unless ($nick->{mode}->{oper}) {
-			unless ($chan->{nmode}->{$nick->id()}->{n_owner}) {
-				$j->jmsg("You must be a channel owner to use this command");
-				return;
-			}
+		unless ($nick->{mode}->{oper} || $chan->{nmode}->{$nick->id()}->{n_owner}) {
+			$j->jmsg("You must be a channel owner to use this command");
+			return;
 		}
 			
 		$j->append(+{
@@ -185,6 +214,7 @@ sub modload {
 		nickts => 100000000,
 		ident => 'janus',
 		host => 'services.janus',
+		vhost => 'services',
 		name => 'Janus Control Interface',
 		mode => { oper => 1, service => 1 },
 		_is_janus => 1,
@@ -211,10 +241,9 @@ sub modload {
 			my $nick = $act->{src};
 			my $dst = $act->{dst};
 			if ($dst->{_is_janus}) {
-				return 1 unless $nick;
+				return 1 if $act->{notice} || !$nick;
 				local $_ = $act->{msg};
-				s/^\s*(\S+)\s*// or return;
-				my $cmd = exists $cmds{lc $1} ? lc $1 : 'unk';
+				my $cmd = s/^\s*(\S+)\s*// && exists $cmds{lc $1} ? lc $1 : 'unk';
 				$cmds{$cmd}->($j, $nick, $_);
 				return 1;
 			} elsif ($dst->isa('Nick') && !$nick->is_on($dst->{homenet})) {
@@ -243,10 +272,20 @@ sub modload {
 					chan2 => $j->{nets}->{t3}->chan('#opers',1),
 				});
 			}
+		}, LINK => act => sub {
+			my($j,$act) = @_;
+			return unless $act->{src};
+			return if $act->{src}->{homenet}->{jlink};
+			$j->jmsg($act->{src}, "Channel linked");
+		}, LINKREQ => act => sub {
+			my($j,$act) = @_;
+			my $snet = $act->{net};
+			my $dnet = $act->{dst};
+			return if $act->{acting} || ($snet->{jlink} && $dnet->{jlink});
+			$snet->{lreq}->{$dnet->id()}->{$act->{slink}} = $act->{dlink};
 		},
 	);
 }
 
 sub parse { () }
-sub vhost { 'services' }
 sub send { }

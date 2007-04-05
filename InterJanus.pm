@@ -44,29 +44,43 @@ sub ijstr {
 		my $ch = join '', map { /\w/ ? $_ : '\\'.$_ } keys %char2esc;
 		$itm =~ s/([$ch])/\\$char2esc{$1}/g;
 		return '"'.$itm.'"';
-	} elsif ('HASH' eq ref $itm || 'ARRAY' eq ref $itm) {
-		return 'i:'.$itm;
+	} elsif ('ARRAY' eq ref $itm) {
+		my $out = '<a';
+		$out .= ' '.$ij->ijstr($_) for @$itm;
+		return $out.'>';
+	} elsif ('HASH' eq ref $itm) {
+		my $out = '<h';
+		$out .= ' '.$_.'='.$ij->ijstr($itm->{$_}) for sort keys %$itm;
+		return $out.'>';
 	} elsif ($itm->isa('Nick')) {
 		return 'n:'.$itm->id();
 	} elsif ($itm->isa('Channel')) {
 		return 'c:'.$itm->{keyname};
 	} elsif ($itm->isa('Network')) {
 		return 's:'.$itm->id();
-	} else {
-		warn "Unknown object $itm";
-		return '""';
 	}
+
+	warn "Unknown object $itm";
+	return '""';
+}
+
+sub lsend {
+	my($ij, $act, @keys) = @_;
+	my $out = "<$act->{type}";
+	for my $key (@keys) {
+		next unless exists $act->{$key};
+		$out .= ' '.$key.'='.$ij->ijstr($act->{$key}) 
+	}
+	$out.'>';
 }
 
 sub ssend {
 	my($ij, $act) = @_;
-	local $_;
 	my $out = "<$act->{type}";
-	for (sort keys %$act) {
-		next if $_ eq 'sendto' || $_ eq 'type';
-		$out .= ' '.$_.'='.$ij->ijstr($act->{$_}) 
+	for my $key (sort keys %$act) {
+		$out .= ' '.$key.'='.$ij->ijstr($act->{$key}) 
 	}
-	$out.'/>';
+	$out.'>';
 }
 
 sub ignore { (); }
@@ -76,53 +90,25 @@ my %to_ij = (
 		ssend(@_); # TODO
 	}, LINK => sub {
 		ssend(@_); # TODO
+	}, LINKREQ => sub {
+		ssend(@_); # TODO
 	}, CONNECT => sub {
 		my($ij, $act) = @_;
 		my $nick = $act->{dst};
-		my $out = '<CONNECT net='.$ij->ijstr($act->{net}).'><N:INFO';
+		my $out = '<CONNECT net='.$ij->ijstr($act->{net}).' nick=<n';
 		$out .= ' '.$_.'='.$ij->ijstr($nick->{$_}) for
-			qw/homenet homenick nickts ident host ip name vhost/;
-		$out .= '/><N:MODE';
-		$out .= ' '.$_ for sort keys %{$nick->{mode}};
-		$out .= '/><N:NETS';
-		$out .= ' '.$ij->ijstr($_) for sort values %{$nick->{nets}};
-		$out .= '/></CONNECT>';
+			qw/homenet homenick nickts ident host ip name vhost mode nets/;
+		$out .= '>>';
 		$out;
 	}, NICK => sub {
-		my($ij, $act) = @_;
-		'<NICK dst='.$ij->ijstr($act->{dst}).' nick='.$ij->ijstr($act->{nick}).'/>';
-	}, UMODE => sub {
-		my($ij, $act) = @_;
-		my $out = '<UMODE dst='.$ij->ijstr($act->{dst}).'><N:MODES';
-		$out .= ' '.$_ for @{$act->{mode}};
-		$out .= '/></UMODE>';
-		$out;
-	}, MODE => sub {
-		my($ij, $act) = @_;
-		my $out = '<MODE';
-		$out .= ' '.$_.'='.$ij->ijstr($act->{$_}) for qw/src dst/;
-		$out .= '><C:MODES';
-		$out .= ' '.$_ for @{$act->{mode}};
-		$out .= '/><C:MARGS';
-		$out .= ' '.$ij->ijstr($_) for @{$act->{args}};
-		$out .= '/></MODE>';
-		$out;
-	}, JOIN => sub {
-		my($ij, $act) = @_;
-		my $out = '<JOIN';
-		$out .= ' '.$_.'='.$ij->ijstr($act->{$_}) for qw/src dst/;
-		if ($act->{mode}) {
-			$out .= '><C:MODES';
-			$out .= ' '.$_ for sort keys %{$act->{mode}};
-			$out .= '/></JOIN>';
-		} else {
-			$out .= '/>';
-		}
-		$out;
+		lsend(@_,qw/dst nick sendto/);
 	},
 	QUIT => \&ssend,
 	KILL => \&ssend,
 	NICKINFO => \&ssend,
+	UMODE => \&ssend,
+	MODE => \&ssend,
+	JOIN => \&ssend,
 	PART => \&ssend,
 	KICK => \&ssend,
 	TOPIC => \&ssend,

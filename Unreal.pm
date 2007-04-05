@@ -409,7 +409,9 @@ sub srvname {
 			name => $_[-1],
 		);
 		if (@_ >= 12) {
-			$nick->{mode} = +{ map { $umode2txt{$_} => 1 } split //, $_[9] };
+			my @m = split //, $_[9];
+			warn unless '+' eq shift @m;
+			$nick->{mode} = +{ map { $umode2txt{$_} => 1 } @m };
 			delete $nick->{mode}->{''};
 			$nick->{vhost} = $_[10];
 		}
@@ -853,6 +855,8 @@ sub cmd2 {
 		my $nick = $act->{src} && $act->{src}->is_on($net) ? $act->{src}->str($net) : 'remote oper';
 		my $chan = $act->{dst}->str($net);
 		$net->cmd1(GLOBOPS => "Channel $chan linked by $nick");
+	}, LINKREQ => sub {
+		();
 	}, DELINK => sub {
 		my($net,$act) = @_;
 		if ($act->{net}->id() eq $net->id()) {

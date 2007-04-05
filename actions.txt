@@ -68,6 +68,13 @@ LINK: * -> undef
 	dst - merged channel, added in the act stage
 	chan1, chan2 - channels to merge
 
+LINKREQ: * -> Network
+	chan - Channel object being offered (for inter-janus channel sync)
+	net - source network
+	slink - channel name on source network
+	dlink - channel name on dest network
+	acting - 1 if the request should not be stored
+
 DELINK: * -> Channel
 	net - Network to drop
 	split - split off channel (only exists after the act stage)
