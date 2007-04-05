@@ -74,7 +74,6 @@ my %cmds = (
 						type => 'KILL',
 						dst => $n,
 						net => $net,
-						sendto => undef,
 						msg => "Banned by $net->{netname}: $arg[1]",
 					});
 					$c++;
@@ -118,50 +117,19 @@ my %cmds = (
 			$j->jmsg($nick, "You must be a channel owner to use this command");
 			return;
 		}
-		
-		my $l2name = $net2->{lreq}->{$net1->id()}->{lc $cname2};
-		if ($cname2 && $l2name) {
-			# link request already exists for the given remote channel
-			unless ($l2name eq 'any' || $l2name eq lc $cname1 || $nick->{mode}->{oper}) {
-				$j->jmsg($nick, "Remote channel is requesting to link to $l2name; they need to re-request the link to change this");
-				return;
-			}
-			my $chan2 = $net2->{chans}->{lc $cname2} or do {
-				$j->jmsg($nick, "Cannot find remote channel $cname2");
-				return;
-			};
-			$j->insert_full(+{
-				type => 'LINKREQ',
-				src => $nick,
-				dst => $net2,
-				net => $net1,
-				slink => $cname1,
-				dlink => $cname2,
-				sendto => [ $net2 ],
-				acting => 1,
-				chan => $chan1,
-			});
-			delete $net1->{lreq}->{$net2->id()}->{lc $cname1};
-			delete $net2->{lreq}->{$net1->id()}->{lc $cname2};
-			$j->append(+{
-				type => 'LINK',
-				src => $nick,
-				chan1 => $chan1,
-				chan2 => $chan2,
-			});
-		} else {
-			$j->append(+{
-				type => 'LINKREQ',
-				src => $nick,
-				dst => $net2,
-				net => $net1,
-				slink => $cname1,
-				dlink => ($cname2 || 'any'),
-				sendto => [ $net2 ],
-				chan => $chan1,
-			});
-			$j->jmsg($nick, "Link request sent - the owner of the remote channel must request a link to this channel to complete it");
-		}
+	
+		$j->append(+{
+			type => 'LINKREQ',
+			src => $nick,
+			dst => $net2,
+			net => $net1,
+			slink => $cname1,
+			dlink => ($cname2 || 'any'),
+			sendto => [ $net2 ],
+			chan => $chan1,
+			override => $nick->{mode}->{oper},
+		});
+		$j->jmsg($nick, "Link request sent");
 	}, 'delink' => sub {
 		my($j, $nick, $cname) = @_;
 		my $snet = $nick->{homenet};
@@ -262,27 +230,39 @@ sub modload {
 			my $net = $act->{net};
 			if ($net->id() eq 't1') {
 				$j->insert_full(+{
-					type => 'LINK',
-					chan1 => $net->chan('#opers',1),
-					chan2 => $j->{nets}->{t2}->chan('#test',1),
+					type => 'LSYNC',
+					chan => $net->chan('#opers',1),
+					dst => $j->{nets}->{t2},
+					linkto => '#test',
 				});
 				$j->insert_full(+{
-					type => 'LINK',
-					chan1 => $net->chan('#opers',1),
-					chan2 => $j->{nets}->{t3}->chan('#opers',1),
+					type => 'LSYNC',
+					chan => $net->chan('#opers',1),
+					dst => $j->{nets}->{t3},
+					linkto => '#opers',
 				});
 			}
-		}, LINK => act => sub {
-			my($j,$act) = @_;
-			return unless $act->{src};
-			return if $act->{src}->{homenet}->{jlink};
-			$j->jmsg($act->{src}, "Channel linked");
 		}, LINKREQ => act => sub {
 			my($j,$act) = @_;
 			my $snet = $act->{net};
 			my $dnet = $act->{dst};
-			return if $act->{acting} || ($snet->{jlink} && $dnet->{jlink});
-			$snet->{lreq}->{$dnet->id()}->{$act->{slink}} = $act->{dlink};
+			return if $dnet->{jlink};
+			my $recip = $dnet->{lreq}->{$snet->id()}->{$act->{dlink}};
+			if ($recip && ($act->{override} || lc $recip eq lc $act->{slink})) {
+				# there has already been a request to link this channel to that network
+				# also, if it was not an override, the request was for this pair of channels
+				delete $dnet->{lreq}->{$snet->id()}->{$act->{dlink}};
+				$j->append(+{
+					type => 'LSYNC',
+					src => $dnet,
+					dst => $snet,
+					chan => $dnet->chan($act->{dlink},1),
+					linkto => $act->{slink},
+				});
+			} else {
+				# add the request
+				$snet->{lreq}->{$dnet->id()}->{$act->{slink}} = $act->{dlink};
+			}
 		},
 	);
 }

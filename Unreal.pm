@@ -852,9 +852,10 @@ sub cmd2 {
 		$net->cmd2($act->{dst}, QUIT => $act->{msg});
 	}, LINK => sub {
 		my($net,$act) = @_;
-		my $nick = $act->{src} && $act->{src}->is_on($net) ? $act->{src}->str($net) : 'remote oper';
 		my $chan = $act->{dst}->str($net);
-		$net->cmd1(GLOBOPS => "Channel $chan linked by $nick");
+		$net->cmd1(GLOBOPS => "Channel $chan linked");
+	}, LSYNC => sub {
+		();
 	}, LINKREQ => sub {
 		();
 	}, DELINK => sub {

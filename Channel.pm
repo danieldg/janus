@@ -33,11 +33,8 @@ sub _ljoin {
 sub _mergenet {
 	my($chan, $src) = @_;
 	for my $id (keys %{$src->{nets}}) {
-		my $net = $src->{nets}->{$id};
-		my $name = $src->{names}->{$id};
-		$chan->{nets}->{$id} = $net;
-		$chan->{names}->{$id} = $name;
-		$net->{chans}->{lc $name} = $chan;
+		$chan->{nets}->{$id}  = $src->{nets}->{$id};
+		$chan->{names}->{$id} = $src->{names}->{$id};
 	}
 }
 
@@ -104,6 +101,46 @@ sub _mode_delta {
 		}
 	}
 	(\@modes, \@args);
+}
+
+sub _link_into {
+	my($src,$chan,$j) = @_;
+	if ($src->{topic} ne $chan->{topic}) {
+		$j->append(+{
+			type => 'TOPIC',
+			dst => $src,
+			topic => $chan->{topic},
+			topicts => $chan->{topicts},
+			topicset => $chan->{topicset},
+			nojlink => 1,
+		});
+	}
+
+	my ($mode, $marg) = $src->_mode_delta($chan, $j);
+	$j->append(+{
+		type => 'MODE',
+		dst => $src,
+		mode => $mode,
+		args => $marg,
+		nojlink => 1,
+	}) if @$mode;
+
+	for my $id (keys %{$src->{nets}}) {
+		my $net = $src->{nets}->{$id};
+		my $name = $src->{names}->{$id};
+		$net->{chans}->{lc $name} = $chan;
+	}
+
+	for my $nick (values %{$src->{nicks}}) {
+		$chan->_ljoin($j, $nick, $src);
+		$j->append(+{
+			type => 'JOIN',
+			src => $nick,
+			dst => $chan,
+			mode => $src->{nmode}->{$nick->id()},
+			rejoin => 1,
+		}) unless $nick->{homenet}->{jlink};
+	}
 }
 
 # get name on a network
@@ -209,36 +246,34 @@ sub modload {
 		$chan->{topic} = $act->{topic};
 		$chan->{topicts} = $act->{topicts} || time;
 		$chan->{topicset} = $act->{topicset} || $act->{src}->{homenick};
-	}, LINK => check => sub {
+	}, LSYNC => act => sub {
 		my($j,$act) = @_;
-		my($chan1,$chan2) = ($act->{chan1}, $act->{chan2});
+		return if $act->{dst}->{jlink};
+		my $chan1 = $act->{dst}->chan($act->{linkto},1);
+		my $chan2 = $act->{chan};
+	
+		# This is the atomic creation of the merged channel. Everyone else
+		# just gets a copy of the channel created here and send out the 
+		# events required to merge into it.
 
 		for my $id (keys %{$chan1->{nets}}) {
 			if (exists $chan2->{nets}->{$id}) {
 				$j->jmsg($act->{src}, "Cannot link: this channel would be in $id twice");
-				return 1;
+				return;
 			}
 		}
-		undef;
-	}, LINK => act => sub {
-		my($j,$act) = @_;
-		my($chan1,$chan2) = ($act->{chan1}, $act->{chan2});
-		
-		my $nets1 = [ values %{$chan1->{nets}} ];
-		my $nets2 = [ values %{$chan2->{nets}} ];
-
-		my $tsctl = ($chan2->{ts} <=> $chan1->{ts});
-		# topic timestamps are backwards: later topic change is taken IF the creation stamps are the same
-		# otherwise go along with the channel sync
-		my $topctl = $tsctl ? $tsctl : ($chan1->{topicts} <=> $chan2->{topicts});
-
+	
 		my %chanh = (
 			mode => {},
 			keyname => $chan1->{keyname},
 		);
 		my $chan = \%chanh;
 		bless $chan;
-		$act->{dst} = $chan;
+
+		my $tsctl = ($chan2->{ts} <=> $chan1->{ts});
+		# topic timestamps are backwards: later topic change is taken IF the creation stamps are the same
+		# otherwise go along with the channel sync
+		my $topctl = $tsctl ? $tsctl : ($chan1->{topicts} <=> $chan2->{topicts});
 
 		# basic strategy: Modify the two channels in-place to have the same modes as we create
 		# the unified channel
@@ -251,31 +286,9 @@ sub modload {
 		if ($topctl >= 0) {
 			print "Channel 1 wins control of topic\n";
 			$chan->{$_} = $chan1->{$_} for qw/topic topicts topicset/;
-			if ($chan1->{topic} ne $chan2->{topic}) {
-				$j->append(+{
-					type => 'TOPIC',
-					dst => $chan,
-					sendto => $nets2,
-					topic => $chan->{topic},
-					topicts => $chan->{topicts},
-					topicset => $chan->{topicset},
-					nojlink => 1,
-				});
-			}
 		} else {
 			print "Channel 2 wins control of topic\n";
 			$chan->{$_} = $chan2->{$_} for qw/topic topicts topicset/;
-			if ($chan1->{topic} ne $chan2->{topic}) {
-				$j->append(+{
-					type => 'TOPIC',
-					dst => $chan,
-					sendto => $nets1,
-					topic => $chan->{topic},
-					topicts => $chan->{topicts},
-					topicset => $chan->{topicset},
-					nojlink => 1,
-				});
-			}
 		}
 
 		if ($tsctl > 0) {
@@ -307,52 +320,23 @@ sub modload {
 			}
 		}
 
-		{
-			my ($mode, $marg) = $chan1->_mode_delta($chan, $j);
-			$j->append(+{
-				type => 'MODE',
-				dst => $chan1,
-				sendto => $nets1,
-				mode => $mode,
-				args => $marg,
-				nojlink => 1,
-			}) if @$mode;
-			($mode, $marg) = $chan2->_mode_delta($chan, $j);
-			$j->append(+{
-				type => 'MODE',
-				dst => $chan2,
-				sendto => $nets2,
-				mode => $mode,
-				args => $marg,
-				nojlink => 1,
-			}) if @$mode;
-		}
-
 		$chan->_mergenet($chan1);
 		$chan->_mergenet($chan2);
 
-		for my $nick (values %{$chan1->{nicks}}) {
-			$chan->_ljoin($j,$nick, $chan1);
-			$j->append(+{
-				type => 'JOIN',
-				src => $nick,
-				dst => $chan,
-				sendto => $nets2,
-				mode => $chan->{nmode}->{$nick->id()},
-				nojlink => 1,
-			});
-		}
-		for my $nick (values %{$chan2->{nicks}}) {
-			$chan->_ljoin($j, $nick, $chan2);
-			$j->append(+{
-				type => 'JOIN',
-				src => $nick,
-				dst => $chan,
-				sendto => $nets1,
-				mode => $chan->{nmode}->{$nick->id()},
-				nojlink => 1,
-			});
-		}
+		$j->append(+{
+			type => 'LINK',
+			src => $act->{src},
+			dst => $chan,
+			chan1 => $chan1,
+			chan2 => $chan2,
+		});
+	}, LINK => act => sub {
+		my($j,$act) = @_;
+		my $chan = $act->{dst};
+		my($chan1,$chan2) = ($act->{chan1}, $act->{chan2});
+		
+		$chan1->_link_into($chan,$j);
+		$chan2->_link_into($chan,$j);
 	}, DELINK => check => sub {
 		my($j,$act) = @_;
 		my $chan = $act->{dst};

@@ -64,20 +64,21 @@ sub ijstr {
 	return '""';
 }
 
-sub lsend {
-	my($ij, $act, @keys) = @_;
+sub send_hdr {
+	my($ij, $act, @keys) = (@_,'sendto');
 	my $out = "<$act->{type}";
 	for my $key (@keys) {
 		next unless exists $act->{$key};
 		$out .= ' '.$key.'='.$ij->ijstr($act->{$key}) 
 	}
-	$out.'>';
+	$out;
 }
 
 sub ssend {
 	my($ij, $act) = @_;
 	my $out = "<$act->{type}";
 	for my $key (sort keys %$act) {
+		next if $key eq 'type';
 		$out .= ' '.$key.'='.$ij->ijstr($act->{$key}) 
 	}
 	$out.'>';
@@ -88,20 +89,24 @@ sub ignore { (); }
 my %to_ij = (
 	NETLINK => sub {
 		ssend(@_); # TODO
+	}, LSYNC => sub {
+		ssend(@_); # TODO
 	}, LINK => sub {
-		ssend(@_); # TODO
-	}, LINKREQ => sub {
-		ssend(@_); # TODO
+		my($ij, $act) = @_;
+		my $out = send_hdr(@_, qw/chan1 chan2/) . ' chan=<c';
+		my $chan = $act->{dst};
+		$out .= ' '.$_.'='.$ij->ijstr($chan->{$_}) for
+			qw/ts topic topicts topicset mode nets names/;
+		$out . '>>';
 	}, CONNECT => sub {
 		my($ij, $act) = @_;
+		my $out = send_hdr(@_, qw/net/) . ' nick=<n';
 		my $nick = $act->{dst};
-		my $out = '<CONNECT net='.$ij->ijstr($act->{net}).' nick=<n';
 		$out .= ' '.$_.'='.$ij->ijstr($nick->{$_}) for
 			qw/homenet homenick nickts ident host ip name vhost mode nets/;
-		$out .= '>>';
-		$out;
+		$out . '>>';
 	}, NICK => sub {
-		lsend(@_,qw/dst nick sendto/);
+		send_hdr(@_,qw/dst nick/) . '>';
 	},
 	QUIT => \&ssend,
 	KILL => \&ssend,
@@ -113,6 +118,7 @@ my %to_ij = (
 	KICK => \&ssend,
 	TOPIC => \&ssend,
 	MSG => \&ssend,
+	LINKREQ => \&ssend,
 	DELINK => \&ssend,
 	NETSPLIT => \&ssend,
 );

@@ -64,16 +64,19 @@ MSG: [Nick, undef] -> *
 	notice - 1 if this is a NOTICE, 0 if PRIVMSG
 	prefix - if exists, is one of '~&@%+' for @#channel messages
 
-LINK: * -> undef
-	dst - merged channel, added in the act stage
-	chan1, chan2 - channels to merge
-
 LINKREQ: * -> Network
 	chan - Channel object being offered (for inter-janus channel sync)
 	net - source network
 	slink - channel name on source network
 	dlink - channel name on dest network
-	acting - 1 if the request should not be stored
+
+LSYNC: * -> Network
+	Note: this action makes no sense until you look at InterJanus
+	linkto - the NAME of the channel to link, on the dest network
+	chan - the other channel to link
+
+LINK: * -> Channel
+	chan1, chan2 - channels to merge into the destination
 
 DELINK: * -> Channel
 	net - Network to drop

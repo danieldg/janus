@@ -96,22 +96,29 @@ sub _send {
 	} elsif ($act->{dst}->isa('Network')) {
 		@to = $act->{dst};
 	} else {
-		@to = $act->{dst}->sendto($act, exists $act->{sendto} ? undef : $j->{except});
+		@to = $act->{dst}->sendto($act);
 	}
-	my(@real, %jlink);
-		# jlinks are in a hash to remove duplicates
+	my(%real, %jlink);
+		# hash to remove duplicates
 	for my $net (@to) {
 		my $ij = $net->{jlink};
 		if (defined $ij) {
 			$jlink{$ij->id()} = $ij;
 		} else {
-			push @real, $net;
+			$real{$net->id()} = $net;
 		}
 	}
-	for my $ij (values %jlink) {
-		$ij->ij_send($act);
+	if ($act->{except}) {
+		my $id = $act->{except}->id();
+		delete $real{$id};
+		delete $jlink{$id};
 	}
-	for my $net (@real) {
+	unless ($act->{nojlink}) {
+		for my $ij (values %jlink) {
+			$ij->ij_send($act);
+		}
+	}
+	for my $net (values %real) {
 		$net->send($act);
 	}
 }
@@ -200,8 +207,8 @@ sub jmsg {
 
 sub in_local {
 	my($j,$src,@act) = @_;
-	$j->{except} = $src;
 	for my $act (@act) {
+		$act->{except} = $src unless $act->{except};
 		if ($j->_mod_hook($act->{type}, parse => $act)) {
 			print "Parse hook stole $act->{type}\n";
 		} else {
@@ -209,7 +216,6 @@ sub in_local {
 		}
 		$j->_runq();
 	}
-	delete $j->{except};
 }
 
 sub in_janus {
