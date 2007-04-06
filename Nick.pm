@@ -13,6 +13,11 @@ sub new {
 	bless $nick, $class;
 }
 
+sub from_ij {
+	my($class, $ij, $nick) = @_;
+	bless $nick, $class;
+}
+
 sub DESTROY {
 	print "DBG: $_[0] $_[0]->{homenick} deallocated\n";
 }

@@ -167,8 +167,8 @@ sub _run {
 		return;
 	}
 	$j->_hook($act->{type}, act => $act);
-	$j->_send($act);
 	$ij_testlink->ij_send($act);
+	$j->_send($act);
 	$j->_hook($act->{type}, cleanup => $act);
 }
 

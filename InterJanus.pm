@@ -31,7 +31,6 @@ my %esc2char = (
 	l => '<',
 	n => "\n",
 	q => '"',
-	s => '/',
 );
 my %char2esc; $char2esc{$esc2char{$_}} = $_ for keys %esc2char;
 
@@ -88,15 +87,25 @@ sub ignore { (); }
 
 my %to_ij = (
 	NETLINK => sub {
-		ssend(@_); # TODO
+		my($ij, $act) = @_;
+		my $out = send_hdr(@_, qw/sendto/) . ' net=<s';
+		my $net = $act->{net};
+		$out .= ' '.$_.'='.$ij->ijstr($net->{$_}) for
+			qw/id netname/;
+		$out .= '>>';
 	}, LSYNC => sub {
-		ssend(@_); # TODO
+		my($ij, $act) = @_;
+		my $out = send_hdr(@_, qw/dst linkto/) . ' chan=<c';
+		my $chan = $act->{chan};
+		$out .= ' '.$_.'='.$ij->ijstr($chan->{$_}) for
+			qw/ts topic topicts topicset mode names/;
+		$out . '>>';
 	}, LINK => sub {
 		my($ij, $act) = @_;
 		my $out = send_hdr(@_, qw/chan1 chan2/) . ' chan=<c';
 		my $chan = $act->{dst};
 		$out .= ' '.$_.'='.$ij->ijstr($chan->{$_}) for
-			qw/ts topic topicts topicset mode nets names/;
+			qw/ts topic topicts topicset mode names/;
 		$out . '>>';
 	}, CONNECT => sub {
 		my($ij, $act) = @_;
@@ -137,6 +146,93 @@ sub ij_send {
 	}
 	print "OUT\@IJ $_\n" for @out;
 #	$ij->{sock}->print(map "$_\r\n", @out);
+}
+
+sub ij_recv {
+	my $ij = shift;
+	local $_ = $_[0];
+
+	s/^\s*<(\S+)// or do {
+		warn "bad line: $_";
+		return ();
+	}
+	$act = { type => $1 };
+	$ij->_kv_pairs($act);
+	warn "bad line: $_[0]" unless /^\s*>\s*$/;
+	$act;
+}
+
+my %v_type = (
+	' ' => sub {
+		undef;
+	}, '"' => sub {
+		s/^"([^"]*)"//;
+		my $v = $1;
+		$v =~ s/\\(.)/$esc2char{$1}/g;
+		$v;
+	}, 'n' => sub {
+		my $ij = shift;
+		s/^n:(\S+)~([^ >]+)// or return undef;
+		$ij->{nets}->{$1}->nick($2);
+	}, 'c' => sub {
+		my $ij = shift;
+		s/^c:(\S+)(#[^ >]*)// or return undef;
+		$ij->{nets}->{$1}->chan($2,0);
+	}, 's' => sub {
+		my $ij = shift;
+		s/^s:(\S+)// or return undef;
+		$ij->{nets}->{$1};
+	}, '<a' => sub {
+		my $ij = shift;
+		my @arr;
+		s/^<a// or warn;
+		while (s/^\s+//) {
+			my $v_t = substr $_,0,1;
+			$v_t = substr $_,0,2 if $v_t eq '<';
+			push @arr, $v_type{$v_t}->($ij);
+		}
+		s/^>// or warn;
+		\@arr;
+	}, '<h' => sub {
+		my $ij = shift;
+		my $h = {};
+		s/^<h// or warn;
+		$ij->_kv_pairs($h);
+		s/^>// or warn;
+		$h;
+	}, '<s' => sub {
+		my $ij = shift;
+		my $h = {};
+		s/^<s// or warn;
+		$ij->_kv_pairs($h);
+		s/^>// or warn;
+		RemoteNetwork->from_ij($ij, $h);
+	}, '<c' => sub {
+		my $ij = shift;
+		my $h = {};
+		s/^<h// or warn;
+		$ij->_kv_pairs($h);
+		s/^>// or warn;
+		Channel->from_ij($ij, $h);
+	}, '<n' => sub {
+		my $ij = shift;
+		my $h = {};
+		s/^<h// or warn;
+		$ij->_kv_pairs($h);
+		s/^>// or warn;
+		Nick->from_ij($ij, $h);
+	},
+);
+
+
+sub _kv_pairs {
+	my($ij, $h) = @_;
+	while (s/^\s+(\S+)=//) {
+		my $k = $1;
+		my $v_t = substr $_,0,1;
+		$v_t = substr $_,0,2 if $v_t eq '<';
+		$v_type{$v_t}->($ij);
+	}
 }
 
 1;

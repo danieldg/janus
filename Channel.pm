@@ -20,6 +20,17 @@ sub new {
 	bless $chan, $class;
 }
 
+sub from_ij {
+	my($class, $ij, $chan) = @_;
+	for my $id (keys %{$chan->{names}}) {
+		my $net = $ij->{nets}->{$id};
+		my $name = $chan->{names}->{$id};
+		weaken($chan->{nets}->{$id} = $net);
+		$net->{chans}->{lc $name} = $chan;
+	}
+	bless $chan, $class;
+}
+
 sub _ljoin {
 	my($chan, $j, $nick, $src) = @_;
 	my $id = $nick->id();

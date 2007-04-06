@@ -40,10 +40,6 @@ sub connect {
 	1;
 }
 
-sub netsplit {
-	warn
-}
-
 sub id {
 	return $_[0]->{id};
 }
