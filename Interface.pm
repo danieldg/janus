@@ -97,8 +97,9 @@ my %cmds = (
 		$j->jmsg($nick, 'Linked networks: '.join ' ', sort keys %{$j->{nets}});
 		# TODO display available channels when that is set up
 	}, 'link' => sub {
-		# TODO evaluate for jlink nets
 		my($j, $nick) = @_;
+		return $j->jmsg("You must be an IRC operator to use this command") 
+			if $nick->{homenet}->{oper_only_link} && !$nick->{mode}->{oper};
 		my($cname1, $nname2, $cname2) = /(#\S+)\s+(\S+)\s*(#\S+)?/ or do {
 			$j->jmsg($nick, 'Usage: link $localchan $network $remotechan');
 			return;
@@ -133,6 +134,8 @@ my %cmds = (
 	}, 'delink' => sub {
 		my($j, $nick, $cname) = @_;
 		my $snet = $nick->{homenet};
+		return $j->jmsg("You must be an IRC operator to use this command") 
+			if $snet->{oper_only_link} && !$nick->{mode}->{oper};
 		my $chan = $snet->chan($cname) or do {
 			$j->jmsg($nick, "Cannot find channel $cname");
 			return;

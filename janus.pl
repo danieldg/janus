@@ -40,6 +40,9 @@ sub rehash {
 		linktype => 'plain',
 		numeric => 44,
 		netname => 'Test 1',
+		translate_gline => 1,
+		translate_qline => 1,
+		oper_only_link => 0,
 	);
 	nlink('t2',
 		linkaddr => '::1',
@@ -49,6 +52,8 @@ sub rehash {
 		linktype => 'plain',
 		numeric => 45,
 		netname => 'Test 2',
+		translate_gline => 1,
+		translate_qline => 1,
 	);
 	nlink('t3',
 		linkaddr => '::1',
@@ -58,6 +63,8 @@ sub rehash {
 		linktype => 'plain',
 		numeric => 46,
 		netname => 'Test 3',
+		translate_gline => 1,
+		translate_qline => 1,
 	);
 }
 

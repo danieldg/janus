@@ -735,8 +735,10 @@ sub srvname {
 		my $net = shift;
 		my $iexpr;
 		if ($_[3] eq 'G') {
+			return unless $net->{translate_gline};
 			$iexpr = '*!'.$_[4].'@'.$_[5].'%*';
 		} elsif ($_[3] eq 'Q') {
+			return unless $net->{translate_qline};
 			$iexpr = $_[5].'!*';
 		}
 		return unless $iexpr;
