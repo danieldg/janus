@@ -155,14 +155,14 @@ sub ij_recv {
 	s/^\s*<(\S+)// or do {
 		warn "bad line: $_";
 		return ();
-	}
-	$act = { type => $1 };
+	};
+	my $act = { type => $1 };
 	$ij->_kv_pairs($act);
 	warn "bad line: $_[0]" unless /^\s*>\s*$/;
 	$act;
 }
 
-my %v_type = (
+my %v_type; %v_type = (
 	' ' => sub {
 		undef;
 	}, '"' => sub {
