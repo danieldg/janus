@@ -140,6 +140,7 @@ sub link {
 
 	$j->_run(+{
 		type => 'NETLINK',
+		janus => $j,
 		net => $net,
 		sendto => [ values %{$j->{nets}} ],
 	});

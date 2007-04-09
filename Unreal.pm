@@ -784,16 +784,37 @@ sub cmd2 {
 }
 
 %toirc = (
-	CONNECT => sub {
+	NETLINK => sub {
+		my($net,$act) = @_;
+		my $new = $act->{net};
+		my $id = $new->id();
+		my @out;
+		push @out, $net->cmd1(SMO => 'o', "(\002link\002) Janus Network $id ($new->{netname}) is now linked");
+		if ($net->id() eq $id) {
+			# first link to the net
+			for $id (keys %{$act->{janus}->{nets}}) {
+				$new = $act->{janus}->{nets}->{$id};
+				next if $new->isa('Interface') || $id eq $net->id();
+				push @out, $net->cmd2($net->{linkname}, SERVER => "$id.janus", 2, $new->{numeric}, $new->{netname});
+			}
+		} else {
+			push @out, $net->cmd2($net->{linkname}, SERVER => "$id.janus", 2, $new->{numeric}, $new->{netname});
+		}
+		@out;
+	}, NETSPLIT => sub {
+		();
+	}, CONNECT => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
 		return if $act->{net}->id() ne $net->id();
 		my $mode = join '', '+', sort map $txt2umode{$_}, keys %{$nick->{mode}};
 		$mode =~ s/[xt]//g;
 		$mode .= 'xt';
+		my($hc, $srv) = (2,$nick->{homenet}->id() . '.janus');
+		($hc, $srv) = (1, $net->{linkname}) if $nick->{_is_janus};
 		# TODO set hopcount to 2 and use $nick->{homenet}->id().'.janus' or similar as server name
-		$net->cmd1(NICK => $nick, 1, $net->sjb64($nick->{nickts}), $nick->{ident}, $nick->{host},
-			$net->{linkname}, 0, $mode, $nick->{vhost}, ($nick->{ip_64} || '*'), $nick->{name});
+		$net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->{nickts}), $nick->{ident}, $nick->{host},
+			$srv, 0, $mode, $nick->{vhost}, ($nick->{ip_64} || '*'), $nick->{name});
 	}, JOIN => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
@@ -871,13 +892,6 @@ sub cmd2 {
 			my $name = $act->{dst}->str($net);
 			$net->cmd1(GLOBOPS => "Network $act->{net}->{netname} dropped channel $name");
 		}			
-	}, NETLINK => sub {
-		my($net,$act) = @_;
-		my $new = $act->{net};
-		my $id = $new->id();
-		$net->cmd1(GLOBOPS => "Janus Network $id ($new->{netname}) is now linked");
-	}, NETSPLIT => sub {
-		();
 	}, KILL => sub {
 		my($net,$act) = @_;
 		my $killfrom = $act->{net};
