@@ -810,6 +810,9 @@ sub cmd2 {
 		my $mode = join '', '+', sort map $txt2umode{$_}, keys %{$nick->{mode}};
 		$mode =~ s/[xt]//g;
 		$mode .= 'xt';
+		unless ($net->{show_roper} || $nick->{_is_janus}) {
+			$mode .= 'H' if $mode =~ /o/ && $mode !~ /H/;
+		}
 		my($hc, $srv) = (2,$nick->{homenet}->id() . '.janus');
 		($hc, $srv) = (1, $net->{linkname}) if $nick->{_is_janus};
 		# TODO set hopcount to 2 and use $nick->{homenet}->id().'.janus' or similar as server name
@@ -864,11 +867,16 @@ sub cmd2 {
 		for my $ltxt (@{$act->{mode}}) {
 			my($d,$txt) = $ltxt =~ /([-+])(.+)/ or warn $ltxt;
 			next if $txt eq 'vhost' || $txt eq 'vhost_x'; #never changed
+			next if $txt eq 'hideoper' && !$net->{show_roper};
 			if ($pm ne $d) {
 				$pm = $d;
 				$mode .= $pm;
 			}
 			$mode .= $txt2umode{$txt};
+		}
+		unless ($net->{show_roper}) {
+			$mode .= '+H' if $mode =~ /\+[^-]*o/ && $mode !~ /\+[^-]*H/;
+			$mode .= '-H' if $mode =~ /-[^+]*o/ && $mode !~ /-[^+]*H/;
 		}
 		$net->cmd2($act->{dst}, UMODE2 => $mode) if $mode;
 	}, QUIT => sub {
