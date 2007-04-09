@@ -7,6 +7,7 @@ use IO::Select;
 sub new {
 	my $class = shift;
 	my %arr = (
+		file => shift || 'janus.conf',
 		nets => {},
 		readers => IO::Select->new(),
 	);
@@ -17,7 +18,7 @@ sub rehash {
 	my($cfg,$janus) = @_;
 	local $_;
 	my $net;
-	open my $conf, 'janus.conf';
+	open my $conf, $cfg->{file};
 	$conf->untaint(); 
 		# the configurator is assumed to have at least half a brain :)
 	while (<$conf>) {
@@ -40,13 +41,17 @@ sub rehash {
 			};
 			my $netid = $1;
 			$net = $cfg->{nets}->{$netid};
-			$net = Unreal->new(id => $netid) unless defined $net && $net->isa('Unreal');
+			unless (defined $net && $net->isa('Unreal')) {
+				print "Creating new net $netid\n";
+				$cfg->{nets}->{$netid} = $net = Unreal->new(id => $netid);
+			}
 		} elsif ($type eq '}') {
 			unless (defined $net) {
 				print "Extra closing brace at line $. of config file\n";
 				next;
 			}
 			unless (exists $janus->{nets}->{$net->id()}) {
+				print "Connecting to $net->{netname}\n";
 				if ($net->connect()) {
 					$janus->link($net);
 					$cfg->{readers}->add([$net->{sock}, '', $net]);

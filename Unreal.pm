@@ -802,7 +802,10 @@ sub cmd2 {
 		}
 		@out;
 	}, NETSPLIT => sub {
-		();
+		my($net,$act) = @_;
+		my $gone = $act->{net};
+		my $id = $gone->id();
+		$net->cmd1(SQUIT => "$id.janus", "Reason? What's that?");
 	}, CONNECT => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};

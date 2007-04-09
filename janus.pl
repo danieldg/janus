@@ -17,9 +17,9 @@ Network->modload($janus);
 Interface->modload($janus);
 JConf->modload($janus);
 
-my $conf = JConf->new();
+my $conf = JConf->new(shift);
 my $read = $conf->{readers};
-$conf->rehash($janus);
+$janus->setconf($conf);
 
 while ($read->count()) {
 	my @r = $read->can_read();

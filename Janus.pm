@@ -28,6 +28,12 @@ sub new {
 	bless \%j, $class;
 }
 
+sub setconf {
+	my($j,$conf) = @_;
+	$j->{conf} = $conf;
+	$conf->rehash($j);
+}
+
 sub child {
 	my $clone = shift;
 	my %j = (

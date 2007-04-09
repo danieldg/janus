@@ -183,7 +183,6 @@ sub modload {
 		my @clean;
 		for my $nick (values %{$net->{nicks}}) {
 			next if $nick->{homenet}->id() ne $tid;
-			return if !$act->{dst} || $act->{dst}->isa('Network');
 			push @clean, +{
 				type => 'QUIT',
 				dst => $nick,
