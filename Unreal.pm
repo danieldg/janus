@@ -818,6 +818,7 @@ sub cmd2 {
 			$net->sjb64($act->{topicts}), $act->{topic});
 	}, MSG => sub {
 		my($net,$act) = @_;
+		return if $act->{dst}->isa('Network');
 		$net->cmd2($act->{src}, ($act->{notice} ? 'NOTICE' : 'PRIVMSG'), 
 			$act->{dst}, $act->{msg});
 	}, NICK => sub {

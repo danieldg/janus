@@ -121,6 +121,7 @@ sub item {
 	my($net, $item) = @_;
 	return $net->{nicks}->{lc $item} if exists $net->{nicks}->{lc $item};
 	return $net->{chans}->{lc $item} if exists $net->{chans}->{lc $item};
+	return $net if $item =~ /\./;
 	return undef;
 }
 
@@ -182,6 +183,7 @@ sub modload {
 		my @clean;
 		for my $nick (values %{$net->{nicks}}) {
 			next if $nick->{homenet}->id() ne $tid;
+			return if $act->{dst}->isa('Network');
 			push @clean, +{
 				type => 'QUIT',
 				dst => $nick,

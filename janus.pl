@@ -6,8 +6,7 @@ use Channel;
 use Nick;
 use Network;
 use Interface;
-use Unreal;
-use IO::Select;
+use JConf;
 
 $| = 1;
 
@@ -16,65 +15,11 @@ Channel->modload($janus);
 Nick->modload($janus);
 Network->modload($janus);
 Interface->modload($janus);
+JConf->modload($janus);
 
-my $read = IO::Select->new();
-
-sub nlink {
-	my($id, @args) = @_;
-	return if exists $janus->{nets}->{$id};
-	my $net = Unreal->new(
-		id => $id,
-		@args,
-	);
-	$net->connect();
-	$janus->link($net);
-	$read->add([$net->{sock}, '', $net]);
-}
-
-sub rehash {
-	nlink('t1', 
-		linkaddr => '::1',
-		linkport => 8001,
-		linkname => 'janus1.testnet',
-		linkpass => 'pass',
-		linktype => 'plain',
-		numeric => 44,
-		netname => 'Test 1',
-		translate_gline => 1,
-		translate_qline => 1,
-		oper_only_link => 0,
-	);
-	nlink('t2',
-		linkaddr => '::1',
-		linkport => 8002,
-		linkname => 'janus2.testnet',
-		linkpass => 'pass',
-		linktype => 'plain',
-		numeric => 45,
-		netname => 'Test 2',
-		translate_gline => 1,
-		translate_qline => 1,
-	);
-	nlink('t3',
-		linkaddr => '::1',
-		linkport => 8003,
-		linkname => 'janus3.testnet',
-		linkpass => 'pass',
-		linktype => 'plain',
-		numeric => 46,
-		netname => 'Test 3',
-		translate_gline => 1,
-		translate_qline => 1,
-	);
-}
-
-rehash;
-
-$janus->hook_add('main',
-	REHASH => act => sub {
-		rehash;
-	}
-);
+my $conf = JConf->new();
+my $read = $conf->{readers};
+$conf->rehash($janus);
 
 while ($read->count()) {
 	my @r = $read->can_read();

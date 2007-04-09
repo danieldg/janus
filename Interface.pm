@@ -228,23 +228,6 @@ sub modload {
 				return 1;
 			}
 			undef;
-		}, LINKED => act => sub {
-			my($j,$act) = @_;
-			my $net = $act->{net};
-			if ($net->id() eq 't1') {
-				$j->insert_full(+{
-					type => 'LSYNC',
-					chan => $net->chan('#opers',1),
-					dst => $j->{nets}->{t2},
-					linkto => '#test',
-				});
-				$j->insert_full(+{
-					type => 'LSYNC',
-					chan => $net->chan('#opers',1),
-					dst => $j->{nets}->{t3},
-					linkto => '#opers',
-				});
-			}
 		}, LINKREQ => act => sub {
 			my($j,$act) = @_;
 			my $snet = $act->{net};
