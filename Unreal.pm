@@ -519,11 +519,24 @@ sub srvname {
 	}, QUIT => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[0]) or return ();
-		return {
-			type => 'QUIT',
-			dst => $nick,
-			msg => $_[2],
-		};
+		if ($nick->{homenet}->id() eq $net->id()) {
+			# normal boring quit
+			return +{
+				type => 'QUIT',
+				dst => $nick,
+				msg => $_[2],
+			};
+		} else {
+			# whoever decided this is how SVSKILL works... must have been insane
+			delete $net->{nicks}->{lc $_[0]};
+			return +{
+				type => 'CONNECT',
+				dst => $nick,
+				net => $net,
+				reconnect => 1,
+				nojlink => 1,
+			};
+		}
 	}, KILL => sub {
 		my $net = shift;
 		my $src = $net->item($_[0]);
@@ -549,6 +562,7 @@ sub srvname {
 		my $nick = $net->nick($_[2]) or return ();
 		return () if $nick->{homenet}->id() eq $net->id(); 
 			# if local, wait for the QUIT that will be sent along in a second
+		delete $net->{nicks}->{lc $_[2]};
 		return +{
 			type => 'CONNECT',
 			dst => $nick,
@@ -840,7 +854,7 @@ sub cmd2 {
 	}, CONNECT => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
-		return if $act->{net}->id() ne $net->id();
+		return () if $act->{net}->id() ne $net->id();
 		my $mode = join '', '+', sort map $txt2umode{$_}, keys %{$nick->{mode}};
 		$mode =~ s/[xt]//g;
 		$mode .= 'xt';
@@ -849,9 +863,22 @@ sub cmd2 {
 		}
 		my($hc, $srv) = (2,$nick->{homenet}->id() . '.janus');
 		($hc, $srv) = (1, $net->{linkname}) if $nick->{_is_janus};
-		# TODO set hopcount to 2 and use $nick->{homenet}->id().'.janus' or similar as server name
-		$net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->{nickts}), $nick->{ident}, $nick->{host},
+		my @out;
+		push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->{nickts}), $nick->{ident}, $nick->{host},
 			$srv, 0, $mode, $nick->{vhost}, ($nick->{ip_64} || '*'), $nick->{name});
+		if ($act->{reconnect}) {
+			# XXX: this may not be the best place to generate these events
+			for my $chan (values %{$nick->{chans}}) {
+				next unless $chan->{nets}->{$net->id()};
+				my $mode = '';
+				if ($act->{mode}) {
+					$mode .= $txt2cmode{$_} for keys %{$act->{mode}};
+				}
+				$mode =~ tr/qaohv/*~@%+/;
+				push @out, $net->cmd1(SJOIN => $net->sjb64($chan->{ts}), $chan->str($net), $mode.$nick->str($net));
+			}
+		}
+		@out;
 	}, JOIN => sub {
 		my($net,$act) = @_;
 		if ($act->{src}->{homenet}->id() eq $net->id()) {
