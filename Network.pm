@@ -137,18 +137,18 @@ sub str {
 sub request_nick {
 	my($net, $nick, $reqnick) = @_;
 	my $maxlen = $net->{params}->{nicklen};
-	$reqnick = substr $reqnick, 0, $maxlen;
-	if ($_[3] || exists $net->{nicks}->{lc $reqnick}) {
-		my $tag = '/'.$nick->{homenet}->id();
+	my $given = substr $reqnick, 0, $maxlen;
+	if ($_[3] || exists $net->{nicks}->{lc $given}) {
+		my $tag = '_'.$nick->{homenet}->id();
 		my $i = 0;
-		$reqnick = substr($reqnick, 0, $maxlen - length $tag) . $tag;
-		while (exists $net->{nicks}->{lc $reqnick}) {
+		$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
+		while (exists $net->{nicks}->{lc $given}) {
 			$itag = (++$i).$tag; # it will find a free nick eventually...
-			$reqnick = substr($reqnick, 0, $maxlen - length $itag) . $itag;
+			$given = substr($reqnick, 0, $maxlen - length $itag) . $itag;
 		}
 	}
-	$net->{nicks}->{lc $reqnick} = $nick;
-	return $reqnick;
+	$net->{nicks}->{lc $given} = $nick;
+	return $given;
 }
 
 # Release a nick on a remote network (PART/QUIT must be sent BEFORE this)

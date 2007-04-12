@@ -300,21 +300,29 @@ sub nickact {
 	
 	my $src = $net->nick($_[0]);
 	my $dst = $type eq 'set' ? $src : $net->nick($_[2]);
-	my %a = (
-		type => 'NICKINFO',
-		src => $src,
-		dst => $dst,
-		item => lc $act,
-		value => $_[-1],
-	);
-	if ($act eq 'vhost' && !($dst->{mode}->{vhost} || $dst->{mode}->{vhost_x})) {
-		return (\%a, +{
-			type => 'UMODE',
+
+	if ($dst->{homenet}->id() eq $net->id()) {
+		my %a = (
+			type => 'NICKINFO',
+			src => $src,
 			dst => $dst,
-			mode => ['+vhost', '+vhost_x'],
-		});
+			item => lc $act,
+			value => $_[-1],
+		);
+		if ($act eq 'vhost' && !($dst->{mode}->{vhost} || $dst->{mode}->{vhost_x})) {
+			return (\%a, +{
+				type => 'UMODE',
+				dst => $dst,
+				mode => ['+vhost', '+vhost_x'],
+			});
+		} else {
+			return \%a;
+		}
 	} else {
-		return \%a;
+		my $old = $dst->{$act};
+		$act =~ s/vhost/host/;
+		$net->send($net->cmd2($dst, 'SET'.uc($act), $old));
+		return ();
 	}
 }
 
@@ -354,6 +362,49 @@ sub pm_notice {
 		};
 	}
 }
+
+sub _parse_umode {
+	my($net, $nick, $mode) = @_;
+	my @mode;
+	my $pm = '+';
+	my $vh_pre = $nick->{mode}->{vhost} ? 3 : $nick->{mode}->{vhost_x} ? 1 : 0;
+	my $vh_post = $vh_pre;
+	for (split //, $mode) {
+		if (/[-+]/) {
+			$pm = $_;
+		} elsif (/d/ && $_[3]) {
+			# adjusts the services TS - which is restricted to the local network
+		} else {
+			my $txt = $umode2txt{$_};
+			if ($txt eq 'vhost') {
+				warn '+t should not be in a umode' if $pm eq '+';
+				$vh_post = $vh_post & 1;
+			} elsif ($txt eq 'vhost_x') {
+				$vh_post = $pm eq '+' ? $vh_post | 1 : 0;
+			}
+			push @mode, $pm.$txt;
+		}
+	}
+	my @out;
+	push @out, +{
+		type => 'UMODE',
+		dst => $nick,
+		mode => \@mode,
+	} if @mode;
+
+	if ($vh_pre != $vh_post) {
+		warn if $vh_post > 1; #invalid
+		my $vhost = $vh_post ? $nick->{chost} : $nick->{host};
+		push @out,{
+			type => 'NICKINFO',
+			dst => $nick,
+			item => 'host',
+			value => $vhost,
+		};
+	}				
+	@out;
+}
+
 my $unreal64_table = join '', 0 .. 9, 'A'..'Z', 'a'..'z', '{}';
 
 sub sjbint {
@@ -453,18 +504,18 @@ sub srvname {
 					reconnect => 1,
 					nojlink => 1,
 				};
+				delete $net->{nicks}->{lc $_[2]};
 			}
 			if ($cnick->{nickts} <= $nick->{nickts}) {
-				# the new nick did not win; kill it
+				# the new nick did not win; kill it and pretend this never happened
 				$net->send($net->cmd1(KILL => $_[2], "Nick Collision"));
-				delete $net->{nicks}->{lc $_[2]};
 			} else {
 				$net->{nicks}->{lc $_[2]} = $nick;
 			}
 		} else {
 			$net->{nicks}->{lc $_[2]} = $nick;
 		}
-		@out; #not transmitted to remote nets or acted upon until joins
+		@out;
 	}, QUIT => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[0]) or return ();
@@ -508,42 +559,21 @@ sub srvname {
 	}, UMODE2 => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[0]) or return ();
-		my @mode;
-		my $pm = '+';
-		my $vh_pre = $nick->{mode}->{vhost} ? 3 : $nick->{mode}->{vhost_x} ? 1 : 0;
-		my $vh_post = $vh_pre;
-		for (split //, $_[2]) {
-			if (/[-+]/) {
-				$pm = $_;
-			} else {
-				my $txt = $umode2txt{$_};
-				if ($txt eq 'vhost') {
-					warn '+t should not be in a umode' if $pm eq '+';
-					$vh_post = $vh_post & 1;
-				} elsif ($txt eq 'vhost_x') {
-					$vh_post = $pm eq '+' ? $vh_post | 1 : 0;
-				}
-				push @mode, $pm.$txt;
-			}
+		$net->_parse_umode($nick, @_[2 .. $#_]);
+	}, SVSMODE => sub {
+		my $net = shift;
+		my $nick = $net->nick($_[2]) or return ();
+		if ($nick->{homenet}->id() eq $net->id()) {
+			return $net->_parse_umode($nick, @_[3 .. $#_]);
+		} else {
+			my $mode = $_[3];
+			$mode =~ y/-+/+-/;
+			$mode =~ s/d// if $_[4];
+			$mode =~ s/r//;
+			$mode =~ s/[-+]+([-+]|$)/$1/g; # umode +r-i ==> -+i ==> +i
+			$net->send($net->cmd2($nick, 'UMODE2', $mode)) if $mode;
+			return ();
 		}
-		my @out;
-		push @out, +{
-			type => 'UMODE',
-			dst => $nick,
-			mode => \@mode,
-		} if @mode;
-
-		if ($vh_pre != $vh_post) {
-			warn if $vh_post > 1; #invalid
-			my $vhost = $vh_post ? $nick->{chost} : $nick->{host};
-			push @out,{
-				type => 'NICKINFO',
-				dst => $nick,
-				item => 'host',
-				value => $vhost,
-			};
-		}				
-		@out;
 	},
 	SETIDENT => \&nickact,
 	CHGIDENT => \&nickact,
@@ -759,6 +789,7 @@ sub srvname {
 		();
 	},
 );
+$fromirc{SVS2MODE} = $fromirc{SVSMODE};
 
 sub _out {
 	my($net,$itm) = @_;
@@ -823,6 +854,10 @@ sub cmd2 {
 			$srv, 0, $mode, $nick->{vhost}, ($nick->{ip_64} || '*'), $nick->{name});
 	}, JOIN => sub {
 		my($net,$act) = @_;
+		if ($act->{src}->{homenet}->id() eq $net->id()) {
+			print "ERR: Trying to join nick to channel without rejoin" unless $act->{rejoin};
+			return ();
+		}
 		my $chan = $act->{dst};
 		my $mode = '';
 		if ($act->{mode}) {
@@ -838,7 +873,9 @@ sub cmd2 {
 		$net->cmd2($act->{src}, KICK => $act->{dst}, $act->{kickee}, $act->{msg});
 	}, MODE => sub {
 		my($net,$act) = @_;
-		$net->cmd2($act->{src}, MODE => $act->{dst}, $net->_mode_interp($act));
+		my @ts;
+		push @ts, 0 unless ref $act->{src} && $act->{src}->isa('Nick');
+		$net->cmd2($act->{src}, MODE => $act->{dst}, $net->_mode_interp($act), @ts);
 	}, TOPIC => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, TOPIC => $act->{dst}, $act->{topicset}, 
