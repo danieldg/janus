@@ -93,13 +93,6 @@ sub modload {
 				slink => '#opers',
 				dlink => '#test',
 			});
-			$j->insert_full(+{
-				type => 'LINKREQ',
-				net => $net,
-				dst => $j->{nets}->{t3},
-				slink => '#opers',
-				dlink => '#opers',
-			});
 		} elsif ($net->id() eq 't2') {
 			$j->insert_full(+{
 				type => 'LINKREQ',
@@ -108,30 +101,7 @@ sub modload {
 				slink => '#test',
 				dlink => '#opers',
 			});
-			$j->insert_full(+{
-				type => 'LINKREQ',
-				net => $net,
-				dst => $j->{nets}->{t3},
-				slink => '#test',
-				dlink => '#opers',
-			});
-		} elsif ($net->id() eq 't3') {
-			$j->insert_full(+{
-				type => 'LINKREQ',
-				net => $net,
-				dst => $j->{nets}->{t1},
-				slink => '#opers',
-				dlink => '#opers',
-			});
-			$j->insert_full(+{
-				type => 'LINKREQ',
-				net => $net,
-				dst => $j->{nets}->{t2},
-				slink => '#opers',
-				dlink => '#test',
-			});
 		} 
-
 	});
 }
 

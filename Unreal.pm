@@ -543,10 +543,12 @@ sub srvname {
 		my $dst = $net->nick($_[2]) or return ();
 
 		if ($dst->{homenet}->id() eq $net->id()) {
+			my $msg = $_[3];
+			$msg = s/^(\S+)!//;
 			return {
 				type => 'QUIT',
 				dst => $dst,
-				msg => "Killed ($_[3])",
+				msg => "Killed ($msg)",
 				killer => $src,
 			};
 		}
@@ -563,6 +565,7 @@ sub srvname {
 		return () if $nick->{homenet}->id() eq $net->id(); 
 			# if local, wait for the QUIT that will be sent along in a second
 		delete $net->{nicks}->{lc $_[2]};
+		$net->send($net->cmd2($nick, QUIT => $_[3]));
 		return +{
 			type => 'CONNECT',
 			dst => $nick,
@@ -948,6 +951,7 @@ sub cmd2 {
 		$net->cmd2($act->{dst}, UMODE2 => $mode) if $mode;
 	}, QUIT => sub {
 		my($net,$act) = @_;
+		return () unless $act->{dst}->is_on($net);
 		$net->cmd2($act->{dst}, QUIT => $act->{msg});
 	}, LINK => sub {
 		my($net,$act) = @_;

@@ -14,7 +14,7 @@ my $janus = Janus->new();
 Channel->modload($janus);
 Nick->modload($janus);
 Network->modload($janus);
-Interface->modload($janus);
+Interface->modload($janus,'janus2');
 JConf->modload($janus);
 
 my $conf = JConf->new(shift);

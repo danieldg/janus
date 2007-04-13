@@ -29,6 +29,7 @@ sub connect {
 		$net->{sock} = $sock;
 		$net->intro(0);
  	} else {
+		print "Non-SSL connection to $net->{linkaddr}:$net->{linkport}\n";
 		my $sock = IO::Socket::INET6->new(
 			PeerAddr => $net->{linkaddr},
 			PeerPort => $net->{linkport}, 
@@ -139,7 +140,7 @@ sub request_nick {
 	my $maxlen = $net->{params}->{nicklen};
 	my $given = substr $reqnick, 0, $maxlen;
 	if ($_[3] || exists $net->{nicks}->{lc $given}) {
-		my $tag = '_'.$nick->{homenet}->id();
+		my $tag = '/'.$nick->{homenet}->id();
 		my $i = 0;
 		$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
 		while (exists $net->{nicks}->{lc $given}) {

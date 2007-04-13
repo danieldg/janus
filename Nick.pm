@@ -19,7 +19,7 @@ sub from_ij {
 }
 
 sub DESTROY {
-	print "DBG: $_[0] $_[0]->{homenick} deallocated\n";
+	print "DBG: $_[0] $_[0]->{homenick}\@$_[0]->{homenet}->{id} deallocated\n";
 }
 
 # send to all but possibly one network for NICKINFO
@@ -248,6 +248,7 @@ sub modload {
 				dst => $chan,
 				kickee => $nick,
 				msg => $act->{msg},
+				except => $net,
 				nojlink => 1,
 			};
 			$act->{sendto} = [ $chan->sendto($act, $net) ];
