@@ -1,5 +1,5 @@
-package Interface;
-use base 'Network';
+package Interface; {
+use Object::InsideOut qw(Network);
 use Nick;
 use strict;
 use warnings;
@@ -42,7 +42,7 @@ my %cmds = (
 		if ($cmd =~ /^l/i) {
 			my $c = 0;
 			for my $expr (@list) {
-				my $ban = $net->{ban}->{$expr};
+				my $ban = $net->ban($expr);
 				my $expire = $ban->{expire} ? 'expires on '.gmtime($ban->{expire}) : 'does not expire';
 				$c++;
 				Janus::jmsg($nick, "$c $ban->{ircexpr} - set by $ban->{setter}, $expire - $ban->{reason}");
@@ -61,20 +61,20 @@ my %cmds = (
 				expire => $arg[2] ? $arg[2] + time : 0,
 				setter => $nick->homenick(),
 			);
-			$net->{ban}->{$expr} = \%b;
+			$net->add_ban(\%b);
 			if ($cmd =~ /^a/i) {
 				Janus::jmsg($nick, 'Ban added');
 			} else {
 				my $c = 0;
-				for my $n (values %{$net->{nicks}}) {
-					next if $n->{homenet}->id() eq $net->id();
-					my $mask = $n->{homenick}.'!'.$n->{ident}.'\@'.$n->{host}.'%'.$n->{homenet}->id();
+				for my $n (values %{$net->_nicks()}) {
+					next if $n->homenet()->id() eq $net->id();
+					my $mask = $n->homenick().'!'.$n->info('ident').'\@'.$n->info('host').'%'.$n->homenet()->id();
 					next unless $mask =~ /$expr/;
 					Janus::append(+{
 						type => 'KILL',
 						dst => $n,
 						net => $net,
-						msg => "Banned by $net->{netname}: $arg[1]",
+						msg => 'Banned by '.$net->netname().': '.$arg[1],
 					});
 					$c++;
 				}
@@ -83,7 +83,7 @@ my %cmds = (
 		} elsif ($cmd =~ /^d/i) {
 			for (@arg) {
 				my $expr = /^\d+$/ ? $list[$_ - 1] : banify $_;
-				my $ban = delete $net->{ban}->{$expr};
+				my $ban = $net->remove_ban($expr);
 				if ($ban) {
 					Janus::jmsg($nick, "Ban $ban->{ircexpr} removed");
 				} else {
@@ -99,7 +99,7 @@ my %cmds = (
 	}, 'link' => sub {
 		my $nick = shift;
 		return Janus::jmsg("You must be an IRC operator to use this command") 
-			if $nick->homenet()->{oper_only_link} && !$nick->has_mode('oper');
+			if $nick->homenet()->param('oper_only_link') && !$nick->has_mode('oper');
 		my($cname1, $nname2, $cname2) = /(#\S+)\s+(\S+)\s*(#\S+)?/ or do {
 			Janus::jmsg($nick, 'Usage: link $localchan $network $remotechan');
 			return;
@@ -110,7 +110,7 @@ my %cmds = (
 			Janus::jmsg($nick, "Cannot find network $nname2");
 			return;
 		};
-		my $chan1 = $net1->{chans}->{lc $cname1} or do {
+		my $chan1 = $net1->chan($cname1,0) or do {
 			Janus::jmsg($nick, "Cannot find channel $cname1");
 			return;
 		};
@@ -135,7 +135,7 @@ my %cmds = (
 		my($nick, $cname) = @_;
 		my $snet = $nick->homenet();
 		return Janus::jmsg("You must be an IRC operator to use this command") 
-			if $snet->{oper_only_link} && !$nick->has_mode('oper');
+			if $snet->param('oper_only_link') && !$nick->has_mode('oper');
 		my $chan = $snet->chan($cname) or do {
 			Janus::jmsg($nick, "Cannot find channel $cname");
 			return;
@@ -169,16 +169,16 @@ sub modload {
 	my $class = shift;
 	my $inick = shift || 'janus';
 
-	my %neth = (
+	my $int = Interface->new(
 		id => 'janus',
-		netname => 'Janus',
 	);
-	my $int = \%neth;
-	bless $int, $class;
-
+	$int->configure(+{
+		netname => 'Janus',
+	});
+	$int->_connect();
 	Janus::link($int);
 
-	$int->{nicks}->{lc $inick} = $Janus::interface = Nick->new(
+	$Janus::interface = Nick->new(
 		net => $int,
 		nick => $inick,
 		ts => 100000000,
@@ -191,6 +191,7 @@ sub modload {
 		},
 		mode => { oper => 1, service => 1 },
 	);
+	$int->nick_collide($inick, $Janus::interface);
 	
 	Janus::hook_add($class, 
 		NETLINK => act => sub {
@@ -200,12 +201,12 @@ sub modload {
 				dst => $Janus::interface,
 				net => $act->{net},
 			});
-		}, NETSPLIT => act => sub {
-			my $act = shift;
-			my $net = $act->{net};
-			delete $Janus::interface->{nets}->{$net->id()};
-			my $jnick = delete $Janus::interface->{nicks}->{$net->id()};
-			$net->release_nick($jnick);
+#		}, NETSPLIT => act => sub {
+#			my $act = shift;
+#			my $net = $act->{net};
+#			delete $Janus::interface->{nets}->{$net->id()};
+#			my $jnick = delete $Janus::interface->{nicks}->{$net->id()};
+#			$net->release_nick($jnick);
 		}, MSG => parse => sub {
 			my $act = shift;
 			my $nick = $act->{src};
@@ -234,12 +235,12 @@ sub modload {
 			my $act = shift;
 			my $snet = $act->{net};
 			my $dnet = $act->{dst};
-			return if $dnet->{jlink};
-			my $recip = $dnet->{lreq}->{$snet->id()}->{$act->{dlink}};
-			if ($recip && ($act->{override} || lc $recip eq lc $act->{slink})) {
+			return if $dnet->jlink();
+			my $recip = $dnet->is_req($act->{dlink}, $snet);
+			if ($recip && ($act->{override} || $recip eq 'any' || lc $recip eq lc $act->{slink})) {
 				# there has already been a request to link this channel to that network
 				# also, if it was not an override, the request was for this pair of channels
-				delete $dnet->{lreq}->{$snet->id()}->{$act->{dlink}};
+				$dnet->del_req($act->{dlink}, $snet);
 				Janus::append(+{
 					type => 'LSYNC',
 					src => $dnet,
@@ -248,8 +249,7 @@ sub modload {
 					linkto => $act->{slink},
 				});
 			} else {
-				# add the request
-				$snet->{lreq}->{$dnet->id()}->{$act->{slink}} = $act->{dlink};
+				$snet->add_req($act->{slink}, $dnet, $act->{dlink});
 			}
 		},
 	);
@@ -257,3 +257,5 @@ sub modload {
 
 sub parse { () }
 sub send { }
+
+} 1;

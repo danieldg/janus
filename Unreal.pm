@@ -1,9 +1,13 @@
-package Unreal;
-use base 'Network';
+package Unreal; {
+use Object::InsideOut 'Network';
 use strict;
 use warnings;
 use Nick;
 use Interface;
+
+my %sendq :Field;
+my %srvname :Field;
+my %servers :Field;
 
 my %fromirc;
 my %toirc;
@@ -200,21 +204,19 @@ my %cmode2txt = (qw/
 my %txt2cmode;
 $txt2cmode{$cmode2txt{$_}} = $_ for keys %cmode2txt;
 
+sub cmode2txt { $cmode2txt{$_[1]}; }
+sub txt2cmode { $txt2cmode{$_[1]}; }
+
+sub nicklen { 30 }
+
 sub debug {
 	print @_, "\n";
 }
 
 sub str {
-	$_[1]->{linkname};
+	my $net = shift;
+	$net->id().'.janus';
 }
-
-my %unreal_net = (
-	txt2cmode => \%txt2cmode,
-	txt2umode => \%txt2umode,
-	cmode2txt => \%cmode2txt,
-	umode2txt => \%umode2txt,
-	nicklen => 30,
-);
 
 sub intro {
 	unless (ref $_[0]) {
@@ -222,21 +224,20 @@ sub intro {
 		bless $_[0], $class;
 	}
 	my $net = shift;
-	if ($_[0]) {
+	if ($net->cparam('incoming')) {
 		die "sorry, not supported";
 	}
 	$net->send(
-		"PASS :$net->{linkpass}",
+		'PASS :'.$net->cparam('linkpass'),
 		'PROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS UMODE2 TKLEXT SJB64',
-		"SERVER $net->{linkname} 1 :U2309-hX6eE-$net->{numeric} Janus Network Link",
+		'SERVER '.$net->cparam('linkname').' 1 :U2309-hX6eE-'.$net->cparam('numeric').' Janus Network Link',
 	);
-	$net->{params} = \%unreal_net;
 }
 
 # parse one line of input
 sub parse {
 	my ($net, $line) = @_;
-	debug "IN\@$net->{id} $line";
+	debug '     IN@'.$net->id().' '. $line;
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
 	push @args, $msg if defined $msg;
@@ -256,9 +257,6 @@ sub parse {
 
 sub send {
 	my $net = shift;
-	# idea: because SSL nonblocking has some problems, and nonblocking send in
-	# general requires maintinance of a sendq, have a separate thread handle send with a
-	# Thread::Queue here
 	my @out;
 	for my $act (@_) {
 		if (ref $act) {
@@ -272,9 +270,15 @@ sub send {
 			push @out, $act;
 		}
 	}
-	debug "OUT\@$net->{id} $_" for @out;
-	return unless $net->{sock}->connected();
-	$net->{sock}->print(map "$_\r\n", @out);
+	debug '    OUT@'.$net->id().' '.$_ for @out;
+	$sendq{$$net} .= "$_\r\n" for @out;
+}
+
+sub dump_sendq {
+	my $net = shift;
+	my $q = $sendq{$$net};
+	$sendq{$$net} = '';
+	$q;
 }
 
 # IRC Parser
@@ -421,7 +425,7 @@ sub sjb64 {
 }
 sub srvname {
 	my($net,$num) = @_;
-	return $net->{srvname}{$num} if exists $net->{srvname}{$num};
+	return $srvname{$$net}{$num} if exists $srvname{$$net}{$num};
 	return $num;
 }
 
@@ -502,8 +506,7 @@ sub srvname {
 			};
 		} else {
 			# whoever decided this is how SVSKILL works... must have been insane
-			# FIXME internal access
-			delete $net->{nicks}->{lc $_[0]};
+			$net->release_nick($_[0]);
 			return +{
 				type => 'CONNECT',
 				dst => $nick,
@@ -540,7 +543,7 @@ sub srvname {
 		return () if $nick->homenet()->id() eq $net->id(); 
 			# if local, wait for the QUIT that will be sent along in a second
 		$net->send($net->cmd2($nick, QUIT => $_[3]));
-		delete $net->{nicks}->{lc $_[2]};
+		$net->release_nick(lc $_[2]);
 		return +{
 			type => 'CONNECT',
 			dst => $nick,
@@ -680,31 +683,31 @@ sub srvname {
 		my $snum = $net->sjb64((@_ > 5          ? $_[4] : 
 				($desc =~ s/^U\d+-\S+-(\d+) //) ? $1    : 0), 1);
 
-		$net->{server}{$name} = {
-			parent => lc ($_[0] || $net->{linkname}),
+		$servers{$$net}{$name} = {
+			parent => lc ($_[0] || $net->cparam('linkname')),
 			hops => $_[3],
 			numeric => $snum,
 		};
-		$net->{srvname}{$snum} = $name if $snum;
+		$srvname{$$net}{$snum} = $name if $snum;
 
 		();
 	}, SQUIT => sub {
 		my $net = shift;
 		my $netid = $net->id();
 		my $srv = $net->srvname($_[2]);
-		my $splitfrom = $net->{server}{$srv}{parent};
+		my $splitfrom = $servers{$$net}{$srv}{parent};
 		
 		my %sgone = (lc $srv => 1);
 		my $k = 0;
 		while ($k != scalar keys %sgone) {
 			# loop to traverse each layer of the map
 			$k = scalar keys %sgone;
-			for (keys %{$net->{server}}) {
-				$sgone{$_} = 1 if $sgone{$net->{server}{$_}{parent}};
+			for (keys %{$servers{$$net}}) {
+				$sgone{$_} = 1 if $sgone{$servers{$$net}{$_}{parent}};
 			}
 		}
-		delete $net->{srvname}{$net->{server}{$_}{numeric}} for keys %sgone;
-		delete $net->{server}{$_} for keys %sgone;
+		delete $srvname{$$net}{$servers{$$net}{$_}{numeric}} for keys %sgone;
+		delete $servers{$$net}{$_} for keys %sgone;
 
 		my @quits;
 		my $nicks = $net->_nicks();
@@ -721,7 +724,7 @@ sub srvname {
 		@quits;
 	}, PING => sub {
 		my $net = shift;
-		my $from = $_[3] || $net->{linkname};
+		my $from = $_[3] || $net->cparam('linkname');
 		$net->send($net->cmd1('PONG', $from, $_[2]));
 		();
 	},
@@ -732,7 +735,7 @@ sub srvname {
 	EOS => sub {
 		my $net = shift;
 		my $srv = $_[0];
-		if ($net->{server}{lc $srv}{parent} eq lc $net->{linkname}) {
+		if ($servers{$$net}{lc $srv}{parent} eq lc $net->cparam('linkname')) {
 			return +{
 				type => 'LINKED',
 				net => $net,
@@ -757,26 +760,25 @@ sub srvname {
 		my $net = shift;
 		my $iexpr;
 		if ($_[3] eq 'G') {
-			return unless $net->{translate_gline};
+			return unless $net->param('translate_gline');
 			$iexpr = '*!'.$_[4].'@'.$_[5].'%*';
 		} elsif ($_[3] eq 'Q') {
-			return unless $net->{translate_qline};
+			return unless $net->param('translate_qline');
 			$iexpr = $_[5].'!*';
 		}
 		return unless $iexpr;
 		my $expr = &Interface::banify($iexpr);
 		if ($_[2] eq '+') {
-			my %ban = (
+			$net->add_ban(+{
 				expr => $expr,
 				ircexpr => $iexpr,
 				setter => $_[6],
 				expire => $_[7],
 				# 8 = set time
 				reason => $_[9],
-			);
-			$net->{ban}{$expr} = \%ban;
+			});
 		} else {
-			delete $net->{ban}{$expr};
+			$net->del_ban($expr);
 		}
 		();
 	},
@@ -812,16 +814,16 @@ sub cmd2 {
 		my $new = $act->{net};
 		my $id = $new->id();
 		my @out;
-		push @out, $net->cmd1(SMO => 'o', "(\002link\002) Janus Network $id ($new->{netname}) is now linked");
+		push @out, $net->cmd1(SMO => 'o', "(\002link\002) Janus Network $id (".$new->netname().") is now linked");
 		if ($net->id() eq $id) {
 			# first link to the net
 			for $id (keys %Janus::nets) {
 				$new = $Janus::nets{$id};
 				next if $new->isa('Interface') || $id eq $net->id();
-				push @out, $net->cmd2($net->{linkname}, SERVER => "$id.janus", 2, $new->{numeric}, $new->{netname});
+				push @out, $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->cparam('numeric'), $new->netname());
 			}
 		} else {
-			push @out, $net->cmd2($net->{linkname}, SERVER => "$id.janus", 2, $new->{numeric}, $new->{netname});
+			push @out, $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->cparam('numeric'), $new->netname());
 		}
 		@out;
 	}, NETSPLIT => sub {
@@ -836,11 +838,11 @@ sub cmd2 {
 		my $mode = join '', '+', map $txt2umode{$_}, $nick->umodes();
 		$mode =~ s/[xt]//g;
 		$mode .= 'xt';
-		unless ($net->{show_roper} || $nick->info('_is_janus')) {
+		unless ($net->param('show_roper') || $nick->info('_is_janus')) {
 			$mode .= 'H' if $mode =~ /o/ && $mode !~ /H/;
 		}
 		my($hc, $srv) = (2,$nick->homenet()->id() . '.janus');
-		($hc, $srv) = (1, $net->{linkname}) if $srv eq 'janus.janus';
+		($hc, $srv) = (1, $net->cparam('linkname')) if $srv eq 'janus.janus';
 		my @out;
 		push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->info('nickts')), $nick->info('ident'), $nick->info('host'),
 			$srv, 0, $mode, $nick->info('vhost'), ($nick->info('ip_64') || '*'), $nick->info('name'));
@@ -899,7 +901,7 @@ sub cmd2 {
 		my $item = $act->{item};
 		$item =~ s/vhost/host/;
 		if ($act->{dst}->homenet()->id() eq $net->id()) {
-			my $src = $act->{src}->is_on($net) ? $act->{src} : $net->{linkname};
+			my $src = $act->{src}->is_on($net) ? $act->{src} : $net->cparam('linkname');
 			$net->cmd2($src, 'CHG'.uc($item), $act->{dst}, $act->{value});
 		} else {
 			$net->cmd2($act->{dst}, 'SET'.uc($item), $act->{value});
@@ -912,14 +914,14 @@ sub cmd2 {
 		for my $ltxt (@{$act->{mode}}) {
 			my($d,$txt) = $ltxt =~ /([-+])(.+)/ or warn $ltxt;
 			next if $txt eq 'vhost' || $txt eq 'vhost_x'; #never changed
-			next if $txt eq 'hideoper' && !$net->{show_roper};
+			next if $txt eq 'hideoper' && !$net->param('show_roper');
 			if ($pm ne $d) {
 				$pm = $d;
 				$mode .= $pm;
 			}
 			$mode .= $txt2umode{$txt};
 		}
-		unless ($net->{show_roper}) {
+		unless ($net->param('show_roper')) {
 			$mode .= '+H' if $mode =~ /\+[^-]*o/ && $mode !~ /\+[^-]*H/;
 			$mode .= '-H' if $mode =~ /-[^+]*o/ && $mode !~ /-[^+]*H/;
 		}
@@ -944,7 +946,7 @@ sub cmd2 {
 			$net->cmd1(GLOBOPS => "Channel $name delinked by $nick");
 		} else {
 			my $name = $act->{dst}->str($net);
-			$net->cmd1(GLOBOPS => "Network $act->{net}->{netname} dropped channel $name");
+			$net->cmd1(GLOBOPS => "Network ".$act->{net}->netname()." dropped channel $name");
 		}			
 	}, KILL => sub {
 		my($net,$act) = @_;
@@ -955,4 +957,4 @@ sub cmd2 {
 	},
 );
 
-1;
+} 1;

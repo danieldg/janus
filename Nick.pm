@@ -146,7 +146,7 @@ sub _netclean {
 			src => $nick,
 			dst => $nick,
 			msg => 'Left all shared channels',
-		}) unless $net->{jlink};
+		}) unless $net->jlink();
 		$nick->_netpart($net);
 	}
 }
@@ -192,7 +192,7 @@ sub modload {
 			warn "Nick alredy exists";
 		}
 		$nets{$$nick}->{$id} = $net;
-		return if $net->{jlink};
+		return if $net->jlink();
 		my $rnick = $net->request_nick($nick, $homenick{$$nick}, $act->{reconnect});
 		$nicks{$$nick}->{$id} = $rnick;
 		if ($act->{reconnect}) {
@@ -201,7 +201,7 @@ sub modload {
 		}
 	}, NICK => check => sub {
 		my $act = shift;
-		my $old = lc $act->{dst}->{homenick};
+		my $old = lc $act->{dst}->homenick();
 		my $new = lc $act->{nick};
 		return 1 if $old eq $new;
 		undef;
@@ -219,7 +219,7 @@ sub modload {
 		$homenick{$$nick} = $new;
 		for my $id (keys %{$nets{$$nick}}) {
 			my $net = $nets{$$nick}->{$id};
-			next if $net->{jlink};
+			next if $net->jlink();
 			my $from = $nicks{$$nick}->{$id};
 			my $to = $net->request_nick($nick, $new);
 			$net->release_nick($from);
@@ -253,7 +253,7 @@ sub modload {
 		}
 		for my $id (keys %{$nets{$$nick}}) {
 			my $net = $nets{$$nick}->{$id};
-			next if $net->{jlink};
+			next if $net->jlink();
 			my $name = $nicks{$$nick}->{$id};
 			$net->release_nick($name);
 		}
@@ -265,7 +265,7 @@ sub modload {
 		my $name = $chan->str($homenet{$$nick});
 		$chans{$$nick}->{lc $name} = $chan;
 
-		return if $homenet{$$nick}->{jlink};
+		return if $homenet{$$nick}->jlink();
 		
 		for my $net ($chan->nets()) {
 			next if $nets{$$nick}->{$net->id()};

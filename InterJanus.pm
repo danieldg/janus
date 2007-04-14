@@ -89,9 +89,7 @@ my %to_ij = (
 	NETLINK => sub {
 		my($ij, $act) = @_;
 		my $out = send_hdr(@_, qw/sendto/) . ' net=<s';
-		my $net = $act->{net};
-		$out .= ' '.$_.'='.$ij->ijstr($net->{$_}) for
-			qw/id netname/;
+		$out .= $act->{net}->to_ij($ij);
 		$out .= '>>';
 	}, LSYNC => sub {
 		my($ij, $act) = @_;
@@ -138,7 +136,7 @@ sub ij_send {
 			print "Unknown action type '$type'\n";
 		}
 	}
-	print "OUT\@IJ $_\n" for @out;
+	print "    OUT\@IJ $_\n" for @out;
 #	$ij->{sock}->print(map "$_\r\n", @out);
 }
 

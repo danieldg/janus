@@ -45,5 +45,17 @@ while ($read->count()) {
 			Janus::delink($net);
 		}
 	}
-	# TODO handle sendq and SSL errors
+
+	for my $l ($read->handles()) {
+		my ($sock, $recvq, $sendq, $net) = @$l;
+		next unless defined $net;
+		$sendq .= $net->dump_sendq();
+		# TODO nonblocking send
+		while ($sendq) {
+			my $crop = syswrite $sock, $sendq;
+			warn unless $crop;
+			$sendq = substr $sendq, $crop;
+		}
+		$$l[2] = $sendq;
+	}
 }

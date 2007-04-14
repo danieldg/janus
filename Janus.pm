@@ -95,7 +95,7 @@ sub _send {
 	my(%real, %jlink);
 		# hash to remove duplicates
 	for my $net (@to) {
-		my $ij = $net->{jlink};
+		my $ij = $net->jlink();
 		if (defined $ij) {
 			$jlink{$ij->id()} = $ij;
 		} else {
@@ -224,7 +224,7 @@ sub in_janus {
 
 sub rehash {
 	local $_;
-	my $net;
+	my($net,$nconf);
 	open my $conf, '<', $conffile;
 	$conf->untaint(); 
 		# the configurator is assumed to have at least half a brain :)
@@ -250,18 +250,21 @@ sub rehash {
 			$net = $nets{$netid};
 			unless (defined $net && $net->isa('Unreal')) {
 				print "Creating new net $netid\n";
-				$net = Unreal->new(id => $netid);
+				$net = Unreal->new( id => $netid );
 			}
+			$nconf = {};
 		} elsif ($type eq '}') {
 			unless (defined $net) {
 				print "Extra closing brace at line $. of config file\n";
 				next;
 			}
+			$net->configure($nconf);
 			unless (exists $nets{$net->id()}) {
-				print "Connecting to $net->{netname}\n";
-				if ($net->connect()) {
+				print "Connecting to $nconf->{netname}\n";
+				my $sock = $net->connect();
+				if ($sock) {
 					Janus::link($net);
-					$read->add([$net->{sock}, '', '', $net]);
+					$read->add([$sock, '', '', $net]);
 				} else {
 					print "Cannot connect to $net->{id}\n";
 				}
@@ -273,11 +276,7 @@ sub rehash {
 				print "Error in line $. of config file: not in a network definition\n";
 				next;
 			}
-			if (ref $net->{$type}) {
-				print "Error in line $. of config file: $type is not a valid config item for this network\n";
-				next;
-			}
-			$net->{$type} = $_;
+			$nconf->{$type} = $_;
 		}
 	}
 	close $conf;

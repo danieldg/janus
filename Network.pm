@@ -1,64 +1,76 @@
-package Network;
+package Network; {
+use Object::InsideOut ':hash_only';
 use Channel;
-use Scalar::Util qw(weaken);
 use IO::Socket::INET6;
 use IO::Socket::SSL 'inet6';
 
-sub new {
-	my $class = shift;
-	my %neth = @_;
-	my $net = \%neth;
-	bless $net, $class;
+my %parms :Field :Set(configure); # filled from rehash
+my %cparms :Field; # currently active
+
+my %jlink :Field :Get(jlink);
+my %id :Field :Arg(id) :Get(id);
+my %nicks :Field;
+my %chans :Field;
+my %lreq :Field;
+
+sub netname {
+	$cparms{${$_[0]}}{netname};
 }
 
-sub DESTROY {
-	print "DBG: $_[0] $_[0]->{netname} deallocated\n";
+sub to_ij {
+	my($net,$ij) = @_;
+	' id='.$net->id().' netname='.$net->netname();
+}
+
+sub param {
+	$parms{${$_[0]}}{$_[1]};
+}
+sub cparam {
+	$cparms{${$_[0]}}{$_[1]};
+}
+
+sub _destroy :Destroy {
+	print "DBG: $_[0] $cparms{${$_[0]}}{netname} deallocated\n";
+}
+
+sub _connect {
+	my $net = shift;
+	$cparms{$$net} = { %{$parms{$$net}} };
 }
 
 sub connect {
-	my $net = shift;
-	if (@_) {
-		$net->{sock} = shift;
-		$net->intro(1);
-	} elsif ($net->{linktype} eq "ssl"){
-		my $sock = IO::Socket::SSL->new(
-			PeerAddr => $net->{linkaddr},
-			PeerPort => $net->{linkport},
-		) or return 0;
-		$sock->autoflush(1);
-		$net->{sock} = $sock;
-		$net->intro(0);
+	my($net,$sock) = @_;
+	$cparms{$$net} = { %{$parms{$$net}} };
+	if ($sock) {
+		$cparms{$$net}{incoming} = 1;
+	} elsif ($cparms{$$net}{linktype} eq "ssl"){
+		print "Creating SSL connection to $cparms{$$net}{linkaddr}:$cparms{$$net}{linkport}\n";
+		$sock = IO::Socket::SSL->new(
+			PeerAddr => $cparms{$$net}{linkaddr},
+			PeerPort => $cparms{$$net}{linkport},
+		) or return undef;
  	} else {
-		print "Non-SSL connection to $net->{linkaddr}:$net->{linkport}\n";
-		my $sock = IO::Socket::INET6->new(
-			PeerAddr => $net->{linkaddr},
-			PeerPort => $net->{linkport}, 
-		) or return 0;
-		$sock->autoflush(1);
-		$net->{sock} = $sock;
-		$net->intro(0);
+		print "Creating Non-SSL connection to $cparms{$$net}{linkaddr}:$cparms{$$net}{linkport}\n";
+		$sock = IO::Socket::INET6->new(
+			PeerAddr => $cparms{$$net}{linkaddr},
+			PeerPort => $cparms{$$net}{linkport}, 
+		) or return undef;
 	}
-	1;
-}
-
-sub id {
-	return $_[0]->{id};
-}
-
-sub jlink {
-	return $_[0]->{jlink};
+	$sock->autoflush(1);
+	$net->intro();
+	$sock;
 }
 
 sub nick_collide {
 	my($net, $name, $new) = @_;
-	my $old = delete $net->{nicks}{lc $name};
+	my $old = delete $nicks{$$net}{lc $name};
 	unless ($old) {
-		$net->{nicks}{lc $name} = $new;
+		$nicks{$$net}{lc $name} = $new;
 		return;
 	}
 	my $tsctl = $old->info('nickts') <=> $new->info('nickts');
 
-	$net->{nicks}{lc $name} = $new if $tsctl > 0;
+	$nicks{$$net}{lc $name} = $new if $tsctl > 0;
 
 	if ($tsctl <= 0) {
 		# new nick lost
@@ -82,37 +94,36 @@ sub nick_collide {
 
 sub _nicks {
 	my $net = $_[0];
-	$net->{nicks};
+	$nicks{$$net};
 }
 
 sub nick {
 	my($net, $name) = @_;
-	return $net->{nicks}{lc $name} if $net->{nicks}{lc $name};
+	return $nicks{$$net}{lc $name} if $nicks{$$net}{lc $name};
 	print "Nick '$name' does not exist; ignoring\n";
 	undef;
 }
 
 sub chan {
 	my($net, $name, $new) = @_;
-	unless (exists $net->{chans}{lc $name}) {
-		print "Creating channel $name when creation was not requested\n" unless $new;
+	unless (exists $chans{$$net}{lc $name}) {
+		return undef unless $new;
 		print "Creating channel $name\n" if $new;
-		my $id = $net->{id};
-		$net->{chans}{lc $name} = Channel->new(
+		$chans{$$net}{lc $name} = Channel->new(
 			net => $net, 
 			name => $name,
 		);
 	}
-	$net->{chans}{lc $name};
+	$chans{$$net}{lc $name};
 }
 
 sub replace_chan {
 	my($net,$name,$new) = @_;
-	warn "replacing nonexistant channel" unless exists $net->{chans}{lc $name};
+	warn "replacing nonexistant channel" unless exists $chans{$$net}{lc $name};
 	if (defined $new) {
-		$net->{chans}{lc $name} = $new;
+		$chans{$$net}{lc $name} = $new;
 	} else {
-		delete $net->{chans}{lc $name};
+		delete $chans{$$net}{lc $name};
 	}
 }
 
@@ -133,7 +144,7 @@ sub _modeargs {
 			$pm = $_;
 			next;
 		}
-		my $txt = $net->{params}{cmode2txt}{$_} || 'UNK';
+		my $txt = $net->cmode2txt($_) || 'UNK';
 		my $type = substr $txt,0,1;
 		if ($type eq 'n') {
 			push @args, $net->nick(shift);
@@ -160,10 +171,10 @@ sub _mode_interp {
 	for my $mtxt (@{$act->{mode}}) {
 		my($ipm,$txt) = ($mtxt =~ /^([-+])(.*)/) or warn $mtxt;
 		my $itm = ($txt =~ /^[nlv]/ || $mtxt =~ /^\+s/) ? shift @argin : undef;
-		if (exists $net->{params}{txt2cmode}{$txt}) {
+		if (defined $net->txt2cmode($txt)) {
 			push @args, ref $itm ? $itm->str($net) : $itm if defined $itm;
 			$mode .= $ipm if $ipm ne $pm;
-			$mode .= $net->{params}{txt2cmode}{$txt};
+			$mode .= $net->txt2cmode($txt);
 			$pm = $ipm;
 		} else {
 			warn "Unsupported channel mode '$txt' for network";
@@ -174,14 +185,15 @@ sub _mode_interp {
 
 sub item {
 	my($net, $item) = @_;
-	return $net->{nicks}{lc $item} if exists $net->{nicks}{lc $item};
-	return $net->{chans}{lc $item} if exists $net->{chans}{lc $item};
+	return $nicks{$$net}{lc $item} if exists $nicks{$$net}{lc $item};
+	return $chans{$$net}{lc $item} if exists $chans{$$net}{lc $item};
 	return $net if $item =~ /\./;
 	return undef;
 }
 
 sub str {
-	$_[0]->{id};
+	warn;
+	$_[0]->id();
 }
 
 ################################################################################
@@ -191,40 +203,70 @@ sub str {
 # Request a nick on a remote network (CONNECT/JOIN must be sent AFTER this)
 sub request_nick {
 	my($net, $nick, $reqnick) = @_;
-	my $maxlen = $net->{params}{nicklen};
+	my $maxlen = $net->nicklen();
 	my $given = substr $reqnick, 0, $maxlen;
-	if ($_[3] || exists $net->{nicks}{lc $given}) {
+	if ($_[3] || exists $nicks{$$net}{lc $given}) {
 		my $tag = '/'.$nick->homenet()->id();
 		my $i = 0;
 		$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
-		while (exists $net->{nicks}{lc $given}) {
+		while (exists $nicks{$$net}{lc $given}) {
 			$itag = (++$i).$tag; # it will find a free nick eventually...
 			$given = substr($reqnick, 0, $maxlen - length $itag) . $itag;
 		}
 	}
-	$net->{nicks}{lc $given} = $nick;
+	$nicks{$$net}{lc $given} = $nick;
 	return $given;
 }
 
 # Release a nick on a remote network (PART/QUIT must be sent BEFORE this)
 sub release_nick {
 	my($net, $req) = @_;
-	delete $net->{nicks}{lc $req};
+	delete $nicks{$$net}{lc $req};
 }
 
 sub banlist {
 	my $net = shift;
-	my @list = keys %{$net->{ban}};
+	my @list = keys %{$bans{$$net}};
 	my @good;
 	for my $i (@list) {
-		my $exp = $net->{ban}{$i}{expire};
+		my $exp = $bans{$$net}{$i}{expire};
 		if ($exp && $exp < time) {
-			delete $net->{ban}{$i};
+			delete $bans{$$net}{$i};
 		} else {
 			push @good, $i;
 		}
 	}
 	@good;
+}
+
+sub get_ban {
+	my($net, $exp) = @_;
+	$bans{$$net}{$exp};
+}
+
+sub add_ban {
+	my($net, $ban) = @_;
+	$bans{$$net}{$ban->{expr}} = $ban;
+}
+
+sub remove_ban {
+	my($net, $exp) = @_;
+	delete $bans{$$net}{$exp};
+}
+
+sub add_req {
+	my($net, $lchan, $onet, $ochan) = @_;
+	$lreq{$$net}{$lchan}{$onet->id()} = $ochan;
+}
+
+sub is_req {
+	my($net, $lchan, $onet) = @_;
+	$lreq{$$net}{$lchan}{$onet->id()};
+}
+
+sub del_req {
+	my($net, $lchan, $onet) = @_;
+	delete $lreq{$$net}{$lchan}{$onet->id()};
 }
 
 sub modload {
@@ -236,7 +278,7 @@ sub modload {
 		my $net = $act->{net};
 		my $tid = $net->id();
 		my @clean;
-		for my $nick (values %{$net->{nicks}}) {
+		for my $nick (values %{$nicks{$$net}}) {
 			next if $nick->homenet()->id() ne $tid;
 			push @clean, +{
 				type => 'QUIT',
@@ -246,7 +288,7 @@ sub modload {
 			};
 		}
 		Janus::insert_full(@clean);
-		for my $chan (values %{$net->{chans}}) {
+		for my $chan (values %{$chans{$$net}}) {
 			Janus::append(+{
 				type => 'DELINK',
 				dst => $chan,
@@ -260,8 +302,8 @@ sub modload {
 		my $tid = $net->id();
 		my @clean;
 
-		warn "nicks remain after a netsplit\n" if %{$net->{nicks}};
-		for my $nick (values %{$net->{nicks}}) {
+		warn "nicks remain after a netsplit\n" if %{$nicks{$$net}};
+		for my $nick (values %{$nicks{$$net}}) {
 			push @clean, +{
 				type => 'KILL',
 				dst => $nick,
@@ -271,11 +313,11 @@ sub modload {
 			};
 		}
 		Janus::insert_full(@clean) if @clean;
-		warn "nicks still remain after netsplit kills\n" if %{$net->{nicks}};
-		delete $net->{nicks};
-		warn "channels remain after a netsplit\n" if %{$net->{chans}};
-		delete $net->{chans};
+		warn "nicks still remain after netsplit kills\n" if %{$nicks{$$net}};
+		delete $nicks{$$net};
+		warn "channels remain after a netsplit\n" if %{$chans{$$net}};
+		delete $chans{$$net};
 	});
 }
 
-1;
+} 1;
