@@ -10,25 +10,25 @@ use JConf;
 
 $| = 1;
 
+Janus->modload(shift || 'janus.conf');
 Channel->modload();
 Nick->modload();
 Network->modload();
 Interface->modload('janus2');
-JConf->modload();
 
-my $conf = JConf->new(shift);
-my $read = $conf->{readers};
-$Janus::conf = $conf;
-$conf->rehash();
+Janus::rehash();
+my $read = $Janus::read;
 
 while ($read->count()) {
 	my @r = $read->can_read();
 	for my $l (@r) {
-		my ($sock, $recvq, $net) = @$l;
+		my ($sock, $recvq, $sendq, $net) = @$l;
 		unless (defined $net) {
 			# this is a listening socket; accept a new connection
+			# TODO
 			next;
 		}
+		next if $sock->isa('IO::Socket::SSL') && !$sock->pending();
 		my $len = sysread $sock, $recvq, 8192, length $recvq;
 		while ($recvq =~ /[\r\n]/) {
 			my $line;
@@ -46,4 +46,5 @@ while ($read->count()) {
 			Janus::delink($net);
 		}
 	}
+	# TODO handle sendq and SSL errors
 }
