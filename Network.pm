@@ -68,7 +68,7 @@ sub nick_collide {
 		$nicks{$$net}{lc $name} = $new;
 		return;
 	}
-	my $tsctl = $old->info('nickts') <=> $new->info('nickts');
+	my $tsctl = $old->ts() <=> $new->ts();
 
 	$nicks{$$net}{lc $name} = $new if $tsctl > 0;
 

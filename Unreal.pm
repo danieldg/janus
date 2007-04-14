@@ -472,23 +472,19 @@ sub srvname {
 			local $_ = $_[12];
 			s/=+//;
 			my $textip_table = join '', 'A'..'Z','a'..'z', 0 .. 9, '+/';
-			if (length == 6) {
-				my $binaddr = 0;
-				for (split //, $_[12]) {
-					$binaddr = $binaddr*64 + index $textip_table, $_;
-				}
-				$binaddr /= 16;
-				$nick{info}{ip} = join '.', unpack 'C4', pack 'N', $binaddr;
-			} elsif (length == 22) {
-				s/(.)/sprintf '%06b', index $textip_table, $1/eg;
+			s/(.)/sprintf '%06b', index $textip_table, $1/eg;
+			if (length $_[12] == 8) { # IPv4
+				s/(.{8})/sprintf '%d.', oct "0b$1"/eg;
+				s/\.\d*$//;
+			} elsif (length $_[12] == 24) { # IPv6
 				s/(.{16})/sprintf '%x:', oct "0b$1"/eg;
 				s/:[^:]*$//;
-				$nick{info}{ip} = $_;
 			}
+			$nick{info}{ip} = $_;
 		}
 		
 		unless ($nick{mode}{vhost}) {
-			$nick{vhost} = $nick{mode}{vhost_x} ? $nick{chost} : $nick{host};
+			$nick{info}{vhost} = $nick{mode}{vhost_x} ? $nick{info}{chost} : $nick{info}{host};
 		}
 
 		my $nick = Nick->new(%nick);
@@ -844,7 +840,7 @@ sub cmd2 {
 		my($hc, $srv) = (2,$nick->homenet()->id() . '.janus');
 		($hc, $srv) = (1, $net->cparam('linkname')) if $srv eq 'janus.janus';
 		my @out;
-		push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->info('nickts')), $nick->info('ident'), $nick->info('host'),
+		push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $nick->info('host'),
 			$srv, 0, $mode, $nick->info('vhost'), ($nick->info('ip_64') || '*'), $nick->info('name'));
 		if ($act->{reconnect}) {
 			# XXX: this may not be the best way to generate these events
@@ -895,7 +891,7 @@ sub cmd2 {
 	}, NICK => sub {
 		my($net,$act) = @_;
 		my $id = $net->id();
-		$net->cmd2($act->{from}->{$id}, NICK => $act->{to}->{$id}, $act->{dst}->info('nickts'));
+		$net->cmd2($act->{from}->{$id}, NICK => $act->{to}->{$id}, $act->{dst}->ts());
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
 		my $item = $act->{item};

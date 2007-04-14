@@ -36,6 +36,7 @@ sub _init :Init {
 
 sub to_ij {
 	my($nick, $ij) = @_;
+	local $_;
 	my $out = '';
 # perl -e "print q[\$out .= ' ],\$_,q[='.\$ij->ijstr(\$],\$_,q[{\$\$nick});],qq(\n) for qw/homenet homenick ts nicks mode info/"
 	$out .= ' homenet='.$ij->ijstr($homenet{$$nick});
@@ -43,8 +44,11 @@ sub to_ij {
 	$out .= ' ts='.$ij->ijstr($ts{$$nick});
 	$out .= ' nicks='.$ij->ijstr($nicks{$$nick});
 	$out .= ' mode='.$ij->ijstr($mode{$$nick});
-	$out .= ' info='.$ij->ijstr($info{$$nick});
-	$out;
+	$out .= ' info=';
+	my %sinfo;
+	$sinfo{$_} = $info{$$nick}{$_} for 
+		qw/host ident ip name vhost/;
+	$out . $ij->ijstr(\%sinfo);
 }
 
 #sub DESTROY {
