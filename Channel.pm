@@ -5,11 +5,11 @@ use strict;
 use warnings;
 
 my %ts :Field :Get(ts);
+my %keyname :Field :Get(keyname);
 my %topic :Field;
 my %topicts :Field;
 my %topicset :Field;
 my %mode :Field;
-my %keyname :Field;
 
 my %names :Field;
 my %nets :Field;
@@ -24,10 +24,6 @@ sub nets {
 sub has_nmode {
 	my($chan, $mode, $nick) = @_;
 	$nmode{$$chan}{$nick->id()}{$mode};
-}
-
-sub keyname {
-	$keyname{${$_[0]}};
 }
 
 sub to_ij {
@@ -169,7 +165,7 @@ sub _link_into {
 	for my $id (keys %{$nets{$$src}}) {
 		my $net = $nets{$$src}{$id};
 		my $name = $names{$$src}{$id};
-		$net->{chans}->{lc $name} = $chan;
+		$net->replace_chan($name, $chan);
 	}
 
 	for my $nick (values %{$nicks{$$src}}) {
@@ -180,7 +176,7 @@ sub _link_into {
 			dst => $chan,
 			mode => $nmode{$$src}{$nick->id()},
 			rejoin => 1,
-		}) unless $nick->{homenet}->{jlink};
+		}) unless $nick->jlink();
 	}
 }
 
@@ -206,8 +202,9 @@ sub part {
 	return if keys %{$nicks{$$chan}};
 	# destroy channel
 	for my $id (keys %{$nets{$$chan}}) {
+		my $net = $nets{$$chan}{$id};
 		my $name = $names{$$chan}{$id};
-		delete $nets{$$chan}{$id}->{chans}->{$name};
+		$net->replace_chan($name, undef);
 	}
 }
 
@@ -234,9 +231,9 @@ sub modload {
 		my $act = $_[0];
 		my $nick = $act->{src};
 		my $chan = $act->{dst};
-		$nicks{$$chan}->{$nick->id()} = $nick;
+		$nicks{$$chan}{$nick->id()} = $nick;
 		if ($act->{mode}) {
-			$nmode{$$chan}->{$nick->id()} = { %{$act->{mode}} };
+			$nmode{$$chan}{$nick->id()} = { %{$act->{mode}} };
 		}
 	}, PART => cleanup => sub {
 		my $act = $_[0];
@@ -259,24 +256,24 @@ sub modload {
 			my $i = substr $itxt, 1;
 			if ($t eq 'n') {
 				my $nick = shift @args;
-				$nmode{$$chan}->{$nick->id()}->{$i} = 1 if $pm eq '+';
-				delete $nmode{$$chan}->{$nick->id()}->{$i} if $pm eq '-';
+				$nmode{$$chan}{$nick->id()}{$i} = 1 if $pm eq '+';
+				delete $nmode{$$chan}{$nick->id()}{$i} if $pm eq '-';
 			} elsif ($t eq 'l') {
 				if ($pm eq '+') {
-					push @{$mode{$$chan}->{$i}}, shift @args;
+					push @{$mode{$$chan}{$i}}, shift @args;
 				} else {
 					my $b = shift @args;
-					@{$mode{$$chan}->{$i}} = grep { $_ ne $b } @{$mode{$$chan}->{$i}};
+					@{$mode{$$chan}{$i}} = grep { $_ ne $b } @{$mode{$$chan}{$i}};
 				}
 			} elsif ($t eq 'v') {
-				$mode{$$chan}->{$i} = shift @args;
-				delete $mode{$$chan}->{$i} if $pm eq '-';
+				$mode{$$chan}{$i} = shift @args;
+				delete $mode{$$chan}{$i} if $pm eq '-';
 			} elsif ($t eq 's') {
-				$mode{$$chan}->{$i} = shift @args if $pm eq '+';
-				delete $mode{$$chan}->{$i} if $pm eq '-';
+				$mode{$$chan}{$i} = shift @args if $pm eq '+';
+				delete $mode{$$chan}{$i} if $pm eq '-';
 			} elsif ($t eq 'r') {
-				$mode{$$chan}->{$i} = 1;
-				delete $mode{$$chan}->{$i} if $pm eq '-';
+				$mode{$$chan}{$i} = 1;
+				delete $mode{$$chan}{$i} if $pm eq '-';
 			} else {
 				warn "Unknown mode '$itxt'";
 			}
@@ -286,10 +283,10 @@ sub modload {
 		my $chan = $act->{dst};
 		$topic{$$chan} = $act->{topic};
 		$topicts{$$chan} = $act->{topicts} || time;
-		$topicset{$$chan} = $act->{topicset} || $act->{src}->{homenick};
+		$topicset{$$chan} = $act->{topicset} || $act->{src}->homenick();
 	}, LSYNC => act => sub {
 		my $act = shift;
-		return if $act->{dst}->{jlink};
+		return if $act->{dst}->jlink();
 		my $chan1 = $act->{dst}->chan($act->{linkto},1);
 		my $chan2 = $act->{chan};
 	
@@ -343,12 +340,12 @@ sub modload {
 					if (exists $mode{$$chan2}{$txt}) {
 						$m{$_} = 1 for @{$mode{$$chan2}{$txt}};
 					}
-					$mode{$$chan}->{$txt} = [ keys %m ];
+					$mode{$$chan}{$txt} = [ keys %m ];
 				} else {
 					if (exists $mode{$$chan1}) {
-						$mode{$$chan}->{$txt} = $mode{$$chan1}->{$txt};
+						$mode{$$chan}{$txt} = $mode{$$chan1}{$txt};
 					} else {
-						$mode{$$chan}->{$txt} = $mode{$$chan2}->{$txt};
+						$mode{$$chan}{$txt} = $mode{$$chan2}{$txt};
 					}
 				}
 			}
@@ -375,7 +372,7 @@ sub modload {
 		my $act = shift;
 		my $chan = $act->{dst};
 		my $net = $act->{net};
-		return 1 unless exists $nets{$$chan}->{$net->id()};
+		return 1 unless exists $nets{$$chan}{$net->id()};
 		my @nets = keys %{$nets{$$chan}};
 		return 1 if @nets == 1;
 		undef;
@@ -387,7 +384,7 @@ sub modload {
 		$act->{sendto} = [ values %{$nets{$$chan}} ]; # before the splitting
 		delete $nets{$$chan}{$id} or warn;
 
-		my $name = delete $names{$$chan}->{$id};
+		my $name = delete $names{$$chan}{$id};
 		if ($keyname{$$chan} eq $id.$name) {
 			my @onets = sort keys %{$names{$$chan}};
 			$keyname{$$chan} = $onets[0].$names{$$chan}{$onets[0]};
@@ -403,11 +400,11 @@ sub modload {
 
 		$act->{split} = $split;
 		$split->_modecpy($chan);
-		$net->{chans}->{lc $name} = $split;
+		$net->replace_chan($name, $split);
 
 		for my $nid (keys %{$nicks{$$chan}}) {
-			if ($nicks{$$chan}->{$nid}->{homenet}->id() eq $id) {
-				my $nick = $nicks{$$split}{$nid} = $nicks{$$chan}->{$nid};
+			if ($nicks{$$chan}{$nid}->homenet()->id() eq $id) {
+				my $nick = $nicks{$$split}{$nid} = $nicks{$$chan}{$nid};
 				$nmode{$$split}{$nid} = $nmode{$$chan}{$nid};
 				$nick->rejoin($split);
 				Janus::append(+{

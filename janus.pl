@@ -6,7 +6,6 @@ use Channel;
 use Nick;
 use Network;
 use Interface;
-use JConf;
 
 $| = 1;
 

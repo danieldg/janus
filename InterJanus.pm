@@ -106,9 +106,7 @@ my %to_ij = (
 	}, CONNECT => sub {
 		my($ij, $act) = @_;
 		my $out = send_hdr(@_, qw/net/) . ' nick=<n';
-		my $nick = $act->{dst};
-		$out .= ' '.$_.'='.$ij->ijstr($nick->{$_}) for
-			qw/homenet homenick nickts ident host ip name vhost mode nets/;
+		$out .= $act->{dst}->to_ij($ij);
 		$out . '>>';
 	}, NICK => sub {
 		send_hdr(@_,qw/dst nick/) . '>';

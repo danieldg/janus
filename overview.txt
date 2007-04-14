@@ -40,8 +40,8 @@ InterJanus
 	id() - tag, must be unique in Network space and InterJanus space
 
 Channel
-	{nicks} - Nick objects by ID
-	{nets} - Network objects by ID
+	nets() - list of Network objects
+	is_on(Network) - true if this channel is on this network
 	str(LocalNetwork) - channel name
 	part(Nick) - remove records of this nick (for quitting nicks)
 

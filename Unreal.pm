@@ -223,14 +223,7 @@ sub intro {
 	}
 	my $net = shift;
 	if ($_[0]) {
-		# temporary until SERVER message handling properly set up
-		WAIT: while (sysread $net, $net->{recvq}, 8192, length $net->{recvq}) {
-			while ($net->{recvq} =~ /[\r\n]/) {
-				(my $line, $net->{recvq}) = split /[\r\n]+/, $net->{recvq}, 2;
-				$net->parse($line);
-				last WAIT if $line =~ /SERVER/;
-			}
-		}
+		die "sorry, not supported";
 	}
 	$net->send(
 		"PASS :$net->{linkpass}",
@@ -302,7 +295,7 @@ sub nickact {
 	my $src = $net->nick($_[0]);
 	my $dst = $type eq 'set' ? $src : $net->nick($_[2]);
 
-	if ($dst->{homenet}->id() eq $net->id()) {
+	if ($dst->homenet()->id() eq $net->id()) {
 		my %a = (
 			type => 'NICKINFO',
 			src => $src,
@@ -310,7 +303,7 @@ sub nickact {
 			item => lc $act,
 			value => $_[-1],
 		);
-		if ($act eq 'vhost' && !($dst->{mode}->{vhost} || $dst->{mode}->{vhost_x})) {
+		if ($act eq 'vhost' && !($dst->has_mode('vhost') || $dst->has_mode('vhost_x'))) {
 			return (\%a, +{
 				type => 'UMODE',
 				dst => $dst,
@@ -320,7 +313,7 @@ sub nickact {
 			return \%a;
 		}
 	} else {
-		my $old = $dst->{$act};
+		my $old = $dst->info($act);
 		$act =~ s/vhost/host/;
 		$net->send($net->cmd2($dst, 'SET'.uc($act), $old));
 		return ();
@@ -368,7 +361,7 @@ sub _parse_umode {
 	my($net, $nick, $mode) = @_;
 	my @mode;
 	my $pm = '+';
-	my $vh_pre = $nick->{mode}->{vhost} ? 3 : $nick->{mode}->{vhost_x} ? 1 : 0;
+	my $vh_pre = $nick->has_mode('vhost') ? 3 : $nick->has_mode('vhost_x') ? 1 : 0;
 	my $vh_post = $vh_pre;
 	for (split //, $mode) {
 		if (/[-+]/) {
@@ -395,7 +388,7 @@ sub _parse_umode {
 
 	if ($vh_pre != $vh_post) {
 		warn if $vh_post > 1; #invalid
-		my $vhost = $vh_post ? $nick->{chost} : $nick->{host};
+		my $vhost = $vh_post ? $nick->info('chost') : $nick->info('host');
 		push @out,{
 			type => 'NICKINFO',
 			dst => $nick,
@@ -428,7 +421,7 @@ sub sjb64 {
 }
 sub srvname {
 	my($net,$num) = @_;
-	return $net->{srvname}->{$num} if exists $net->{srvname}->{$num};
+	return $net->{srvname}{$num} if exists $net->{srvname}{$num};
 	return $num;
 }
 
@@ -448,28 +441,30 @@ sub srvname {
 			};
 		}
 		# NICKv2 introduction
-		my $nick = Nick->new(
-			homenet => $net,
-			homenick => $_[2],
-		#	hopcount => $_[3],
-			nickts => $net->sjbint($_[4]),
-			ident => $_[5],
-			host => $_[6],
-			vhost => $_[6],
-			home_server => $net->srvname($_[7]),
-			servicests => $net->sjbint($_[8]),
-			name => $_[-1],
+		my %nick = (
+			net => $net,
+			nick => $_[2],
+			ts => $net->sjbint($_[4]),
+			info => {
+				#hopcount => $_[3],
+				ident => $_[5],
+				host => $_[6],
+				vhost => $_[6],
+				home_server => $net->srvname($_[7]),
+				#servicests => $net->sjbint($_[8]),
+				name => $_[-1],
+			},
 		);
 		if (@_ >= 12) {
 			my @m = split //, $_[9];
 			warn unless '+' eq shift @m;
-			$nick->{mode} = +{ map { $umode2txt{$_} => 1 } @m };
-			delete $nick->{mode}->{''};
-			$nick->{vhost} = $_[10];
+			$nick{mode} = +{ map { $umode2txt{$_} => 1 } @m };
+			delete $nick{mode}{''};
+			$nick{info}{vhost} = $_[10];
 		}
 		if (@_ >= 14) {
-			$nick->{chost} = $_[11];
-			$nick->{ip_64} = $_[12];
+			$nick{info}{chost} = $_[11];
+			$nick{info}{ip_64} = $_[12];
 			local $_ = $_[12];
 			s/=+//;
 			my $textip_table = join '', 'A'..'Z','a'..'z', 0 .. 9, '+/';
@@ -479,48 +474,26 @@ sub srvname {
 					$binaddr = $binaddr*64 + index $textip_table, $_;
 				}
 				$binaddr /= 16;
-				$nick->{ip} = join '.', unpack 'C4', pack 'N', $binaddr;
+				$nick{info}{ip} = join '.', unpack 'C4', pack 'N', $binaddr;
 			} elsif (length == 22) {
 				s/(.)/sprintf '%06b', index $textip_table, $1/eg;
 				s/(.{16})/sprintf '%x:', oct "0b$1"/eg;
 				s/:[^:]*$//;
-				$nick->{ip} = $_;
+				$nick{info}{ip} = $_;
 			}
 		}
 		
-		unless ($nick->{mode}->{vhost}) {
-			$nick->{vhost} = $nick->{mode}->{vhost_x} ? $nick->{chost} : $nick->{host};
+		unless ($nick{mode}{vhost}) {
+			$nick{vhost} = $nick{mode}{vhost_x} ? $nick{chost} : $nick{host};
 		}
 
-		my @out;
-		if (exists $net->{nicks}->{lc $_[2]}) {
-			# nick collision
-			my $cnick = $net->{nicks}->{lc $_[2]};
-			if ($cnick->{nickts} >= $nick->{nickts}) {
-				# the existing nick did not win; re-tag it
-				push @out, +{
-					type => 'CONNECT',
-					dst => $cnick,
-					net => $net,
-					reconnect => 1,
-					nojlink => 1,
-				};
-				delete $net->{nicks}->{lc $_[2]};
-			}
-			if ($cnick->{nickts} <= $nick->{nickts}) {
-				# the new nick did not win; kill it and pretend this never happened
-				$net->send($net->cmd1(KILL => $_[2], "Nick Collision"));
-			} else {
-				$net->{nicks}->{lc $_[2]} = $nick;
-			}
-		} else {
-			$net->{nicks}->{lc $_[2]} = $nick;
-		}
-		@out;
+		my $nick = Nick->new(%nick);
+		$net->nick_collide($_[2], $nick);
+		();
 	}, QUIT => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[0]) or return ();
-		if ($nick->{homenet}->id() eq $net->id()) {
+		if ($nick->homenet()->id() eq $net->id()) {
 			# normal boring quit
 			return +{
 				type => 'QUIT',
@@ -529,6 +502,7 @@ sub srvname {
 			};
 		} else {
 			# whoever decided this is how SVSKILL works... must have been insane
+			# FIXME internal access
 			delete $net->{nicks}->{lc $_[0]};
 			return +{
 				type => 'CONNECT',
@@ -543,7 +517,7 @@ sub srvname {
 		my $src = $net->item($_[0]);
 		my $dst = $net->nick($_[2]) or return ();
 
-		if ($dst->{homenet}->id() eq $net->id()) {
+		if ($dst->homenet()->id() eq $net->id()) {
 			my $msg = $_[3];
 			$msg = s/^(\S+)!//;
 			return {
@@ -563,10 +537,10 @@ sub srvname {
 	}, SVSKILL => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
-		return () if $nick->{homenet}->id() eq $net->id(); 
+		return () if $nick->homenet()->id() eq $net->id(); 
 			# if local, wait for the QUIT that will be sent along in a second
-		delete $net->{nicks}->{lc $_[2]};
 		$net->send($net->cmd2($nick, QUIT => $_[3]));
+		delete $net->{nicks}->{lc $_[2]};
 		return +{
 			type => 'CONNECT',
 			dst => $nick,
@@ -581,7 +555,7 @@ sub srvname {
 	}, SVSMODE => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
-		if ($nick->{homenet}->id() eq $net->id()) {
+		if ($nick->homenet()->id() eq $net->id()) {
 			return $net->_parse_umode($nick, @_[3 .. $#_]);
 		} else {
 			my $mode = $_[3];
@@ -706,19 +680,19 @@ sub srvname {
 		my $snum = $net->sjb64((@_ > 5          ? $_[4] : 
 				($desc =~ s/^U\d+-\S+-(\d+) //) ? $1    : 0), 1);
 
-		$net->{server}->{$name} = {
+		$net->{server}{$name} = {
 			parent => lc ($_[0] || $net->{linkname}),
 			hops => $_[3],
 			numeric => $snum,
 		};
-		$net->{srvname}->{$snum} = $name if $snum;
+		$net->{srvname}{$snum} = $name if $snum;
 
 		();
 	}, SQUIT => sub {
 		my $net = shift;
 		my $netid = $net->id();
 		my $srv = $net->srvname($_[2]);
-		my $splitfrom = $net->{server}->{$srv}->{parent};
+		my $splitfrom = $net->{server}{$srv}{parent};
 		
 		my %sgone = (lc $srv => 1);
 		my $k = 0;
@@ -726,17 +700,17 @@ sub srvname {
 			# loop to traverse each layer of the map
 			$k = scalar keys %sgone;
 			for (keys %{$net->{server}}) {
-				$sgone{$_} = 1 if $sgone{$net->{server}->{$_}->{parent}};
+				$sgone{$_} = 1 if $sgone{$net->{server}{$_}{parent}};
 			}
 		}
-		delete $net->{srvname}->{$net->{server}{$_}{numeric}} for keys %sgone;
-		delete $net->{server}->{$_} for keys %sgone;
+		delete $net->{srvname}{$net->{server}{$_}{numeric}} for keys %sgone;
+		delete $net->{server}{$_} for keys %sgone;
 
 		my @quits;
-		for my $n (keys %{$net->{nicks}}) {
-			my $nick = $net->{nicks}->{$n};
-			next unless $nick->{homenet}->id() eq $netid;
-			next unless $sgone{lc $nick->{home_server}};
+		my $nicks = $net->_nicks();
+		for my $nick (values %$nicks) {
+			next unless $nick->homenet()->id() eq $netid;
+			next unless $sgone{lc $nick->info('home_server')};
 			push @quits, +{
 				type => 'QUIT',
 				src => $net,
@@ -758,7 +732,7 @@ sub srvname {
 	EOS => sub {
 		my $net = shift;
 		my $srv = $_[0];
-		if ($net->{server}->{lc $srv}->{parent} eq lc $net->{linkname}) {
+		if ($net->{server}{lc $srv}{parent} eq lc $net->{linkname}) {
 			return +{
 				type => 'LINKED',
 				net => $net,
@@ -800,9 +774,9 @@ sub srvname {
 				# 8 = set time
 				reason => $_[9],
 			);
-			$net->{ban}->{$expr} = \%ban;
+			$net->{ban}{$expr} = \%ban;
 		} else {
-			delete $net->{ban}->{$expr};
+			delete $net->{ban}{$expr};
 		}
 		();
 	},
@@ -859,33 +833,33 @@ sub cmd2 {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
 		return () if $act->{net}->id() ne $net->id();
-		my $mode = join '', '+', sort map $txt2umode{$_}, keys %{$nick->{mode}};
+		my $mode = join '', '+', map $txt2umode{$_}, $nick->umodes();
 		$mode =~ s/[xt]//g;
 		$mode .= 'xt';
-		unless ($net->{show_roper} || $nick->{_is_janus}) {
+		unless ($net->{show_roper} || $nick->info('_is_janus')) {
 			$mode .= 'H' if $mode =~ /o/ && $mode !~ /H/;
 		}
-		my($hc, $srv) = (2,$nick->{homenet}->id() . '.janus');
-		($hc, $srv) = (1, $net->{linkname}) if $nick->{_is_janus};
+		my($hc, $srv) = (2,$nick->homenet()->id() . '.janus');
+		($hc, $srv) = (1, $net->{linkname}) if $srv eq 'janus.janus';
 		my @out;
-		push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->{nickts}), $nick->{ident}, $nick->{host},
-			$srv, 0, $mode, $nick->{vhost}, ($nick->{ip_64} || '*'), $nick->{name});
+		push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->info('nickts')), $nick->info('ident'), $nick->info('host'),
+			$srv, 0, $mode, $nick->info('vhost'), ($nick->info('ip_64') || '*'), $nick->info('name'));
 		if ($act->{reconnect}) {
-			# XXX: this may not be the best place to generate these events
-			for my $chan (values %{$nick->{chans}}) {
+			# XXX: this may not be the best way to generate these events
+			for my $chan (@{$act->{reconnect_chans}}) {
 				next unless $chan->is_on($net);
 				my $mode = '';
 				if ($act->{mode}) {
 					$mode .= $txt2cmode{$_} for keys %{$act->{mode}};
 				}
 				$mode =~ tr/qaohv/*~@%+/;
-				push @out, $net->cmd1(SJOIN => $net->sjb64($chan->ts()), $chan->str($net), $mode.$nick->str($net));
+				push @out, $net->cmd1(SJOIN => $net->sjb64($chan->ts()), $chan, $mode.$nick->str($net));
 			}
 		}
 		@out;
 	}, JOIN => sub {
 		my($net,$act) = @_;
-		if ($act->{src}->{homenet}->id() eq $net->id()) {
+		if ($act->{src}->homenet()->id() eq $net->id()) {
 			print "ERR: Trying to join nick to channel without rejoin" unless $act->{rejoin};
 			return ();
 		}
@@ -919,12 +893,12 @@ sub cmd2 {
 	}, NICK => sub {
 		my($net,$act) = @_;
 		my $id = $net->id();
-		$net->cmd2($act->{from}->{$id}, NICK => $act->{to}->{$id}, $act->{dst}->{nickts});
+		$net->cmd2($act->{from}->{$id}, NICK => $act->{to}->{$id}, $act->{dst}->info('nickts'));
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
 		my $item = $act->{item};
 		$item =~ s/vhost/host/;
-		if ($act->{dst}->{homenet}->id() eq $net->id()) {
+		if ($act->{dst}->homenet()->id() eq $net->id()) {
 			my $src = $act->{src}->is_on($net) ? $act->{src} : $net->{linkname};
 			$net->cmd2($src, 'CHG'.uc($item), $act->{dst}, $act->{value});
 		} else {

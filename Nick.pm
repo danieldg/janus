@@ -1,39 +1,66 @@
-package Nick;
+package Nick; {
+use Object::InsideOut ':hash_only';
 use strict;
 use warnings;
 use Scalar::Util 'weaken';
 
-sub new {
-	my $class = (@_ % 2) ? shift : 'Nick';
-	my %nhash = @_;
-	my $nick = \%nhash;
-	my $homeid = $nick->{homenet}->id();
-	$nick->{nets} = { $homeid => $nick->{homenet} };
-	$nick->{nicks} = { $homeid => $nick->{homenick} };
-	bless $nick, $class;
+my %homenet :Field :Get(homenet);
+my %homenick :Field :Get(homenick);
+my %nets :Field;
+my %nicks :Field;
+my %chans :Field;
+my %mode :Field;
+my %info :Field;
+my %ts :Field :Get(ts);
+
+my %initargs :InitArgs = (
+	net => '',
+	nick => '',
+	ts => '',
+	info => '',
+	mode => '',
+);
+
+sub _init :Init {
+	my($nick, $ifo) = @_;
+	my $net = $ifo->{net};
+	$homenet{$$nick} = $net;
+	$homenick{$$nick} = $ifo->{nick};
+	my $homeid = $net->id();
+	$nets{$$nick} = { $homeid => $net };
+	$nicks{$$nick} = { $homeid => $ifo->{nick} };
+	$ts{$$nick} = $ifo->{ts} || time;
+	$info{$$nick} = $ifo->{info} || {};
+	$mode{$$nick} = $ifo->{mode} || {};
 }
 
-sub from_ij {
-	my($class, $ij, $nick) = @_;
-	bless $nick, $class;
+sub to_ij {
+	my($nick, $ij) = @_;
+	my $out = '';
+# perl -e "print q[\$out .= ' ],\$_,q[='.\$ij->ijstr(\$],\$_,q[{\$\$nick});],qq(\n) for qw/homenet homenick ts nicks mode info/"
+	$out .= ' homenet='.$ij->ijstr($homenet{$$nick});
+	$out .= ' homenick='.$ij->ijstr($homenick{$$nick});
+	$out .= ' ts='.$ij->ijstr($ts{$$nick});
+	$out .= ' nicks='.$ij->ijstr($nicks{$$nick});
+	$out .= ' mode='.$ij->ijstr($mode{$$nick});
+	$out .= ' info='.$ij->ijstr($info{$$nick});
+	$out;
 }
 
-sub DESTROY {
+#sub DESTROY {
 #	print "DBG: $_[0] $_[0]->{homenick}\@$_[0]->{homenet}->{id} deallocated\n";
-}
+#}
 
 # send to all but possibly one network for NICKINFO
 # send to home network for MSG
 sub sendto {
 	my($nick, $act, $except) = @_;
 	if ($act->{type} eq 'MSG') {
-		my $net = $nick->{homenet};
-		return $net if exists $act->{src}->{nets}->{$net->id()};
-		return ();
+		return $homenet{$$nick};
 	} elsif ($act->{type} eq 'CONNECT') {
 		return $act->{net};
 	} else {
-		my %n = %{$nick->{nets}};
+		my %n = %{$nets{$$nick}};
 		delete $n{$except->id()} if $except;
 		return values %n;
 	}
@@ -41,19 +68,38 @@ sub sendto {
 
 sub is_on {
 	my($nick, $net) = @_;
-	return exists $nick->{nets}->{$net->id()};
+	return exists $nets{$$nick}{$net->id()};
 }
 
+sub has_mode {
+	my $nick = $_[0];
+	return $mode{$$nick}->{$_[1]};
+}
+
+sub umodes {
+	my $nick = $_[0];
+	return sort keys %{$mode{$$nick}};
+}
+
+sub jlink {
+	return $homenet{${$_[0]}}->jlink();
+}
+
+# vhost, ident, etc
+sub info {
+	my $nick = $_[0];
+	$info{$$nick}{$_[1]};
+}
 
 sub rejoin {
 	my($nick,$chan) = @_;
-	my $name = $chan->str($nick->{homenet});
-	$nick->{chans}->{lc $name} = $chan;
+	my $name = $chan->str($homenet{$$nick});
+	$chans{$$nick}{lc $name} = $chan;
 
-	return if $nick->{homenet}->{jlink};
+	return if $nick->jlink();
 		
 	for my $net ($chan->nets()) {
-		next if $nick->{nets}->{$net->id()};
+		next if $nets{$$nick}->{$net->id()};
 		Janus::insert(+{
 			type => 'CONNECT',
 			dst => $nick,
@@ -65,9 +111,9 @@ sub rejoin {
 
 sub _part {
 	my($nick,$chan) = @_;
-	my $name = $chan->str($nick->{homenet});
-	delete $nick->{chans}->{lc $name};
-	return if $nick->{homenet}->{jlink};
+	my $name = $chan->str($homenet{$$nick});
+	delete $chans{$$nick}->{lc $name};
+	return if $nick->jlink();
 	$nick->_netclean($chan->nets());
 }
 
@@ -75,23 +121,23 @@ sub _netpart {
 	my($nick, $net) = @_;	
 	my $id = $net->id();
 
-	delete $nick->{nets}->{$id};
-	return if $net->{jlink};
-	my $rnick = delete $nick->{nicks}->{$id};
+	delete $nets{$$nick}->{$id};
+	return if $net->jlink();
+	my $rnick = delete $nicks{$$nick}{$id};
 	$net->release_nick($rnick);
 }
 
 sub _netclean {
 	my $nick = shift;
-	return if $nick->{_is_janus};
-	my %nets = @_ ? map { $_->id() => $_ } @_ : %{$nick->{nets}};
-	delete $nets{$nick->{homenet}->id()};
-	for my $chan (values %{$nick->{chans}}) {
+	return if $info{$$nick}{_is_janus};
+	my %leave = @_ ? map { $_->id() => $_ } @_ : %{$nets{$$nick}};
+	delete $leave{$homenet{$$nick}->id()};
+	for my $chan (values %{$chans{$$nick}}) {
 		for my $net ($chan->nets()) {
-			delete $nets{$net->id()};
+			delete $leave{$net->id()};
 		}
 	}
-	for my $net (values %nets) {
+	for my $net (values %leave) {
 		# This sending mechanism deliberately bypasses
 		# the message queue because a QUIT is intended
 		# to destroy the nick from all nets, not just one
@@ -107,24 +153,24 @@ sub _netclean {
 
 sub id {
 	my $nick = $_[0];
-	return $nick->{homenet}->id() . '~' . $nick->{homenick};
+	return $homenet{$$nick}->id() . '~' . $homenick{$$nick};
 }
 
 sub str {
 	my($nick,$net) = @_;
-	$nick->{nicks}->{$net->id()};
+	$nicks{$$nick}{$net->id()};
 }
 
 sub modload {
- my($me) = shift;
+ my $me = shift;
  Janus::hook_add($me, 
  	CONNECT => check => sub {
 		my $act = shift;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
-		return undef if $net->{jlink} || $act->{reconnect};
+		return undef if $net->jlink() || $act->{reconnect};
 
-		my $mask = $nick->{homenick}.'!'.$nick->{ident}.'@'.$nick->{host}.'%'.$nick->{homenet}->id();
+		my $mask = $homenick{$$nick}.'!'.$info{$$nick}{ident}.'@'.$info{$$nick}{host}.'%'.$homenet{$$nick}->id();
 		for my $expr ($net->banlist()) {
 			next unless $mask =~ /^$expr$/;
 			my $ban = $net->{ban}->{$expr};
@@ -142,14 +188,17 @@ sub modload {
 		my $nick = $act->{dst};
 		my $net = $act->{net};
 		my $id = $net->id();
-		if (exists $nick->{nets}->{$id}) {
+		if (exists $nets{$$nick}{$id}) {
 			warn "Nick alredy exists";
 		}
-		$nick->{nets}->{$id} = $net;
+		$nets{$$nick}->{$id} = $net;
 		return if $net->{jlink};
-		my $rnick = $net->request_nick($nick, $nick->{homenick}, $act->{reconnect});
-		$nick->{nicks}->{$id} = $rnick;
-		delete $act->{except} if $act->{reconnect};
+		my $rnick = $net->request_nick($nick, $homenick{$$nick}, $act->{reconnect});
+		$nicks{$$nick}->{$id} = $rnick;
+		if ($act->{reconnect}) {
+			delete $act->{except};
+			$act->{reconnect_chans} = [ values %{$chans{$$nick}} ];
+		}
 	}, NICK => check => sub {
 		my $act = shift;
 		my $old = lc $act->{dst}->{homenick};
@@ -163,18 +212,18 @@ sub modload {
 	}, NICK => act => sub {
 		my $act = $_[0];
 		my $nick = $act->{dst};
-		my $old = $nick->{homenick};
+		my $old = $homenick{$$nick};
 		my $new = $act->{nick};
 
-		$nick->{nickts} = $act->{nickts} if $act->{nickts};
-		$nick->{homenick} = $new;
-		for my $id (keys %{$nick->{nets}}) {
-			my $net = $nick->{nets}->{$id};
+		$ts{$$nick} = $act->{nickts} if $act->{nickts};
+		$homenick{$$nick} = $new;
+		for my $id (keys %{$nets{$$nick}}) {
+			my $net = $nets{$$nick}->{$id};
 			next if $net->{jlink};
-			my $from = $nick->{nicks}->{$id};
+			my $from = $nicks{$$nick}->{$id};
 			my $to = $net->request_nick($nick, $new);
 			$net->release_nick($from);
-			$nick->{nicks}->{$id} = $to;
+			$nicks{$$nick}->{$id} = $to;
 	
 			$act->{from}->{$id} = $from;
 			$act->{to}->{$id} = $to;
@@ -182,15 +231,15 @@ sub modload {
 	}, NICKINFO => act => sub {
 		my $act = $_[0];
 		my $nick = $act->{dst};
-		$nick->{$act->{item}} = $act->{value};
+		$info{$$nick}{$act->{item}} = $act->{value};
 	}, UMODE => act => sub {
 		my $act = $_[0];
 		my $nick = $act->{dst};
 		for my $ltxt (@{$act->{mode}}) {
 			if ($ltxt =~ /\+(.*)/) {
-				$nick->{mode}->{$1} = 1;
+				$mode{$$nick}->{$1} = 1;
 			} elsif ($ltxt =~ /-(.*)/) {
-				delete $nick->{mode}->{$1};
+				delete $mode{$$nick}->{$1};
 			} else {
 				warn "Bad umode change $ltxt";
 			}
@@ -198,14 +247,14 @@ sub modload {
 	}, QUIT => cleanup => sub {
 		my $act = $_[0];
 		my $nick = $act->{dst};
-		for my $id (keys %{$nick->{chans}}) {
-			my $chan = $nick->{chans}->{$id};
+		for my $id (keys %{$chans{$$nick}}) {
+			my $chan = $chans{$$nick}->{$id};
 			$chan->part($nick);
 		}
-		for my $id (keys %{$nick->{nets}}) {
-			my $net = $nick->{nets}->{$id};
+		for my $id (keys %{$nets{$$nick}}) {
+			my $net = $nets{$$nick}->{$id};
 			next if $net->{jlink};
-			my $name = $nick->{nicks}->{$id};
+			my $name = $nicks{$$nick}->{$id};
 			$net->release_nick($name);
 		}
 	}, JOIN => act => sub {
@@ -213,13 +262,13 @@ sub modload {
 		my $nick = $act->{src};
 		my $chan = $act->{dst};
 
-		my $name = $chan->str($nick->{homenet});
-		$nick->{chans}->{lc $name} = $chan;
+		my $name = $chan->str($homenet{$$nick});
+		$chans{$$nick}->{lc $name} = $chan;
 
-		return if $nick->{homenet}->{jlink};
+		return if $homenet{$$nick}->{jlink};
 		
 		for my $net ($chan->nets()) {
-			next if $nick->{nets}->{$net->id()};
+			next if $nets{$$nick}->{$net->id()};
 			Janus::insert(+{
 				type => 'CONNECT',
 				dst => $nick,
@@ -240,7 +289,7 @@ sub modload {
 		my $act = shift;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
-		for my $chan (values %{$nick->{chans}}) {
+		for my $chan (values %{$chans{$$nick}}) {
 			next unless $chan->is_on($net);
 			my $act = {
 				type => 'KICK',
@@ -262,4 +311,4 @@ sub modload {
 	});
 }
 
-1;
+} 1;

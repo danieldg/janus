@@ -45,25 +45,75 @@ sub id {
 	return $_[0]->{id};
 }
 
+sub jlink {
+	return $_[0]->{jlink};
+}
+
+sub nick_collide {
+	my($net, $name, $new) = @_;
+	my $old = delete $net->{nicks}{lc $name};
+	unless ($old) {
+		$net->{nicks}{lc $name} = $new;
+		return;
+	}
+	my $tsctl = $old->info('nickts') <=> $new->info('nickts');
+
+	$net->{nicks}{lc $name} = $new if $tsctl > 0;
+
+	if ($tsctl <= 0) {
+		# new nick lost
+		$net->send($net->cmd1(KILL => $name, "Nick Collision")); # FIXME this is unreal-specific
+	}
+	if ($tsctl >= 0) {
+		# old nick lost, reconnect it
+		if ($old->homenet()->id() eq $net->id()) {
+			warn "Nick collision on home network!";
+		} else {
+			Janus::insert_full(+{
+				type => 'CONNECT',
+				dst => $cnick,
+				net => $net,
+				reconnect => 1,
+				nojlink => 1,
+			});
+		}
+	}
+}
+
+sub _nicks {
+	my $net = $_[0];
+	$net->{nicks};
+}
+
 sub nick {
 	my($net, $name) = @_;
-	return $net->{nicks}->{lc $name} if $net->{nicks}->{lc $name};
+	return $net->{nicks}{lc $name} if $net->{nicks}{lc $name};
 	print "Nick '$name' does not exist; ignoring\n";
 	undef;
 }
 
 sub chan {
 	my($net, $name, $new) = @_;
-	unless (exists $net->{chans}->{lc $name}) {
+	unless (exists $net->{chans}{lc $name}) {
 		print "Creating channel $name when creation was not requested\n" unless $new;
 		print "Creating channel $name\n" if $new;
 		my $id = $net->{id};
-		$net->{chans}->{lc $name} = Channel->new(
+		$net->{chans}{lc $name} = Channel->new(
 			net => $net, 
 			name => $name,
 		);
 	}
-	$net->{chans}->{lc $name};
+	$net->{chans}{lc $name};
+}
+
+sub replace_chan {
+	my($net,$name,$new) = @_;
+	warn "replacing nonexistant channel" unless exists $net->{chans}{lc $name};
+	if (defined $new) {
+		$net->{chans}{lc $name} = $new;
+	} else {
+		delete $net->{chans}{lc $name};
+	}
 }
 
 sub _ban {
@@ -83,7 +133,7 @@ sub _modeargs {
 			$pm = $_;
 			next;
 		}
-		my $txt = $net->{params}->{cmode2txt}->{$_} || 'UNK';
+		my $txt = $net->{params}{cmode2txt}{$_} || 'UNK';
 		my $type = substr $txt,0,1;
 		if ($type eq 'n') {
 			push @args, $net->nick(shift);
@@ -110,10 +160,10 @@ sub _mode_interp {
 	for my $mtxt (@{$act->{mode}}) {
 		my($ipm,$txt) = ($mtxt =~ /^([-+])(.*)/) or warn $mtxt;
 		my $itm = ($txt =~ /^[nlv]/ || $mtxt =~ /^\+s/) ? shift @argin : undef;
-		if (exists $net->{params}->{txt2cmode}->{$txt}) {
+		if (exists $net->{params}{txt2cmode}{$txt}) {
 			push @args, ref $itm ? $itm->str($net) : $itm if defined $itm;
 			$mode .= $ipm if $ipm ne $pm;
-			$mode .= $net->{params}->{txt2cmode}->{$txt};
+			$mode .= $net->{params}{txt2cmode}{$txt};
 			$pm = $ipm;
 		} else {
 			warn "Unsupported channel mode '$txt' for network";
@@ -124,8 +174,8 @@ sub _mode_interp {
 
 sub item {
 	my($net, $item) = @_;
-	return $net->{nicks}->{lc $item} if exists $net->{nicks}->{lc $item};
-	return $net->{chans}->{lc $item} if exists $net->{chans}->{lc $item};
+	return $net->{nicks}{lc $item} if exists $net->{nicks}{lc $item};
+	return $net->{chans}{lc $item} if exists $net->{chans}{lc $item};
 	return $net if $item =~ /\./;
 	return undef;
 }
@@ -141,25 +191,25 @@ sub str {
 # Request a nick on a remote network (CONNECT/JOIN must be sent AFTER this)
 sub request_nick {
 	my($net, $nick, $reqnick) = @_;
-	my $maxlen = $net->{params}->{nicklen};
+	my $maxlen = $net->{params}{nicklen};
 	my $given = substr $reqnick, 0, $maxlen;
-	if ($_[3] || exists $net->{nicks}->{lc $given}) {
-		my $tag = '/'.$nick->{homenet}->id();
+	if ($_[3] || exists $net->{nicks}{lc $given}) {
+		my $tag = '/'.$nick->homenet()->id();
 		my $i = 0;
 		$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
-		while (exists $net->{nicks}->{lc $given}) {
+		while (exists $net->{nicks}{lc $given}) {
 			$itag = (++$i).$tag; # it will find a free nick eventually...
 			$given = substr($reqnick, 0, $maxlen - length $itag) . $itag;
 		}
 	}
-	$net->{nicks}->{lc $given} = $nick;
+	$net->{nicks}{lc $given} = $nick;
 	return $given;
 }
 
 # Release a nick on a remote network (PART/QUIT must be sent BEFORE this)
 sub release_nick {
 	my($net, $req) = @_;
-	delete $net->{nicks}->{lc $req};
+	delete $net->{nicks}{lc $req};
 }
 
 sub banlist {
@@ -167,9 +217,9 @@ sub banlist {
 	my @list = keys %{$net->{ban}};
 	my @good;
 	for my $i (@list) {
-		my $exp = $net->{ban}->{$i}->{expire};
+		my $exp = $net->{ban}{$i}{expire};
 		if ($exp && $exp < time) {
-			delete $net->{ban}->{$i};
+			delete $net->{ban}{$i};
 		} else {
 			push @good, $i;
 		}
@@ -187,7 +237,7 @@ sub modload {
 		my $tid = $net->id();
 		my @clean;
 		for my $nick (values %{$net->{nicks}}) {
-			next if $nick->{homenet}->id() ne $tid;
+			next if $nick->homenet()->id() ne $tid;
 			push @clean, +{
 				type => 'QUIT',
 				dst => $nick,

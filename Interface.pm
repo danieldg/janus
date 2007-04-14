@@ -36,8 +36,8 @@ my %cmds = (
 	}, ban => sub {
 		my $nick = shift;
 		my($cmd, @arg) = split /\s+/;
-		return Janus::jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
-		my $net = $nick->{homenet};
+		return Janus::jmsg("You must be an IRC operator to use this command") unless $nick->has_mode('oper');
+		my $net = $nick->homenet();
 		my @list = sort $net->banlist();
 		if ($cmd =~ /^l/i) {
 			my $c = 0;
@@ -59,7 +59,7 @@ my %cmds = (
 				ircexpr => $arg[0],
 				reason => $arg[1],
 				expire => $arg[2] ? $arg[2] + time : 0,
-				setter => $nick->{homenick},
+				setter => $nick->homenick(),
 			);
 			$net->{ban}->{$expr} = \%b;
 			if ($cmd =~ /^a/i) {
@@ -93,19 +93,19 @@ my %cmds = (
 		}
 	}, list => sub {
 		my $nick = shift;
-		return Janus::jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
+		return Janus::jmsg("You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		Janus::jmsg($nick, 'Linked networks: '.join ' ', sort keys %Janus::nets);
 		# TODO display available channels when that is set up
 	}, 'link' => sub {
 		my $nick = shift;
 		return Janus::jmsg("You must be an IRC operator to use this command") 
-			if $nick->{homenet}->{oper_only_link} && !$nick->{mode}->{oper};
+			if $nick->homenet()->{oper_only_link} && !$nick->has_mode('oper');
 		my($cname1, $nname2, $cname2) = /(#\S+)\s+(\S+)\s*(#\S+)?/ or do {
 			Janus::jmsg($nick, 'Usage: link $localchan $network $remotechan');
 			return;
 		};
 
-		my $net1 = $nick->{homenet};
+		my $net1 = $nick->homenet();
 		my $net2 = $Janus::nets{lc $nname2} or do {
 			Janus::jmsg($nick, "Cannot find network $nname2");
 			return;
@@ -114,7 +114,7 @@ my %cmds = (
 			Janus::jmsg($nick, "Cannot find channel $cname1");
 			return;
 		};
-		unless ($chan1->has_nmode(n_owner => $nick) || $nick->{mode}->{oper}) {
+		unless ($chan1->has_nmode(n_owner => $nick) || $nick->has_mode('oper')) {
 			Janus::jmsg($nick, "You must be a channel owner to use this command");
 			return;
 		}
@@ -128,19 +128,19 @@ my %cmds = (
 			dlink => ($cname2 || 'any'),
 			sendto => [ $net2 ],
 			chan => $chan1,
-			override => $nick->{mode}->{oper},
+			override => $nick->has_mode('oper'),
 		});
 		Janus::jmsg($nick, "Link request sent");
 	}, 'delink' => sub {
 		my($nick, $cname) = @_;
-		my $snet = $nick->{homenet};
+		my $snet = $nick->homenet();
 		return Janus::jmsg("You must be an IRC operator to use this command") 
-			if $snet->{oper_only_link} && !$nick->{mode}->{oper};
+			if $snet->{oper_only_link} && !$nick->has_mode('oper');
 		my $chan = $snet->chan($cname) or do {
 			Janus::jmsg($nick, "Cannot find channel $cname");
 			return;
 		};
-		unless ($nick->{mode}->{oper} || $chan->has_nmode(n_owner => $nick)) {
+		unless ($nick->has_mode('oper') || $chan->has_nmode(n_owner => $nick)) {
 			Janus::jmsg("You must be a channel owner to use this command");
 			return;
 		}
@@ -153,14 +153,14 @@ my %cmds = (
 		});
 	}, rehash => sub {
 		my $nick = shift;
-		return Janus::jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
+		return Janus::jmsg("You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		Janus::append(+{
 			type => 'REHASH',
 			sendto => [],
 		});
 	}, 'die' => sub {
 		my $nick = shift;
-		return Janus::jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
+		return Janus::jmsg("You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		exit 0;
 	},
 );
@@ -179,15 +179,17 @@ sub modload {
 	Janus::link($int);
 
 	$int->{nicks}->{lc $inick} = $Janus::interface = Nick->new(
-		homenet => $int,
-		homenick => $inick,
-		nickts => 100000000,
-		ident => 'janus',
-		host => 'services.janus',
-		vhost => 'services',
-		name => 'Janus Control Interface',
+		net => $int,
+		nick => $inick,
+		ts => 100000000,
+		info => {
+			ident => 'janus',
+			host => 'services.janus',
+			vhost => 'services',
+			name => 'Janus Control Interface',
+			_is_janus => 1,
+		},
 		mode => { oper => 1, service => 1 },
-		_is_janus => 1,
 	);
 	
 	Janus::hook_add($class, 
@@ -209,7 +211,7 @@ sub modload {
 			my $nick = $act->{src};
 			my $dst = $act->{dst};
 			return undef unless $dst->isa('Nick');
-			if ($dst->{_is_janus}) {
+			if ($dst->info('_is_janus')) {
 				return 1 if $act->{notice} || !$nick;
 				local $_ = $act->{msg};
 				my $cmd = s/^\s*(\S+)\s*// && exists $cmds{lc $1} ? lc $1 : 'unk';
@@ -217,7 +219,7 @@ sub modload {
 				return 1;
 			}
 
-			unless ($nick->is_on($dst->{homenet})) {
+			unless ($nick->is_on($dst->homenet())) {
 				Janus::append(+{
 					type => 'MSG',
 					notice => 1,
