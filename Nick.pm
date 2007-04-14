@@ -19,7 +19,7 @@ sub from_ij {
 }
 
 sub DESTROY {
-	print "DBG: $_[0] $_[0]->{homenick}\@$_[0]->{homenet}->{id} deallocated\n";
+#	print "DBG: $_[0] $_[0]->{homenick}\@$_[0]->{homenet}->{id} deallocated\n";
 }
 
 # send to all but possibly one network for NICKINFO
@@ -52,12 +52,12 @@ sub rejoin {
 
 	return if $nick->{homenet}->{jlink};
 		
-	for my $id (keys %{$chan->{nets}}) {
-		next if $nick->{nets}->{$id};
+	for my $net ($chan->nets()) {
+		next if $nick->{nets}->{$net->id()};
 		$j->insert(+{
 			type => 'CONNECT',
 			dst => $nick,
-			net => $chan->{nets}->{$id},
+			net => $net,
 			nojlink => 1,
 		});
 	}
@@ -68,7 +68,7 @@ sub _part {
 	my $name = $chan->str($nick->{homenet});
 	delete $nick->{chans}->{lc $name};
 	return if $nick->{homenet}->{jlink};
-	$nick->_netclean(%{$chan->{nets}});
+	$nick->_netclean($chan->nets());
 }
 
 sub _netpart {
@@ -83,11 +83,12 @@ sub _netpart {
 
 sub _netclean {
 	my $nick = shift;
-	my %nets = @_ ? @_ : %{$nick->{nets}};
+	return if $nick->{_is_janus};
+	my %nets = @_ ? map { $_->id() => $_ } @_ : %{$nick->{nets}};
 	delete $nets{$nick->{homenet}->id()};
 	for my $chan (values %{$nick->{chans}}) {
-		for my $id (keys %{$chan->{nets}}) {
-			delete $nets{$id};
+		for my $net ($chan->nets()) {
+			delete $nets{$net->id()};
 		}
 	}
 	for my $net (values %nets) {
@@ -217,12 +218,12 @@ sub modload {
 
 		return if $nick->{homenet}->{jlink};
 		
-		for my $id (keys %{$chan->{nets}}) {
-			next if $nick->{nets}->{$id};
+		for my $net ($chan->nets()) {
+			next if $nick->{nets}->{$net->id()};
 			$j->insert(+{
 				type => 'CONNECT',
 				dst => $nick,
-				net => $chan->{nets}->{$id},
+				net => $net,
 			});
 		}
 	}, PART => cleanup => sub {
@@ -239,9 +240,8 @@ sub modload {
 		my($j, $act) = @_;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
-		my $netid = $net->id();
 		for my $chan (values %{$nick->{chans}}) {
-			next unless exists $chan->{nets}->{$netid};
+			next unless $chan->is_on($net);
 			my $act = {
 				type => 'KICK',
 				src => $act->{src},

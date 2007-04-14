@@ -280,6 +280,7 @@ sub send {
 		}
 	}
 	debug "OUT\@$net->{id} $_" for @out;
+	return unless $net->{sock}->connected();
 	$net->{sock}->print(map "$_\r\n", @out);
 }
 
@@ -872,13 +873,13 @@ sub cmd2 {
 		if ($act->{reconnect}) {
 			# XXX: this may not be the best place to generate these events
 			for my $chan (values %{$nick->{chans}}) {
-				next unless $chan->{nets}->{$net->id()};
+				next unless $chan->is_on($net);
 				my $mode = '';
 				if ($act->{mode}) {
 					$mode .= $txt2cmode{$_} for keys %{$act->{mode}};
 				}
 				$mode =~ tr/qaohv/*~@%+/;
-				push @out, $net->cmd1(SJOIN => $net->sjb64($chan->{ts}), $chan->str($net), $mode.$nick->str($net));
+				push @out, $net->cmd1(SJOIN => $net->sjb64($chan->ts()), $chan->str($net), $mode.$nick->str($net));
 			}
 		}
 		@out;
@@ -894,7 +895,7 @@ sub cmd2 {
 			$mode .= $txt2cmode{$_} for keys %{$act->{mode}};
 		}
 		$mode =~ tr/qaohv/*~@%+/;
-		$net->cmd1(SJOIN => $net->sjb64($chan->{ts}), $chan->str($net), $mode.$act->{src}->str($net));
+		$net->cmd1(SJOIN => $net->sjb64($chan->ts()), $chan->str($net), $mode.$act->{src}->str($net));
 	}, PART => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, PART => $act->{dst}, $act->{msg});

@@ -54,7 +54,7 @@ sub ijstr {
 	} elsif ($itm->isa('Nick')) {
 		return 'n:'.$itm->id();
 	} elsif ($itm->isa('Channel')) {
-		return 'c:'.$itm->{keyname};
+		return 'c:'.$itm->keyname();
 	} elsif ($itm->isa('Network')) {
 		return 's:'.$itm->id();
 	}
@@ -96,16 +96,12 @@ my %to_ij = (
 	}, LSYNC => sub {
 		my($ij, $act) = @_;
 		my $out = send_hdr(@_, qw/dst linkto/) . ' chan=<c';
-		my $chan = $act->{chan};
-		$out .= ' '.$_.'='.$ij->ijstr($chan->{$_}) for
-			qw/ts topic topicts topicset mode names/;
+		$out .= $act->{chan}->to_ij($ij);
 		$out . '>>';
 	}, LINK => sub {
 		my($ij, $act) = @_;
 		my $out = send_hdr(@_, qw/chan1 chan2/) . ' chan=<c';
-		my $chan = $act->{dst};
-		$out .= ' '.$_.'='.$ij->ijstr($chan->{$_}) for
-			qw/ts topic topicts topicset mode names/;
+		$out .= $act->{dst}->to_ij($ij);
 		$out . '>>';
 	}, CONNECT => sub {
 		my($ij, $act) = @_;

@@ -114,7 +114,7 @@ my %cmds = (
 			$j->jmsg($nick, "Cannot find channel $cname1");
 			return;
 		};
-		unless ($chan1->{nmode}->{$nick->id()}->{n_owner} || $nick->{mode}->{oper}) {
+		unless ($chan1->has_nmode(n_owner => $nick) || $nick->{mode}->{oper}) {
 			$j->jmsg($nick, "You must be a channel owner to use this command");
 			return;
 		}
@@ -140,7 +140,7 @@ my %cmds = (
 			$j->jmsg($nick, "Cannot find channel $cname");
 			return;
 		};
-		unless ($nick->{mode}->{oper} || $chan->{nmode}->{$nick->id()}->{n_owner}) {
+		unless ($nick->{mode}->{oper} || $chan->has_nmode(n_owner => $nick)) {
 			$j->jmsg("You must be a channel owner to use this command");
 			return;
 		}
@@ -211,13 +211,16 @@ sub modload {
 			my($j,$act) = @_;
 			my $nick = $act->{src};
 			my $dst = $act->{dst};
+			return undef unless $dst->isa('Nick');
 			if ($dst->{_is_janus}) {
 				return 1 if $act->{notice} || !$nick;
 				local $_ = $act->{msg};
 				my $cmd = s/^\s*(\S+)\s*// && exists $cmds{lc $1} ? lc $1 : 'unk';
 				$cmds{$cmd}->($j, $nick, $_);
 				return 1;
-			} elsif ($dst->isa('Nick') && !$nick->is_on($dst->{homenet})) {
+			}
+
+			unless ($nick->is_on($dst->{homenet})) {
 				$j->append(+{
 					type => 'MSG',
 					notice => 1,

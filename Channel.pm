@@ -1,72 +1,102 @@
-package Channel;
+package Channel; {
+use Object::InsideOut ':hash_only';
 use Nick;
-use Scalar::Util qw(weaken);
 use strict;
 use warnings;
 
-sub new {
-	my($class,$net,$name) = @_;
-	my $id = $net->id();
-	my %chash = (
-		ts => time + 60,
-		topic => '',
-		topicts => 0,
-		topicset => '',
-		mode => {},
-		keyname => $id.$name,
-	); my $chan = \%chash;
-	weaken($chan->{nets}->{$id} = $net);
-	$chan->{names}->{$id} = $name;
-	bless $chan, $class;
+my %ts :Field :Get(ts);
+my %topic :Field;
+my %topicts :Field;
+my %topicset :Field;
+my %mode :Field;
+my %keyname :Field;
+
+my %names :Field;
+my %nets :Field;
+
+my %nicks :Field;
+my %nmode :Field;
+
+sub nets {
+	values %{$nets{${$_[0]}}};
 }
 
-sub from_ij {
-	my($class, $ij, $chan) = @_;
-	for my $id (keys %{$chan->{names}}) {
-		my $net = $ij->{nets}->{$id};
-		my $name = $chan->{names}->{$id};
-		weaken($chan->{nets}->{$id} = $net);
-		$net->{chans}->{lc $name} = $chan;
-	}
-	bless $chan, $class;
+sub has_nmode {
+	my($chan, $mode, $nick) = @_;
+	$nmode{$$chan}{$nick->id()}{$mode};
+}
+
+sub keyname {
+	$keyname{${$_[0]}};
+}
+
+sub to_ij {
+	my($chan,$ij) = @_;
+	my $out = '';
+# perl -e "print q[\$out .= ' ],\$_,q[='.\$ij->ijstr(\$],\$_,q[{\$\$chan});],qq(\n) for qw/ts topic topicts topicset mode names/"
+	$out .= ' ts='.$ij->ijstr($ts{$$chan});
+	$out .= ' topic='.$ij->ijstr($topic{$$chan});
+	$out .= ' topicts='.$ij->ijstr($topicts{$$chan});
+	$out .= ' topicset='.$ij->ijstr($topicset{$$chan});
+	$out .= ' mode='.$ij->ijstr($mode{$$chan});
+	$out .= ' names='.$ij->ijstr($names{$$chan});
+	$out;
+}
+
+my %initargs :InitArgs = (
+	_INTERNAL => '',
+	net => '',
+	name => '',
+	ts => '',
+);
+
+sub _init :Init {
+	my($c, $ifo) = @_;
+	return if $ifo->{_INTERNAL};
+	my $net = $ifo->{net};
+	my $id = $net->id();
+	$nets{$$c}{$id} = $net;
+	$names{$$c}{$id} = $ifo->{name};
+	$ts{$$c} = $ifo->{ts} || (time + 60);
+	$keyname{$$c} = $id.$ifo->{name};
 }
 
 sub _ljoin {
 	my($chan, $j, $nick, $src) = @_;
 	my $id = $nick->id();
 	
-	my $mode = $src->{nmode}->{$id};
-	$chan->{nicks}->{$id} = $nick;
-	$chan->{nmode}->{$id} = $mode;
+	my $mode = $nmode{$$src}{$id};
+	$nicks{$$chan}{$id} = $nick;
+	$nmode{$$chan}{$id} = $mode;
 	$nick->rejoin($j, $chan);
 }
 
 sub _mergenet {
 	my($chan, $src) = @_;
-	for my $id (keys %{$src->{nets}}) {
-		$chan->{nets}->{$id}  = $src->{nets}->{$id};
-		$chan->{names}->{$id} = $src->{names}->{$id};
+	for my $id (keys %{$nets{$$src}}) {
+		$nets{$$chan}{$id}  = $nets{$$src}{$id};
+		$names{$$chan}{$id} = $names{$$src}{$id};
 	}
 }
 
 sub _modecpy {
 	my($chan, $src) = @_;
-	for my $txt (keys %{$src->{mode}}) {
+	for my $txt (keys %{$mode{$$src}}) {
 		if ($txt =~ /^l/) {
-			$chan->{mode}->{$txt} = [ @{$src->{mode}->{$txt}} ];
+			$mode{$$chan}{$txt} = [ @{$mode{$$src}{$txt}} ];
 		} else {
-			$chan->{mode}->{$txt} = $src->{mode}->{$txt};
+			$mode{$$chan}{$txt} = $mode{$$src}{$txt};
 		}
 	}
 }
 
 sub _mode_delta {
 	my($chan, $dst) = @_;
-	my %add = %{$dst->{mode}};
+	my %add = %{$mode{$$dst}};
 	my(@modes, @args);
-	for my $txt (keys %{$chan->{mode}}) {
+	for my $txt (keys %{$mode{$$chan}}) {
 		if ($txt =~ /^l/) {
-			my %torm = map { $_ => 1} @{$chan->{mode}->{$txt}};
+			my %torm = map { $_ => 1} @{$mode{$$chan}{$txt}};
 			if (exists $add{$txt}) {
 				for my $i (@{$add{$txt}}) {
 					if (exists $torm{$i}) {
@@ -83,7 +113,7 @@ sub _mode_delta {
 			}
 		} elsif ($txt =~ /^[vs]/) {
 			if (exists $add{$txt}) {
-				if ($chan->{mode}->{$txt} eq $add{$txt}) {
+				if ($mode{$$chan}{$txt} eq $add{$txt}) {
 					# hey, isn't that nice
 				} else {
 					push @modes, '+'.$txt;
@@ -91,7 +121,7 @@ sub _mode_delta {
 				}
 			} else {
 				push @modes, '-'.$txt;
-				push @args, $chan->{mode}->{$txt} unless $txt =~ /^s/;
+				push @args, $mode{$$chan}{$txt} unless $txt =~ /^s/;
 			}
 		} else {
 			push @modes, '-'.$txt unless exists $add{$txt};
@@ -116,13 +146,13 @@ sub _mode_delta {
 
 sub _link_into {
 	my($src,$chan,$j) = @_;
-	if ($src->{topic} ne $chan->{topic}) {
+	if ($topic{$$src} ne $topic{$$chan}) {
 		$j->append(+{
 			type => 'TOPIC',
 			dst => $src,
-			topic => $chan->{topic},
-			topicts => $chan->{topicts},
-			topicset => $chan->{topicset},
+			topic => $topic{$$chan},
+			topicts => $topicts{$$chan},
+			topicset => $topicset{$$chan},
 			nojlink => 1,
 		});
 	}
@@ -136,19 +166,19 @@ sub _link_into {
 		nojlink => 1,
 	}) if @$mode;
 
-	for my $id (keys %{$src->{nets}}) {
-		my $net = $src->{nets}->{$id};
-		my $name = $src->{names}->{$id};
+	for my $id (keys %{$nets{$$src}}) {
+		my $net = $nets{$$src}{$id};
+		my $name = $names{$$src}{$id};
 		$net->{chans}->{lc $name} = $chan;
 	}
 
-	for my $nick (values %{$src->{nicks}}) {
+	for my $nick (values %{$nicks{$$src}}) {
 		$chan->_ljoin($j, $nick, $src);
 		$j->append(+{
 			type => 'JOIN',
 			src => $nick,
 			dst => $chan,
-			mode => $src->{nmode}->{$nick->id()},
+			mode => $nmode{$$src}{$nick->id()},
 			rejoin => 1,
 		}) unless $nick->{homenet}->{jlink};
 	}
@@ -157,44 +187,44 @@ sub _link_into {
 # get name on a network
 sub str {
 	my($chan,$net) = @_;
-	$chan->{names}->{$net->id()};
+	$names{$$chan}{$net->id()};
 }
 
 sub id { die }
 
 sub sendto {
 	my($chan,$act,$except) = @_;
-	my %n = %{$chan->{nets}};
+	my %n = %{$nets{$$chan}};
 	delete $n{$except->id()} if $except;
 	values %n;
 }
 
 sub part {
 	my($chan,$nick) = @_;
-	delete $chan->{nicks}->{$nick->id()};
-	delete $chan->{nmode}->{$nick->id()};
-	return if keys %{$chan->{nicks}};
+	delete $nicks{$$chan}{$nick->id()};
+	delete $nmode{$$chan}{$nick->id()};
+	return if keys %{$nicks{$$chan}};
 	# destroy channel
-	for my $id (keys %{$chan->{nets}}) {
-		my $name = $chan->{names}->{$id};
-		delete $chan->{nets}->{$id}->{chans}->{$name};
+	for my $id (keys %{$nets{$$chan}}) {
+		my $name = $names{$$chan}{$id};
+		delete $nets{$$chan}{$id}->{chans}->{$name};
 	}
 }
 
-sub DESTROY {
-	my $name = join ',', map $_.$_[0]->{names}->{$_}, keys %{$_[0]->{names}};
-	print "DBG: $_[0] $name deallocated\n";
+sub _destroy :Destroy {
+#	my $name = join ',', map $_.$names{${$_[0]}}->{$_}, keys %{$names{${$_[0]}}};
+#	print "DBG: $_[0] $name deallocated\n";
 }
 
 sub timesync {
 	my($chan, $new) = @_;
 	return unless $new > 1000000; #don't EVER destroy channel TSes with that annoying Unreal message
-	my $old = $chan->{ts};
+	my $old = $ts{$$chan};
 	return if $old <= $new; # we are actually not resetting the TS, how nice!
 	# Wipe modes in preparation for an overriding merge
-	$chan->{ts} = $new;
-	$chan->{nmode} = {};
-	$chan->{mode} = {};
+	$ts{$$chan} = $new;
+	$nmode{$$chan} = {};
+	$mode{$$chan} = {};
 }
 
 sub modload {
@@ -204,9 +234,9 @@ sub modload {
 		my $act = $_[1];
 		my $nick = $act->{src};
 		my $chan = $act->{dst};
-		$chan->{nicks}->{$nick->id()} = $nick;
+		$nicks{$$chan}->{$nick->id()} = $nick;
 		if ($act->{mode}) {
-			$chan->{nmode}->{$nick->id()} = { %{$act->{mode}} };
+			$nmode{$$chan}->{$nick->id()} = { %{$act->{mode}} };
 		}
 	}, PART => cleanup => sub {
 		my $act = $_[1];
@@ -229,24 +259,24 @@ sub modload {
 			my $i = substr $itxt, 1;
 			if ($t eq 'n') {
 				my $nick = shift @args;
-				$chan->{nmode}->{$nick->id()}->{$i} = 1 if $pm eq '+';
-				delete $chan->{nmode}->{$nick->id()}->{$i} if $pm eq '-';
+				$nmode{$$chan}->{$nick->id()}->{$i} = 1 if $pm eq '+';
+				delete $nmode{$$chan}->{$nick->id()}->{$i} if $pm eq '-';
 			} elsif ($t eq 'l') {
 				if ($pm eq '+') {
-					push @{$chan->{mode}->{$i}}, shift @args;
+					push @{$mode{$$chan}->{$i}}, shift @args;
 				} else {
 					my $b = shift @args;
-					@{$chan->{mode}->{$i}} = grep { $_ ne $b } @{$chan->{mode}->{$i}};
+					@{$mode{$$chan}->{$i}} = grep { $_ ne $b } @{$mode{$$chan}->{$i}};
 				}
 			} elsif ($t eq 'v') {
-				$chan->{mode}->{$i} = shift @args;
-				delete $chan->{mode}->{$i} if $pm eq '-';
+				$mode{$$chan}->{$i} = shift @args;
+				delete $mode{$$chan}->{$i} if $pm eq '-';
 			} elsif ($t eq 's') {
-				$chan->{mode}->{$i} = shift @args if $pm eq '+';
-				delete $chan->{mode}->{$i} if $pm eq '-';
+				$mode{$$chan}->{$i} = shift @args if $pm eq '+';
+				delete $mode{$$chan}->{$i} if $pm eq '-';
 			} elsif ($t eq 'r') {
-				$chan->{mode}->{$i} = 1;
-				delete $chan->{mode}->{$i} if $pm eq '-';
+				$mode{$$chan}->{$i} = 1;
+				delete $mode{$$chan}->{$i} if $pm eq '-';
 			} else {
 				warn "Unknown mode '$itxt'";
 			}
@@ -254,9 +284,9 @@ sub modload {
 	}, TOPIC => act => sub {
 		my $act = $_[1];
 		my $chan = $act->{dst};
-		$chan->{topic} = $act->{topic};
-		$chan->{topicts} = $act->{topicts} || time;
-		$chan->{topicset} = $act->{topicset} || $act->{src}->{homenick};
+		$topic{$$chan} = $act->{topic};
+		$topicts{$$chan} = $act->{topicts} || time;
+		$topicset{$$chan} = $act->{topicset} || $act->{src}->{homenick};
 	}, LSYNC => act => sub {
 		my($j,$act) = @_;
 		return if $act->{dst}->{jlink};
@@ -267,40 +297,33 @@ sub modload {
 		# just gets a copy of the channel created here and send out the 
 		# events required to merge into it.
 
-		for my $id (keys %{$chan1->{nets}}) {
-			if (exists $chan2->{nets}->{$id}) {
+		for my $id (keys %{$nets{$$chan1}}) {
+			if (exists $nets{$$chan2}{$id}) {
 				$j->jmsg($act->{src}, "Cannot link: this channel would be in $id twice");
 				return;
 			}
 		}
 	
-		my %chanh = (
-			mode => {},
-			keyname => $chan1->{keyname},
-		);
-		my $chan = \%chanh;
-		bless $chan;
+		my $chan = Channel->new(_INTERNAL => 1);
+		$keyname{$$chan} = $keyname{$$chan1};
 
-		my $tsctl = ($chan2->{ts} <=> $chan1->{ts});
+		my $tsctl = ($ts{$$chan2} <=> $ts{$$chan1});
 		# topic timestamps are backwards: later topic change is taken IF the creation stamps are the same
 		# otherwise go along with the channel sync
-		my $topctl = $tsctl ? $tsctl : ($chan1->{topicts} <=> $chan2->{topicts});
 
 		# basic strategy: Modify the two channels in-place to have the same modes as we create
 		# the unified channel
 
 		# First, set the timestamps
-		$chan1->timesync($chan2->{ts});
-		$chan2->timesync($chan1->{ts});
-		$chan->{ts} = $chan1->{ts}; # the timestamps are now equal so just copy #1 because it's first
+		$chan1->timesync($ts{$$chan2});
+		$chan2->timesync($ts{$$chan1});
+		$ts{$$chan} = $ts{$$chan1}; # the timestamps are now equal so just copy #1 because it's first
 
-		if ($topctl >= 0) {
-			print "Channel 1 wins control of topic\n";
-			$chan->{$_} = $chan1->{$_} for qw/topic topicts topicset/;
-		} else {
-			print "Channel 2 wins control of topic\n";
-			$chan->{$_} = $chan2->{$_} for qw/topic topicts topicset/;
-		}
+		my $topctl = ($tsctl > 0 || ($tsctl == 0 && $topicts{$$chan1} >= $topicts{$$chan2}))
+			? $$chan1 : $$chan2;
+		$topic{$$chan} = $topic{$topctl};
+		$topicts{$$chan} = $topicts{$topctl};
+		$topicset{$$chan} = $topicset{$topctl};
 
 		if ($tsctl > 0) {
 			print "Channel 1 wins TS\n";
@@ -310,22 +333,22 @@ sub modload {
 			$chan->_modecpy($chan2);
 		} else {
 			# Equal timestamps; recovering from a split. Merge any information
-			my @allmodes = keys(%{$chan1->{mode}}), keys(%{$chan2->{mode}});
+			my @allmodes = keys(%{$mode{$$chan1}}), keys(%{$mode{$$chan2}});
 			for my $txt (@allmodes) {
 				if ($txt =~ /^l/) {
 					my %m;
-					if (exists $chan1->{mode}->{$txt}) {
-						$m{$_} = 1 for @{$chan1->{mode}->{$txt}};
+					if (exists $mode{$$chan1}{$txt}) {
+						$m{$_} = 1 for @{$mode{$$chan1}{$txt}};
 					}
-					if (exists $chan2->{mode}->{$txt}) {
-						$m{$_} = 1 for @{$chan2->{mode}->{$txt}};
+					if (exists $mode{$$chan2}{$txt}) {
+						$m{$_} = 1 for @{$mode{$$chan2}{$txt}};
 					}
-					$chan->{mode}->{$txt} = [ keys %m ];
+					$mode{$$chan}->{$txt} = [ keys %m ];
 				} else {
-					if (exists $chan1->{mode}) {
-						$chan->{mode}->{$txt} = $chan1->{mode}->{$txt};
+					if (exists $mode{$$chan1}) {
+						$mode{$$chan}->{$txt} = $mode{$$chan1}->{$txt};
 					} else {
-						$chan->{mode}->{$txt} = $chan2->{mode}->{$txt};
+						$mode{$$chan}->{$txt} = $mode{$$chan2}->{$txt};
 					}
 				}
 			}
@@ -352,8 +375,8 @@ sub modload {
 		my($j,$act) = @_;
 		my $chan = $act->{dst};
 		my $net = $act->{net};
-		return 1 unless exists $chan->{nets}->{$net->id()};
-		my @nets = keys %{$chan->{nets}};
+		return 1 unless exists $nets{$$chan}->{$net->id()};
+		my @nets = keys %{$nets{$$chan}};
 		return 1 if @nets == 1;
 		undef;
 	}, DELINK => act => sub {
@@ -361,33 +384,31 @@ sub modload {
 		my $chan = $act->{dst};
 		my $net = $act->{net};
 		my $id = $net->id();
-		$act->{sendto} = [ values %{$chan->{nets}} ]; # before the splitting
-		delete $chan->{nets}->{$id} or warn;
+		$act->{sendto} = [ values %{$nets{$$chan}} ]; # before the splitting
+		delete $nets{$$chan}{$id} or warn;
 
-		my $name = delete $chan->{names}->{$id};
-		if ($chan->{keyname} eq $name) {
-			my @onets = keys %{$chan->{names}};
-			$chan->{keyname} = $onets[0].$chan->{names}->{$onets[0]};
+		my $name = delete $names{$$chan}->{$id};
+		if ($keyname{$$chan} eq $id.$name) {
+			my @onets = sort keys %{$names{$$chan}};
+			$keyname{$$chan} = $onets[0].$names{$$chan}{$onets[0]};
 		}
-		my %chanh = (
-			nets => { $id => $net },
-			names => { $id => $name },
-			ts => $chan->{ts},
-			topic => $chan->{topic},
-			topicts => $chan->{topicts},
-			topicset => $chan->{topicset},
-			keyname => $id.$name,
+		my $split = Channel->new(
+			net => $net,
+			name => $name,
+			ts => $ts{$$chan},
 		);
-		my $split = \%chanh;
-		bless $split;
+		$topic{$$split} = $topic{$$chan};
+		$topicts{$$split} = $topicts{$$chan};
+		$topicset{$$split} = $topicset{$$chan};
+
 		$act->{split} = $split;
 		$split->_modecpy($chan);
 		$net->{chans}->{lc $name} = $split;
 
-		for my $nid (keys %{$chan->{nicks}}) {
-			if ($chan->{nicks}->{$nid}->{homenet}->id() eq $id) {
-				my $nick = $split->{nicks}->{$nid} = $chan->{nicks}->{$nid};
-				$split->{nmode}->{$nid} = $chan->{nmode}->{$nid};
+		for my $nid (keys %{$nicks{$$chan}}) {
+			if ($nicks{$$chan}->{$nid}->{homenet}->id() eq $id) {
+				my $nick = $nicks{$$split}{$nid} = $nicks{$$chan}->{$nid};
+				$nmode{$$split}{$nid} = $nmode{$$chan}{$nid};
 				$nick->rejoin($j, $split);
 				$j->append(+{
 					type => 'PART',
@@ -397,7 +418,7 @@ sub modload {
 					nojlink => 1,
 				});
 			} else {
-				my $nick = $chan->{nicks}->{$nid};
+				my $nick = $nicks{$$chan}{$nid};
 				$j->append(+{
 					type => 'PART',
 					src => $nick,
@@ -411,4 +432,4 @@ sub modload {
 	});
 }
 
-1;
+} 1;

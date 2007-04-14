@@ -57,7 +57,10 @@ sub chan {
 	unless (exists $net->{chans}->{lc $name}) {
 		print "Creating channel $name when creation was not requested\n" unless $new;
 		my $id = $net->{id};
-		$net->{chans}->{lc $name} = Channel->new($net, $name);
+		$net->{chans}->{lc $name} = Channel->new(
+			net => $net, 
+			name => $name,
+		);
 	}
 	$net->{chans}->{lc $name};
 }
