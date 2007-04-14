@@ -16,11 +16,11 @@ sub banify {
 
 my %cmds = (
 	unk => sub {
-		my($j, $nick) = @_;
-		$j->jmsg($nick, 'Unknown command. Use "help" to see available commands');
+		my $nick = shift;
+		Janus::jmsg($nick, 'Unknown command. Use "help" to see available commands');
 	}, help => sub {
-		my($j, $nick) = @_;
-		$j->jmsg($nick, 'Janus2 Help',
+		my $nick = shift;
+		Janus::jmsg($nick, 'Janus2 Help',
 			' link $localchan $network $remotechan - links a channel with a remote network',
 			' delink $chan - delinks a channel from all other networks',
 			'These commands are restricted to IRC operators:',
@@ -34,9 +34,9 @@ my %cmds = (
 			' die - quit immediately',
 		);
 	}, ban => sub {
-		my($j, $nick) = @_;
+		my $nick = shift;
 		my($cmd, @arg) = split /\s+/;
-		return $j->jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
+		return Janus::jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
 		my $net = $nick->{homenet};
 		my @list = sort $net->banlist();
 		if ($cmd =~ /^l/i) {
@@ -45,12 +45,12 @@ my %cmds = (
 				my $ban = $net->{ban}->{$expr};
 				my $expire = $ban->{expire} ? 'expires on '.gmtime($ban->{expire}) : 'does not expire';
 				$c++;
-				$j->jmsg($nick, "$c $ban->{ircexpr} - set by $ban->{setter}, $expire - $ban->{reason}");
+				Janus::jmsg($nick, "$c $ban->{ircexpr} - set by $ban->{setter}, $expire - $ban->{reason}");
 			}
-			$j->jmsg($nick, 'No bans defined') unless @list;
+			Janus::jmsg($nick, 'No bans defined') unless @list;
 		} elsif ($cmd =~ /^k?a/i) {
 			unless ($arg[1]) {
-				$j->jmsg($nick, 'Use: ban add $expr $reason $duration');
+				Janus::jmsg($nick, 'Use: ban add $expr $reason $duration');
 				return;
 			}
 			my $expr = banify $arg[0];
@@ -63,14 +63,14 @@ my %cmds = (
 			);
 			$net->{ban}->{$expr} = \%b;
 			if ($cmd =~ /^a/i) {
-				$j->jmsg($nick, 'Ban added');
+				Janus::jmsg($nick, 'Ban added');
 			} else {
 				my $c = 0;
 				for my $n (values %{$net->{nicks}}) {
 					next if $n->{homenet}->id() eq $net->id();
 					my $mask = $n->{homenick}.'!'.$n->{ident}.'\@'.$n->{host}.'%'.$n->{homenet}->id();
 					next unless $mask =~ /$expr/;
-					$j->append(+{
+					Janus::append(+{
 						type => 'KILL',
 						dst => $n,
 						net => $net,
@@ -78,48 +78,48 @@ my %cmds = (
 					});
 					$c++;
 				}
-				$j->jmsg($nick, "Ban added, $c nick(s) killed");
+				Janus::jmsg($nick, "Ban added, $c nick(s) killed");
 			}
 		} elsif ($cmd =~ /^d/i) {
 			for (@arg) {
 				my $expr = /^\d+$/ ? $list[$_ - 1] : banify $_;
 				my $ban = delete $net->{ban}->{$expr};
 				if ($ban) {
-					$j->jmsg($nick, "Ban $ban->{ircexpr} removed");
+					Janus::jmsg($nick, "Ban $ban->{ircexpr} removed");
 				} else {
-					$j->jmsg($nick, "Could not find ban $_ - use ban list to see a list of all bans");
+					Janus::jmsg($nick, "Could not find ban $_ - use ban list to see a list of all bans");
 				}
 			}
 		}
 	}, list => sub {
-		my($j, $nick) = @_;
-		return $j->jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
-		$j->jmsg($nick, 'Linked networks: '.join ' ', sort keys %{$j->{nets}});
+		my $nick = shift;
+		return Janus::jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
+		Janus::jmsg($nick, 'Linked networks: '.join ' ', sort keys %Janus::nets);
 		# TODO display available channels when that is set up
 	}, 'link' => sub {
-		my($j, $nick) = @_;
-		return $j->jmsg("You must be an IRC operator to use this command") 
+		my $nick = shift;
+		return Janus::jmsg("You must be an IRC operator to use this command") 
 			if $nick->{homenet}->{oper_only_link} && !$nick->{mode}->{oper};
 		my($cname1, $nname2, $cname2) = /(#\S+)\s+(\S+)\s*(#\S+)?/ or do {
-			$j->jmsg($nick, 'Usage: link $localchan $network $remotechan');
+			Janus::jmsg($nick, 'Usage: link $localchan $network $remotechan');
 			return;
 		};
 
 		my $net1 = $nick->{homenet};
-		my $net2 = $j->{nets}->{lc $nname2} or do {
-			$j->jmsg($nick, "Cannot find network $nname2");
+		my $net2 = $Janus::nets{lc $nname2} or do {
+			Janus::jmsg($nick, "Cannot find network $nname2");
 			return;
 		};
 		my $chan1 = $net1->{chans}->{lc $cname1} or do {
-			$j->jmsg($nick, "Cannot find channel $cname1");
+			Janus::jmsg($nick, "Cannot find channel $cname1");
 			return;
 		};
 		unless ($chan1->has_nmode(n_owner => $nick) || $nick->{mode}->{oper}) {
-			$j->jmsg($nick, "You must be a channel owner to use this command");
+			Janus::jmsg($nick, "You must be a channel owner to use this command");
 			return;
 		}
 	
-		$j->append(+{
+		Janus::append(+{
 			type => 'LINKREQ',
 			src => $nick,
 			dst => $net2,
@@ -130,44 +130,43 @@ my %cmds = (
 			chan => $chan1,
 			override => $nick->{mode}->{oper},
 		});
-		$j->jmsg($nick, "Link request sent");
+		Janus::jmsg($nick, "Link request sent");
 	}, 'delink' => sub {
-		my($j, $nick, $cname) = @_;
+		my($nick, $cname) = @_;
 		my $snet = $nick->{homenet};
-		return $j->jmsg("You must be an IRC operator to use this command") 
+		return Janus::jmsg("You must be an IRC operator to use this command") 
 			if $snet->{oper_only_link} && !$nick->{mode}->{oper};
 		my $chan = $snet->chan($cname) or do {
-			$j->jmsg($nick, "Cannot find channel $cname");
+			Janus::jmsg($nick, "Cannot find channel $cname");
 			return;
 		};
 		unless ($nick->{mode}->{oper} || $chan->has_nmode(n_owner => $nick)) {
-			$j->jmsg("You must be a channel owner to use this command");
+			Janus::jmsg("You must be a channel owner to use this command");
 			return;
 		}
 			
-		$j->append(+{
+		Janus::append(+{
 			type => 'DELINK',
 			src => $nick,
 			dst => $chan,
 			net => $snet,
 		});
 	}, rehash => sub {
-		my($j, $nick) = @_;
-		return $j->jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
-		$j->append(+{
+		my $nick = shift;
+		return Janus::jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
+		Janus::append(+{
 			type => 'REHASH',
 			sendto => [],
 		});
 	}, 'die' => sub {
-		my($j, $nick) = @_;
-		return $j->jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
+		my $nick = shift;
+		return Janus::jmsg("You must be an IRC operator to use this command") unless $nick->{mode}->{oper};
 		exit 0;
 	},
 );
 
 sub modload {
 	my $class = shift;
-	my $janus = shift;
 	my $inick = shift || 'janus';
 
 	my %neth = (
@@ -177,9 +176,9 @@ sub modload {
 	my $int = \%neth;
 	bless $int, $class;
 
-	$janus->link($int);
+	Janus::link($int);
 
-	my $nick = Nick->new(
+	$int->{nicks}->{lc $inick} = $Janus::interface = Nick->new(
 		homenet => $int,
 		homenick => $inick,
 		nickts => 100000000,
@@ -190,25 +189,23 @@ sub modload {
 		mode => { oper => 1, service => 1 },
 		_is_janus => 1,
 	);
-	$int->{nicks}->{lc $inick} = $nick;
-	$janus->{janus} = $nick;
 	
-	$janus->hook_add($class, 
+	Janus::hook_add($class, 
 		NETLINK => act => sub {
-			my($j,$act) = @_;
-			$j->append(+{
+			my $act = shift;
+			Janus::append(+{
 				type => 'CONNECT',
-				dst => $j->{janus},
+				dst => $Janus::interface,
 				net => $act->{net},
 			});
 		}, NETSPLIT => act => sub {
-			my($j,$act) = @_;
+			my $act = shift;
 			my $net = $act->{net};
-			delete $j->{janus}->{nets}->{$net->id()};
-			my $jnick = delete $j->{janus}->{nicks}->{$net->id()};
+			delete $Janus::interface->{nets}->{$net->id()};
+			my $jnick = delete $Janus::interface->{nicks}->{$net->id()};
 			$net->release_nick($jnick);
 		}, MSG => parse => sub {
-			my($j,$act) = @_;
+			my $act = shift;
 			my $nick = $act->{src};
 			my $dst = $act->{dst};
 			return undef unless $dst->isa('Nick');
@@ -216,15 +213,15 @@ sub modload {
 				return 1 if $act->{notice} || !$nick;
 				local $_ = $act->{msg};
 				my $cmd = s/^\s*(\S+)\s*// && exists $cmds{lc $1} ? lc $1 : 'unk';
-				$cmds{$cmd}->($j, $nick, $_);
+				$cmds{$cmd}->($nick, $_);
 				return 1;
 			}
 
 			unless ($nick->is_on($dst->{homenet})) {
-				$j->append(+{
+				Janus::append(+{
 					type => 'MSG',
 					notice => 1,
-					src => $j->{janus},
+					src => $Janus::interface,
 					dst => $nick,
 					msg => 'You must join a shared channel to speak with remote users',
 				}) unless $act->{notice};
@@ -232,7 +229,7 @@ sub modload {
 			}
 			undef;
 		}, LINKREQ => act => sub {
-			my($j,$act) = @_;
+			my $act = shift;
 			my $snet = $act->{net};
 			my $dnet = $act->{dst};
 			return if $dnet->{jlink};
@@ -241,7 +238,7 @@ sub modload {
 				# there has already been a request to link this channel to that network
 				# also, if it was not an override, the request was for this pair of channels
 				delete $dnet->{lreq}->{$snet->id()}->{$act->{dlink}};
-				$j->append(+{
+				Janus::append(+{
 					type => 'LSYNC',
 					src => $dnet,
 					dst => $snet,

@@ -46,7 +46,7 @@ sub is_on {
 
 
 sub rejoin {
-	my($nick,$j,$chan) = @_;
+	my($nick,$chan) = @_;
 	my $name = $chan->str($nick->{homenet});
 	$nick->{chans}->{lc $name} = $chan;
 
@@ -54,7 +54,7 @@ sub rejoin {
 		
 	for my $net ($chan->nets()) {
 		next if $nick->{nets}->{$net->id()};
-		$j->insert(+{
+		Janus::insert(+{
 			type => 'CONNECT',
 			dst => $nick,
 			net => $net,
@@ -116,10 +116,10 @@ sub str {
 }
 
 sub modload {
- my($me, $janus) = @_;
- $janus->hook_add($me, 
+ my($me) = shift;
+ Janus::hook_add($me, 
  	CONNECT => check => sub {
-		my($j, $act) = @_;
+		my $act = shift;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
 		return undef if $net->{jlink} || $act->{reconnect};
@@ -128,7 +128,7 @@ sub modload {
 		for my $expr ($net->banlist()) {
 			next unless $mask =~ /^$expr$/;
 			my $ban = $net->{ban}->{$expr};
-			$j->append(+{
+			Janus::append(+{
 				type => 'KILL',
 				dst => $nick,
 				net => $net,
@@ -138,7 +138,7 @@ sub modload {
 		}
 		undef;
 	}, CONNECT => act => sub {
-		my($j, $act) = @_;
+		my $act = shift;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
 		my $id = $net->id();
@@ -151,7 +151,7 @@ sub modload {
 		$nick->{nicks}->{$id} = $rnick;
 		delete $act->{except} if $act->{reconnect};
 	}, NICK => check => sub {
-		my($j,$act) = @_;
+		my $act = shift;
 		my $old = lc $act->{dst}->{homenick};
 		my $new = lc $act->{nick};
 		return 1 if $old eq $new;
@@ -161,7 +161,7 @@ sub modload {
 		# remote networks could have this nick tagged; they can untag but 
 		# only if they can assure that it is impossible to be collided
 	}, NICK => act => sub {
-		my $act = $_[1];
+		my $act = $_[0];
 		my $nick = $act->{dst};
 		my $old = $nick->{homenick};
 		my $new = $act->{nick};
@@ -180,11 +180,11 @@ sub modload {
 			$act->{to}->{$id} = $to;
 		}
 	}, NICKINFO => act => sub {
-		my $act = $_[1];
+		my $act = $_[0];
 		my $nick = $act->{dst};
 		$nick->{$act->{item}} = $act->{value};
 	}, UMODE => act => sub {
-		my $act = $_[1];
+		my $act = $_[0];
 		my $nick = $act->{dst};
 		for my $ltxt (@{$act->{mode}}) {
 			if ($ltxt =~ /\+(.*)/) {
@@ -196,7 +196,7 @@ sub modload {
 			}
 		}
 	}, QUIT => cleanup => sub {
-		my $act = $_[1];
+		my $act = $_[0];
 		my $nick = $act->{dst};
 		for my $id (keys %{$nick->{chans}}) {
 			my $chan = $nick->{chans}->{$id};
@@ -209,7 +209,7 @@ sub modload {
 			$net->release_nick($name);
 		}
 	}, JOIN => act => sub {
-		my($j,$act) = @_;
+		my $act = shift;
 		my $nick = $act->{src};
 		my $chan = $act->{dst};
 
@@ -220,24 +220,24 @@ sub modload {
 		
 		for my $net ($chan->nets()) {
 			next if $nick->{nets}->{$net->id()};
-			$j->insert(+{
+			Janus::insert(+{
 				type => 'CONNECT',
 				dst => $nick,
 				net => $net,
 			});
 		}
 	}, PART => cleanup => sub {
-		my $act = $_[1];
+		my $act = $_[0];
 		my $nick = $act->{src};
 		my $chan = $act->{dst};
 		$nick->_part($chan);
 	}, KICK => cleanup => sub {
-		my $act = $_[1];
+		my $act = $_[0];
 		my $nick = $act->{kickee};
 		my $chan = $act->{dst};
 		$nick->_part($chan);
 	}, KILL => act => sub {
-		my($j, $act) = @_;
+		my $act = shift;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
 		for my $chan (values %{$nick->{chans}}) {
@@ -252,10 +252,10 @@ sub modload {
 				nojlink => 1,
 			};
 			$act->{sendto} = [ $chan->sendto($act, $net) ];
-			$j->append($act);
+			Janus::append($act);
 		}
 	}, KILL => cleanup => sub {
-		my($j, $act) = @_;
+		my $act = shift;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
 		$nick->_netpart($net);

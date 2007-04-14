@@ -841,8 +841,8 @@ sub cmd2 {
 		push @out, $net->cmd1(SMO => 'o', "(\002link\002) Janus Network $id ($new->{netname}) is now linked");
 		if ($net->id() eq $id) {
 			# first link to the net
-			for $id (keys %{$act->{janus}->{nets}}) {
-				$new = $act->{janus}->{nets}->{$id};
+			for $id (keys %Janus::nets) {
+				$new = $Janus::nets{$id};
 				next if $new->isa('Interface') || $id eq $net->id();
 				push @out, $net->cmd2($net->{linkname}, SERVER => "$id.janus", 2, $new->{numeric}, $new->{netname});
 			}

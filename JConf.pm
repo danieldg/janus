@@ -15,7 +15,7 @@ sub new {
 }
 
 sub rehash {
-	my($cfg,$janus) = @_;
+	my $cfg = shift;
 	local $_;
 	my $net;
 	open my $conf, $cfg->{file};
@@ -50,10 +50,10 @@ sub rehash {
 				print "Extra closing brace at line $. of config file\n";
 				next;
 			}
-			unless (exists $janus->{nets}->{$net->id()}) {
+			unless (exists $Janus::nets{$net->id()}) {
 				print "Connecting to $net->{netname}\n";
 				if ($net->connect()) {
-					$janus->link($net);
+					Janus::link($net);
 					$cfg->{readers}->add([$net->{sock}, '', $net]);
 				} else {
 					print "Cannot connect to $net->{id}\n";
@@ -77,27 +77,27 @@ sub rehash {
 }
 
 sub modload {
- my($class,$janus) = @_;
- $janus->hook_add($class,
+ my $class = shift;
+ Janus::hook_add($class,
 	REHASH => act => sub {
-		my($j,$act) = @_;
-		$j->{conf}->rehash($j);
+		my $act = shift;
+		$Janus::conf->rehash();
 	}, LINKED => act => sub {
-		my($j,$act) = @_;
+		my $act = shift;
 		my $net = $act->{net};
 		if ($net->id() eq 't1') {
-			$j->insert_full(+{
+			Janus::insert_full(+{
 				type => 'LINKREQ',
 				net => $net,
-				dst => $j->{nets}->{t2},
+				dst => $Janus::nets{t2},
 				slink => '#opers',
 				dlink => '#test',
 			});
 		} elsif ($net->id() eq 't2') {
-			$j->insert_full(+{
+			Janus::insert_full(+{
 				type => 'LINKREQ',
 				net => $net,
-				dst => $j->{nets}->{t1},
+				dst => $Janus::nets{t1},
 				slink => '#test',
 				dlink => '#opers',
 			});

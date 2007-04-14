@@ -10,16 +10,16 @@ use JConf;
 
 $| = 1;
 
-my $janus = Janus->new();
-Channel->modload($janus);
-Nick->modload($janus);
-Network->modload($janus);
-Interface->modload($janus,'janus2');
-JConf->modload($janus);
+Channel->modload();
+Nick->modload();
+Network->modload();
+Interface->modload('janus2');
+JConf->modload();
 
 my $conf = JConf->new(shift);
 my $read = $conf->{readers};
-$janus->setconf($conf);
+$Janus::conf = $conf;
+$conf->rehash();
 
 while ($read->count()) {
 	my @r = $read->can_read();
@@ -35,15 +35,15 @@ while ($read->count()) {
 			($line, $recvq) = split /[\r\n]+/, $recvq, 2;
 			my @parsed = $net->parse($line);
 			if ($net->isa('Network')) {
-				$janus->in_local($net, @parsed);
+				Janus::in_local($net, @parsed);
 			} else {
-				die "TODO: in_janus";
+				Janus::in_janus($net, @parsed);
 			}
 		}
 		$$l[1] = $recvq;
 		if (!$len) {
 			$read->remove($l);
-			$janus->delink($net);
+			Janus::delink($net);
 		}
 	}
 }

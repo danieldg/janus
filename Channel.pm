@@ -62,13 +62,13 @@ sub _init :Init {
 }
 
 sub _ljoin {
-	my($chan, $j, $nick, $src) = @_;
+	my($chan, $nick, $src) = @_;
 	my $id = $nick->id();
 	
 	my $mode = $nmode{$$src}{$id};
 	$nicks{$$chan}{$id} = $nick;
 	$nmode{$$chan}{$id} = $mode;
-	$nick->rejoin($j, $chan);
+	$nick->rejoin($chan);
 }
 
 sub _mergenet {
@@ -145,9 +145,9 @@ sub _mode_delta {
 }
 
 sub _link_into {
-	my($src,$chan,$j) = @_;
+	my($src,$chan) = @_;
 	if ($topic{$$src} ne $topic{$$chan}) {
-		$j->append(+{
+		Janus::append(+{
 			type => 'TOPIC',
 			dst => $src,
 			topic => $topic{$$chan},
@@ -157,8 +157,8 @@ sub _link_into {
 		});
 	}
 
-	my ($mode, $marg) = $src->_mode_delta($chan, $j);
-	$j->append(+{
+	my ($mode, $marg) = $src->_mode_delta($chan);
+	Janus::append(+{
 		type => 'MODE',
 		dst => $src,
 		mode => $mode,
@@ -173,8 +173,8 @@ sub _link_into {
 	}
 
 	for my $nick (values %{$nicks{$$src}}) {
-		$chan->_ljoin($j, $nick, $src);
-		$j->append(+{
+		$chan->_ljoin($nick, $src);
+		Janus::append(+{
 			type => 'JOIN',
 			src => $nick,
 			dst => $chan,
@@ -228,10 +228,10 @@ sub timesync {
 }
 
 sub modload {
- my($me, $janus) = @_;
- $janus->hook_add($me, 
+ my $me = shift;
+ Janus::hook_add($me, 
 	JOIN => act => sub {
-		my $act = $_[1];
+		my $act = $_[0];
 		my $nick = $act->{src};
 		my $chan = $act->{dst};
 		$nicks{$$chan}->{$nick->id()} = $nick;
@@ -239,17 +239,17 @@ sub modload {
 			$nmode{$$chan}->{$nick->id()} = { %{$act->{mode}} };
 		}
 	}, PART => cleanup => sub {
-		my $act = $_[1];
+		my $act = $_[0];
 		my $nick = $act->{src};
 		my $chan = $act->{dst};
 		$chan->part($nick);
 	}, KICK => cleanup => sub {
-		my $act = $_[1];
+		my $act = $_[0];
 		my $nick = $act->{kickee};
 		my $chan = $act->{dst};
 		$chan->part($nick);
 	}, MODE => act => sub {
-		my $act = $_[1];
+		my $act = $_[0];
 		local $_;
 		my $chan = $act->{dst};
 		my @args = @{$act->{args}};
@@ -282,13 +282,13 @@ sub modload {
 			}
 		}
 	}, TOPIC => act => sub {
-		my $act = $_[1];
+		my $act = $_[0];
 		my $chan = $act->{dst};
 		$topic{$$chan} = $act->{topic};
 		$topicts{$$chan} = $act->{topicts} || time;
 		$topicset{$$chan} = $act->{topicset} || $act->{src}->{homenick};
 	}, LSYNC => act => sub {
-		my($j,$act) = @_;
+		my $act = shift;
 		return if $act->{dst}->{jlink};
 		my $chan1 = $act->{dst}->chan($act->{linkto},1);
 		my $chan2 = $act->{chan};
@@ -299,7 +299,7 @@ sub modload {
 
 		for my $id (keys %{$nets{$$chan1}}) {
 			if (exists $nets{$$chan2}{$id}) {
-				$j->jmsg($act->{src}, "Cannot link: this channel would be in $id twice");
+				Janus::jmsg($act->{src}, "Cannot link: this channel would be in $id twice");
 				return;
 			}
 		}
@@ -357,7 +357,7 @@ sub modload {
 		$chan->_mergenet($chan1);
 		$chan->_mergenet($chan2);
 
-		$j->append(+{
+		Janus::append(+{
 			type => 'LINK',
 			src => $act->{src},
 			dst => $chan,
@@ -365,14 +365,14 @@ sub modload {
 			chan2 => $chan2,
 		});
 	}, LINK => act => sub {
-		my($j,$act) = @_;
+		my $act = shift;
 		my $chan = $act->{dst};
 		my($chan1,$chan2) = ($act->{chan1}, $act->{chan2});
 		
-		$chan1->_link_into($chan,$j);
-		$chan2->_link_into($chan,$j);
+		$chan1->_link_into($chan);
+		$chan2->_link_into($chan);
 	}, DELINK => check => sub {
-		my($j,$act) = @_;
+		my $act = shift;
 		my $chan = $act->{dst};
 		my $net = $act->{net};
 		return 1 unless exists $nets{$$chan}->{$net->id()};
@@ -380,7 +380,7 @@ sub modload {
 		return 1 if @nets == 1;
 		undef;
 	}, DELINK => act => sub {
-		my($j,$act) = @_;
+		my $act = shift;
 		my $chan = $act->{dst};
 		my $net = $act->{net};
 		my $id = $net->id();
@@ -409,8 +409,8 @@ sub modload {
 			if ($nicks{$$chan}->{$nid}->{homenet}->id() eq $id) {
 				my $nick = $nicks{$$split}{$nid} = $nicks{$$chan}->{$nid};
 				$nmode{$$split}{$nid} = $nmode{$$chan}{$nid};
-				$nick->rejoin($j, $split);
-				$j->append(+{
+				$nick->rejoin($split);
+				Janus::append(+{
 					type => 'PART',
 					src => $nick,
 					dst => $chan,
@@ -419,7 +419,7 @@ sub modload {
 				});
 			} else {
 				my $nick = $nicks{$$chan}{$nid};
-				$j->append(+{
+				Janus::append(+{
 					type => 'PART',
 					src => $nick,
 					dst => $split,

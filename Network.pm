@@ -56,6 +56,7 @@ sub chan {
 	my($net, $name, $new) = @_;
 	unless (exists $net->{chans}->{lc $name}) {
 		print "Creating channel $name when creation was not requested\n" unless $new;
+		print "Creating channel $name\n" if $new;
 		my $id = $net->{id};
 		$net->{chans}->{lc $name} = Channel->new(
 			net => $net, 
@@ -177,11 +178,11 @@ sub banlist {
 }
 
 sub modload {
- my($me, $janus) = @_;
+ my $me = shift;
  return unless $me eq 'Network';
- $janus->hook_add($me,
+ Janus::hook_add($me,
 	NETSPLIT => act => sub {
-		my($j, $act) = @_;
+		my $act = shift;
 		my $net = $act->{net};
 		my $tid = $net->id();
 		my @clean;
@@ -194,9 +195,9 @@ sub modload {
 				nojlink => 1,
 			};
 		}
-		$j->insert_full(@clean);
+		Janus::insert_full(@clean);
 		for my $chan (values %{$net->{chans}}) {
-			$j->append(+{
+			Janus::append(+{
 				type => 'DELINK',
 				dst => $chan,
 				net => $net,
@@ -204,7 +205,7 @@ sub modload {
 			});
 		}
 	}, NETSPLIT => clean => sub {
-		my($j, $act) = @_;
+		my $act = shift;
 		my $net = $act->{net};
 		my $tid = $net->id();
 		my @clean;
@@ -219,7 +220,7 @@ sub modload {
 				nojlink => 1,
 			};
 		}
-		$j->insert_full(@clean) if @clean;
+		Janus::insert_full(@clean) if @clean;
 		warn "nicks still remain after netsplit kills\n" if %{$net->{nicks}};
 		delete $net->{nicks};
 		warn "channels remain after a netsplit\n" if %{$net->{chans}};

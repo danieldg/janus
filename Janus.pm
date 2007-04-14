@@ -18,70 +18,54 @@ use InterJanus;
 #  $act itself should NEVER be modified at this point
 #  Object linking must remain intact in the act hook
 
+our $conf;
+our $interface;
+our %nets;
+my %hooks;
+my @qstack;
+
 my $ij_testlink = InterJanus->new();
 
-sub new {
-	my $class = shift;
-	my %j = (
-		hook => {},
-	);
-	bless \%j, $class;
-}
-
-sub setconf {
-	my($j,$conf) = @_;
-	$j->{conf} = $conf;
-	$conf->rehash($j);
-}
-
-sub child {
-	my $clone = shift;
-	my %j = (
-		hook => $clone->{hook},
-	);
-	bless \%j;
-}
-
 sub hook_add {
-	my($j, $module) = (shift, shift);
+	my $module = shift;
 	while (@_) {
 		my ($type, $level, $sub) = (shift, shift, shift);
 		warn unless $sub;
-		$j->{hook}->{$type}->{$level}->{$module} = $sub;
+		$hooks{$type}{$level}{$module} = $sub;
 	}
 }
 
 sub hook_del {
-	my($j, $module) = @_;
-	for my $t (keys %{$j->{hook}}) {
-		for my $l (keys %{$j->{hook}->{$t}}) {
-			delete $j->{hook}->{$t}->{$l}->{$module};
+	my $module = @_;
+	for my $t (keys %hooks) {
+		for my $l (keys %{$hooks{$t}}) {
+			delete $hooks{$t}{$l}{$module};
 		}
 	}
 }
 
 sub _hook {
-	my($j, $type, $lvl, @args) = @_;
+	my($type, $lvl, @args) = @_;
 	local $_;
-	my $hook = $j->{hook}->{$type}->{$lvl};
+	my $hook = $hooks{$type}{$lvl};
 	return unless $hook;
 	
 	for my $mod (sort keys %$hook) {
-		$hook->{$mod}->($j, @args);
+		$hook->{$mod}->(@args);
 	}
 }
 
 sub _mod_hook {
-	my($j, $type, $lvl, @args) = @_;
+	my($type, $lvl, @args) = @_;
 	local $_;
-	my $hook = $j->{hook}->{$type}->{$lvl};
+	my $hook = $hooks{$type}{$lvl};
 	return undef unless $hook;
 
 	my $rv = undef;
 	my $taken;
 	
 	for my $mod (sort keys %$hook) {
-		my $r = $hook->{$mod}->($j, @args);
+		my $r = $hook->{$mod}->(@args);
 		if (defined $r) {
 			warn "Multiple modifying hooks found for $type:$lvl ($taken, $mod)" if $taken;
 			$taken = $mod;
@@ -92,7 +76,7 @@ sub _mod_hook {
 }
 
 sub _send {
-	my($j,$act) = @_;
+	my $act = $_[0];
 	my @to;
 	if (exists $act->{sendto} && ref $act->{sendto}) {
 		@to = @{$act->{sendto}};
@@ -130,82 +114,77 @@ sub _send {
 }
 
 sub _runq {
-	my $j = shift;
-	my $q = delete $j->{queue};
-	return unless $q;
+	my $q = shift;
 	for my $act (@$q) {
-		$j->_run($act);
-		$j->_runq();
+		unshift @qstack, [];
+		_run($act);
+		_runq(shift @qstack);
 	}
 }
 
 sub link {
-	my($j,$net) = @_;
+	my $net = $_[0];
 	my $id = $net->id();
-	$j->{nets}->{$id} = $net;
+	$nets{$id} = $net;
 
-	$j->_run(+{
+	unshift @qstack, [];
+	_run(+{
 		type => 'NETLINK',
-		janus => $j,
 		net => $net,
-		sendto => [ values %{$j->{nets}} ],
+		sendto => [ values %nets ],
 	});
-	$j->_runq();
+	_runq(shift @qstack);
 }
 
 sub delink {
-	my($j,$net) = @_;
+	my $net = $_[0];
 	my $id = $net->id();
-	delete $j->{nets}->{$id};
-	$j->{except} = $net;
-	$j->_run(+{
+	delete $nets{$id};
+	unshift @qstack, [];
+	_run(+{
 		type => 'NETSPLIT',
 		net => $net,
-		sendto => [ values %{$j->{nets}} ],
+		sendto => [ values %nets ],
 	});
-	$j->_runq();
-	delete $j->{except};
+	_runq(shift @qstack);
 }
 
 sub _run {
-	my($j, $act) = @_;
-	if ($j->_mod_hook($act->{type}, check => $act)) {
+	my $act = $_[0];
+	if (_mod_hook($act->{type}, check => $act)) {
 		print "Check hook stole $act->{type}\n";
 		return;
 	}
-	$j->_hook($act->{type}, act => $act);
+	_hook($act->{type}, act => $act);
 	$ij_testlink->ij_send($act);
-	$j->_send($act);
-	$j->_hook($act->{type}, cleanup => $act);
+	_send($act);
+	_hook($act->{type}, cleanup => $act);
 }
 
 sub insert {
-	my $j = shift;
 	for my $act (@_) {
-		$j->_run($act);
+		_run($act);
 	}
 }
 
 sub insert_full {
-	my $j = shift;
-	$j = $j->child();
 	for my $act (@_) {
-		$j->_run($act);
-		$j->_runq();
+		unshift @qstack, [];
+		_run($act);
+		_runq(shift @qstack);
 	}
 }
 
 sub append {
-	my $j = shift;
-	push @{$j->{queue}}, @_;
+	push @{$qstack[0]}, @_;
 }
 
 sub jmsg {
-	my($j, $dst) = (shift, shift);
+	my $dst = shift;
 	local $_;
-	$j->append(map +{
+	append(map +{
 		type => 'MSG',
-		src => $j->{janus},
+		src => $interface,
 		dst => $dst,
 		notice => !$dst->isa('Channel'), # channel notice == annoying
 		msg => $_,
@@ -213,22 +192,24 @@ sub jmsg {
 }
 
 sub in_local {
-	my($j,$src,@act) = @_;
+	my($src,@act) = @_;
 	for my $act (@act) {
 		$act->{except} = $src unless $act->{except};
-		if ($j->_mod_hook($act->{type}, parse => $act)) {
+		unshift @qstack, [];
+		if (_mod_hook($act->{type}, parse => $act)) {
 			print "Parse hook stole $act->{type}\n";
 		} else {
-			$j->_run($act);
+			_run($act);
 		}
-		$j->_runq();
+		_runq(shift @qstack);
 	}
 }
 
 sub in_janus {
-	my($j,@act) = @_;
-	for my $act (@act) {
-		$j->_run($act);
+	for my $act (@_) {
+		unshift @qstack, [];
+		_run($act);
+		_runq(shift @qstack);
 	}
 } 
 
