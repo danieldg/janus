@@ -186,7 +186,10 @@ sub str {
 	$names{$$chan}{$net->id()};
 }
 
-sub id { die }
+sub is_on {
+	my($chan, $net) = @_;
+	exists $nets{$$chan}{$net->id()};
+}
 
 sub sendto {
 	my($chan,$act,$except) = @_;

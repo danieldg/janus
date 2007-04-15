@@ -219,10 +219,6 @@ sub str {
 }
 
 sub intro {
-	unless (ref $_[0]) {
-		my $class = shift;
-		bless $_[0], $class;
-	}
 	my $net = shift;
 	if ($net->cparam('incoming')) {
 		die "sorry, not supported";
@@ -296,8 +292,13 @@ sub nickact {
 	my($type, $act) = (lc($_[1]) =~ /(SET|CHG)(HOST|IDENT|NAME)/i);
 	$act =~ s/host/vhost/i;
 	
-	my $src = $net->nick($_[0]);
-	my $dst = $type eq 'set' ? $src : $net->nick($_[2]);
+	my($src,$dst);
+	if ($type eq 'set') {
+		$src = $dst = $net->nick($_[0]);
+	} else {
+		$src = $net->item($_[0]);
+		$dst = $net->nick($_[2]);
+	}
 
 	if ($dst->homenet()->id() eq $net->id()) {
 		my %a = (
@@ -572,7 +573,14 @@ sub srvname {
 	CHGHOST => \&nickact,
 	SETNAME => \&nickact,
 	CHGNAME => \&nickact,
-	SWHOIS => \&ignore,
+	SWHOIS => \&ignore, # TODO
+	AWAY => \&ignore,   # TODO
+	SAJOIN => \&ignore,
+	SAPART => \&ignore,
+	SVSO => \&ignore,
+	SVSSNO => \&ignore,
+	SVS2SNO => \&ignore,
+	SVSNICK => \&ignore,
 
 # Channel Actions
 	JOIN => sub {
@@ -725,10 +733,13 @@ sub srvname {
 		();
 	},
 	PONG => \&ignore,
-	PASS => \&ignore,
-	PROTOCTL => \&ignore,
+	PASS => \&ignore, # TODO
 	NETINFO => \&ignore,
-	EOS => sub {
+	PROTOCTL => sub {
+		my $net = shift;
+		print join ' ', @_;
+		();
+	}, EOS => sub {
 		my $net = shift;
 		my $srv = $_[0];
 		if ($servers{$$net}{lc $srv}{parent} eq lc $net->cparam('linkname')) {

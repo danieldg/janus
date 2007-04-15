@@ -1,16 +1,7 @@
-package RemoteNetwork;
-use base 'Network';
+package RemoteNetwork; {
+use Object::InsideOut 'Network';
 use strict;
 use warnings;
-
-sub from_ij {
-	my($class,$ij,$net) = @_;
-	$net->{nicks} = {};
-	$net->{chans} = {};
-	$net->{jlink} = $ij;
-	$ij->{nets}->{$net->{id}} = $net;
-	bless $net, $class;
-}
 
 sub connect {
 	die;
@@ -28,4 +19,4 @@ sub banlist {
 	die;
 }
 
-1;
+} 1;

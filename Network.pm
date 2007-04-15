@@ -100,7 +100,7 @@ sub _nicks {
 sub nick {
 	my($net, $name) = @_;
 	return $nicks{$$net}{lc $name} if $nicks{$$net}{lc $name};
-	print "Nick '$name' does not exist; ignoring\n";
+	print "Nick '$name' does not exist; ignoring\n" unless $_[2];
 	undef;
 }
 
@@ -127,11 +127,6 @@ sub replace_chan {
 	}
 }
 
-sub _ban {
-	# TODO translate bans
-	$_[1];
-}
-
 sub _modeargs {
 	my $net = shift;
 	my $mode = shift;
@@ -149,7 +144,7 @@ sub _modeargs {
 		if ($type eq 'n') {
 			push @args, $net->nick(shift);
 		} elsif ($type eq 'l') {
-			push @args, $net->_ban(shift);
+			push @args, shift;
 		} elsif ($type eq 'v') {
 			push @args, shift;
 		} elsif ($type eq 's') {

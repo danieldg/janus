@@ -18,13 +18,6 @@ sub str {
 sub intro {
 }
 
-# parse one line of input
-sub parse {
-	my ($net, $line) = @_;
-	print "IN\@$net->{id} $line";
-	();
-}
-
 my %esc2char = (
 	e => '\\',
 	g => '>',
@@ -140,7 +133,7 @@ sub ij_send {
 #	$ij->{sock}->print(map "$_\r\n", @out);
 }
 
-sub ij_recv {
+sub parse {
 	my $ij = shift;
 	local $_ = $_[0];
 
