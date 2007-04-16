@@ -291,23 +291,7 @@ sub modload {
 	}, LINKED => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
-		if ($net->id() eq 't1') {
-			insert_full(+{
-				type => 'LINKREQ',
-				net => $net,
-				dst => $nets{t2},
-				slink => '#opers',
-				dlink => '#test',
-			});
-		} elsif ($net->id() eq 't2') {
-			insert_full(+{
-				type => 'LINKREQ',
-				net => $net,
-				dst => $nets{t1},
-				slink => '#test',
-				dlink => '#opers',
-			});
-		} 
+		# TODO restore linked channels 
 	});
 }
 

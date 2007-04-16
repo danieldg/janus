@@ -325,9 +325,8 @@ sub nickact {
 	}
 }
 
-sub ignore {
-	return ();
-}
+sub ignore { (); }
+sub todo { (); }
 
 sub pm_notice {
 	my $net = shift;
@@ -555,6 +554,7 @@ sub srvname {
 	}, SVSMODE => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
+		# TODO the use of SVSMODE on a channel is documented by unreal...
 		if ($nick->homenet()->id() eq $net->id()) {
 			return $net->_parse_umode($nick, @_[3 .. $#_]);
 		} else {
@@ -573,15 +573,9 @@ sub srvname {
 	CHGHOST => \&nickact,
 	SETNAME => \&nickact,
 	CHGNAME => \&nickact,
-	SWHOIS => \&ignore, # TODO
-	AWAY => \&ignore,   # TODO
-	SAJOIN => \&ignore,
-	SAPART => \&ignore,
-	SVSO => \&ignore,
-	SVSSNO => \&ignore,
-	SVS2SNO => \&ignore,
-	SVSNICK => \&ignore,
-	TSCTL => \&ignore,
+	SWHOIS => \&todo,
+	AWAY => \&todo,
+	WHOIS => \&todo,
 
 # Channel Actions
 	JOIN => sub {
@@ -678,6 +672,9 @@ sub srvname {
 		$act{topicts} = $net->sjbint($_[4]) if @_ > 5;
 		\%act;
 	},
+	INVITE => \&todo,
+	KNOCK => \&todo,
+
 # Server actions
 	SERVER => sub {
 		my $net = shift;
@@ -734,10 +731,11 @@ sub srvname {
 		();
 	},
 	PONG => \&ignore,
-	PASS => \&ignore, # TODO
+	PASS => \&todo,
 	NETINFO => \&ignore,
 	PROTOCTL => sub {
 		my $net = shift;
+		shift;
 		print join ' ', @_;
 		();
 	}, EOS => sub {
@@ -756,8 +754,10 @@ sub srvname {
 # Messages
 	PRIVMSG => \&pm_notice,
 	NOTICE => \&pm_notice,
+	HELP => \&ignore,
 	SMO => \&ignore,
 	SENDSNO => \&ignore,
+	SENDUMODE => \&ignore,
 	GLOBOPS => \&ignore,
 	WALLOPS => \&ignore,
 	CHATOPS => \&ignore,
@@ -790,6 +790,51 @@ sub srvname {
 		}
 		();
 	},
+	SVSFLINE => \&ignore,
+	TEMPSHUN => \&ignore,
+
+	SAJOIN => \&ignore,
+	SAPART => \&ignore,
+	SVSJOIN => \&ignore,
+	SVSLUSERS => \&ignore,
+	SVSNICK => \&ignore,
+	SVSNOOP => \&ignore,
+	SVSO => \&ignore,
+	SVSSILENCE => \&ignore,
+	SVSPART => \&ignore,
+	SVSSNO => \&ignore,
+	SVS2SNO => \&ignore,
+	SVSWATCH => \&ignore,
+
+	VERSION => \&todo,
+	CREDITS => \&todo,
+	DALINFO => \&todo,
+	LICENSE => \&todo,
+	ADMIN => \&todo,
+	LINKS => \&todo,
+	STATS => \&todo,
+	MODULE => \&todo,
+	MOTD => \&todo,
+	RULES => \&todo,
+	LUSERS => \&todo,
+	ADDMOTD => \&todo,
+	ADDOMOTD => \&todo,
+	SVSMOTD => \&todo,
+	OPERMOTD => \&todo,
+	BOTMOTD => \&todo,
+	INFO => \&todo,
+	TSCTL => \&todo,
+	TIME => \&todo,
+	LAG => \&todo,
+	TRACE => \&todo,
+	RPING => \&todo,
+	RPONG => \&todo,
+	ERROR => \&todo,
+	CONNECT => \&todo,
+	SDESC => \&todo,
+	HTM => \&todo,
+	REHASH => \&todo,
+	RESTART => \&todo,
 );
 $fromirc{SVS2MODE} = $fromirc{SVSMODE};
 

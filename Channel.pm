@@ -48,6 +48,9 @@ my %initargs :InitArgs = (
 
 sub _init :Init {
 	my($c, $ifo) = @_;
+	$topicts{$$c} = 0;
+	$mode{$$c} = {};
+
 	return if $ifo->{_INTERNAL};
 	my $net = $ifo->{net};
 	my $id = $net->id();
@@ -55,6 +58,12 @@ sub _init :Init {
 	$names{$$c}{$id} = $ifo->{name};
 	$ts{$$c} = $ifo->{ts} || (time + 60);
 	$keyname{$$c} = $id.$ifo->{name};
+}
+
+sub _destroy :Destroy {
+	my $c = $_[0];
+	my $n = join ',', map { $_.$names{$$c}{$_} } keys %{$names{$$c}};
+	print "   CHAN: $n deallocated\n";
 }
 
 sub _ljoin {
@@ -209,11 +218,6 @@ sub part {
 		my $name = $names{$$chan}{$id};
 		$net->replace_chan($name, undef);
 	}
-}
-
-sub _destroy :Destroy {
-#	my $name = join ',', map $_.$names{${$_[0]}}->{$_}, keys %{$names{${$_[0]}}};
-#	print "DBG: $_[0] $name deallocated\n";
 }
 
 sub timesync {

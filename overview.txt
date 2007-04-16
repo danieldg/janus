@@ -29,8 +29,6 @@ Network
 	id() - network's tag, must be unique
 
 	to_ij(InterJanus) - serialize
-	param(key) - get named global parameter for this network
-	cparam(key) - get named connection-specific parmater for this network
 
 RemoteNet
 	no methods; exists as a placeholder
@@ -43,6 +41,9 @@ LocalNet
 	chan(name, [new]) - returns a channel of this name, optionally creating if $new is 1
 	replace_chan(name, Channel) - replaces the channel object with another or deletes if undef
 	item(name) - return a Nick, Channel, or Network for the nick, channel, or server name given
+
+	param(key) - get named global parameter for this network
+	cparam(key) - get named connection-specific parmater for this network
 
 	request_nick(Nick, request, [force_tag]) - gives the Nick a local network name, based on the requested one
 	release_nick(nickname) - this nick is now unused

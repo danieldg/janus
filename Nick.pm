@@ -51,9 +51,10 @@ sub to_ij {
 	$out . $ij->ijstr(\%sinfo);
 }
 
-#sub DESTROY {
-#	print "DBG: $_[0] $_[0]->{homenick}\@$_[0]->{homenet}->{id} deallocated\n";
-#}
+sub _destroy :Destroy {
+	my $n = $_[0];
+	print "   NICK: $n $homenick{$$n} deallocated\n";
+}
 
 # send to all but possibly one network for NICKINFO
 # send to home network for MSG

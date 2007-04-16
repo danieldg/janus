@@ -201,7 +201,9 @@ sub request_nick {
 	my $maxlen = $net->nicklen();
 	my $given = substr $reqnick, 0, $maxlen;
 	if ($_[3] || exists $nicks{$$net}{lc $given}) {
-		my $tag = '_'.$nick->homenet()->id();
+		my $tag = $net->param('tag_prefix');
+		$tag = '/' unless defined $tag;
+		$tag .= $nick->homenet()->id();
 		my $i = 0;
 		$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
 		while (exists $nicks{$$net}{lc $given}) {
