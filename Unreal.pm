@@ -581,6 +581,7 @@ sub srvname {
 	SVSSNO => \&ignore,
 	SVS2SNO => \&ignore,
 	SVSNICK => \&ignore,
+	TSCTL => \&ignore,
 
 # Channel Actions
 	JOIN => sub {

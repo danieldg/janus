@@ -176,13 +176,13 @@ sub modload {
 
 		my $mask = $homenick{$$nick}.'!'.$info{$$nick}{ident}.'@'.$info{$$nick}{host}.'%'.$homenet{$$nick}->id();
 		for my $expr ($net->banlist()) {
-			next unless $mask =~ /^$expr$/;
-			my $ban = $net->{ban}->{$expr};
+			next unless $mask =~ /^$expr$/i;
+			my $ban = $net->get_ban($expr);
 			Janus::append(+{
 				type => 'KILL',
 				dst => $nick,
 				net => $net,
-				msg => "Banned by $net->{netname}: $ban->{reason}",
+				msg => "Banned by ".$net->netname().": $ban->{reason}",
 			});
 			return 1;
 		}
