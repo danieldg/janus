@@ -518,7 +518,7 @@ sub srvname {
 
 		if ($dst->homenet()->id() eq $net->id()) {
 			my $msg = $_[3];
-			$msg = s/^(\S+)!//;
+			$msg =~ s/^(\S+)!//;
 			return {
 				type => 'QUIT',
 				dst => $dst,
