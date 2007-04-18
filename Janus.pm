@@ -266,7 +266,7 @@ sub rehash {
 					Janus::link($net);
 					$read->add([$sock, '', '', $net]);
 				} else {
-					print "Cannot connect to $net->{id}\n";
+					print "Cannot connect to ".$net->id()."\n";
 				}
 			}
 			$net = undef;

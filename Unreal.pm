@@ -204,8 +204,13 @@ my %cmode2txt = (qw/
 my %txt2cmode;
 $txt2cmode{$cmode2txt{$_}} = $_ for keys %cmode2txt;
 
-sub cmode2txt { $cmode2txt{$_[1]}; }
-sub txt2cmode { $txt2cmode{$_[1]}; }
+sub cmode2txt {
+	$cmode2txt{$_[1]};
+}
+sub txt2cmode {
+	return '' if $_[1] eq 'r_register';
+	$txt2cmode{$_[1]};
+}
 
 sub nicklen { 30 }
 
@@ -470,17 +475,20 @@ sub srvname {
 			$nick{info}{chost} = $_[11];
 			$nick{info}{ip_64} = $_[12];
 			local $_ = $_[12];
-			s/=+//;
-			my $textip_table = join '', 'A'..'Z','a'..'z', 0 .. 9, '+/';
-			s/(.)/sprintf '%06b', index $textip_table, $1/eg;
-			if (length $_[12] == 8) { # IPv4
-				s/(.{8})/sprintf '%d.', oct "0b$1"/eg;
-				s/\.\d*$//;
-			} elsif (length $_[12] == 24) { # IPv6
-				s/(.{16})/sprintf '%x:', oct "0b$1"/eg;
-				s/:[^:]*$//;
+			if (s/=+//) {
+				my $textip_table = join '', 'A'..'Z','a'..'z', 0 .. 9, '+/';
+				s/(.)/sprintf '%06b', index $textip_table, $1/eg;
+				if (length $_[12] == 8) { # IPv4
+					s/(.{8})/sprintf '%d.', oct "0b$1"/eg;
+					s/\.\d*$//;
+				} elsif (length $_[12] == 24) { # IPv6
+					s/(.{16})/sprintf '%x:', oct "0b$1"/eg;
+					s/:[^:]*$//;
+				}
 			}
 			$nick{info}{ip} = $_;
+		} else {
+			$nick{info}{chost} = 'unknown.cloaked';
 		}
 		
 		unless ($nick{mode}{vhost}) {
@@ -561,7 +569,7 @@ sub srvname {
 			my $mode = $_[3];
 			$mode =~ y/-+/+-/;
 			$mode =~ s/d// if $_[4];
-			$mode =~ s/r//;
+			$mode =~ s/[raAN]//g;
 			$mode =~ s/[-+]+([-+]|$)/$1/g; # umode +r-i ==> -+i ==> +i
 			$net->send($net->cmd2($nick, 'UMODE2', $mode)) if $mode;
 			return ();
@@ -608,7 +616,7 @@ sub srvname {
 				/^([*~@%+]*)(.+)/ or warn;
 				my $nmode = $1;
 				my $nick = $net->nick($2) or next;
-				my %mh = map { tr/*~@%+/qaohv/; $cmode2txt{$_} => 1 } split //, $nmode;
+				my %mh = map { tr/*~@%+/qaohv/; $net->cmode2txt($_) => 1 } split //, $nmode;
 				push @acts, +{
 					type => 'JOIN',
 					src => $nick,
@@ -890,7 +898,8 @@ sub cmd2 {
 		return () if $act->{net}->id() ne $net->id();
 		my $mode = join '', '+', map $txt2umode{$_}, $nick->umodes();
 		$mode =~ s/[xt]//g;
-		$mode .= 'xt';
+		$mode .= 'x';
+		$mode .= 't' unless $nick->info('vhost') eq 'unknown.cloaked'; # XXX: CA HACK
 		unless ($net->param('show_roper') || $nick->info('_is_janus')) {
 			$mode .= 'H' if $mode =~ /o/ && $mode !~ /H/;
 		}
@@ -898,14 +907,14 @@ sub cmd2 {
 		($hc, $srv) = (1, $net->cparam('linkname')) if $srv eq 'janus.janus';
 		my @out;
 		push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $nick->info('host'),
-			$srv, 0, $mode, $nick->info('vhost'), ($nick->info('ip_64') || '*'), $nick->info('name'));
+			$srv, 0, $mode, $nick->info('vhost'), ($nick->info('ip_64') || ()), $nick->info('name'));
 		if ($act->{reconnect}) {
 			# XXX: this may not be the best way to generate these events
 			for my $chan (@{$act->{reconnect_chans}}) {
 				next unless $chan->is_on($net);
 				my $mode = '';
 				if ($act->{mode}) {
-					$mode .= $txt2cmode{$_} for keys %{$act->{mode}};
+					$mode .= $net->txt2cmode($_) for keys %{$act->{mode}};
 				}
 				$mode =~ tr/qaohv/*~@%+/;
 				push @out, $net->cmd1(SJOIN => $net->sjb64($chan->ts()), $chan, $mode.$nick->str($net));
@@ -921,7 +930,7 @@ sub cmd2 {
 		my $chan = $act->{dst};
 		my $mode = '';
 		if ($act->{mode}) {
-			$mode .= $txt2cmode{$_} for keys %{$act->{mode}};
+			$mode .= $net->txt2cmode($_) for keys %{$act->{mode}};
 		}
 		$mode =~ tr/qaohv/*~@%+/;
 		$net->cmd1(SJOIN => $net->sjb64($chan->ts()), $chan->str($net), $mode.$act->{src}->str($net));
