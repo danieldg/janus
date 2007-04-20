@@ -5,9 +5,9 @@ use warnings;
 use Nick;
 use Interface;
 
-my %sendq :Field;
-my %srvname :Field;
-my %servers :Field;
+my @sendq :Field;
+my @srvname :Field;
+my @servers :Field;
 
 my %fromirc;
 my %toirc;
@@ -272,13 +272,13 @@ sub send {
 		}
 	}
 	debug '    OUT@'.$net->id().' '.$_ for @out;
-	$sendq{$$net} .= "$_\r\n" for @out;
+	$sendq[$$net] .= "$_\r\n" for @out;
 }
 
 sub dump_sendq {
 	my $net = shift;
-	my $q = $sendq{$$net};
-	$sendq{$$net} = '';
+	my $q = $sendq[$$net];
+	$sendq[$$net] = '';
 	$q;
 }
 
@@ -337,7 +337,7 @@ sub pm_notice {
 	my $net = shift;
 	my $notice = $_[1] eq 'NOTICE' || $_[1] eq 'B';
 	return () if $_[2] eq 'AUTH' && $_[0] =~ /\./;
-	my $src = $net->nick($_[0]) or return ();
+	my $src = $net->item($_[0]);
 	if ($_[2] =~ /^\$/) {
 		# server broadcast message. No action; these are confined to source net
 		return ();
@@ -380,8 +380,7 @@ sub _parse_umode {
 		} else {
 			my $txt = $umode2txt{$_};
 			if ($txt eq 'vhost') {
-				warn '+t should not be in a umode' if $pm eq '+';
-				$vh_post = $vh_post & 1;
+				$vh_post = $pm eq '+' ? 3 : $vh_post & 1;
 			} elsif ($txt eq 'vhost_x') {
 				$vh_post = $pm eq '+' ? $vh_post | 1 : 0;
 			}
@@ -430,7 +429,7 @@ sub sjb64 {
 }
 sub srvname {
 	my($net,$num) = @_;
-	return $srvname{$$net}{$num} if exists $srvname{$$net}{$num};
+	return $srvname[$$net]{$num} if exists $srvname[$$net]{$num};
 	return $num;
 }
 
@@ -523,10 +522,10 @@ sub srvname {
 		my $net = shift;
 		my $src = $net->item($_[0]);
 		my $dst = $net->nick($_[2]) or return ();
+		my $msg = $_[3];
+		$msg =~ s/^\S+!//;
 
 		if ($dst->homenet()->id() eq $net->id()) {
-			my $msg = $_[3];
-			$msg =~ s/^(\S+)!//;
 			return {
 				type => 'QUIT',
 				dst => $dst,
@@ -539,7 +538,7 @@ sub srvname {
 			src => $src,
 			dst => $dst,
 			net => $net,
-			msg => $_[3],
+			msg => $msg,
 		};
 	}, SVSKILL => sub {
 		my $net = shift;
@@ -693,31 +692,31 @@ sub srvname {
 		my $snum = $net->sjb64((@_ > 5          ? $_[4] : 
 				($desc =~ s/^U\d+-\S+-(\d+) //) ? $1    : 0), 1);
 
-		$servers{$$net}{$name} = {
+		$servers[$$net]{$name} = {
 			parent => lc ($_[0] || $net->cparam('linkname')),
 			hops => $_[3],
 			numeric => $snum,
 		};
-		$srvname{$$net}{$snum} = $name if $snum;
+		$srvname[$$net]{$snum} = $name if $snum;
 
 		();
 	}, SQUIT => sub {
 		my $net = shift;
 		my $netid = $net->id();
 		my $srv = $net->srvname($_[2]);
-		my $splitfrom = $servers{$$net}{$srv}{parent};
+		my $splitfrom = $servers[$$net]{$srv}{parent};
 		
 		my %sgone = (lc $srv => 1);
 		my $k = 0;
 		while ($k != scalar keys %sgone) {
 			# loop to traverse each layer of the map
 			$k = scalar keys %sgone;
-			for (keys %{$servers{$$net}}) {
-				$sgone{$_} = 1 if $sgone{$servers{$$net}{$_}{parent}};
+			for (keys %{$servers[$$net]}) {
+				$sgone{$_} = 1 if $sgone{$servers[$$net]{$_}{parent}};
 			}
 		}
-		delete $srvname{$$net}{$servers{$$net}{$_}{numeric}} for keys %sgone;
-		delete $servers{$$net}{$_} for keys %sgone;
+		delete $srvname[$$net]{$servers[$$net]{$_}{numeric}} for keys %sgone;
+		delete $servers[$$net]{$_} for keys %sgone;
 
 		my @quits;
 		my $nicks = $net->_nicks();
@@ -749,7 +748,7 @@ sub srvname {
 	}, EOS => sub {
 		my $net = shift;
 		my $srv = $_[0];
-		if ($servers{$$net}{lc $srv}{parent} eq lc $net->cparam('linkname')) {
+		if ($servers[$$net]{lc $srv}{parent} eq lc $net->cparam('linkname')) {
 			return +{
 				type => 'LINKED',
 				net => $net,
@@ -813,6 +812,8 @@ sub srvname {
 	SVSSNO => \&ignore,
 	SVS2SNO => \&ignore,
 	SVSWATCH => \&ignore,
+	SQLINE => \&ignore,
+	UNSQLINE => \&ignore,
 
 	VERSION => \&todo,
 	CREDITS => \&todo,
@@ -849,7 +850,18 @@ $fromirc{SVS2MODE} = $fromirc{SVSMODE};
 sub _out {
 	my($net,$itm) = @_;
 	return $itm unless ref $itm;
-	$itm->str($net);
+	if ($itm->isa('Nick')) {
+		return $itm->str($net) if $itm->is_on($net);
+		return $itm->homenet()->id() . '.janus';
+	} elsif ($itm->isa('Channel')) {
+		warn "This channel message must have been misrouted: ".$itm->keyname() unless $itm->is_on($net);
+		return $itm->str($net);
+	} elsif ($itm->isa('Network')) {
+		return $itm->id(). '.janus';
+	} else {
+		warn "Unknown item $itm";
+		$net->cparam('linkname');
+	}
 }
 
 sub cmd1 {
@@ -896,10 +908,16 @@ sub cmd2 {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
 		return () if $act->{net}->id() ne $net->id();
+
 		my $mode = join '', '+', map $txt2umode{$_}, $nick->umodes();
+		my $vhost = $nick->info('vhost');
 		$mode =~ s/[xt]//g;
 		$mode .= 'x';
-		$mode .= 't' unless $nick->info('vhost') eq 'unknown.cloaked'; # XXX: CA HACK
+		if ($vhost eq 'unknown.cloaked') {
+			$vhost = '*'; # XXX: CA HACK
+		} else {
+			$mode .= 't';
+		}
 		unless ($net->param('show_roper') || $nick->info('_is_janus')) {
 			$mode .= 'H' if $mode =~ /o/ && $mode !~ /H/;
 		}
@@ -907,15 +925,14 @@ sub cmd2 {
 		($hc, $srv) = (1, $net->cparam('linkname')) if $srv eq 'janus.janus';
 		my @out;
 		push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $nick->info('host'),
-			$srv, 0, $mode, $nick->info('vhost'), ($nick->info('ip_64') || ()), $nick->info('name'));
+			$srv, 0, $mode, $vhost, ($nick->info('ip_64') || ()), $nick->info('name'));
 		if ($act->{reconnect}) {
 			# XXX: this may not be the best way to generate these events
 			for my $chan (@{$act->{reconnect_chans}}) {
 				next unless $chan->is_on($net);
 				my $mode = '';
-				if ($act->{mode}) {
-					$mode .= $net->txt2cmode($_) for keys %{$act->{mode}};
-				}
+				$chan->has_nmode($_, $nick) and $mode .= $net->txt2cmode($_) 
+					for qw/n_voice n_halfop n_op n_admin n_owner/;
 				$mode =~ tr/qaohv/*~@%+/;
 				push @out, $net->cmd1(SJOIN => $net->sjb64($chan->ts()), $chan, $mode.$nick->str($net));
 			}

@@ -31,7 +31,6 @@ my %cmds = (
 			'Bans are matched against nick!ident@host%network on any remote joins to a shared channel',
 			' list - shows a list of the linked networks; will eventually show channels too',
 			' rehash - reload the config and attempt to reconnect to split servers',
-			' die - quit immediately',
 		);
 	}, ban => sub {
 		my $nick = shift;
@@ -93,12 +92,25 @@ my %cmds = (
 		}
 	}, list => sub {
 		my $nick = shift;
-		return Janus::jmsg("You must be an IRC operator to use this command") unless $nick->has_mode('oper');
+		return Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		Janus::jmsg($nick, 'Linked networks: '.join ' ', sort keys %Janus::nets);
+		my $hnet = $nick->homenet();
+		my $chans = $hnet->_chans();
+		for my $cname (sort keys %$chans) {
+			my $chan = $chans->{$cname};
+			my @nets = $chan->nets();
+			next if @nets == 1;
+			my $list = ' '.$chan->str($hnet);
+			for my $net (@nets) {
+				next if $net->id() eq $hnet->id();
+				$list .= ' '.$net->id().$chan->str($net);
+			}
+			Janus::jmsg($nick, $list);
+		}
 		# TODO display available channels when that is set up
 	}, 'link' => sub {
 		my $nick = shift;
-		return Janus::jmsg("You must be an IRC operator to use this command") 
+		return Janus::jmsg($nick, "You must be an IRC operator to use this command") 
 			if $nick->homenet()->param('oper_only_link') && !$nick->has_mode('oper');
 		my($cname1, $nname2, $cname2) = /(#\S+)\s+(\S+)\s*(#\S+)?/ or do {
 			Janus::jmsg($nick, 'Usage: link $localchan $network $remotechan');
@@ -153,15 +165,16 @@ my %cmds = (
 		});
 	}, rehash => sub {
 		my $nick = shift;
-		return Janus::jmsg("You must be an IRC operator to use this command") unless $nick->has_mode('oper');
+		return Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		Janus::append(+{
 			type => 'REHASH',
 			sendto => [],
 		});
-	}, 'die' => sub {
-		my $nick = shift;
-		return Janus::jmsg("You must be an IRC operator to use this command") unless $nick->has_mode('oper');
-		exit 0;
+		Janus::jmsg($nick, "Rehashed");
+#	}, 'die' => sub {
+#		my $nick = shift;
+#		return Janus::jmsg("You must be an IRC operator to use this command") unless $nick->has_mode('oper');
+#		exit 0;
 	},
 );
 
