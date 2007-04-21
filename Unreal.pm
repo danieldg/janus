@@ -580,10 +580,27 @@ sub srvname {
 	CHGHOST => \&nickact,
 	SETNAME => \&nickact,
 	CHGNAME => \&nickact,
-	SWHOIS => \&todo,
-	AWAY => \&todo,
 	WHOIS => \&todo,
-
+	SWHOIS => sub {
+		my $net = shift;
+		my $nick = $net->nick($_[2]) or return ();
+		return +{
+			src => $net->item($_[0]),
+			dst => $nick,
+			type => 'NICKINFO',
+			item => 'swhois',
+			value => $_[3],
+		};
+	}, AWAY => sub {
+		my $net = shift;
+		my $nick = $net->nick($_[0]) or return ();
+		return +{
+			dst => $nick,
+			type => 'NICKINFO',
+			item => 'away',
+			value => $_[3],
+		};
+	},
 # Channel Actions
 	JOIN => sub {
 		my $net = shift;
@@ -849,12 +866,14 @@ $fromirc{SVS2MODE} = $fromirc{SVSMODE};
 
 sub _out {
 	my($net,$itm) = @_;
+	return '' unless defined $itm;
 	return $itm unless ref $itm;
 	if ($itm->isa('Nick')) {
 		return $itm->str($net) if $itm->is_on($net);
 		return $itm->homenet()->id() . '.janus';
 	} elsif ($itm->isa('Channel')) {
-		warn "This channel message must have been misrouted: ".$itm->keyname() unless $itm->is_on($net);
+		warn "This channel message must have been misrouted: ".$itm->keyname() 
+			unless $itm->is_on($net);
 		return $itm->str($net);
 	} elsif ($itm->isa('Network')) {
 		return $itm->id(). '.janus';
@@ -959,9 +978,12 @@ sub cmd2 {
 		$net->cmd2($act->{src}, KICK => $act->{dst}, $act->{kickee}, $act->{msg});
 	}, MODE => sub {
 		my($net,$act) = @_;
-		my @ts;
-		push @ts, 0 unless ref $act->{src} && $act->{src}->isa('Nick');
-		$net->cmd2($act->{src}, MODE => $act->{dst}, $net->_mode_interp($act), @ts);
+		my $src = $act->{src};
+		if (ref $src && $src->isa('Nick') && $src->is_on($net)) {
+			return $net->cmd2($src, MODE => $act->{dst}, $net->_mode_interp($act));
+		} else {
+			return $net->cmd2($src, MODE => $act->{dst}, $net->_mode_interp($act), 0); 
+		}
 	}, TOPIC => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, TOPIC => $act->{dst}, $act->{topicset}, 
@@ -978,13 +1000,20 @@ sub cmd2 {
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
 		my $item = $act->{item};
-		$item =~ s/vhost/host/;
-		if ($act->{dst}->homenet()->id() eq $net->id()) {
-			my $src = $act->{src}->is_on($net) ? $act->{src} : $net->cparam('linkname');
-			$net->cmd2($src, 'CHG'.uc($item), $act->{dst}, $act->{value});
-		} else {
-			$net->cmd2($act->{dst}, 'SET'.uc($item), $act->{value});
+		if ($item =~ /^(vhost|ident|name)$/) {
+			$item =~ s/vhost/host/;
+			if ($act->{dst}->homenet()->id() eq $net->id()) {
+				my $src = $act->{src}->is_on($net) ? $act->{src} : $net->cparam('linkname');
+				return $net->cmd2($src, 'CHG'.uc($item), $act->{dst}, $act->{value});
+			} else {
+				return $net->cmd2($act->{dst}, 'SET'.uc($item), $act->{value});
+			}
+		} elsif ($item eq 'away') {
+			return $net->cmd2($act->{dst}, 'AWAY', defined $act->{value} ? $act->{value} : ());
+		} elsif ($item eq 'swhois') {
+			return $net->cmd1(SWHOIS => $act->{dst}, $act->{value});
 		}
+		();
 	}, UMODE => sub {
 		my($net,$act) = @_;
 		local $_;
