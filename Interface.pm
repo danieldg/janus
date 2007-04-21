@@ -107,7 +107,6 @@ my %cmds = (
 			}
 			Janus::jmsg($nick, $list);
 		}
-		# TODO display available channels when that is set up
 	}, 'link' => sub {
 		my $nick = shift;
 		return Janus::jmsg($nick, "You must be an IRC operator to use this command") 
@@ -202,7 +201,7 @@ sub modload {
 			name => 'Janus Control Interface',
 			_is_janus => 1,
 		},
-		mode => { oper => 1, service => 1 },
+		mode => { oper => 1, service => 1, bot => 1 },
 	);
 	$int->nick_collide($inick, $Janus::interface);
 	

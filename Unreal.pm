@@ -561,7 +561,6 @@ sub srvname {
 	}, SVSMODE => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
-		# TODO the use of SVSMODE on a channel is documented by unreal...
 		if ($nick->homenet()->id() eq $net->id()) {
 			return $net->_parse_umode($nick, @_[3 .. $#_]);
 		} else {
@@ -930,7 +929,7 @@ sub cmd2 {
 
 		my $mode = join '', '+', map $txt2umode{$_}, $nick->umodes();
 		my $vhost = $nick->info('vhost');
-		$mode =~ s/[xt]//g;
+		$mode =~ s/[xth]//g; # TODO: list non-translated umodes
 		$mode .= 'x';
 		if ($vhost eq 'unknown.cloaked') {
 			$vhost = '*'; # XXX: CA HACK
@@ -1021,7 +1020,9 @@ sub cmd2 {
 		my $mode = '';
 		for my $ltxt (@{$act->{mode}}) {
 			my($d,$txt) = $ltxt =~ /([-+])(.+)/ or warn $ltxt;
-			next if $txt eq 'vhost' || $txt eq 'vhost_x'; #never changed
+			next if $txt eq 'vhost' || $txt eq 'vhost_x' || $txt eq 'helpop';
+				# TODO unify umode mask list
+				#never changed
 			next if $txt eq 'hideoper' && !$net->param('show_roper');
 			if ($pm ne $d) {
 				$pm = $d;
