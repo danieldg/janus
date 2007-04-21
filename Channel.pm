@@ -66,16 +66,6 @@ sub _destroy :Destroy {
 	print "   CHAN: $n deallocated\n";
 }
 
-sub _ljoin {
-	my($chan, $nick, $src) = @_;
-	my $id = $nick->id();
-	
-	my $mode = $nmode[$$src]{$id};
-	$nicks[$$chan]{$id} = $nick;
-	$nmode[$$chan]{$id} = $mode;
-	$nick->rejoin($chan);
-}
-
 sub _mergenet {
 	my($chan, $src) = @_;
 	for my $id (keys %{$nets[$$src]}) {
@@ -151,6 +141,27 @@ sub _mode_delta {
 
 sub _link_into {
 	my($src,$chan) = @_;
+	for my $id (keys %{$nets[$$src]}) {
+		my $net = $nets[$$src]{$id};
+		my $name = $names[$$src]{$id};
+		$net->replace_chan($name, $chan);
+	}
+
+	for my $id (keys %{$nicks[$$src]}) {
+		my $nick = $nicks[$$src]{$id};
+		my $mode = $nmode[$$src]{$id};
+		$nicks[$$chan]{$id} = $nick;
+		$nmode[$$chan]{$id} = $mode;
+		$nick->rejoin($chan);
+		Janus::append(+{
+			type => 'JOIN',
+			src => $nick,
+			dst => $chan,
+			mode => $nmode[$$src]{$nick->id()},
+			rejoin => 1,
+		}) unless $nick->jlink();
+	}
+
 	if ($topic[$$src] ne $topic[$$chan]) {
 		Janus::append(+{
 			type => 'TOPIC',
@@ -170,23 +181,6 @@ sub _link_into {
 		args => $marg,
 		nojlink => 1,
 	}) if @$mode;
-
-	for my $id (keys %{$nets[$$src]}) {
-		my $net = $nets[$$src]{$id};
-		my $name = $names[$$src]{$id};
-		$net->replace_chan($name, $chan);
-	}
-
-	for my $nick (values %{$nicks[$$src]}) {
-		$chan->_ljoin($nick, $src);
-		Janus::append(+{
-			type => 'JOIN',
-			src => $nick,
-			dst => $chan,
-			mode => $nmode[$$src]{$nick->id()},
-			rejoin => 1,
-		}) unless $nick->jlink();
-	}
 }
 
 # get name on a network

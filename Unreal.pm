@@ -1046,7 +1046,9 @@ sub cmd2 {
 	}, LSYNC => sub {
 		();
 	}, LINKREQ => sub {
-		();
+		my($net,$act) = @_;
+		my $src = $act->{net};
+		$net->cmd1(GLOBOPS => $src->netname()." would like to link $act->{slink} to $act->{dlink}");
 	}, DELINK => sub {
 		my($net,$act) = @_;
 		if ($act->{net}->id() eq $net->id()) {
