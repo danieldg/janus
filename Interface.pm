@@ -29,7 +29,7 @@ my %cmds = (
 			' ban kadd $expr $reason $expire - add a ban, and kill all users matching it',
 			' ban del $expr|$index - remove a ban by expression or index in the ban list',
 			'Bans are matched against nick!ident@host%network on any remote joins to a shared channel',
-			' list - shows a list of the linked networks; will eventually show channels too',
+			' list - shows a list of the linked networks and shared channels',
 			' rehash - reload the config and attempt to reconnect to split servers',
 		);
 	}, ban => sub {
