@@ -3,6 +3,8 @@ use Object::InsideOut;
 use Channel;
 use IO::Socket::INET6;
 use IO::Socket::SSL 'inet6';
+use strict;
+use warnings;
 
 my @parms :Field :Set(configure); # filled from rehash
 my @cparms :Field; # currently active
@@ -11,7 +13,9 @@ my @jlink :Field :Get(jlink);
 my @id :Field :Arg(id) :Get(id);
 my @nicks :Field;
 my @chans :Field;
+my @bans :Field;
 my @lreq :Field;
+my @synced :Field Get(is_synced);
 
 sub netname {
 	$cparms[${$_[0]}]{netname};
@@ -81,9 +85,10 @@ sub nick_collide {
 		if ($old->homenet()->id() eq $net->id()) {
 			warn "Nick collision on home network!";
 		} else {
+			
 			Janus::insert_full(+{
 				type => 'CONNECT',
-				dst => $cnick,
+				dst => $new,
 				net => $net,
 				reconnect => 1,
 				nojlink => 1,
@@ -156,6 +161,7 @@ sub _modeargs {
 			push @args, shift if $pm eq '+';
 		} elsif ($type ne 'r') {
 			warn "Unknown mode '$_' ($txt)";
+			next;
 		}
 		push @modes, $pm.$txt;
 	}
@@ -185,6 +191,7 @@ sub _mode_interp {
 
 sub item {
 	my($net, $item) = @_;
+	return undef unless defined $item;
 	return $nicks[$$net]{lc $item} if exists $nicks[$$net]{lc $item};
 	return $chans[$$net]{lc $item} if exists $chans[$$net]{lc $item};
 	return $net if $item =~ /\./;
@@ -212,7 +219,7 @@ sub request_nick {
 		my $i = 0;
 		$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
 		while (exists $nicks[$$net]{lc $given}) {
-			$itag = (++$i).$tag; # it will find a free nick eventually...
+			my $itag = (++$i).$tag; # it will find a free nick eventually...
 			$given = substr($reqnick, 0, $maxlen - length $itag) . $itag;
 		}
 	}
@@ -275,7 +282,11 @@ sub modload {
  my $me = shift;
  return unless $me eq 'Network';
  Janus::hook_add($me,
-	NETSPLIT => act => sub {
+ 	LINKED => act => sub {
+		my $act = shift;
+		my $net = $act->{net};
+		$synced[$$net] = 1;
+	}, NETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		my $tid = $net->id();

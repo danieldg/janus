@@ -597,7 +597,7 @@ sub srvname {
 			dst => $nick,
 			type => 'NICKINFO',
 			item => 'away',
-			value => $_[3],
+			value => $_[2],
 		};
 	},
 # Channel Actions
@@ -759,7 +759,7 @@ sub srvname {
 	PROTOCTL => sub {
 		my $net = shift;
 		shift;
-		print join ' ', @_;
+		print join ' ', @_, "\n";
 		();
 	}, EOS => sub {
 		my $net = shift;

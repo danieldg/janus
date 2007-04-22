@@ -144,14 +144,16 @@ my %cmds = (
 	}, 'delink' => sub {
 		my($nick, $cname) = @_;
 		my $snet = $nick->homenet();
-		return Janus::jmsg("You must be an IRC operator to use this command") 
-			if $snet->param('oper_only_link') && !$nick->has_mode('oper');
+		if ($snet->param('oper_only_link') && !$nick->has_mode('oper')) {
+			Janus::jmsg($nick, "You must be an IRC operator to use this command");
+			return;
+		}
 		my $chan = $snet->chan($cname) or do {
 			Janus::jmsg($nick, "Cannot find channel $cname");
 			return;
 		};
 		unless ($nick->has_mode('oper') || $chan->has_nmode(n_owner => $nick)) {
-			Janus::jmsg("You must be a channel owner to use this command");
+			Janus::jmsg($nick, "You must be a channel owner to use this command");
 			return;
 		}
 			
@@ -248,7 +250,7 @@ sub modload {
 			my $dnet = $act->{dst};
 			return if $dnet->jlink();
 			my $recip = $dnet->is_req($act->{dlink}, $snet);
-			if ($act->{linkfile} || $recip && 
+			if ($act->{linkfile} && $dnet->is_synced() || $recip && 
 					($act->{override} || $recip eq 'any' || lc $recip eq lc $act->{slink})
 			) {
 				# there has already been a request to link this channel to that network
