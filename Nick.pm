@@ -161,6 +161,11 @@ sub id {
 	return $homenet[$$nick]->id() . '~' . $homenick[$$nick];
 }
 
+sub lid {
+	my $nick = $_[0];
+	return $$nick;
+}
+
 sub str {
 	my($nick,$net) = @_;
 	$nicks[$$nick]{$net->id()};
