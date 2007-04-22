@@ -138,7 +138,6 @@ my %cmds = (
 			slink => $cname1,
 			dlink => ($cname2 || 'any'),
 			sendto => [ $net2 ],
-			chan => $chan1,
 			override => $nick->has_mode('oper'),
 		});
 		Janus::jmsg($nick, "Link request sent");
@@ -223,7 +222,7 @@ sub modload {
 			my $act = shift;
 			my $nick = $act->{src};
 			my $dst = $act->{dst};
-			return undef unless $dst->isa('Nick');
+			return undef unless $nick->isa('Nick') && $dst->isa('Nick');
 			if ($dst->info('_is_janus')) {
 				return 1 if $act->{notice} || !$nick;
 				local $_ = $act->{msg};
@@ -231,7 +230,7 @@ sub modload {
 				$cmds{$cmd}->($nick, $_);
 				return 1;
 			}
-
+			
 			unless ($nick->is_on($dst->homenet())) {
 				Janus::append(+{
 					type => 'MSG',
@@ -249,7 +248,9 @@ sub modload {
 			my $dnet = $act->{dst};
 			return if $dnet->jlink();
 			my $recip = $dnet->is_req($act->{dlink}, $snet);
-			if ($recip && ($act->{override} || $recip eq 'any' || lc $recip eq lc $act->{slink})) {
+			if ($act->{linkfile} || $recip && 
+					($act->{override} || $recip eq 'any' || lc $recip eq lc $act->{slink})
+			) {
 				# there has already been a request to link this channel to that network
 				# also, if it was not an override, the request was for this pair of channels
 				$dnet->del_req($act->{dlink}, $snet);

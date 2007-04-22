@@ -291,7 +291,21 @@ sub modload {
 	}, LINKED => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
-		# TODO restore linked channels 
+		open my $links, 'links.'.$net->id().'.conf' or return;
+		while (<$links>) {
+			my($cname1, $nname, $cname2) = /^\s*(#\S*)\s+(\S+)\s+(#\S*)/ or next;
+			my $net2 = $Janus::nets{$nname} or next;
+			Janus::append(+{
+				type => 'LINKREQ',
+				net => $net,
+				dst => $net2,
+				slink => $cname1,
+				dlink => $cname2,
+				sendto => [ $net2 ],
+				linkfile => 1,
+			});
+		}
+		close $links;
 	});
 }
 
