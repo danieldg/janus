@@ -968,7 +968,7 @@ sub cmd2 {
 			$mode .= $net->txt2cmode($_) for keys %{$act->{mode}};
 		}
 		$mode =~ tr/qaohv/*~@%+/;
-		$net->cmd1(SJOIN => $net->sjb64($chan->ts()), $chan->str($net), $mode.$act->{src}->str($net));
+		$net->cmd1(SJOIN => $net->sjb64($chan->ts()), $chan->str($net), $mode.$net->_out($act->{src}));
 	}, PART => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, PART => $act->{dst}, $act->{msg});
@@ -991,7 +991,7 @@ sub cmd2 {
 		my($net,$act) = @_;
 		return if $act->{dst}->isa('Network');
 		$net->cmd2($act->{src}, ($act->{notice} ? 'NOTICE' : 'PRIVMSG'), 
-			$act->{dst}, $act->{msg});
+			($act->{prefix} || '').$net->_out($act->{dst}), $act->{msg});
 	}, NICK => sub {
 		my($net,$act) = @_;
 		my $id = $net->id();
