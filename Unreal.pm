@@ -249,6 +249,7 @@ sub parse {
 	}
 	my $cmd = $args[1];
 	$cmd = $args[1] = $token2cmd{$cmd} if exists $token2cmd{$cmd};
+	return $net->nick_msg(@args) if $cmd =~ /^\d+$/;
 	unless (exists $fromirc{$cmd}) {
 		debug "Unknown command $cmd";
 		return ();
@@ -333,11 +334,15 @@ sub nickact {
 sub ignore { (); }
 sub todo { (); }
 
-sub pm_notice {
+sub nick_msg {
 	my $net = shift;
-	my $notice = $_[1] eq 'NOTICE' || $_[1] eq 'B';
 	return () if $_[2] eq 'AUTH' && $_[0] =~ /\./;
 	my $src = $net->item($_[0]);
+	my $msgtype = 
+		$_[1] eq 'PRIVMSG' ? 1 :
+		$_[1] eq 'NOTICE' ? 2 :
+		$_[1] eq 'WHOIS' ? 3 : 
+		0;
 	if ($_[2] =~ /^\$/) {
 		# server broadcast message. No action; these are confined to source net
 		return ();
@@ -349,7 +354,7 @@ sub pm_notice {
 			prefix => $1,
 			dst => $net->chan($2),
 			msg => $_[3],
-			notice => $notice,
+			msgtype => $msgtype,
 		};
 	} elsif ($_[2] =~ /^(\S+?)(@\S+)?$/) {
 		# nick message, possibly with a server mask
@@ -361,7 +366,7 @@ sub pm_notice {
 			src => $src,
 			dst => $dst,
 			msg => $_[3],
-			notice => $notice,
+			msgtype => $msgtype,
 		};
 	}
 }
@@ -579,7 +584,6 @@ sub srvname {
 	CHGHOST => \&nickact,
 	SETNAME => \&nickact,
 	CHGNAME => \&nickact,
-	WHOIS => \&todo,
 	SWHOIS => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
@@ -775,8 +779,9 @@ sub srvname {
 	},
 
 # Messages
-	PRIVMSG => \&pm_notice,
-	NOTICE => \&pm_notice,
+	PRIVMSG => \&nick_msg,
+	NOTICE => \&nick_msg,
+	WHOIS => \&nick_msg,
 	HELP => \&ignore,
 	SMO => \&ignore,
 	SENDSNO => \&ignore,
@@ -944,6 +949,10 @@ sub cmd2 {
 		my @out;
 		push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $nick->info('host'),
 			$srv, 0, $mode, $vhost, ($nick->info('ip_64') || ()), $nick->info('name'));
+		my $whois = $nick->info('swhois');
+		push @out, $net->cmd1(SWHOIS => $nick, $whois) if defined $whois && $whois ne '';
+		my $away = $nick->info('away');
+		push @out, $net->cmd2($nick, AWAY => $away) if defined $away && $away ne '';
 		if ($act->{reconnect}) {
 			# XXX: this may not be the best way to generate these events
 			for my $chan (@{$act->{reconnect_chans}}) {
@@ -990,8 +999,13 @@ sub cmd2 {
 	}, MSG => sub {
 		my($net,$act) = @_;
 		return if $act->{dst}->isa('Network');
-		$net->cmd2($act->{src}, ($act->{notice} ? 'NOTICE' : 'PRIVMSG'), 
-			($act->{prefix} || '').$net->_out($act->{dst}), $act->{msg});
+		my $type = $act->{msgtype} || 1;
+		$type = 
+			$type == 1 ? 'PRIVMSG' :
+			$type == 2 ? 'NOTICE' :
+			$type == 3 ? 'WHOIS' :
+			sprintf '%03d', $type;
+		$net->cmd2($act->{src}, $type, ($act->{prefix} || '').$net->_out($act->{dst}), $act->{msg});
 	}, NICK => sub {
 		my($net,$act) = @_;
 		my $id = $net->id();

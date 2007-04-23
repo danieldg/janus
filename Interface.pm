@@ -101,7 +101,7 @@ my %cmds = (
 			my @nets = $chan->nets();
 			next if @nets == 1;
 			my $list = ' '.$chan->str($hnet);
-			for my $net (@nets) {
+			for my $net (sort @nets) {
 				next if $net->id() eq $hnet->id();
 				$list .= ' '.$net->id().$chan->str($net);
 			}
@@ -226,7 +226,7 @@ sub modload {
 			my $dst = $act->{dst};
 			return undef unless $nick->isa('Nick') && $dst->isa('Nick');
 			if ($dst->info('_is_janus')) {
-				return 1 if $act->{notice} || !$nick;
+				return 1 if $act->{msgtype} != 1 || !$nick;
 				local $_ = $act->{msg};
 				my $cmd = s/^\s*(\S+)\s*// && exists $cmds{lc $1} ? lc $1 : 'unk';
 				$cmds{$cmd}->($nick, $_);
@@ -236,11 +236,11 @@ sub modload {
 			unless ($nick->is_on($dst->homenet())) {
 				Janus::append(+{
 					type => 'MSG',
-					notice => 1,
+					msgtype => 2,
 					src => $Janus::interface,
 					dst => $nick,
 					msg => 'You must join a shared channel to speak with remote users',
-				}) unless $act->{notice};
+				}) if $act->{msgtype} == 1;
 				return 1;
 			}
 			undef;

@@ -190,7 +190,7 @@ sub jmsg {
 		type => 'MSG',
 		src => $interface,
 		dst => $dst,
-		notice => !$dst->isa('Channel'), # channel notice == annoying
+		msgtype => ($dst->isa('Channel') ? 1 : 2), # channel notice == annoying
 		msg => $_,
 	}, @_);
 }

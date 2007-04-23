@@ -27,7 +27,6 @@ while ($read->count()) {
 			# TODO
 			next;
 		}
-		next if $sock->isa('IO::Socket::SSL') && !$sock->pending();
 		my $len = sysread $sock, $recvq, 8192, length $recvq;
 		while ($recvq =~ /[\r\n]/) {
 			my $line;
