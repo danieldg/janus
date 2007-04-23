@@ -342,7 +342,8 @@ sub nick_msg {
 		$_[1] eq 'PRIVMSG' ? 1 :
 		$_[1] eq 'NOTICE' ? 2 :
 		$_[1] eq 'WHOIS' ? 3 : 
-		0;
+		$_[1] + 0;
+	my $msg = $msgtype >= 100 ? [ @_[3..$#_] ] : $_[3];
 	if ($_[2] =~ /^\$/) {
 		# server broadcast message. No action; these are confined to source net
 		return ();
@@ -353,7 +354,7 @@ sub nick_msg {
 			src => $src,
 			prefix => $1,
 			dst => $net->chan($2),
-			msg => $_[3],
+			msg => $msg,
 			msgtype => $msgtype,
 		};
 	} elsif ($_[2] =~ /^(\S+?)(@\S+)?$/) {
@@ -365,7 +366,7 @@ sub nick_msg {
 			type => 'MSG',
 			src => $src,
 			dst => $dst,
-			msg => $_[3],
+			msg => $msg,
 			msgtype => $msgtype,
 		};
 	}
@@ -759,24 +760,20 @@ sub srvname {
 	},
 	PONG => \&ignore,
 	PASS => \&todo,
-	NETINFO => \&ignore,
-	PROTOCTL => sub {
+	NETINFO => sub {
+		my $net = shift;
+		return +{
+			type => 'LINKED',
+			net => $net,
+			sendto => [],
+		};
+	}, PROTOCTL => sub {
 		my $net = shift;
 		shift;
 		print join ' ', @_, "\n";
 		();
-	}, EOS => sub {
-		my $net = shift;
-		my $srv = $_[0];
-		if ($servers[$$net]{lc $srv}{parent} eq lc $net->cparam('linkname')) {
-			return +{
-				type => 'LINKED',
-				net => $net,
-				sendto => [],
-			};
-		}
-		();
-	},
+	}, 
+	EOS => \&ignore,
 
 # Messages
 	PRIVMSG => \&nick_msg,
@@ -895,7 +892,7 @@ sub cmd1 {
 sub cmd2 {
 	my($net,$src,$cmd) = (shift,shift,shift);
 	my $out = defined $src ? ':'.$net->_out($src).' ' : '';
-	$out .= $cmd2token{$cmd};
+	$out .= exists $cmd2token{$cmd} ? $cmd2token{$cmd} : $cmd;
 	if (@_) {
 		my $end = $net->_out(pop @_);
 		$out .= ' '.$net->_out($_) for @_;
@@ -1005,7 +1002,8 @@ sub cmd2 {
 			$type == 2 ? 'NOTICE' :
 			$type == 3 ? 'WHOIS' :
 			sprintf '%03d', $type;
-		$net->cmd2($act->{src}, $type, ($act->{prefix} || '').$net->_out($act->{dst}), $act->{msg});
+		my @msg = ref $act->{msg} ? @{$act->{msg}} : $act->{msg};
+		$net->cmd2($act->{src}, $type, ($act->{prefix} || '').$net->_out($act->{dst}), @msg);
 	}, NICK => sub {
 		my($net,$act) = @_;
 		my $id = $net->id();

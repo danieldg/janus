@@ -60,9 +60,14 @@ TOPIC: * -> Channel
 	topicset - STRING of topic setter
 
 MSG: [Nick, undef] -> *
-	msg - message
-	notice - 1 if this is a NOTICE, 0 if PRIVMSG
+	msgtype - Message type
+		1 - PRIVMSG
+		2 - NOTICE
+		3 - WHOIS
+		NNN - a numeric reply code (RFC 2812, section 5.1)
 	prefix - if exists, is one of '~&@%+' for @#channel messages
+	msg - message text, or if msgtype is NNN, an array of items
+		for the message's response
 
 LINKREQ: * -> Network
 	chan - Channel object being offered (for inter-janus channel sync)
