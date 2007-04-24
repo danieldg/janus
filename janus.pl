@@ -46,8 +46,9 @@ while ($read->count()) {
 		if (!$len) {
 			if ($sock->isa('IO::Socket::SSL')) {
 				print "SSL error: ".$sock->errstr()."\n";
-				if ($sock->errstr() == SSL_WANT_WRITE) {
+				if ($sock->errstr() eq SSL_WANT_READ || $sock->errstr() eq SSL_WANT_WRITE) {
 					$write->add($l);
+					next;
 				}
 			}
 			$read->remove($l);
