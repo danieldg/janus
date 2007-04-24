@@ -44,7 +44,7 @@ my %cmds = (
 			}
 			my $ban = &Ban::add(
 				net => $net,
-				ircexpr => $arg[0],
+				expr => $arg[0],
 				reason => $arg[1],
 				expire => $arg[2] ? $arg[2] + time : 0,
 				setter => $nick->homenick(),

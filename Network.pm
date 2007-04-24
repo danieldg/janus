@@ -51,12 +51,14 @@ sub connect {
 		$sock = IO::Socket::SSL->new(
 			PeerAddr => $cparms[$$net]{linkaddr},
 			PeerPort => $cparms[$$net]{linkport},
+			Blocking => 0,
 		) or return undef;
  	} else {
 		print "Creating Non-SSL connection to $cparms[$$net]{linkaddr}:$cparms[$$net]{linkport}\n";
 		$sock = IO::Socket::INET6->new(
 			PeerAddr => $cparms[$$net]{linkaddr},
 			PeerPort => $cparms[$$net]{linkport}, 
+			Blocking => 0,
 		) or return undef;
 	}
 	$sock->autoflush(1);

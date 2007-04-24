@@ -7,6 +7,7 @@ use Nick;
 use Network;
 use Interface;
 use Ban;
+use IO::Socket::SSL;
 
 $| = 1;
 
@@ -19,10 +20,11 @@ Interface->modload('janus2');
 
 Janus::rehash();
 my $read = $Janus::read;
+my $write = IO::Select->new();
 
 while ($read->count()) {
-	my @r = $read->can_read();
-	for my $l (@r) {
+	my($r,$w,$e) = IO::Select->select($read, $write, undef, undef);
+	for my $l (@$r) {
 		my ($sock, $recvq, $sendq, $net) = @$l;
 		unless (defined $net) {
 			# this is a listening socket; accept a new connection
@@ -42,8 +44,15 @@ while ($read->count()) {
 		}
 		$$l[1] = $recvq;
 		if (!$len) {
+			if ($sock->isa('IO::Socket::SSL')) {
+				print "SSL error: ".$sock->errstr()."\n";
+				if ($sock->errstr() == SSL_WANT_WRITE) {
+					$write->add($l);
+				}
+			}
 			$read->remove($l);
-			Janus::delink($net);
+			&Janus::delink($net);
+			$$l[3] = undef;
 		}
 	}
 
@@ -51,12 +60,23 @@ while ($read->count()) {
 		my ($sock, $recvq, $sendq, $net) = @$l;
 		next unless defined $net;
 		$sendq .= $net->dump_sendq();
-		# TODO nonblocking send
-		while ($sendq) {
-			my $crop = syswrite $sock, $sendq;
-			warn unless $crop;
-			$sendq = substr $sendq, $crop;
-		}
 		$$l[2] = $sendq;
+		$write->add($l) if $sendq;
+	}
+	
+	# rather than using @$w and going around again to write, poll the write status
+	# of all handles to find ones that are writable
+	for my $l ($write->can_write(0)) {
+		my ($sock, $recvq, $sendq, $net) = @$l;
+		my $len = syswrite $sock, $sendq;
+		if (defined $len) {
+			$$l[2] = $sendq = substr $sendq, $len;
+			$write->remove($l) unless $sendq;
+		} else {
+			$read->remove($l);
+			$write->remove($l);
+			&Janus::delink($net);
+			$$l[3] = undef;
+		}
 	}
 }

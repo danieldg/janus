@@ -38,7 +38,7 @@ sub _init :Init {
 
 sub banlist {
 	my $net = shift;
-	my @list = @{$netbans{$net->id()}};
+	my @list = @{$netbans{$net->id()} || []};
 	my @good;
 	for my $ban (@list) {
 		my $exp = $expire[$$ban];
@@ -87,7 +87,7 @@ sub modload {
 	}, NETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
-		delete $bans[$$net];
+		delete $netbans{$net->id()};
 	});
 }
 
