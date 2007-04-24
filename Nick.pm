@@ -47,7 +47,7 @@ sub to_ij {
 	$out .= ' info=';
 	my %sinfo;
 	$sinfo{$_} = $info[$$nick]{$_} for 
-		qw/host ident ip name vhost/;
+		qw/ident host vhost ip name away swhois/;
 	$out . $ij->ijstr(\%sinfo);
 }
 
