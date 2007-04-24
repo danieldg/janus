@@ -262,7 +262,7 @@ sub modload {
 			my $t = substr $itxt, 1, 1;
 			my $i = substr $itxt, 1;
 			if ($t eq 'n') {
-				my $nick = shift @args;
+				my $nick = shift @args or next;
 				$nmode[$$chan]{$nick->lid()}{$i} = 1 if $pm eq '+';
 				delete $nmode[$$chan]{$nick->lid()}{$i} if $pm eq '-';
 			} elsif ($t eq 'l') {

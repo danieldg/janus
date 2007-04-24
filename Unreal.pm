@@ -676,7 +676,15 @@ sub srvname {
 		};
 	}, MODE => sub {
 		my $net = shift;
-		$_[3] =~ s/^&//; # mode bounces. Bounce away...
+		if ($_[3] =~ /^&/) {
+			# mode bounce: assume we are correct, and inform the server
+			# that they are mistaken about whatever they think we have wrong. 
+			my $mode = $_[3];
+			$mode =~ s/&//;
+			$mode =~ y/+-/-+/;
+			$net->send($net->cmd1(MODE => $mode, @_[4 .. $#_]));
+			return ();
+		}
 		my($modes,$args) = $net->_modeargs(@_[3 .. $#_]);
 		return {
 			type => 'MODE',
