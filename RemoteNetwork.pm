@@ -15,8 +15,4 @@ sub release_nick {
 	die;
 }
 
-sub banlist {
-	die;
-}
-
 } 1;

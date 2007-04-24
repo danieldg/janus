@@ -3,7 +3,7 @@ use Object::InsideOut 'Network';
 use strict;
 use warnings;
 use Nick;
-use Interface;
+use Ban;
 
 my @sendq :Field;
 my @srvname :Field;
@@ -808,18 +808,18 @@ sub srvname {
 			$iexpr = $_[5].'!*';
 		}
 		return unless $iexpr;
-		my $expr = &Interface::banify($iexpr);
 		if ($_[2] eq '+') {
-			$net->add_ban(+{
-				expr => $expr,
-				ircexpr => $iexpr,
+			&Ban::add(
+				net => $net,
+				expr => $iexpr,
 				setter => $_[6],
 				expire => $_[7],
 				# 8 = set time
 				reason => $_[9],
-			});
+			);
 		} else {
-			$net->del_ban($expr);
+			my $ban = &Ban::find($net, $iexpr);
+			$ban->delete() if $ban;
 		}
 		();
 	},

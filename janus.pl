@@ -6,6 +6,7 @@ use Channel;
 use Nick;
 use Network;
 use Interface;
+use Ban;
 
 $| = 1;
 
@@ -13,6 +14,7 @@ Janus->modload(shift || 'janus.conf');
 Channel->modload();
 Nick->modload();
 Network->modload();
+Ban->modload();
 Interface->modload('janus2');
 
 Janus::rehash();

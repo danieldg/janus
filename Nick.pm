@@ -174,26 +174,7 @@ sub str {
 sub modload {
  my $me = shift;
  Janus::hook_add($me, 
- 	CONNECT => check => sub {
-		my $act = shift;
-		my $nick = $act->{dst};
-		my $net = $act->{net};
-		return undef if $net->jlink() || $act->{reconnect};
-
-		my $mask = $homenick[$$nick].'!'.$info[$$nick]{ident}.'@'.$info[$$nick]{host}.'%'.$homenet[$$nick]->id();
-		for my $expr ($net->banlist()) {
-			next unless $mask =~ /^$expr$/i;
-			my $ban = $net->get_ban($expr);
-			Janus::append(+{
-				type => 'KILL',
-				dst => $nick,
-				net => $net,
-				msg => "Banned by ".$net->netname().": $ban->{reason}",
-			});
-			return 1;
-		}
-		undef;
-	}, CONNECT => act => sub {
+	CONNECT => act => sub {
 		my $act = shift;
 		my $nick = $act->{dst};
 		my $net = $act->{net};

@@ -13,7 +13,6 @@ my @jlink :Field :Get(jlink);
 my @id :Field :Arg(id) :Get(id);
 my @nicks :Field;
 my @chans :Field;
-my @bans :Field;
 my @lreq :Field;
 my @synced :Field Get(is_synced);
 
@@ -231,36 +230,6 @@ sub request_nick {
 sub release_nick {
 	my($net, $req) = @_;
 	delete $nicks[$$net]{lc $req};
-}
-
-sub banlist {
-	my $net = shift;
-	my @list = keys %{$bans[$$net]};
-	my @good;
-	for my $i (@list) {
-		my $exp = $bans[$$net]{$i}{expire};
-		if ($exp && $exp < time) {
-			delete $bans[$$net]{$i};
-		} else {
-			push @good, $i;
-		}
-	}
-	@good;
-}
-
-sub get_ban {
-	my($net, $exp) = @_;
-	$bans[$$net]{$exp};
-}
-
-sub add_ban {
-	my($net, $ban) = @_;
-	$bans[$$net]{$ban->{expr}} = $ban;
-}
-
-sub remove_ban {
-	my($net, $exp) = @_;
-	delete $bans[$$net]{$exp};
 }
 
 sub add_req {

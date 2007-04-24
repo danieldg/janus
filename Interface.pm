@@ -1,18 +1,9 @@
 package Interface; {
 use Object::InsideOut qw(Network);
 use Nick;
+use Ban;
 use strict;
 use warnings;
-
-sub banify {
-	local $_ = $_[0];
-	unless (s/^~//) { # all expressions starting with a ~ are raw perl regexes
-		s/(\W)/\\$1/g;
-		s/\\\?/./g;  # ? matches one char...
-		s/\\\*/.*/g; # * matches any chars...
-	}
-	$_;
-}
 
 my %cmds = (
 	unk => sub {
@@ -37,39 +28,35 @@ my %cmds = (
 		my($cmd, @arg) = split /\s+/;
 		return Janus::jmsg("You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my $net = $nick->homenet();
-		my @list = sort $net->banlist();
+		my @list = &Ban::banlist($net);
 		if ($cmd =~ /^l/i) {
 			my $c = 0;
-			for my $expr (@list) {
-				my $ban = $net->ban($expr);
-				my $expire = $ban->{expire} ? 'expires on '.gmtime($ban->{expire}) : 'does not expire';
+			for my $ban (@list) {
+				my $expire = $ban->expire() ? 'expires on '.gmtime($ban->expire()) : 'does not expire';
 				$c++;
-				Janus::jmsg($nick, "$c $ban->{ircexpr} - set by $ban->{setter}, $expire - $ban->{reason}");
+				&Janus::jmsg($nick, $c.' '.$ban->expr().' - set by '.$ban->setter().", $expire - ".$ban->reason());
 			}
-			Janus::jmsg($nick, 'No bans defined') unless @list;
+			&Janus::jmsg($nick, 'No bans defined') unless @list;
 		} elsif ($cmd =~ /^k?a/i) {
 			unless ($arg[1]) {
-				Janus::jmsg($nick, 'Use: ban add $expr $reason $duration');
+				&Janus::jmsg($nick, 'Use: ban add $expr $reason $duration');
 				return;
 			}
-			my $expr = banify $arg[0];
-			my %b = (
-				expr => $expr,
+			my $ban = &Ban::add(
+				net => $net,
 				ircexpr => $arg[0],
 				reason => $arg[1],
 				expire => $arg[2] ? $arg[2] + time : 0,
 				setter => $nick->homenick(),
 			);
-			$net->add_ban(\%b);
 			if ($cmd =~ /^a/i) {
-				Janus::jmsg($nick, 'Ban added');
+				&Janus::jmsg($nick, 'Ban added');
 			} else {
 				my $c = 0;
 				for my $n (values %{$net->_nicks()}) {
 					next if $n->homenet()->id() eq $net->id();
-					my $mask = $n->homenick().'!'.$n->info('ident').'\@'.$n->info('host').'%'.$n->homenet()->id();
-					next unless $mask =~ /$expr/;
-					Janus::append(+{
+					next unless $ban->match($n);
+					&Janus::append(+{
 						type => 'KILL',
 						dst => $n,
 						net => $net,
@@ -77,16 +64,16 @@ my %cmds = (
 					});
 					$c++;
 				}
-				Janus::jmsg($nick, "Ban added, $c nick(s) killed");
+				&Janus::jmsg($nick, "Ban added, $c nick(s) killed");
 			}
 		} elsif ($cmd =~ /^d/i) {
 			for (@arg) {
-				my $expr = /^\d+$/ ? $list[$_ - 1] : banify $_;
-				my $ban = $net->remove_ban($expr);
+				my $ban = /^\d+$/ ? $list[$_ - 1] : &Ban::find($net,$_);
 				if ($ban) {
-					Janus::jmsg($nick, "Ban $ban->{ircexpr} removed");
+					&Janus::jmsg($nick, 'Ban '.$ban->expr().' removed');
+					$ban->delete();
 				} else {
-					Janus::jmsg($nick, "Could not find ban $_ - use ban list to see a list of all bans");
+					&Janus::jmsg($nick, "Could not find ban $_ - use ban list to see a list of all bans");
 				}
 			}
 		}
