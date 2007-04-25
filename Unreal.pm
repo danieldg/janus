@@ -401,14 +401,18 @@ sub _parse_umode {
 	} if @mode;
 
 	if ($vh_pre != $vh_post) {
-		warn if $vh_post > 1; #invalid
-		my $vhost = $vh_post ? $nick->info('chost') : $nick->info('host');
-		push @out,{
-			type => 'NICKINFO',
-			dst => $nick,
-			item => 'host',
-			value => $vhost,
-		};
+		if ($vh_post > 1) {
+			#invalid
+			warn "Ignoring extraneous umode +t";
+		} else {
+			my $vhost = $vh_post ? $nick->info('chost') : $nick->info('host');
+			push @out,{
+				type => 'NICKINFO',
+				dst => $nick,
+				item => 'vhost',
+				value => $vhost,
+			};
+		}
 	}				
 	@out;
 }
