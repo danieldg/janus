@@ -14,14 +14,14 @@ my %cmds = (
 		Janus::jmsg($nick, 'Janus2 Help',
 			' link $localchan $network $remotechan - links a channel with a remote network',
 			' delink $chan - delinks a channel from all other networks',
-			'These commands are restricted to IRC operators:',
+			'The following commands are restricted to IRC operators:',
+			' list - shows a list of the linked networks and shared channels',
+			' rehash - reload the config and attempt to reconnect to split servers',
+			'Bans are matched against nick!ident@host%netid:name on any remote joins to a shared channel',
 			' ban list - list all active janus bans',
 			' ban add $expr $reason $expire - add a ban',
 			' ban kadd $expr $reason $expire - add a ban, and kill all users matching it',
 			' ban del $expr|$index - remove a ban by expression or index in the ban list',
-			'Bans are matched against nick!ident@host%network on any remote joins to a shared channel',
-			' list - shows a list of the linked networks and shared channels',
-			' rehash - reload the config and attempt to reconnect to split servers',
 		);
 	}, ban => sub {
 		my $nick = shift;
@@ -194,19 +194,13 @@ sub modload {
 	$int->nick_collide($inick, $Janus::interface);
 	
 	Janus::hook_add($class, 
-		NETLINK => act => sub {
+		LINKED => act => sub {
 			my $act = shift;
 			Janus::append(+{
 				type => 'CONNECT',
 				dst => $Janus::interface,
 				net => $act->{net},
 			});
-#		}, NETSPLIT => act => sub {
-#			my $act = shift;
-#			my $net = $act->{net};
-#			delete $Janus::interface->{nets}->{$net->id()};
-#			my $jnick = delete $Janus::interface->{nicks}->{$net->id()};
-#			$net->release_nick($jnick);
 		}, MSG => parse => sub {
 			my $act = shift;
 			my $nick = $act->{src};

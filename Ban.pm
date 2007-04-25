@@ -58,7 +58,7 @@ sub delete {
 sub match {
 	my($ban, $nick) = @_;
 	my $mask = ref $nick ? 
-		$nick->homenick().'!'.$nick->info('ident').'@'.$nick->info('host').'%'.$nick->homenet()->id() :
+		$nick->homenick().'!'.$nick->info('ident').'@'.$nick->info('host').'%'.$nick->homenet()->id().':'.$nick->info('name') :
 		$nick;
 	$mask =~ /$regex[$$ban]/;
 }
@@ -72,7 +72,7 @@ sub modload {
 		my $net = $act->{net};
 		return undef if $net->jlink() || $act->{reconnect};
 
-		my $mask = $nick->homenick().'!'.$nick->info('ident').'@'.$nick->info('host').'%'.$nick->homenet()->id();
+		my $mask = $nick->homenick().'!'.$nick->info('ident').'@'.$nick->info('host').'%'.$nick->homenet()->id().':'.$nick->info('name');
 		for my $ban (banlist($net)) {
 			next unless $ban->match($mask);
 			Janus::append(+{

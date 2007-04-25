@@ -32,7 +32,7 @@ NICK: * -> Nick
 	to{$id} - destination nick for network $id
 
 NICKINFO: * -> Nick
-	item - one of 'host ident name swhois'
+	item - one of 'vhost ident name swhois away'
 	value - string to set
 
 UMODE: * -> Nick
