@@ -1042,7 +1042,7 @@ sub cmd2 {
 			$type == 2 ? 'NOTICE' :
 			$type == 3 ? 'WHOIS' :
 			sprintf '%03d', $type;
-		my @msg = ref $act->{msg} ? @{$act->{msg}} : $act->{msg};
+		my @msg = ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg};
 		$net->cmd2($act->{src}, $type, ($act->{prefix} || '').$net->_out($act->{dst}), @msg);
 	}, NICK => sub {
 		my($net,$act) = @_;
