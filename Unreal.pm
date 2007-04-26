@@ -336,14 +336,27 @@ sub todo { (); }
 
 sub nick_msg {
 	my $net = shift;
+	my $src = $net->item($_[0]);
+	my $msgtype = $_[1] + 0;
+	my $msg = [ @_[3..$#_] ];
+	my $dst = $net->nick($_[2]) or return ();
+	return {
+		type => 'MSG',
+		src => $src,
+		dst => $dst,
+		msg => $msg,
+		msgtype => $msgtype,
+	};
+}
+
+sub nc_msg {
+	my $net = shift;
 	return () if $_[2] eq 'AUTH' && $_[0] =~ /\./;
 	my $src = $net->item($_[0]);
 	my $msgtype = 
 		$_[1] eq 'PRIVMSG' ? 1 :
 		$_[1] eq 'NOTICE' ? 2 :
-		$_[1] eq 'WHOIS' ? 3 : 
-		$_[1] + 0;
-	my $msg = $msgtype >= 100 ? [ @_[3..$#_] ] : $_[3];
+		0;
 	if ($_[2] =~ /^\$/) {
 		# server broadcast message. No action; these are confined to source net
 		return ();
@@ -354,7 +367,7 @@ sub nick_msg {
 			src => $src,
 			prefix => $1,
 			dst => $net->chan($2),
-			msg => $msg,
+			msg => $_[3],
 			msgtype => $msgtype,
 		};
 	} elsif ($_[2] =~ /^(\S+?)(@\S+)?$/) {
@@ -366,10 +379,11 @@ sub nick_msg {
 			type => 'MSG',
 			src => $src,
 			dst => $dst,
-			msg => $msg,
+			msg => $_[3],
 			msgtype => $msgtype,
 		};
 	}
+	();
 }
 
 sub _parse_umode {
@@ -788,9 +802,23 @@ sub srvname {
 	EOS => \&ignore,
 
 # Messages
-	PRIVMSG => \&nick_msg,
-	NOTICE => \&nick_msg,
-	WHOIS => \&nick_msg,
+	PRIVMSG => \&nc_msg,
+	NOTICE => \&nc_msg,
+	WHOIS => sub {
+		my $net = shift;
+		my $src = $net->item($_[0]);
+		my $dst = $net->item($_[3]);
+		return () unless ref $dst && $dst->isa('Nick');
+		# the "target" parameter is ignored as it is most likely
+		# not correct; just send the destination as the msg
+		return {
+			type => 'MSG',
+			msgtype => 3,
+			src => $src,
+			dst => $dst,
+			msg => $dst,
+		};
+	},
 	HELP => \&ignore,
 	SMO => \&ignore,
 	SENDSNO => \&ignore,

@@ -203,23 +203,50 @@ sub modload {
 			});
 		}, MSG => parse => sub {
 			my $act = shift;
-			my $nick = $act->{src};
+			my $src = $act->{src};
 			my $dst = $act->{dst};
-			return undef unless $nick->isa('Nick') && $dst->isa('Nick');
+			my $type = $act->{msgtype};
+			
+			if ($type == 312) {
+				# server whois reply message
+				if ($src->isa('Network')) {
+					Janus::append(+{
+						type => 'MSG',
+						msgtype => 640,
+						src => $src,
+						dst => $dst,
+						msg => [
+							$act->{msg}->[0],
+							"is connected through a Janus link. Home network: ".$src->netname(),
+						],
+					});
+				} else {
+					warn "Source of /whois reply is not a server";
+				}
+				return undef;
+			} elsif ($type == 313) {
+				# remote oper - change message type
+				$act->{msgtype} = 641;
+				$act->{msg}->[-1] .= ' (on remote network)';
+				return 0;
+			}
+			return 1 if $type == 310; # available for help
+
+			return undef unless $src->isa('Nick') && $dst->isa('Nick');
 			if ($dst->info('_is_janus')) {
-				return 1 if $act->{msgtype} != 1 || !$nick;
+				return 1 if $act->{msgtype} != 1 || !$src;
 				local $_ = $act->{msg};
 				my $cmd = s/^\s*(\S+)\s*// && exists $cmds{lc $1} ? lc $1 : 'unk';
-				$cmds{$cmd}->($nick, $_);
+				$cmds{$cmd}->($src, $_);
 				return 1;
 			}
 			
-			unless ($nick->is_on($dst->homenet())) {
+			unless ($src->is_on($dst->homenet())) {
 				Janus::append(+{
 					type => 'MSG',
 					msgtype => 2,
 					src => $Janus::interface,
-					dst => $nick,
+					dst => $src,
 					msg => 'You must join a shared channel to speak with remote users',
 				}) if $act->{msgtype} == 1;
 				return 1;
