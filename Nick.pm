@@ -60,7 +60,7 @@ sub _destroy :Destroy {
 # send to home network for MSG
 sub sendto {
 	my($nick, $act, $except) = @_;
-	if ($act->{type} eq 'MSG') {
+	if ($act->{type} eq 'MSG' || $act->{type} eq 'WHOIS') {
 		return $homenet[$$nick];
 	} elsif ($act->{type} eq 'CONNECT') {
 		return $act->{net};

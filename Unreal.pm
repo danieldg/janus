@@ -807,17 +807,17 @@ sub srvname {
 	WHOIS => sub {
 		my $net = shift;
 		my $src = $net->item($_[0]);
-		my $dst = $net->item($_[3]);
-		return () unless ref $dst && $dst->isa('Nick');
-		# the "target" parameter is ignored as it is most likely
-		# not correct; just send the destination as the msg
-		return {
-			type => 'MSG',
-			msgtype => 3,
-			src => $src,
-			dst => $dst,
-			msg => $dst,
-		};
+		my @out;
+		for my $n (split /,/, $_[3]) {
+			my $dst = $net->item($n);
+			next unless ref $dst && $dst->isa('Nick');
+			push @out, +{
+				type => 'WHOIS',
+				src => $src,
+				dst => $dst,
+			};
+		}
+		@out;
 	},
 	HELP => \&ignore,
 	SMO => \&ignore,
@@ -1040,10 +1040,13 @@ sub cmd2 {
 		$type = 
 			$type == 1 ? 'PRIVMSG' :
 			$type == 2 ? 'NOTICE' :
-			$type == 3 ? 'WHOIS' :
 			sprintf '%03d', $type;
 		my @msg = ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg};
 		$net->cmd2($act->{src}, $type, ($act->{prefix} || '').$net->_out($act->{dst}), @msg);
+	}, WHOIS => sub {
+		my($net,$act) = @_;
+		my $dst = $act->{dst};
+		$net->cmd2($act->{src}, $type, $dst->info('home_server'), $dst);
 	}, NICK => sub {
 		my($net,$act) = @_;
 		my $id = $net->id();

@@ -242,13 +242,16 @@ sub modload {
 			}
 			
 			unless ($src->is_on($dst->homenet())) {
-				Janus::append(+{
-					type => 'MSG',
-					msgtype => 2,
-					src => $Janus::interface,
-					dst => $src,
-					msg => 'You must join a shared channel to speak with remote users',
-				}) if $act->{msgtype} == 1;
+				&Janus::jmsg($src, 'You must join a shared channel to speak with remote users') if $act->{msgtype} == 1;
+				return 1;
+			}
+			undef;
+		}, WHOIS => parse => sub {
+			my $act = shift;
+			my $src = $act->{src};
+			my $dst = $act->{dst};
+			unless ($src->is_on($dst->homenet())) {
+				&Janus::jmsg($src, 'You cannot use this /whois syntax unless you are on a shared channel with the user');
 				return 1;
 			}
 			undef;
