@@ -25,7 +25,16 @@ our $conffile;
 our $interface;
 our %nets;
 our $read = IO::Select->new();
+
 my %hooks;
+my %commands = (
+	unk => +{
+		code => sub {
+			&Janus::jmsg($_[0], 'Unknown command. Use "help" to see available commands');
+		},
+	},
+);
+
 my @qstack;
 
 my $ij_testlink = InterJanus->new();
@@ -66,15 +75,9 @@ sub _mod_hook {
 	return undef unless $hook;
 
 	my $rv = undef;
-	my $taken;
-	
 	for my $mod (sort keys %$hook) {
 		my $r = $hook->{$mod}->(@args);
-		if (defined $r) {
-			warn "Multiple modifying hooks found for $type:$lvl ($taken, $mod)" if $taken;
-			$taken = $mod;
-			$rv = $r;
-		}
+		$rv = $r if defined $r;
 	}
 	$rv;
 }
@@ -217,6 +220,22 @@ sub in_janus {
 	}
 } 
 
+sub command_add {
+	for my $h (@_) {
+		my $cmd = $h->{cmd};
+		die "Cannot double-add command '$cmd'" if exists $commands{$cmd};
+		$commands{$cmd} = $h;
+	}
+}
+
+sub in_command {
+	my($cmd, $nick, $text) = @_;
+	my $csub = exists $commands{$cmd} ?
+		$commands{$cmd}{code} : $commands{unk}{code};
+	unshift @qstack, [];
+	$csub->($nick, $text);
+	_runq(shift @qstack);
+}
 
 ###############################################################################
 # Configuration
@@ -306,6 +325,24 @@ sub modload {
 			});
 		}
 		close $links;
+	});
+	command_add({
+		cmd => 'help',
+		help => 'the text you are reading now',
+		code => sub {
+			my(@cmds,@helps);
+			for my $cmd (sort keys %commands) {
+				my $h = $commands{$cmd}{help};
+				next unless $h;
+				push @cmds, $cmd;
+				if (ref $h) {
+					push @helps, @$h;
+				} else {
+					push @helps, " $cmd - $h";
+				}
+			}
+			&Janus::jmsg($_[0], 'Available commands: '.join(' ', @cmds), @helps);
+		}
 	});
 }
 

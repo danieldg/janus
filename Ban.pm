@@ -65,7 +65,71 @@ sub match {
 
 sub modload {
  my $me = shift;
- Janus::hook_add($me,
+ &Janus::command_add({
+	cmd => 'ban',
+	help => [
+		'Bans are matched against nick!ident@host%netid:name on any remote joins to a shared channel',
+		' ban list - list all active janus bans',
+		' ban add $expr $reason $expire - add a ban',
+		' ban kadd $expr $reason $expire - add a ban, and kill all users matching it',
+		' ban del $expr|$index - remove a ban by expression or index in the ban list',
+	], code => sub {
+		my $nick = shift;
+		my($cmd, @arg) = split /\s+/, shift;
+		return &Janus::jmsg("You must be an IRC operator to use this command") unless $nick->has_mode('oper');
+		my $net = $nick->homenet();
+		my @list = banlist($net);
+		if ($cmd =~ /^l/i) {
+			my $c = 0;
+			for my $ban (@list) {
+				my $expire = $ban->expire() ? 'expires on '.gmtime($ban->expire()) : 'does not expire';
+				$c++;
+				&Janus::jmsg($nick, $c.' '.$ban->expr().' - set by '.$ban->setter().", $expire - ".$ban->reason());
+			}
+			&Janus::jmsg($nick, 'No bans defined') unless @list;
+		} elsif ($cmd =~ /^k?a/i) {
+			unless ($arg[1]) {
+				&Janus::jmsg($nick, 'Use: ban add $expr $reason $duration');
+				return;
+			}
+			my $ban = &Ban::add(
+				net => $net,
+				expr => $arg[0],
+				reason => $arg[1],
+				expire => $arg[2] ? $arg[2] + time : 0,
+				setter => $nick->homenick(),
+			);
+			if ($cmd =~ /^a/i) {
+				&Janus::jmsg($nick, 'Ban added');
+			} else {
+				my $c = 0;
+				for my $n (values %{$net->_nicks()}) {
+					next if $n->homenet()->id() eq $net->id();
+					next unless $ban->match($n);
+					&Janus::append(+{
+						type => 'KILL',
+						dst => $n,
+						net => $net,
+						msg => 'Banned by '.$net->netname().': '.$arg[1],
+					});
+					$c++;
+				}
+				&Janus::jmsg($nick, "Ban added, $c nick(s) killed");
+			}
+		} elsif ($cmd =~ /^d/i) {
+			for (@arg) {
+				my $ban = /^\d+$/ ? $list[$_ - 1] : &Ban::find($net,$_);
+				if ($ban) {
+					&Janus::jmsg($nick, 'Ban '.$ban->expr().' removed');
+					$ban->delete();
+				} else {
+					&Janus::jmsg($nick, "Could not find ban $_ - use ban list to see a list of all bans");
+				}
+			}
+		}
+	}
+ });
+ &Janus::hook_add($me,
 	CONNECT => check => sub {
 		my $act = shift;
 		my $nick = $act->{dst};

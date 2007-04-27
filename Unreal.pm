@@ -1046,7 +1046,7 @@ sub cmd2 {
 	}, WHOIS => sub {
 		my($net,$act) = @_;
 		my $dst = $act->{dst};
-		$net->cmd2($act->{src}, $type, $dst->info('home_server'), $dst);
+		$net->cmd2($act->{src}, WHOIS => $dst->info('home_server'), $dst);
 	}, NICK => sub {
 		my($net,$act) = @_;
 		my $id = $net->id();
