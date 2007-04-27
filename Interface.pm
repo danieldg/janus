@@ -40,6 +40,9 @@ sub modload {
 				dst => $Janus::interface,
 				net => $act->{net},
 			});
+		}, NETSPLIT => act => sub {
+			my $act = shift;
+			$Janus::interface->_netpart($act->{net});
 		}, MSG => parse => sub {
 			my $act = shift;
 			my $src = $act->{src};

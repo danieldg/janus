@@ -147,19 +147,19 @@ sub _link_into {
 		$net->replace_chan($name, $chan);
 	}
 
-	for my $id (keys %{$nicks[$$src]}) {
-		my $nick = $nicks[$$src]{$id};
-		$nicks[$$chan]{$id} = $nick;
+	for my $nid (keys %{$nicks[$$src]}) {
+		my $nick = $nicks[$$src]{$nid};
+		$nicks[$$chan]{$nid} = $nick;
 
-		my $mode = $nmode[$$src]{$nick->lid()};
-		$nmode[$$chan]{$nick->lid()} = $mode;
+		my $mode = $nmode[$$src]{$nid};
+		$nmode[$$chan]{$nid} = $mode;
 
 		$nick->rejoin($chan);
 		Janus::append(+{
 			type => 'JOIN',
 			src => $nick,
 			dst => $chan,
-			mode => $nmode[$$src]{$nick->lid()},
+			mode => $nmode[$$src]{$nid},
 			rejoin => 1,
 		}) unless $nick->jlink();
 	}
@@ -205,7 +205,7 @@ sub sendto {
 
 sub part {
 	my($chan,$nick) = @_;
-	delete $nicks[$$chan]{$nick->id()};
+	delete $nicks[$$chan]{$nick->lid()};
 	delete $nmode[$$chan]{$nick->lid()};
 	return if keys %{$nicks[$$chan]};
 	# destroy channel
@@ -238,7 +238,7 @@ sub modload {
 		my $act = $_[0];
 		my $nick = $act->{src};
 		my $chan = $act->{dst};
-		$nicks[$$chan]{$nick->id()} = $nick;
+		$nicks[$$chan]{$nick->lid()} = $nick;
 		if ($act->{mode}) {
 			$nmode[$$chan]{$nick->lid()} = { %{$act->{mode}} };
 		}
@@ -412,7 +412,7 @@ sub modload {
 		for my $nid (keys %{$nicks[$$chan]}) {
 			if ($nicks[$$chan]{$nid}->homenet()->id() eq $id) {
 				my $nick = $nicks[$$split]{$nid} = $nicks[$$chan]{$nid};
-				$nmode[$$split]{$nick->lid()} = $nmode[$$chan]{$nick->lid()};
+				$nmode[$$split]{$nid} = $nmode[$$chan]{$nid};
 				$nick->rejoin($split);
 				Janus::append(+{
 					type => 'PART',

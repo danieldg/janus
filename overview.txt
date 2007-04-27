@@ -102,11 +102,12 @@ Nick
 	has_mode(mode) - true if the nick has this umode
 	umodes() - list of all umodes
 	info(key) - information about this nick
-		Global info: host ident ip name vhost
+		Global info: host ident ip name vhost away swhois
 		Locally, more info may be defined by the home Network
 	
 	rejoin(Channel) - Channel object has changed though LINK/DELINK,
 		send new CONNECT events if needed
+	_netpart(Network) - INTERNAL USE ONLY - Janus::interface on a netsplit
 
 Ban
 	{setter} - string of the nick that set the ban

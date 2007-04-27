@@ -271,16 +271,23 @@ sub modload {
 				nojlink => 1,
 			};
 		}
-		Janus::insert_full(@clean);
+		&Janus::insert_full(@clean);
+		print "Nick deallocation start\n";
+		@clean = ();
+		print "Nick deallocation end\n";
 		for my $chan (values %{$chans[$$net]}) {
-			Janus::append(+{
+			push @clean, +{
 				type => 'DELINK',
 				dst => $chan,
 				net => $net,
 				sendto => [],
-			});
+			};
 		}
-	}, NETSPLIT => clean => sub {
+		&Janus::insert_full(@clean);
+		print "Channel deallocation start\n";
+		@clean = ();
+		print "Channel deallocation end\n";
+	}, NETSPLIT => cleanup => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		my $tid = $net->id();
@@ -296,7 +303,7 @@ sub modload {
 				nojlink => 1,
 			};
 		}
-		Janus::insert_full(@clean) if @clean;
+		&Janus::insert_full(@clean) if @clean;
 		warn "nicks still remain after netsplit kills\n" if %{$nicks[$$net]};
 		delete $nicks[$$net];
 		warn "channels remain after a netsplit\n" if %{$chans[$$net]};

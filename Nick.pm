@@ -156,7 +156,7 @@ sub _netclean {
 	}
 }
 
-sub id {
+sub gid {
 	my $nick = $_[0];
 	return $homenet[$$nick]->id() . '~' . $homenick[$$nick];
 }

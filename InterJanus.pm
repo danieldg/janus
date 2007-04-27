@@ -45,7 +45,7 @@ sub ijstr {
 		$out .= ' '.$_.'='.$ij->ijstr($itm->{$_}) for sort keys %$itm;
 		return $out.'>';
 	} elsif ($itm->isa('Nick')) {
-		return 'n:'.$itm->id();
+		return 'n:'.$itm->gid();
 	} elsif ($itm->isa('Channel')) {
 		return 'c:'.$itm->keyname();
 	} elsif ($itm->isa('Network')) {
@@ -112,6 +112,7 @@ my %to_ij = (
 	KICK => \&ssend,
 	TOPIC => \&ssend,
 	MSG => \&ssend,
+	WHOIS => \&ssend,
 	LINKREQ => \&ssend,
 	DELINK => \&ssend,
 	NETSPLIT => \&ssend,
