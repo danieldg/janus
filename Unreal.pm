@@ -700,7 +700,7 @@ sub srvname {
 			my $mode = $_[3];
 			$mode =~ s/&//;
 			$mode =~ y/+-/-+/;
-			$net->send($net->cmd1(MODE => $mode, @_[4 .. $#_]));
+			$net->send($net->cmd1(MODE => $_[2], $mode, @_[4 .. $#_]));
 			return ();
 		}
 		my($modes,$args) = $net->_modeargs(@_[3 .. $#_]);
