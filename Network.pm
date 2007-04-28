@@ -3,6 +3,7 @@ use Object::InsideOut;
 use Channel;
 use IO::Socket::INET6;
 use IO::Socket::SSL 'inet6';
+use Socket6;
 use strict;
 use warnings;
 
@@ -46,22 +47,17 @@ sub connect {
 	$cparms[$$net] = { %{$parms[$$net]} };
 	if ($sock) {
 		$cparms[$$net]{incoming} = 1;
-	} elsif ($cparms[$$net]{linktype} eq "ssl"){
-		print "Creating SSL connection to $cparms[$$net]{linkaddr}:$cparms[$$net]{linkport}\n";
-		$sock = IO::Socket::SSL->new(
-			PeerAddr => $cparms[$$net]{linkaddr},
-			PeerPort => $cparms[$$net]{linkport},
-			Blocking => 0,
-		) or return undef;
- 	} else {
-		print "Creating Non-SSL connection to $cparms[$$net]{linkaddr}:$cparms[$$net]{linkport}\n";
-		$sock = IO::Socket::INET6->new(
-			PeerAddr => $cparms[$$net]{linkaddr},
-			PeerPort => $cparms[$$net]{linkport}, 
-			Blocking => 0,
-		) or return undef;
+	} else {
+		print "Setting up nonblocking connection to $cparms[$$net]{linkaddr}:$cparms[$$net]{linkport}\n";
+		my $addr = sockaddr_in6($cparms[$$net]{linkport}, inet_pton(AF_INET6, $cparms[$$net]{linkaddr}));
+		$sock = IO::Socket::INET6->new(Proto => 'tcp', Blocking => 0);
+		connect $sock, $addr;
+
+		if ($cparms[$$net]{linktype} =~ /^ssl/) {
+			IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
+			$sock->connect_SSL();
+		}
 	}
-	$sock->autoflush(1);
 	$net->intro();
 	$sock;
 }

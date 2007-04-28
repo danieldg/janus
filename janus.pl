@@ -31,7 +31,7 @@ while ($read->count()) {
 			# TODO
 			next;
 		}
-		my $len = sysread $sock, $recvq, 8192, length $recvq;
+		my $len = $sock->sysread($recvq, 8192, length $recvq);
 		while ($recvq =~ /[\r\n]/) {
 			my $line;
 			($line, $recvq) = split /[\r\n]+/, $recvq, 2;
@@ -69,7 +69,7 @@ while ($read->count()) {
 	# of all handles to find ones that are writable
 	for my $l ($write->can_write(0)) {
 		my ($sock, $recvq, $sendq, $net) = @$l;
-		my $len = syswrite $sock, $sendq;
+		my $len = $sock->syswrite($sendq);
 		if (defined $len) {
 			$$l[2] = $sendq = substr $sendq, $len;
 			$write->remove($l) unless $sendq;
@@ -81,3 +81,4 @@ while ($read->count()) {
 		}
 	}
 }
+print "All networks disconnected. Goodbye!\n";
