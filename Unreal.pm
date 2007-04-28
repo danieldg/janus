@@ -235,6 +235,7 @@ sub intro {
 sub parse {
 	my ($net, $line) = @_;
 	debug '     IN@'.$net->id().' '. $line;
+	return () unless $line; # Observed: Kuonet seems to give blank lines every once in a while
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
 	push @args, $msg if defined $msg;
@@ -247,7 +248,7 @@ sub parse {
 	$cmd = $args[1] = $token2cmd{$cmd} if exists $token2cmd{$cmd};
 	return $net->nick_msg(@args) if $cmd =~ /^\d+$/;
 	unless (exists $fromirc{$cmd}) {
-		debug "Unknown command $cmd";
+		debug "Unknown command '$cmd'";
 		return ();
 	}
 	$fromirc{$cmd}->($net,@args);
@@ -394,7 +395,10 @@ sub _parse_umode {
 		} elsif (/d/ && $_[3]) {
 			# adjusts the services TS - which is restricted to the local network
 		} else {
-			my $txt = $umode2txt{$_};
+			my $txt = $umode2txt{$_} or do {
+				warn "Unknown umode '$_'";
+				next;
+			};
 			if ($txt eq 'vhost') {
 				$vh_post = $pm eq '+' ? 3 : $vh_post & 1;
 			} elsif ($txt eq 'vhost_x') {
@@ -486,8 +490,14 @@ sub srvname {
 		if (@_ >= 12) {
 			my @m = split //, $_[9];
 			warn unless '+' eq shift @m;
-			$nick{mode} = +{ map { $umode2txt{$_} => 1 } @m };
-			delete $nick{mode}{''};
+			$nick{mode} = +{ map { 
+				if (exists $umode2txt{$_}) {
+					$umode2txt{$_} => 1 
+				} else {
+					warn "Unknown umode '$_'";
+					();
+				}
+			} @m };
 			$nick{info}{vhost} = $_[10];
 		}
 		if (@_ >= 14) {
@@ -871,7 +881,13 @@ sub srvname {
 	SQLINE => \&ignore,
 	UNSQLINE => \&ignore,
 
-	VERSION => \&todo,
+	SVSREDIR => \&ignore, # CAIRC custom mode
+
+	VERSION => sub {
+		my $net = shift;
+		my $nick = $net->nick($_[0]) or return ();
+		&Janus::jmsg($nick, '$Id$');
+	},
 	CREDITS => \&todo,
 	DALINFO => \&todo,
 	LICENSE => \&todo,
@@ -898,8 +914,13 @@ sub srvname {
 	CONNECT => \&todo,
 	SDESC => \&todo,
 	HTM => \&todo,
-	REHASH => \&todo,
 	RESTART => \&todo,
+	REHASH => sub {
+		return +{
+			type => 'REHASH',
+			sendto => [],
+		};
+	},
 );
 $fromirc{SVS2MODE} = $fromirc{SVSMODE};
 

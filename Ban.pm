@@ -165,9 +165,9 @@ sub modload {
 			&Ban::add(
 				net => $net,
 				expr => $expr,
-				reason => $arg->{reason},
-				expire => ($arg->{expire} || 0),
-				setter => $arg->{setter},
+				reason => $act->{reason},
+				expire => ($act->{expire} || 0),
+				setter => $act->{setter},
 			);
 		} else {
 			my $ban = find($expr);
