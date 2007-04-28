@@ -1,4 +1,4 @@
-package Unreal; {
+package CAUnreal; {
 use Object::InsideOut 'Network';
 use strict;
 use warnings;
@@ -137,7 +137,8 @@ my %umode2txt = (qw/
 	B bot
 	i invisible
 	G badword
-	p hide_chans
+	p no_privmsg
+	P hide_chans
 	q no_kick
 	r registered
 	s snomask
@@ -150,7 +151,6 @@ my %umode2txt = (qw/
 
 	d deaf_chan
 	R deaf_regpriv
-	T deaf_ctcp
 /);
 
 my %txt2umode;
@@ -173,9 +173,8 @@ my %cmode2txt = (qw/
 	b l_ban
 	c r_colorblock
 	e l_except
-	f v_flood3.2
+	f v_flood
 	i r_invite
-	j s_joinlimit
 	k v_key
 	l s_limit
 	m r_moderated
@@ -189,7 +188,6 @@ my %cmode2txt = (qw/
 	A r_operadmin
 	C r_ctcpblock
 	G r_badword
-	I l_invex
 	L v_forward
 	M r_regmoderated
 	N r_norenick
@@ -197,8 +195,10 @@ my %cmode2txt = (qw/
 	Q r_nokick
 	R r_reginvite
 	S r_colorstrip
-	T r_noticeblock
+	T r_opernetadm
 	V r_noinvite
+	X r_nooperover
+	Y r_opersvsadm
 /);
 
 my %txt2cmode;
@@ -892,6 +892,7 @@ sub srvname {
 	SVSWATCH => \&ignore,
 	SQLINE => \&ignore,
 	UNSQLINE => \&ignore,
+	SVSREDIR => \&ignore,
 
 	VERSION => sub {
 		my $net = shift;

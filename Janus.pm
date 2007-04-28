@@ -2,8 +2,9 @@ package Janus;
 use strict;
 use warnings;
 use InterJanus;
-use Unreal;
 use IO::Select;
+use CAUnreal;
+use Unreal;
 
 # Actions: arguments: (Janus, Action)
 #  parse - possible reparse point (/msg janus *) - only for local origin
@@ -255,7 +256,7 @@ sub rehash {
 		};
 		my $type = lc $1;
 
-		if ($type eq 'unreal') {
+		if ($type =~ /unreal/) {
 			if (defined $net) {
 				print "Missing closing brace at line $. of config file\n";
 			}
@@ -265,9 +266,19 @@ sub rehash {
 			};
 			my $netid = $1;
 			$net = $nets{$netid};
-			unless (defined $net && $net->isa('Unreal')) {
-				print "Creating new net $netid\n";
-				$net = Unreal->new( id => $netid );
+			if ($type eq 'unreal') {
+				unless (defined $net && $net->isa('Unreal')) {
+					print "Creating new Unreal net $netid\n";
+					$net = Unreal->new( id => $netid );
+				}
+			} elsif ($type eq 'caunreal') {
+				unless (defined $net && $net->isa('CAUnreal')) {
+					print "Creating new CAUnreal net $netid\n";
+					$net = CAUnreal->new( id => $netid );
+				}
+			} else {
+				print "Error: unknown network type '$type'";
+				$net = undef;
 			}
 			$nconf = {};
 		} elsif ($type eq '}') {
