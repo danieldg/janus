@@ -148,6 +148,32 @@ sub modload {
 			return 1;
 		}
 		undef;
+	}, BANLINE => check => sub {
+		my $act = shift;
+		my $net = $act->{dst};
+		return 1 unless $net->param('translate_bans');
+		return undef;
+	}, BANLINE => act => sub {
+		my $act = shift;
+		my $net = $act->{dst};
+		my $nick = $act->{nick} || '*';
+		my $ident = $act->{ident} || '*';
+		my $host = $act->{host} || '*';
+		my $expr = "$nick!$ident\@$host\%*";
+		return if $expr eq '*!*@*%*';
+		if ($act->{action} eq '+') {
+			&Ban::add(
+				net => $net,
+				expr => $expr,
+				reason => $arg->{reason},
+				expire => ($arg->{expire} || 0),
+				setter => $arg->{setter},
+			);
+		} else {
+			my $ban = find($expr);
+			return unless $ban;
+			$ban->delete();
+		}
 	}, NETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};

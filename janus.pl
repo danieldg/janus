@@ -11,14 +11,18 @@ use IO::Socket::SSL;
 
 $| = 1;
 
+# Core modules: these must be loaded for any functionality
 Janus->modload(shift || 'janus.conf');
-Channel->modload();
 Nick->modload();
+Channel->modload();
 Network->modload();
-Ban->modload();
-Interface->modload('janus2');
 
-Janus::rehash();
+# Extra modules: These add functionality, but janus should function without them
+# Eventually, some may be able to be loaded and unloaded without needing to restart janus
+Interface->modload('janus2');
+Ban->modload();
+
+&Janus::rehash();
 my $read = $Janus::read;
 my $write = IO::Select->new();
 

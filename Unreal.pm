@@ -3,7 +3,6 @@ use Object::InsideOut 'Network';
 use strict;
 use warnings;
 use Nick;
-use Ban;
 
 my @sendq :Field;
 my @srvname :Field;
@@ -225,9 +224,6 @@ sub str {
 
 sub intro {
 	my $net = shift;
-	if ($net->cparam('incoming')) {
-		die "sorry, not supported";
-	}
 	$net->send(
 		'PASS :'.$net->cparam('linkpass'),
 		'PROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS UMODE2 TKLEXT SJB64',
@@ -832,28 +828,30 @@ sub srvname {
 	TKL => sub {
 		my $net = shift;
 		my $iexpr;
-		if ($_[3] eq 'G') {
-			return unless $net->param('translate_gline');
-			$iexpr = '*!'.$_[4].'@'.$_[5].'%*';
-		} elsif ($_[3] eq 'Q') {
-			return unless $net->param('translate_qline');
-			$iexpr = $_[5].'!*';
-		}
-		return unless $iexpr;
+		my $act = {
+			type => 'BANLINE',
+			src => $_[0],
+			dst => $net,
+			action => $_[2],
+			setter => $_[6],
+		};
 		if ($_[2] eq '+') {
-			&Ban::add(
-				net => $net,
-				expr => $iexpr,
-				setter => $_[6],
-				expire => $_[7],
-				# 8 = set time
-				reason => $_[9],
-			);
-		} else {
-			my $ban = &Ban::find($net, $iexpr);
-			$ban->delete() if $ban;
+			$act->{expire} = $_[7];
+			# 8 = set time
+			$act->{reason} = $_[9];
 		}
-		();
+		if ($_[3] eq 'G') {
+			$act->{ident} = $_[4] unless $_[4] eq '*';
+			$act->{host} = $_[5] unless $_[5] eq '*';
+		} elsif ($_[3] eq 'Q') {
+			$act->{nick} = $_[5];
+		} elsif ($_[3] eq 'Z') {
+			$act->{ip} = $_[5];
+		} else {
+			# shun or spamfilter - confine these to local network
+			return ();
+		}
+		$act;
 	},
 	SVSFLINE => \&ignore,
 	TEMPSHUN => \&ignore,

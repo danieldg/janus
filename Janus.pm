@@ -203,9 +203,7 @@ sub in_local {
 	for my $act (@act) {
 		$act->{except} = $src unless $act->{except};
 		unshift @qstack, [];
-		if (_mod_hook($act->{type}, parse => $act)) {
-			print "Parse hook stole $act->{type}\n";
-		} else {
+		unless (_mod_hook($act->{type}, parse => $act)) {
 			_run($act);
 		}
 		_runq(shift @qstack);

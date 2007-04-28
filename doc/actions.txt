@@ -92,3 +92,10 @@ NETLINK:
 
 NETSPLIT:
 	net - gone network
+
+BANLINE: * -> Network
+	action - either '+' or '-'
+	nick, ident, host - matches needed to ban
+	reason - reason for adding the ban
+	setter - string of the ban's source
+	expire - timestamp that this ban expires; 0 for no expiry
