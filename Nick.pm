@@ -207,7 +207,6 @@ sub modload {
 		my $new = $act->{nick};
 
 		$ts[$$nick] = $act->{nickts} if $act->{nickts};
-		$homenick[$$nick] = $new;
 		for my $id (keys %{$nets[$$nick]}) {
 			my $net = $nets[$$nick]->{$id};
 			next if $net->jlink();
@@ -219,6 +218,10 @@ sub modload {
 			$act->{from}->{$id} = $from;
 			$act->{to}->{$id} = $to;
 		}
+	}, NICK => cleanup => sub {
+		my $act = $_[0];
+		my $nick = $act->{dst};
+		$homenick[$$nick] = $act->{nick};
 	}, NICKINFO => act => sub {
 		my $act = $_[0];
 		my $nick = $act->{dst};
