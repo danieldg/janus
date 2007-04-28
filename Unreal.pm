@@ -539,14 +539,7 @@ sub srvname {
 			};
 		} else {
 			# whoever decided this is how SVSKILL works... must have been insane
-			$net->release_nick($_[0]);
-			return +{
-				type => 'CONNECT',
-				dst => $nick,
-				net => $net,
-				reconnect => 1,
-				nojlink => 1,
-			};
+			return ();
 		}
 	}, KILL => sub {
 		my $net = shift;
@@ -573,17 +566,35 @@ sub srvname {
 	}, SVSKILL => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
-		return () if $nick->homenet()->id() eq $net->id(); 
-			# if local, wait for the QUIT that will be sent along in a second
-		$net->send($net->cmd2($nick, QUIT => $_[3]));
-		$net->release_nick(lc $_[2]);
-		return +{
-			type => 'CONNECT',
-			dst => $nick,
-			net => $net,
-			reconnect => 1,
-			nojlink => 1,
-		};
+		if ($nick->homenet()->id() eq $net->id()) {
+			# If the nick is local, do nothing. A properly formatted QUIT 
+			# will be sent soon for this nick from its home server.
+			return ();
+		} elsif (lc $nick->homenick() eq lc $_[2]) {
+			# This is an untagged nick. We assume that the reason this
+			# nick was killed was something like a GHOST command and set up
+			# a reconnection with tag
+			$net->release_nick(lc $_[2]);
+			return +{
+				type => 'CONNECT',
+				dst => $nick,
+				net => $net,
+				reconnect => 1,
+				nojlink => 1,
+			};
+		} else {
+			# This was a tagged nick. If we reintroduce this nick, there is a
+			# danger of running into a fight with services - for example,
+			# OperServ session limit kills will continue. So we interpret this
+			# just as a normal kill.
+			return +{
+				type => 'KILL',
+				src => $net->item($_[0]),
+				dst => $nick,
+				net => $net,
+				msg => $_[3],
+			};
+		}
 	}, UMODE2 => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[0]) or return ();
