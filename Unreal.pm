@@ -658,7 +658,9 @@ sub srvname {
 	}, SJOIN => sub {
 		my $net = shift;
 		my $chan = $net->chan($_[3], 1);
-		$chan->timesync($net->sjbint($_[2]));
+		my $ts = $net->sjbint($_[2]);
+		my $applied = ($chan->ts() <= $ts);
+		$chan->timesync($ts);
 		my $joins = pop;
 
 		my @acts;
@@ -677,7 +679,7 @@ sub srvname {
 					type => 'JOIN',
 					src => $nick,
 					dst => $chan,
-					mode => \%mh,
+					mode => ($applied ? \%mh : undef),
 				};
 			}
 		}
@@ -689,7 +691,7 @@ sub srvname {
 			dst => $chan,
 			mode => $modes,
 			args => $args, 
-		} if @$modes;
+		} if $applied && @$modes;
 		return @acts;
 	}, PART => sub {
 		my $net = shift;

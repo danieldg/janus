@@ -216,6 +216,7 @@ sub part {
 	}
 }
 
+# TODO send the new timestamp and/or mode wipe across IJ link
 sub timesync {
 	my($chan, $new) = @_;
 	unless ($new > 1000000) {
