@@ -659,7 +659,7 @@ sub srvname {
 		my $net = shift;
 		my $chan = $net->chan($_[3], 1);
 		my $ts = $net->sjbint($_[2]);
-		my $applied = ($chan->ts() <= $ts);
+		my $applied = ($chan->ts() >= $ts);
 		$chan->timesync($ts);
 		my $joins = pop;
 
@@ -899,6 +899,7 @@ sub srvname {
 		my $net = shift;
 		my $nick = $net->nick($_[0]) or return ();
 		&Janus::jmsg($nick, '$Id$');
+		return ();
 	},
 	CREDITS => \&todo,
 	DALINFO => \&todo,
