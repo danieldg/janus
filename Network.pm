@@ -104,6 +104,21 @@ sub _chans {
 	$chans[$$net];
 }
 
+sub mynick {
+	my($net, $name) = @_;
+	my $nick = $nicks[$$net]{lc $name};
+	unless ($nick) {
+		print "Nick '$name' does not exist; ignoring\n";
+		return undef;
+	}
+	if ($nick->homenet()->id() ne $net->id()) {
+		print "Nick '$name' is from network '".$nick->homenet()->id().
+			"' but was sourced from network '".$net->id()."'\n";
+		return undef;
+	}
+	return $nick;
+}
+
 sub nick {
 	my($net, $name) = @_;
 	return $nicks[$$net]{lc $name} if $nicks[$$net]{lc $name};

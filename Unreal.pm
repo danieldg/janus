@@ -298,7 +298,7 @@ sub nickact {
 	
 	my($src,$dst);
 	if ($type eq 'set') {
-		$src = $dst = $net->nick($_[0]);
+		$src = $dst = $net->mynick($_[0]);
 	} else {
 		$src = $net->item($_[0]);
 		$dst = $net->nick($_[2]);
@@ -464,7 +464,7 @@ sub srvname {
 		my $net = shift;
 		if (@_ < 10) {
 			# Nick Change
-			my $nick = $net->nick($_[0]) or return ();
+			my $nick = $net->mynick($_[0]) or return ();
 			return +{
 				type => 'NICK',
 				src => $nick,
@@ -503,9 +503,9 @@ sub srvname {
 		}
 		if (@_ >= 14) {
 			$nick{info}{chost} = $_[11];
-			$nick{info}{ip_64} = $_[12];
 			local $_ = $_[12];
 			if (s/=+//) {
+				$nick{info}{ip_64} = $_[12];
 				my $textip_table = join '', 'A'..'Z','a'..'z', 0 .. 9, '+/';
 				s/(.)/sprintf '%06b', index $textip_table, $1/eg;
 				if (length $_[12] == 8) { # IPv4
@@ -530,18 +530,13 @@ sub srvname {
 		();
 	}, QUIT => sub {
 		my $net = shift;
-		my $nick = $net->nick($_[0]) or return ();
-		if ($nick->homenet()->id() eq $net->id()) {
-			# normal boring quit
-			return +{
-				type => 'QUIT',
-				dst => $nick,
-				msg => $_[2],
-			};
-		} else {
-			# whoever decided this is how SVSKILL works... must have been insane
-			return ();
-		}
+		my $nick = $net->mynick($_[0]) or return ();
+		# normal boring quit
+		return +{
+			type => 'QUIT',
+			dst => $nick,
+			msg => $_[2],
+		};
 	}, KILL => sub {
 		my $net = shift;
 		my $src = $net->item($_[0]);
@@ -598,7 +593,7 @@ sub srvname {
 		}
 	}, UMODE2 => sub {
 		my $net = shift;
-		my $nick = $net->nick($_[0]) or return ();
+		my $nick = $net->mynick($_[0]) or return ();
 		$net->_parse_umode($nick, @_[2 .. $#_]);
 	}, SVSMODE => sub {
 		my $net = shift;
@@ -624,6 +619,10 @@ sub srvname {
 	SWHOIS => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
+		if ($nick->homenet->id() ne $net->id()) {
+			$net->send($net->cmd1(SWHOIS => $nick, ($nick->info('swhois') || '')));
+			return ();
+		}
 		return +{
 			src => $net->item($_[0]),
 			dst => $nick,
@@ -633,7 +632,7 @@ sub srvname {
 		};
 	}, AWAY => sub {
 		my $net = shift;
-		my $nick = $net->nick($_[0]) or return ();
+		my $nick = $net->mynick($_[0]) or return ();
 		return +{
 			dst => $nick,
 			type => 'NICKINFO',
@@ -644,7 +643,7 @@ sub srvname {
 # Channel Actions
 	JOIN => sub {
 		my $net = shift;
-		my $nick = $net->nick($_[0]) or return ();
+		my $nick = $net->mynick($_[0]) or return ();
 		my @act;
 		for (split /,/, $_[2]) {
 			my $chan = $net->chan($_, 1);
@@ -673,7 +672,7 @@ sub srvname {
 			} else {
 				/^([*~@%+]*)(.+)/ or warn;
 				my $nmode = $1;
-				my $nick = $net->nick($2) or next;
+				my $nick = $net->mynick($2) or next;
 				my %mh = map { tr/*~@%+/qaohv/; $net->cmode2txt($_) => 1 } split //, $nmode;
 				push @acts, +{
 					type => 'JOIN',
@@ -695,7 +694,7 @@ sub srvname {
 		return @acts;
 	}, PART => sub {
 		my $net = shift;
-		my $nick = $net->nick($_[0]) or return ();
+		my $nick = $net->mynick($_[0]) or return ();
 		return {
 			type => 'PART',
 			src => $nick,
@@ -897,7 +896,7 @@ sub srvname {
 
 	VERSION => sub {
 		my $net = shift;
-		my $nick = $net->nick($_[0]) or return ();
+		my $nick = $net->mynick($_[0]) or return ();
 		&Janus::jmsg($nick, '$Id$');
 		return ();
 	},
