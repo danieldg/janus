@@ -591,6 +591,25 @@ sub srvname {
 				msg => $_[3],
 			};
 		}
+	}, SVSNICK => sub {
+		my $net = shift;
+		my $nick = $net->nick($_[2]) or return ();
+		if ($nick->homenet->id() eq $net->id()) {
+			warn "Misdirected SVSNICK!";
+			return ();
+		} elsif (lc $nick->homenick eq lc $_[2]) {
+			$net->release_nick(lc $_[2]);
+			return +{
+				type => 'CONNECT',
+				dst => $nick,
+				net => $net,
+				reconnect => 1,
+				nojlink => 1,
+			};
+		} else {
+			print "Ignoring SVSNICK on already tagged nick\n";
+			return ();
+		}	
 	}, UMODE2 => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
@@ -883,7 +902,6 @@ sub srvname {
 	SAPART => \&ignore,
 	SVSJOIN => \&ignore,
 	SVSLUSERS => \&ignore,
-	SVSNICK => \&ignore,
 	SVSNOOP => \&ignore,
 	SVSO => \&ignore,
 	SVSSILENCE => \&ignore,
