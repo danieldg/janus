@@ -39,12 +39,7 @@ while ($read->count()) {
 		while ($recvq =~ /[\r\n]/) {
 			my $line;
 			($line, $recvq) = split /[\r\n]+/, $recvq, 2;
-			my @parsed = $net->parse($line);
-			if ($net->isa('Network')) {
-				Janus::in_local($net, @parsed);
-			} else {
-				Janus::in_janus($net, @parsed);
-			}
+			&Janus::in_socket($net, $line);
 		}
 		$$l[1] = $recvq;
 		if (!$len) {

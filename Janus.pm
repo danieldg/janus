@@ -199,22 +199,20 @@ sub jmsg {
 	}, @_);
 }
 
-sub in_local {
-	my($src,@act) = @_;
+sub in_socket {
+	my($src,$line) = @_;
+	my @act = $src->parse($line);
+	my $parse_hook = $src->isa('Network');
 	for my $act (@act) {
 		$act->{except} = $src unless $act->{except};
 		unshift @qstack, [];
-		unless (_mod_hook($act->{type}, parse => $act)) {
+		if ($parse_hook) {
+			unless (_mod_hook($act->{type}, parse => $act)) {
+				_run($act);
+			}
+		} else {
 			_run($act);
 		}
-		_runq(shift @qstack);
-	}
-}
-
-sub in_janus {
-	for my $act (@_) {
-		unshift @qstack, [];
-		_run($act);
 		_runq(shift @qstack);
 	}
 } 
