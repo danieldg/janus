@@ -222,6 +222,22 @@ sub modload {
 			});
 			&Janus::jmsg($nick, "Rehashed");
 		},
+	}, {
+		cmd => 'netsplit',
+		help => 'cause a network split (for pinged out servers ONLY; a full cleanup is not done yet!)',
+		code => sub {
+			my $nick = shift;
+			return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
+			my $net = delete $Janus::nets{lc $_} or return;
+			&Janus::append(+{
+				type => 'NETSPLIT',
+				net => $net,
+				sendto => [ values %Janus::nets ],
+			}, {
+				type => 'REHASH',
+				sendto => [],
+			});
+		},
 	});
 }
 
