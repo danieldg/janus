@@ -62,7 +62,7 @@ sub sendto {
 	my($nick, $act, $except) = @_;
 	if ($act->{type} eq 'MSG' || $act->{type} eq 'WHOIS') {
 		return $homenet[$$nick];
-	} elsif ($act->{type} eq 'CONNECT') {
+	} elsif ($act->{type} eq 'CONNECT' || $act->{type} eq 'RECONNECT') {
 		return $act->{net};
 	} else {
 		my %n = %{$nets[$$nick]};
@@ -105,7 +105,7 @@ sub rejoin {
 		
 	for my $net ($chan->nets()) {
 		next if $nets[$$nick]->{$net->id()};
-		Janus::insert(+{
+		&Janus::insert(+{
 			type => 'CONNECT',
 			dst => $nick,
 			net => $net,
@@ -180,14 +180,27 @@ sub modload {
 		my $net = $act->{net};
 		my $id = $net->id();
 		if (exists $nets[$$nick]{$id}) {
-			warn "Nick alredy exists";
+			warn "Nick alredy on CONNECTing network!";
 		}
-		$nets[$$nick]->{$id} = $net;
+		$nets[$$nick]{$id} = $net;
 		return if $net->jlink();
-		my $rnick = $net->request_nick($nick, $homenick[$$nick], $act->{reconnect});
+
+		my $rnick = $net->request_nick($nick, $homenick[$$nick], 0);
 		$nicks[$$nick]->{$id} = $rnick;
-		if ($act->{reconnect}) {
-			delete $act->{except};
+	}, RECONNECT => act => sub {
+		my $act = shift;
+		my $nick = $act->{dst};
+		my $net = $act->{net};
+		my $id = $net->id();
+		
+		delete $act->{except};
+
+		my $from = $act->{from} = $nicks[$$nick]{$id};
+		my $to = $act->{to} = $net->request_nick($nick, $homenick[$$nick], 1);
+		$net->release_nick($from);
+		$nicks[$$nick]{$id} = $to;
+		
+		if ($act->{killed}) {
 			$act->{reconnect_chans} = [ values %{$chans[$$nick]} ];
 		}
 	}, NICK => check => sub {

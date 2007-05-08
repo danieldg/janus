@@ -212,6 +212,8 @@ sub txt2cmode {
 	$txt2cmode{$_[1]};
 }
 
+my $textip_table = join '', 'A'..'Z','a'..'z', 0 .. 9, '+/';
+
 sub nicklen { 30 }
 
 sub debug {
@@ -279,6 +281,65 @@ sub dump_sendq {
 	my $q = $sendq[$$net];
 	$sendq[$$net] = '';
 	$q;
+}
+
+my %skip_umode = (
+	# TODO make this configurable
+	vhost => 1,
+	vhost_x => 1,
+	helpop => 1,
+);
+
+sub umode_text {
+	my($net,$nick) = @_;
+	my $mode = '+';
+	for my $m ($nick->umodes()) {
+		next if $skip_umode{$m};
+		next unless exists $txt2umode{$m};
+		$mode .= $txt2umode{$m};
+	}
+	unless ($net->param('show_roper') || $nick->info('_is_janus')) {
+		$mode .= 'H' if $mode =~ /o/ && $mode !~ /H/;
+	}
+	$mode . 'xt';
+}
+
+sub _connect_ifo {
+	my ($net, $nick) = @_;
+
+	my $mode = $net->umode_text($nick);
+	my $vhost = $nick->info('vhost');
+	if ($vhost eq 'unknown.cloaked') {
+		$vhost = '*'; # XXX: CA HACK
+		$mode =~ s/t//;
+	}
+	my($hc, $srv) = (2,$nick->homenet()->id() . '.janus');
+	($hc, $srv) = (1, $net->cparam('linkname')) if $srv eq 'janus.janus';
+
+	my $ip = $nick->info('ip') || '*';
+	if ($ip =~ /^[0-9.]+$/) {
+		$ip =~ s/(\d+)\.?/sprintf '%08b', $1/eg; #convert to binary
+		$ip .= '0000=='; # base64 uses up 36 bits, so add 4 from the 32...
+		$ip =~ s/([01]{6})/substr $textip_table, oct("0b$1"), 1/eg;
+	} elsif ($ip =~ /^[0-9a-f:]+$/) {
+		$ip .= ':';
+		$ip =~ s/::/:::/ while $ip =~ /::/ && 8 > scalar split /:/, $ip;
+		# fully expanded IPv6 address, with an additional : at the end
+		$ip =~ s/([0-9a-f]*):/sprintf '%016b', hex $1/eg;
+		$ip .= '0000==';
+		$ip =~ s/([01]{6})/substr $textip_table, oct("0b$1"), 1/eg;
+	} else {
+		warn "Unrecognized IP address '$ip'" unless $ip eq '*';
+		$ip = '*';
+	}
+	my @out;
+	push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $nick->info('host'),
+		$srv, 0, $mode, $vhost, $ip, $nick->info('name'));
+	my $whois = $nick->info('swhois');
+	push @out, $net->cmd1(SWHOIS => $nick, $whois) if defined $whois && $whois ne '';
+	my $away = $nick->info('away');
+	push @out, $net->cmd2($nick, AWAY => $away) if defined $away && $away ne '';
+	@out;
 }
 
 # IRC Parser
@@ -506,7 +567,6 @@ sub srvname {
 			local $_ = $_[12];
 			if (s/=+//) {
 				$nick{info}{ip_64} = $_[12];
-				my $textip_table = join '', 'A'..'Z','a'..'z', 0 .. 9, '+/';
 				s/(.)/sprintf '%06b', index $textip_table, $1/eg;
 				if (length $_[12] == 8) { # IPv4
 					s/(.{8})/sprintf '%d.', oct "0b$1"/eg;
@@ -572,10 +632,10 @@ sub srvname {
 			# a reconnection with tag
 			$net->release_nick(lc $_[2]);
 			return +{
-				type => 'CONNECT',
+				type => 'RECONNECT',
 				dst => $nick,
 				net => $net,
-				reconnect => 1,
+				killed => 1,
 				nojlink => 1,
 			};
 		} else {
@@ -600,11 +660,12 @@ sub srvname {
 		} elsif (lc $nick->homenick eq lc $_[2]) {
 			$net->release_nick(lc $_[2]);
 			return +{
-				type => 'CONNECT',
+				type => 'RECONNECT',
+				src => $net->item($_[0]),
 				dst => $nick,
 				net => $net,
-				reconnect => 1,
-				nojlink => 1,
+				killed => 0,
+				sendto => [ $net ],
 			};
 		} else {
 			print "Ignoring SVSNICK on already tagged nick\n";
@@ -623,7 +684,7 @@ sub srvname {
 			my $mode = $_[3];
 			$mode =~ y/-+/+-/;
 			$mode =~ s/d// if $_[4];
-			$mode =~ s/[raAN]//g;
+			$mode =~ s/[raAN]//g; # List of umode changes NOT rejected by janus
 			$mode =~ s/[-+]+([-+]|$)/$1/g; # umode +r-i ==> -+i ==> +i
 			$net->send($net->cmd2($nick, 'UMODE2', $mode)) if $mode;
 			return ();
@@ -1018,29 +1079,13 @@ sub cmd2 {
 		my $nick = $act->{dst};
 		return () if $act->{net}->id() ne $net->id();
 
-		my $mode = join '', '+', map $txt2umode{$_}, $nick->umodes();
-		my $vhost = $nick->info('vhost');
-		$mode =~ s/[xth]//g; # TODO: list non-translated umodes
-		$mode .= 'x';
-		if ($vhost eq 'unknown.cloaked') {
-			$vhost = '*'; # XXX: CA HACK
-		} else {
-			$mode .= 't';
-		}
-		unless ($net->param('show_roper') || $nick->info('_is_janus')) {
-			$mode .= 'H' if $mode =~ /o/ && $mode !~ /H/;
-		}
-		my($hc, $srv) = (2,$nick->homenet()->id() . '.janus');
-		($hc, $srv) = (1, $net->cparam('linkname')) if $srv eq 'janus.janus';
-		my @out;
-		push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $nick->info('host'),
-			$srv, 0, $mode, $vhost, ($nick->info('ip_64') || ()), $nick->info('name'));
-		my $whois = $nick->info('swhois');
-		push @out, $net->cmd1(SWHOIS => $nick, $whois) if defined $whois && $whois ne '';
-		my $away = $nick->info('away');
-		push @out, $net->cmd2($nick, AWAY => $away) if defined $away && $away ne '';
-		if ($act->{reconnect}) {
-			# XXX: this may not be the best way to generate these events
+		return $net->_connect_ifo($nick);
+	}, RECONNECT => sub {
+		my($net,$act) = @_;
+		my $nick = $act->{dst};
+		
+		if ($act->{killed}) {
+			my @out = $net->_connect_ifo($nick);
 			for my $chan (@{$act->{reconnect_chans}}) {
 				next unless $chan->is_on($net);
 				my $mode = '';
@@ -1049,8 +1094,10 @@ sub cmd2 {
 				$mode =~ tr/qaohv/*~@%+/;
 				push @out, $net->cmd1(SJOIN => $net->sjb64($chan->ts()), $chan, $mode.$nick->str($net));
 			}
+			return @out;
+		} else {
+			return $net->cmd2($act->{from}, NICK => $act->{to}, $nick->ts());
 		}
-		@out;
 	}, JOIN => sub {
 		my($net,$act) = @_;
 		if ($act->{src}->homenet()->id() eq $net->id()) {
@@ -1124,9 +1171,7 @@ sub cmd2 {
 		my $mode = '';
 		for my $ltxt (@{$act->{mode}}) {
 			my($d,$txt) = $ltxt =~ /([-+])(.+)/ or warn $ltxt;
-			next if $txt eq 'vhost' || $txt eq 'vhost_x' || $txt eq 'helpop';
-				# TODO unify umode mask list
-				#never changed
+			next if $skip_umode{$txt};
 			next if $txt eq 'hideoper' && !$net->param('show_roper');
 			if ($pm ne $d) {
 				$pm = $d;
@@ -1134,10 +1179,8 @@ sub cmd2 {
 			}
 			$mode .= $txt2umode{$txt};
 		}
-		unless ($net->param('show_roper')) {
-			$mode .= '+H' if $mode =~ /\+[^-]*o/ && $mode !~ /\+[^-]*H/;
-			$mode .= '-H' if $mode =~ /-[^+]*o/ && $mode !~ /-[^+]*H/;
-		}
+		$mode =~ s/o/oH/ unless $net->param('show_roper');
+
 		$net->cmd2($act->{dst}, UMODE2 => $mode) if $mode;
 	}, QUIT => sub {
 		my($net,$act) = @_;

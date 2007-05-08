@@ -116,6 +116,8 @@ my %to_ij = (
 	LINKREQ => \&ssend,
 	DELINK => \&ssend,
 	NETSPLIT => \&ssend,
+
+	RECONNECT => \&ssend, # should never be send over an IJ link
 );
 
 sub ij_send {
