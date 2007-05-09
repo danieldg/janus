@@ -415,7 +415,7 @@ sub modload {
 				my $nick = $nicks[$$split]{$nid} = $nicks[$$chan]{$nid};
 				$nmode[$$split]{$nid} = $nmode[$$chan]{$nid};
 				$nick->rejoin($split);
-				Janus::append(+{
+				&Janus::append(+{
 					type => 'PART',
 					src => $nick,
 					dst => $chan,
@@ -423,8 +423,12 @@ sub modload {
 					nojlink => 1,
 				});
 			} else {
-				my $nick = $nicks[$$chan]{$nid};
-				Janus::append(+{
+				my $nick = $nicks[$$split]{$nid} = $nicks[$$chan]{$nid};
+				# need to insert the nick into the split off channel before the delink
+				# PART is sent, because code is allowed to assume a PARTed nick was actually
+				# in the channel it is parting from; this also keeps the channel from being 
+				# prematurely removed from the list.
+				&Janus::append(+{
 					type => 'PART',
 					src => $nick,
 					dst => $split,
