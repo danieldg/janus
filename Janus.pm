@@ -264,6 +264,7 @@ sub rehash {
 			};
 			my $netid = $1;
 			$net = $nets{$netid};
+			# TODO get networks autoloading modules
 			if ($type eq 'unreal') {
 				unless (defined $net && $net->isa('Unreal')) {
 					print "Creating new Unreal net $netid\n";
@@ -289,7 +290,7 @@ sub rehash {
 				print "Connecting to $nconf->{netname}\n";
 				my $sock = $net->connect();
 				if ($sock) {
-					Janus::link($net);
+					&Janus::link($net);
 					$read->add([$sock, '', '', $net]);
 				} else {
 					print "Cannot connect to ".$net->id()."\n";

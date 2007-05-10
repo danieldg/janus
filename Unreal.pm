@@ -832,6 +832,7 @@ sub srvname {
 	SERVER => sub {
 		my $net = shift;
 		# :src SERVER name hopcount [numeric] description
+		my $src = $_[0] ? $net->srvname($_[0]) : $net->cparam('linkname');
 		my $name = lc $_[2];
 		my $desc = $_[-1];
 
@@ -839,7 +840,7 @@ sub srvname {
 				($desc =~ s/^U\d+-\S+-(\d+) //) ? $1    : 0), 1);
 
 		$servers[$$net]{$name} = {
-			parent => lc ($_[0] || $net->cparam('linkname')),
+			parent => lc $src,
 			hops => $_[3],
 			numeric => $snum,
 		};
@@ -861,6 +862,7 @@ sub srvname {
 				$sgone{$_} = 1 if $sgone{$servers[$$net]{$_}{parent}};
 			}
 		}
+		print 'Lost servers: '.join(' ', sort keys %sgone)."\n";
 		delete $srvname[$$net]{$servers[$$net]{$_}{numeric}} for keys %sgone;
 		delete $servers[$$net]{$_} for keys %sgone;
 
