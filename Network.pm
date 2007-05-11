@@ -285,6 +285,7 @@ sub modload {
 				type => 'QUIT',
 				dst => $nick,
 				msg => "hub.janus $tid.janus",
+				except => $net,
 				nojlink => 1,
 			};
 		}
@@ -297,7 +298,7 @@ sub modload {
 				type => 'DELINK',
 				dst => $chan,
 				net => $net,
-				sendto => [],
+				except => $net,
 			};
 		}
 		&Janus::insert_full(@clean);

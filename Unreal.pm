@@ -288,6 +288,7 @@ my %skip_umode = (
 	vhost => 1,
 	vhost_x => 1,
 	helpop => 1,
+	registered => 1,
 );
 
 sub umode_text {

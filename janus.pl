@@ -51,6 +51,7 @@ while ($read->count()) {
 				}
 			}
 			$read->remove($l);
+			$write->remove($l);
 			&Janus::delink($net);
 			$$l[3] = undef;
 		}
