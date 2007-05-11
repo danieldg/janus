@@ -4,6 +4,7 @@ use Channel;
 use IO::Socket::INET6;
 use IO::Socket::SSL 'inet6';
 use Socket6;
+use Fcntl;
 use strict;
 use warnings;
 
@@ -51,6 +52,7 @@ sub connect {
 		print "Setting up nonblocking connection to $cparms[$$net]{linkaddr}:$cparms[$$net]{linkport}\n";
 		my $addr = sockaddr_in6($cparms[$$net]{linkport}, inet_pton(AF_INET6, $cparms[$$net]{linkaddr}));
 		$sock = IO::Socket::INET6->new(Proto => 'tcp', Blocking => 0);
+		fcntl $sock, F_SETFL, O_NONBLOCK;
 		connect $sock, $addr;
 
 		if ($cparms[$$net]{linktype} =~ /^ssl/) {
