@@ -324,7 +324,7 @@ sub _connect_ifo {
 		$ip =~ s/([01]{6})/substr $textip_table, oct("0b$1"), 1/eg;
 	} elsif ($ip =~ /^[0-9a-f:]+$/) {
 		$ip .= ':';
-		$ip =~ s/::/:::/ while $ip =~ /::/ && 8 > scalar split /:/, $ip;
+		$ip =~ s/::/:::/ while $ip =~ /::/ && $ip !~ /(.*:){8}/;
 		# fully expanded IPv6 address, with an additional : at the end
 		$ip =~ s/([0-9a-f]*):/sprintf '%016b', hex $1/eg;
 		$ip .= '0000==';

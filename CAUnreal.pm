@@ -288,6 +288,7 @@ my %skip_umode = (
 	vhost => 1,
 	vhost_x => 1,
 	helpop => 1,
+	registered => 1,
 );
 
 sub umode_text {
@@ -323,7 +324,7 @@ sub _connect_ifo {
 		$ip =~ s/([01]{6})/substr $textip_table, oct("0b$1"), 1/eg;
 	} elsif ($ip =~ /^[0-9a-f:]+$/) {
 		$ip .= ':';
-		$ip =~ s/::/:::/ while $ip =~ /::/ && 8 > scalar split /:/, $ip;
+		$ip =~ s/::/:::/ while $ip =~ /::/ && $ip !~ /(.*:){8}/;
 		# fully expanded IPv6 address, with an additional : at the end
 		$ip =~ s/([0-9a-f]*):/sprintf '%016b', hex $1/eg;
 		$ip .= '0000==';
@@ -832,6 +833,7 @@ sub srvname {
 	SERVER => sub {
 		my $net = shift;
 		# :src SERVER name hopcount [numeric] description
+		my $src = $_[0] ? $net->srvname($_[0]) : $net->cparam('linkname');
 		my $name = lc $_[2];
 		my $desc = $_[-1];
 
@@ -839,7 +841,7 @@ sub srvname {
 				($desc =~ s/^U\d+-\S+-(\d+) //) ? $1    : 0), 1);
 
 		$servers[$$net]{$name} = {
-			parent => lc ($_[0] || $net->cparam('linkname')),
+			parent => lc $src,
 			hops => $_[3],
 			numeric => $snum,
 		};
@@ -861,6 +863,7 @@ sub srvname {
 				$sgone{$_} = 1 if $sgone{$servers[$$net]{$_}{parent}};
 			}
 		}
+		print 'Lost servers: '.join(' ', sort keys %sgone)."\n";
 		delete $srvname[$$net]{$servers[$$net]{$_}{numeric}} for keys %sgone;
 		delete $servers[$$net]{$_} for keys %sgone;
 
