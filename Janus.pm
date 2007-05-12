@@ -26,6 +26,7 @@ our $conffile;
 our $interface;
 our %nets;
 our $read = IO::Select->new();
+our $last_check = time;
 
 my %hooks;
 my %commands = (
@@ -37,6 +38,7 @@ my %commands = (
 );
 
 my @qstack;
+my %tqueue;
 
 my $ij_testlink = InterJanus->new();
 
@@ -199,6 +201,16 @@ sub jmsg {
 	}, @_);
 }
 
+sub schedule {
+	for my $event (@_) {
+		my $t = time;
+		$t = $event->{time} if $event->{time} && $event->{time} > $t;
+		$t += $event->{repeat} if $event->{repeat};
+		$t += $event->{delay} if $event->{delay};
+		push @{$tqueue{$t}}, $event;
+	}
+}
+
 sub in_socket {
 	my($src,$line) = @_;
 	my @act = $src->parse($line);
@@ -216,6 +228,27 @@ sub in_socket {
 		_runq(shift @qstack);
 	}
 } 
+
+sub timer {
+	my $now = time;
+	return if $now == $last_check;
+	my @q;
+	for ($last_check .. $now) {
+		# yes it will hit some times twice... that is needed if events with delay=0 are
+		# added to the queue in the same second, but after the queue has already run
+		push @q, @{delete $tqueue{$_}} if exists $tqueue{$_};
+	}
+	$last_check = $now;
+	for my $event (@q) {
+		unshift @qstack, [];
+		$event->{code}->($event);
+		_runq(shift @qstack);
+		if ($event->{repeat}) {
+			my $t = $now + $event->{repeat};
+			push @{$tqueue{$t}}, $event;
+		}
+	}
+}
 
 sub command_add {
 	for my $h (@_) {

@@ -27,7 +27,7 @@ my $read = $Janus::read;
 my $write = IO::Select->new();
 
 while ($read->count()) {
-	my($r,$w,$e) = IO::Select->select($read, $write, undef, undef);
+	my($r,$w,$e) = IO::Select->select($read, $write, undef, 1);
 	for my $l (@$r) {
 		my ($sock, $recvq, $sendq, $net) = @$l;
 		unless (defined $net) {
@@ -36,7 +36,7 @@ while ($read->count()) {
 			next;
 		}
 		my $len = $sock->sysread($recvq, 8192, length $recvq);
-		while ($recvq =~ /[\r\n]/) {
+		while ($recvq =~ /\n/) {
 			my $line;
 			($line, $recvq) = split /[\r\n]+/, $recvq, 2;
 			&Janus::in_socket($net, $line);
@@ -57,6 +57,8 @@ while ($read->count()) {
 		}
 	}
 
+	&Janus::timer();
+
 	for my $l ($read->handles()) {
 		my ($sock, $recvq, $sendq, $net) = @$l;
 		next unless defined $net;
@@ -65,9 +67,9 @@ while ($read->count()) {
 		$write->add($l) if $sendq;
 	}
 	
-	# rather than using @$w and going around again to write, poll the write status
-	# of all handles to find ones that are writable
-	for my $l ($write->can_write(0)) {
+	# rather than using @$w and going around again to write, check all writable handles
+	# since all are nonblocking, we just end up going around again if one is waiting
+	for my $l ($write->handles()) {
 		my ($sock, $recvq, $sendq, $net) = @$l;
 		my $len = $sock->syswrite($sendq);
 		if (defined $len) {
