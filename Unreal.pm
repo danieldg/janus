@@ -1,5 +1,5 @@
 package Unreal; {
-use Object::InsideOut 'Network';
+use Object::InsideOut 'LocalNetwork';
 use strict;
 use warnings;
 use Nick;

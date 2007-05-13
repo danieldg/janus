@@ -11,10 +11,7 @@ sub modload {
 	my $int = Interface->new(
 		id => 'janus',
 	);
-	$int->configure(+{
-		netname => 'Janus',
-	});
-	$int->_connect();
+	$int->_set_netname('Janus');
 	&Janus::link($int);
 
 	$Janus::interface = Nick->new(
@@ -30,7 +27,7 @@ sub modload {
 		},
 		mode => { oper => 1, service => 1, bot => 1 },
 	);
-	$int->nick_collide($inick, $Janus::interface);
+	$int->_nicks()->{lc $inick} = $Janus::interface;
 	
 	&Janus::hook_add($class, 
 		LINKED => act => sub {

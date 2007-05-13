@@ -1,25 +1,19 @@
 package Network; {
 use Object::InsideOut;
 use Channel;
-use IO::Socket::INET6;
-use IO::Socket::SSL 'inet6';
-use Socket6;
-use Fcntl;
 use strict;
 use warnings;
-
-my @parms :Field :Set(configure); # filled from rehash
-my @cparms :Field; # currently active
 
 my @jlink :Field :Get(jlink);
 my @id :Field :Arg(id) :Get(id);
 my @nicks :Field;
 my @chans :Field;
-my @lreq :Field;
-my @synced :Field Get(is_synced);
+my @netname :Field :Get(netname) :Set(_set_netname);
 
-sub netname {
-	$cparms[${$_[0]}]{netname};
+sub _init :Init {
+	my $net = shift;
+	$nicks[$$net] = {};
+	$chans[$$net] = {};
 }
 
 sub to_ij {
@@ -27,73 +21,8 @@ sub to_ij {
 	' id='.$net->id().' netname='.$net->netname();
 }
 
-sub param {
-	$parms[${$_[0]}]{$_[1]};
-}
-sub cparam {
-	$cparms[${$_[0]}]{$_[1]};
-}
-
 sub _destroy :Destroy {
-	print "DBG: $_[0] $cparms[${$_[0]}]{netname} deallocated\n";
-}
-
-sub _connect {
-	my $net = shift;
-	$cparms[$$net] = { %{$parms[$$net]} };
-}
-
-sub connect {
-	my($net,$sock) = @_;
-	$cparms[$$net] = { %{$parms[$$net]} };
-	if ($sock) {
-		$cparms[$$net]{incoming} = 1;
-	} else {
-		print "Setting up nonblocking connection to $cparms[$$net]{linkaddr}:$cparms[$$net]{linkport}\n";
-		my $addr = sockaddr_in6($cparms[$$net]{linkport}, inet_pton(AF_INET6, $cparms[$$net]{linkaddr}));
-		$sock = IO::Socket::INET6->new(Proto => 'tcp', Blocking => 0);
-		fcntl $sock, F_SETFL, O_NONBLOCK;
-		connect $sock, $addr;
-
-		if ($cparms[$$net]{linktype} =~ /^ssl/) {
-			IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
-			$sock->connect_SSL();
-		}
-	}
-	$net->intro();
-	$sock;
-}
-
-sub nick_collide {
-	my($net, $name, $new) = @_;
-	my $old = delete $nicks[$$net]{lc $name};
-	unless ($old) {
-		$nicks[$$net]{lc $name} = $new;
-		return;
-	}
-	my $tsctl = $old->ts() <=> $new->ts();
-
-	$nicks[$$net]{lc $name} = $new if $tsctl > 0;
-	$nicks[$$net]{lc $name} = $old if $tsctl < 0;
-
-	if ($tsctl <= 0) {
-		# new nick lost
-		$net->send($net->cmd1(KILL => $name, "hub.janus (Nick Collision)")); # FIXME this is unreal-specific
-	}
-	if ($tsctl >= 0) {
-		# old nick lost, reconnect it
-		if ($old->homenet()->id() eq $net->id()) {
-			warn "Nick collision on home network!";
-		} else {
-			Janus::insert_full(+{
-				type => 'CONNECT',
-				dst => $new,
-				net => $net,
-				reconnect => 1,
-				nojlink => 1,
-			});
-		}
-	}
+	print "DBG: $_[0] $netname[${$_[0]}] deallocated\n";
 }
 
 sub _nicks {
@@ -151,58 +80,6 @@ sub replace_chan {
 	}
 }
 
-sub _modeargs {
-	my $net = shift;
-	my $mode = shift;
-	my @modes;
-	my @args;
-	local $_;
-	my $pm = '+';
-	for (split //, $mode) {
-		if (/[-+]/) {
-			$pm = $_;
-			next;
-		}
-		my $txt = $net->cmode2txt($_) || 'UNK';
-		my $type = substr $txt,0,1;
-		if ($type eq 'n') {
-			push @args, $net->nick(shift);
-		} elsif ($type eq 'l') {
-			push @args, shift;
-		} elsif ($type eq 'v') {
-			push @args, shift;
-		} elsif ($type eq 's') {
-			push @args, shift if $pm eq '+';
-		} elsif ($type ne 'r') {
-			warn "Unknown mode '$_' ($txt)";
-			next;
-		}
-		push @modes, $pm.$txt;
-	}
-	(\@modes, \@args);
-}
-
-sub _mode_interp {
-	my($net, $act) = @_;
-	my $pm = '';
-	my $mode;
-	my @argin = @{$act->{args}};
-	my @args;
-	for my $mtxt (@{$act->{mode}}) {
-		my($ipm,$txt) = ($mtxt =~ /^([-+])(.*)/) or warn $mtxt;
-		my $itm = ($txt =~ /^[nlv]/ || $mtxt =~ /^\+s/) ? shift @argin : undef;
-		if (defined $net->txt2cmode($txt)) {
-			push @args, ref $itm ? $itm->str($net) : $itm if defined $itm;
-			$mode .= $ipm if $ipm ne $pm;
-			$mode .= $net->txt2cmode($txt);
-			$pm = $ipm;
-		} else {
-			warn "Unsupported channel mode '$txt' for network";
-		}
-	}
-	$mode, @args;
-}
-
 sub item {
 	my($net, $item) = @_;
 	return undef unless defined $item;
@@ -221,62 +98,11 @@ sub str {
 # Basic Actions
 ################################################################################
 
-# Request a nick on a remote network (CONNECT/JOIN must be sent AFTER this)
-sub request_nick {
-	my($net, $nick, $reqnick, $tagged) = @_;
-	my $maxlen = $net->nicklen();
-	my $given = substr $reqnick, 0, $maxlen;
-
-	$tagged = 1 if exists $nicks[$$net]{lc $given};
-
-	my $tagre = $net->param('force_tag');
-	$tagged = 1 if $tagre && $given =~ /$tagre/;
-	
-	if ($tagged) {
-		my $tagsep = $net->param('tag_prefix');
-		$tagsep = '/' unless defined $tagsep;
-		my $tag = $tagsep . $nick->homenet()->id();
-		my $i = 0;
-		$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
-		while (exists $nicks[$$net]{lc $given}) {
-			my $itag = $tagsep.(++$i).$tag; # it will find a free nick eventually...
-			$given = substr($reqnick, 0, $maxlen - length $itag) . $itag;
-		}
-	}
-	$nicks[$$net]{lc $given} = $nick;
-	return $given;
-}
-
-# Release a nick on a remote network (PART/QUIT must be sent BEFORE this)
-sub release_nick {
-	my($net, $req) = @_;
-	delete $nicks[$$net]{lc $req};
-}
-
-sub add_req {
-	my($net, $lchan, $onet, $ochan) = @_;
-	$lreq[$$net]{$lchan}{$onet->id()} = $ochan;
-}
-
-sub is_req {
-	my($net, $lchan, $onet) = @_;
-	$lreq[$$net]{$lchan}{$onet->id()};
-}
-
-sub del_req {
-	my($net, $lchan, $onet) = @_;
-	delete $lreq[$$net]{$lchan}{$onet->id()};
-}
-
 sub modload {
  my $me = shift;
  return unless $me eq 'Network';
- Janus::hook_add($me,
- 	LINKED => act => sub {
-		my $act = shift;
-		my $net = $act->{net};
-		$synced[$$net] = 1;
-	}, NETSPLIT => act => sub {
+ &Janus::hook_add($me,
+ 	NETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		my $tid = $net->id();
