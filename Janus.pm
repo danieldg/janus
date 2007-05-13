@@ -3,6 +3,10 @@ use strict;
 use warnings;
 use InterJanus;
 use IO::Select;
+use IO::Socket::INET6;
+use IO::Socket::SSL 'inet6';
+use Socket6;
+use Fcntl;
 use CAUnreal;
 use Unreal;
 
@@ -320,14 +324,20 @@ sub rehash {
 			}
 			$net->configure($nconf);
 			unless (exists $nets{$net->id()}) {
-				print "Connecting to $nconf->{netname}\n";
-				my $sock = $net->connect();
-				if ($sock) {
-					&Janus::link($net);
-					$read->add([$sock, '', '', $net]);
-				} else {
-					print "Cannot connect to ".$net->id()."\n";
+				my $sock;
+				print "Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}\n";
+				my $addr = sockaddr_in6($nconf->{linkport}, inet_pton(AF_INET6, $nconf->{linkaddr}));
+				$sock = IO::Socket::INET6->new(Proto => 'tcp', Blocking => 0);
+				fcntl $sock, F_SETFL, O_NONBLOCK;
+				connect $sock, $addr;
+
+				if ($nconf->{linktype} =~ /^ssl/) {
+					IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
+					$sock->connect_SSL();
 				}
+				$net->intro($nconf);
+				&Janus::link($net);
+				$read->add([$sock, '', '', $net]);
 			}
 			$net = undef;
 		} elsif ($type eq '{') {

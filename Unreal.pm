@@ -225,12 +225,12 @@ sub str {
 	$net->id().'.janus';
 }
 
-sub intro {
-	my $net = shift;
+sub intro :Cumulative {
+	my($net,$param) = @_;
 	$net->send(
-		'PASS :'.$net->cparam('linkpass'),
+		'PASS :'.$param->{linkpass},
 		'PROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS UMODE2 TKLEXT SJB64',
-		'SERVER '.$net->cparam('linkname').' 1 :U2309-hX6eE-'.$net->cparam('numeric').' Janus Network Link',
+		"SERVER $param->{linkname} 1 :U2309-hX6eE-$param->{numeric} Janus Network Link",
 	);
 }
 

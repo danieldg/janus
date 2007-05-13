@@ -1,10 +1,5 @@
 package LocalNetwork; {
 use Object::InsideOut qw(Network);
-use Channel;
-use IO::Socket::INET6;
-use IO::Socket::SSL 'inet6';
-use Socket6;
-use Fcntl;
 use strict;
 use warnings;
 
@@ -21,26 +16,10 @@ sub cparam {
 	$cparms[${$_[0]}]{$_[1]};
 }
 
-sub connect {
-	my($net,$sock) = @_;
+sub intro :Cumulative {
+	my $net = shift;
 	$cparms[$$net] = { %{$parms[$$net]} };
 	$net->_set_netname($cparms[$$net]->{netname});
-	if ($sock) {
-		$cparms[$$net]{incoming} = 1;
-	} else {
-		print "Setting up nonblocking connection to $cparms[$$net]{linkaddr}:$cparms[$$net]{linkport}\n";
-		my $addr = sockaddr_in6($cparms[$$net]{linkport}, inet_pton(AF_INET6, $cparms[$$net]{linkaddr}));
-		$sock = IO::Socket::INET6->new(Proto => 'tcp', Blocking => 0);
-		fcntl $sock, F_SETFL, O_NONBLOCK;
-		connect $sock, $addr;
-
-		if ($cparms[$$net]{linktype} =~ /^ssl/) {
-			IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
-			$sock->connect_SSL();
-		}
-	}
-	$net->intro();
-	$sock;
 }
 
 sub nick_collide {
