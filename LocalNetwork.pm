@@ -120,8 +120,13 @@ sub request_nick {
 
 	$tagged = 1 if exists $nicks->{lc $given};
 
-	my $tagre = $net->param('force_tag');
-	$tagged = 1 if $tagre && $given =~ /$tagre/;
+	if ($nick->homenet()->id() eq $net->id()) {
+		warn "Unhandled nick change collision on home network" if $tagged;
+		$tagged = 0;
+	} else {
+		my $tagre = $net->param('force_tag');
+		$tagged = 1 if $tagre && $given =~ /$tagre/;
+	}
 	
 	if ($tagged) {
 		my $tagsep = $net->param('tag_prefix');
