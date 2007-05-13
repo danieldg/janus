@@ -238,7 +238,7 @@ sub intro :Cumulative {
 sub parse {
 	my ($net, $line) = @_;
 	debug '     IN@'.$net->id().' '. $line;
-	return () unless $line; # Observed: Kuonet seems to give blank lines every once in a while
+	$net->pong();
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
 	push @args, $msg if defined $msg;
@@ -840,6 +840,7 @@ sub srvname {
 		my $snum = $net->sjb64((@_ > 5          ? $_[4] : 
 				($desc =~ s/^U\d+-\S+-(\d+) //) ? $1    : 0), 1);
 
+		print "Server $_[2] [\@$snum] added from $src\n";
 		$servers[$$net]{$name} = {
 			parent => lc $src,
 			hops => $_[3],
@@ -1185,7 +1186,8 @@ sub cmd2 {
 		}
 		$mode =~ s/o/oH/ unless $net->param('show_roper');
 
-		$net->cmd2($act->{dst}, UMODE2 => $mode) if $mode;
+		return () unless $mode;
+		$net->cmd2($act->{dst}, UMODE2 => $mode);
 	}, QUIT => sub {
 		my($net,$act) = @_;
 		return () unless $act->{dst}->is_on($net);
@@ -1216,6 +1218,9 @@ sub cmd2 {
 		return () unless $net->id() eq $killfrom->id();
 		return () unless defined $act->{dst}->str($net);
 		$net->cmd2($act->{src}, KILL => $act->{dst}, $act->{msg});
+	}, PING => sub {
+		my($net,$act) = @_;
+		$net->cmd1(PING => $net->cparam('linkname'));
 	},
 );
 

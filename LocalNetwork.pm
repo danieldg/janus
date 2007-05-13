@@ -1,5 +1,6 @@
 package LocalNetwork; {
 use Object::InsideOut qw(Network);
+use Scalar::Util qw(weaken);
 use strict;
 use warnings;
 
@@ -8,6 +9,7 @@ my @cparms :Field; # currently active
 
 my @lreq :Field;
 my @synced :Field Get(is_synced);
+my @ponged :Field;
 
 sub param {
 	$parms[${$_[0]}]{$_[1]};
@@ -16,10 +18,43 @@ sub cparam {
 	$cparms[${$_[0]}]{$_[1]};
 }
 
+sub pong {
+	my $net = shift;
+	$ponged[$$net] = time;
+}
+
 sub intro :Cumulative {
 	my $net = shift;
 	$cparms[$$net] = { %{$parms[$$net]} };
 	$net->_set_netname($cparms[$$net]->{netname});
+	$ponged[$$net] = time;
+	my %pinger = (
+		repeat => 30,
+		net => $net,
+		code => sub {
+			my $p = shift;
+			my $net = $p->{net};
+			unless ($net) {
+				delete $p->{repeat};
+				return;
+			}
+			my $last = $ponged[$$net];
+			if ($last + 90 < time) {
+				# ping timeout
+				print "PING TIMEOUT! This will fall flat on its face if it's not true\n";
+				&Janus::append(+{
+					type => 'NETSPLIT',
+					net => $net,
+				});
+			} else {
+				$net->send(+{
+					type => 'PING',
+				});
+			}
+		},
+	);
+	weaken($pinger{$net});
+	&Janus::schedule(\%pinger);
 }
 
 sub nick_collide {
