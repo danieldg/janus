@@ -580,6 +580,7 @@ sub srvname {
 			$nick{info}{ip} = $_;
 		} else {
 			$nick{info}{chost} = 'unknown.cloaked';
+			$nick{info}{ip} = $_[11] if @_ == 13;
 		}
 		
 		unless ($nick{mode}{vhost}) {
