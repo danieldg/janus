@@ -29,6 +29,7 @@ use Unreal;
 our $conffile;
 our $interface;
 our %nets;
+my %socks;
 our $read = IO::Select->new();
 our $last_check = time;
 
@@ -137,9 +138,10 @@ sub _runq {
 }
 
 sub link {
-	my $net = $_[0];
+	my($net,$sock) = @_;
 	my $id = $net->id();
 	$nets{$id} = $net;
+	$socks{$id} = $sock;
 
 	unshift @qstack, [];
 	_run(+{
@@ -154,6 +156,7 @@ sub delink {
 	my $net = $_[0];
 	my $id = $net->id();
 	delete $nets{$id};
+	$read->remove(delete $socks{$id});
 	unshift @qstack, [];
 	_run(+{
 		type => 'NETSPLIT',
@@ -336,7 +339,7 @@ sub rehash {
 					$sock->connect_SSL();
 				}
 				$net->intro($nconf);
-				&Janus::link($net);
+				&Janus::link($net, $sock);
 				$read->add([$sock, '', '', $net]);
 			}
 			$net = undef;

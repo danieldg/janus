@@ -42,10 +42,9 @@ sub intro :Cumulative {
 			if ($last + 90 < time) {
 				# ping timeout
 				print "PING TIMEOUT! This will fall flat on its face if it's not true\n";
-				&Janus::append(+{
-					type => 'NETSPLIT',
-					net => $net,
-				});
+				&Janus::delink($net);
+				delete $p->{net};
+				delete $p->{repeat};
 			} else {
 				$net->send(+{
 					type => 'PING',
