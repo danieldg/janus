@@ -43,7 +43,7 @@ while ($read->count()) {
 		}
 		$$l[1] = $recvq;
 		if (!$len) {
-			if ($sock->isa('IO::Socket::SSL')) {
+			if ($sock->isa('IO::Socket::SSL') && $sock->connected()) {
 				print "SSL error: ".$sock->errstr()."\n";
 				if ($sock->errstr() eq SSL_WANT_READ || $sock->errstr() eq SSL_WANT_WRITE) {
 					$write->add($l);
@@ -75,7 +75,7 @@ while ($read->count()) {
 		if (defined $len) {
 			$$l[2] = $sendq = substr $sendq, $len;
 			$write->remove($l) unless $sendq;
-		} else {
+		} elsif (!$sock->connected()) {
 			$read->remove($l);
 			$write->remove($l);
 			&Janus::delink($net);
