@@ -563,11 +563,16 @@ sub srvname {
 			} @m };
 			$nick{info}{vhost} = $_[10];
 		}
-		if (@_ >= 14) {
-			$nick{info}{chost} = $_[11];
-			local $_ = $_[12];
+		if (@_ >= 13) {
+			local $_;
+			if (@_ >= 14) {
+				$nick{info}{chost} = $_[11];
+				$_ = $_[12];
+			} else {
+				$nick{info}{chost} = 'unknown.cloaked';
+				$_ = $_[11];
+			}				
 			if (s/=+//) {
-				$nick{info}{ip_64} = $_[12];
 				s/(.)/sprintf '%06b', index $textip_table, $1/eg;
 				if (length $_[12] == 8) { # IPv4
 					s/(.{8})/sprintf '%d.', oct "0b$1"/eg;
