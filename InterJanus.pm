@@ -115,6 +115,7 @@ my %to_ij = (
 	WHOIS => \&ssend,
 	LINKREQ => \&ssend,
 	DELINK => \&ssend,
+	LINKED => \&ssend,
 	NETSPLIT => \&ssend,
 
 	RECONNECT => \&ssend, # should never be send over an IJ link

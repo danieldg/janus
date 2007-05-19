@@ -895,7 +895,7 @@ sub srvname {
 		return +{
 			type => 'LINKED',
 			net => $net,
-			sendto => [],
+			sendto => [ values %Janus::nets ],
 		};
 	}, PROTOCTL => sub {
 		my $net = shift;
@@ -1062,24 +1062,28 @@ sub cmd2 {
 		my($net,$act) = @_;
 		my $new = $act->{net};
 		my $id = $new->id();
-		my @out;
-		push @out, $net->cmd1(SMO => 'o', "(\002link\002) Janus Network $id (".$new->netname().") is now linked");
 		if ($net->id() eq $id) {
 			# first link to the net
+			my @out;
 			for $id (keys %Janus::nets) {
 				$new = $Janus::nets{$id};
 				next if $new->isa('Interface') || $id eq $net->id();
 				push @out, $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->cparam('numeric'), $new->netname());
 			}
+			return @out;
 		} else {
-			push @out, $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->cparam('numeric'), $new->netname());
+			return $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->cparam('numeric'), $new->netname());
 		}
-		@out;
+	}, LINKED => sub {
+		my($net,$act) = @_;
+		my $new = $act->{net};
+		my $id = $new->id();
+		$net->cmd1(SMO => 'o', "(\002link\002) Janus Network $id (".$new->netname().") is now linked");
 	}, NETSPLIT => sub {
 		my($net,$act) = @_;
 		my $gone = $act->{net};
 		my $id = $gone->id();
-		$net->cmd1(SQUIT => "$id.janus", "Reason? What's that?");
+		$net->cmd1(SQUIT => "$id.janus", ($act->{msg} || "Reason? What's that?"));
 	}, CONNECT => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};

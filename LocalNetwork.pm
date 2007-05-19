@@ -40,9 +40,8 @@ sub intro :Cumulative {
 			}
 			my $last = $ponged[$$net];
 			if ($last + 90 < time) {
-				# ping timeout
-				print "PING TIMEOUT! This will fall flat on its face if it's not true\n";
-				&Janus::delink($net);
+				print "PING TIMEOUT!\n";
+				&Janus::delink($net, 'Ping timeout');
 				delete $p->{net};
 				delete $p->{repeat};
 			} else {

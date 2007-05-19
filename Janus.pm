@@ -153,7 +153,7 @@ sub link {
 }
 
 sub delink {
-	my $net = $_[0];
+	my($net,$msg) = @_;
 	my $id = $net->id();
 	delete $nets{$id};
 	$read->remove(delete $socks{$id});
@@ -162,6 +162,7 @@ sub delink {
 		type => 'NETSPLIT',
 		net => $net,
 		sendto => [ values %nets ],
+		msg => $msg,
 	});
 	_runq(shift @qstack);
 }

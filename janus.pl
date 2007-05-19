@@ -54,7 +54,7 @@ while ($read->count()) {
 			}
 			$read->remove($l);
 			$write->remove($l);
-			&Janus::delink($net);
+			&Janus::delink($net, 'Socket read failure ('.$!.')');
 			$$l[3] = undef;
 		}
 	}
@@ -87,7 +87,7 @@ while ($read->count()) {
 			print "Delink from failed write\n";
 			$read->remove($l);
 			$write->remove($l);
-			&Janus::delink($net);
+			&Janus::delink($net, 'Socket write failure ('.$!.')');
 			$$l[3] = undef;
 		}
 	}
