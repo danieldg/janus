@@ -203,7 +203,7 @@ sub modload {
  my $me = shift;
  return unless $me eq 'LocalNetwork';
  &Janus::hook_add($me,
- 	LINKED => act => sub {
+ 	LINKED => check => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		$synced[$$net] = 1;

@@ -32,7 +32,7 @@ sub modload {
 	&Janus::hook_add($class, 
 		LINKED => act => sub {
 			my $act = shift;
-			Janus::append(+{
+			&Janus::append(+{
 				type => 'CONNECT',
 				dst => $Janus::interface,
 				net => $act->{net},
@@ -100,9 +100,16 @@ sub modload {
 			my $dnet = $act->{dst};
 			return if $dnet->jlink();
 			my $recip = $dnet->is_req($act->{dlink}, $snet);
-			if ($act->{linkfile} && $dnet->is_synced() || $recip && 
-					($act->{override} || $recip eq 'any' || lc $recip eq lc $act->{slink})
-			) {
+			$recip = 'any' if $act->{override};
+			if ($act->{linkfile}) {
+				if ($dnet->is_synced()) {
+					$recip = 'any';
+				} else {
+					$recip = '';
+					print "Ignoring link to non-synced network\n"
+				}
+			}
+			if ($recip && ($recip eq 'any' || lc $recip eq lc $act->{slink})) {
 				# there has already been a request to link this channel to that network
 				# also, if it was not an override, the request was for this pair of channels
 				$dnet->del_req($act->{dlink}, $snet);
@@ -200,7 +207,7 @@ sub modload {
 				return;
 			}
 				
-			Janus::append(+{
+			&Janus::append(+{
 				type => 'DELINK',
 				src => $nick,
 				dst => $chan,

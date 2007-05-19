@@ -368,7 +368,7 @@ sub modload {
 		while (<$links>) {
 			my($cname1, $nname, $cname2) = /^\s*(#\S*)\s+(\S+)\s+(#\S*)/ or next;
 			my $net2 = $Janus::nets{$nname} or next;
-			Janus::append(+{
+			&Janus::append(+{
 				type => 'LINKREQ',
 				net => $net,
 				dst => $net2,

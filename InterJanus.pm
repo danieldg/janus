@@ -128,8 +128,11 @@ sub ij_send {
 		if (exists $to_ij{$type}) {
 			push @out, $to_ij{$type}->($ij, $act);
 		} else {
-			next if $act->{sendto} && !@{$act->{sendto}};
-			print "Unknown action type '$type'\n";
+			if ($act->{sendto} && !@{$act->{sendto}}) {
+				push @out, '(debug)' . ssend($ij, $act);
+			} else {
+				print "Unknown action type '$type'\n";
+			}
 		}
 	}
 	print "    OUT\@IJ $_\n" for @out;
