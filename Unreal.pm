@@ -908,6 +908,11 @@ sub srvname {
 		();
 	}, 
 	EOS => \&ignore,
+	ERROR => sub {
+		my $net = shift;
+		&Janus::delink($net, 'ERROR: '.$_[-1]);
+		();
+	},
 
 # Messages
 	PRIVMSG => \&nc_msg,
@@ -1010,7 +1015,6 @@ sub srvname {
 	TRACE => \&todo,
 	RPING => \&todo,
 	RPONG => \&todo,
-	ERROR => \&todo,
 	CONNECT => \&todo,
 	SDESC => \&todo,
 	HTM => \&todo,
