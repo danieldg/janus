@@ -29,9 +29,10 @@ use Unreal;
 our $conffile;
 our $interface;
 our %nets;
-my %socks;
-our $read = IO::Select->new();
 our $last_check = time;
+
+# (net | port number) => [ sock, recvq, sendq, (Net | undef if listening), trying_read, trying_write ]
+our %netqueues;
 
 my %hooks;
 my %commands = (
@@ -141,7 +142,6 @@ sub link {
 	my($net,$sock) = @_;
 	my $id = $net->id();
 	$nets{$id} = $net;
-	$socks{$id} = $sock;
 
 	unshift @qstack, [];
 	_run(+{
@@ -156,7 +156,8 @@ sub delink {
 	my($net,$msg) = @_;
 	my $id = $net->id();
 	delete $nets{$id};
-	$read->remove(delete $socks{$id});
+	my $q = delete $netqueues{$id};
+	$q->[0] = $q->[3] = undef; # fail-fast on remaining references
 	unshift @qstack, [];
 	_run(+{
 		type => 'NETSPLIT',
@@ -341,7 +342,9 @@ sub rehash {
 				}
 				$net->intro($nconf);
 				&Janus::link($net, $sock);
-				$read->add([$sock, '', '', $net]);
+
+				# we start out waiting on writes because that's what connect(2) says for EINPROGRESS connects
+				$netqueues{$net->id()} = [$sock, '', '', $net, 0, 1];
 			}
 			$net = undef;
 		} elsif ($type eq '{') {
