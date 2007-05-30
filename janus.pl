@@ -5,6 +5,7 @@ use Janus;
 use Channel;
 use Nick;
 use Network;
+use LocalNetwork;
 use Interface;
 use Ban;
 use IO::Socket::SSL;
@@ -16,6 +17,7 @@ Janus->modload(shift || 'janus.conf');
 Nick->modload();
 Channel->modload();
 Network->modload();
+LocalNetwork->modload();
 
 # Extra modules: These add functionality, but janus should function without them
 # Eventually, some may be able to be loaded and unloaded without needing to restart janus
