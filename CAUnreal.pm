@@ -335,7 +335,7 @@ sub _connect_ifo {
 	}
 	my @out;
 	push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $nick->info('host'),
-		$srv, 0, $mode, $vhost, $ip, $nick->info('name'));
+		$srv, 0, $mode, $vhost, $nick->info('name'));
 	my $whois = $nick->info('swhois');
 	push @out, $net->cmd1(SWHOIS => $nick, $whois) if defined $whois && $whois ne '';
 	my $away = $nick->info('away');
@@ -854,7 +854,7 @@ sub srvname {
 		my $net = shift;
 		my $netid = $net->id();
 		my $srv = $net->srvname($_[2]);
-		my $splitfrom = $servers[$$net]{$srv}{parent};
+		my $splitfrom = $servers[$$net]{lc $srv}{parent};
 		
 		my %sgone = (lc $srv => 1);
 		my $k = 0;
@@ -1134,10 +1134,13 @@ sub cmd2 {
 	}, MODE => sub {
 		my($net,$act) = @_;
 		my $src = $act->{src};
+		my @interp = $net->_mode_interp($act);
+		return () unless @interp;
+		return () if @interp == 1 && $interp[0] =~ /^[+-]+$/;
 		if (ref $src && $src->isa('Nick') && $src->is_on($net)) {
-			return $net->cmd2($src, MODE => $act->{dst}, $net->_mode_interp($act));
+			return $net->cmd2($src, MODE => $act->{dst}, @interp);
 		} else {
-			return $net->cmd2($src, MODE => $act->{dst}, $net->_mode_interp($act), 0); 
+			return $net->cmd2($src, MODE => $act->{dst}, @interp, 0);
 		}
 	}, TOPIC => sub {
 		my($net,$act) = @_;

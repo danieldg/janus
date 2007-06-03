@@ -206,6 +206,7 @@ sub modload {
 		my $act = shift;
 		my $net = $act->{net};
 		$synced[$$net] = 1;
+		undef;
 	});
 }
 
