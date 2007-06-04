@@ -333,6 +333,29 @@ sub _connect_ifo {
 		warn "Unrecognized IP address '$ip'" unless $ip eq '*';
 		$ip = '*';
 	}
+	unless ($ip eq '*' || length $ip == 8 || length $ip == 24) {
+		warn "Dropping NICKIP to avoid crashing unreal!";
+		$ip = $nick->info('ip');
+		print "$ip\n";
+		if ($ip =~ /^[0-9.]+$/) {
+			$ip =~ s/(\d+)\.?/sprintf '%08b', $1/eg; #convert to binary
+			print "$ip\n";
+			$ip .= '0000=='; # base64 uses up 36 bits, so add 4 from the 32...
+			$ip =~ s/([01]{6})/substr $textip_table, oct("0b$1"), 1/eg;
+			print "$ip\n";
+		} elsif ($ip =~ /^[0-9a-f:]+$/) {
+			$ip .= ':';
+			$ip =~ s/::/:::/ while $ip =~ /::/ && $ip !~ /(.*:){8}/;
+			print "$ip\n";
+			# fully expanded IPv6 address, with an additional : at the end
+			$ip =~ s/([0-9a-f]*):/sprintf '%016b', hex $1/eg;
+			$ip .= '0000==';
+			print "$ip\n";
+			$ip =~ s/([01]{6})/substr $textip_table, oct("0b$1"), 1/eg;
+			print "$ip\n";
+		}
+		$ip = '*';
+	}
 	my @out;
 	push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $nick->info('host'),
 		$srv, 0, $mode, $vhost, $nick->info('name'));

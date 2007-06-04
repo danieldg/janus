@@ -1,6 +1,6 @@
 package LocalNetwork; {
 use Object::InsideOut qw(Network);
-use Scalar::Util qw(weaken);
+use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
 
@@ -23,36 +23,48 @@ sub pong {
 	$ponged[$$net] = time;
 }
 
+sub pongcheck {
+	my $p = shift;
+	my $net = $p->{net};
+	if ($net && !isweak($p->{net})) {
+		warn "Reference is strong! Weakening";
+		weaken($p->{net});
+		$net = $p->{net}; #possibly skip
+	}
+	unless ($net) {
+		delete $p->{repeat};
+		return;
+	}
+	unless ($Janus::nets{$net->id()} eq $net) {
+		delete $p->{repeat};
+		warn "Network $net not deallocated quickly enough!";
+		return;
+	}
+	my $last = $ponged[$$net];
+	if ($last + 90 <= time) {
+		print "PING TIMEOUT!\n";
+		&Janus::delink($net, 'Ping timeout');
+		delete $p->{net};
+		delete $p->{repeat};
+	} else {
+		$net->send(+{
+			type => 'PING',
+		});
+	}
+}
+
 sub intro :Cumulative {
 	my $net = shift;
 	$cparms[$$net] = { %{$parms[$$net]} };
 	$net->_set_netname($cparms[$$net]->{netname});
 	$ponged[$$net] = time;
-	my %pinger = (
+	my $pinger = {
 		repeat => 30,
 		net => $net,
-		code => sub {
-			my $p = shift;
-			my $net = $p->{net};
-			unless ($net) {
-				delete $p->{repeat};
-				return;
-			}
-			my $last = $ponged[$$net];
-			if ($last + 90 < time) {
-				print "PING TIMEOUT!\n";
-				&Janus::delink($net, 'Ping timeout');
-				delete $p->{net};
-				delete $p->{repeat};
-			} else {
-				$net->send(+{
-					type => 'PING',
-				});
-			}
-		},
-	);
-	weaken($pinger{$net});
-	&Janus::schedule(\%pinger);
+		code => \&pongcheck,
+	};
+	weaken($pinger->{net});
+	&Janus::schedule($pinger);
 }
 
 sub nick_collide {
