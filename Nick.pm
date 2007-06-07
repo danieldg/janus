@@ -32,6 +32,8 @@ sub _init :Init {
 	$ts[$$nick] = $ifo->{ts} || time;
 	$info[$$nick] = $ifo->{info} || {};
 	$mode[$$nick] = $ifo->{mode} || {};
+	# prevent mode bouncing
+	$mode[$$nick]{oper} = 1 if $mode[$$nick]{service};
 }
 
 sub to_ij {
@@ -308,7 +310,7 @@ sub modload {
 				nojlink => 1,
 			};
 			$act->{sendto} = [ $chan->sendto($act, $net) ];
-			Janus::append($act);
+			&Janus::append($act);
 		}
 	}, KILL => cleanup => sub {
 		my $act = shift;
