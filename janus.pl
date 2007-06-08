@@ -2,6 +2,7 @@
 use strict;
 BEGIN { push @INC, '.' }
 use Janus;
+use Conffile;
 use Channel;
 use Nick;
 use Network;
@@ -13,7 +14,8 @@ use IO::Socket::SSL;
 $| = 1;
 
 # Core modules: these must be loaded for any functionality
-Janus->modload(shift || 'janus.conf');
+Janus->modload();
+Conffile->modload(shift || 'janus.conf');
 Nick->modload();
 Channel->modload();
 Network->modload();
@@ -24,7 +26,7 @@ LocalNetwork->modload();
 Interface->modload('janus2');
 Ban->modload();
 
-&Janus::rehash();
+&Conffile::rehash($Janus::interface);
 
 sub readable {
 	my $l = shift;
@@ -101,8 +103,10 @@ while (%Janus::netqueues) {
 			readable $l;
 		} else {
 			# this is a listening socket; accept a new connection
-			# TODO
-			next;
+			my($sock,$peer) = $l->accept();
+			if ($sock) {
+				&Janus::in_newsock($sock, $peer);
+			}
 		}
 	}
 

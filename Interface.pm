@@ -221,10 +221,10 @@ sub modload {
 			my $nick = shift;
 			return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 			&Janus::append(+{
+				src => $nick,
 				type => 'REHASH',
 				sendto => [],
 			});
-			&Janus::jmsg($nick, "Rehashed");
 		},
 	}, {
 		cmd => 'netsplit',

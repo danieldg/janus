@@ -2,13 +2,6 @@ package Janus;
 use strict;
 use warnings;
 use InterJanus;
-use IO::Select;
-use IO::Socket::INET6;
-use IO::Socket::SSL 'inet6';
-use Socket6;
-use Fcntl;
-use CAUnreal;
-use Unreal;
 
 # Actions: arguments: (Janus, Action)
 #  parse - possible reparse point (/msg janus *) - only for local origin
@@ -26,7 +19,6 @@ use Unreal;
 #  $act itself should NEVER be modified at this point
 #  Object linking must remain intact in the act hook
 
-our $conffile;
 our $interface;
 our %nets;
 our $last_check = time;
@@ -138,36 +130,6 @@ sub _runq {
 	}
 }
 
-sub link {
-	my($net,$sock) = @_;
-	my $id = $net->id();
-	$nets{$id} = $net;
-
-	unshift @qstack, [];
-	_run(+{
-		type => 'NETLINK',
-		net => $net,
-		sendto => [ values %nets ],
-	});
-	_runq(shift @qstack);
-}
-
-sub delink {
-	my($net,$msg) = @_;
-	my $id = $net->id();
-	delete $nets{$id};
-	my $q = delete $netqueues{$id};
-	$q->[0] = $q->[3] = undef; # fail-fast on remaining references
-	unshift @qstack, [];
-	_run(+{
-		type => 'NETSPLIT',
-		net => $net,
-		sendto => [ values %nets ],
-		msg => $msg,
-	});
-	_runq(shift @qstack);
-}
-
 sub _run {
 	my $act = $_[0];
 	if (_mod_hook($act->{type}, check => $act)) {
@@ -197,6 +159,22 @@ sub insert_full {
 sub append {
 	push @{$qstack[0]}, @_;
 }
+
+sub err_jmsg {
+	my $dst = shift;
+	local $_;
+	for (@_) { 
+		print "$_\n";
+		append(+{
+			type => 'MSG',
+			src => $interface,
+			dst => $dst,
+			msgtype => ($dst->isa('Channel') ? 1 : 2), # channel notice == annoying
+			msg => $_,
+		});
+	}
+}
+	
 
 sub jmsg {
 	my $dst = shift;
@@ -259,6 +237,13 @@ sub timer {
 	}
 }
 
+sub in_newsock {
+	my($sock,$peer) = @_;
+	my($port,$addr) = unpack_sockaddr_in6($peer);
+	print "Incoming connection $addr:$port\n";
+	# TODO
+}
+
 sub command_add {
 	for my $h (@_) {
 		my $cmd = $h->{cmd};
@@ -276,115 +261,40 @@ sub in_command {
 	_runq(shift @qstack);
 }
 
-###############################################################################
-# Configuration
-###############################################################################
+sub link {
+	my($net,$sock) = @_;
+	my $id = $net->id();
+	$nets{$id} = $net;
 
-sub rehash {
-	local $_;
-	my($net,$nconf);
-	open my $conf, '<', $conffile;
-	$conf->untaint(); 
-		# the configurator is assumed to have at least half a brain :)
-	while (<$conf>) {
-		chomp;
-		s/\s*$//;
-		next if /^\s*(#|$)/;
-		s/^\s*(\S+)\s*// or do {
-			print "Error in line $. of config file\n";
-			next;
-		};
-		my $type = lc $1;
-
-		if ($type =~ /unreal/) {
-			if (defined $net) {
-				print "Missing closing brace at line $. of config file\n";
-			}
-			/^(\S+)/ or do {
-				print "Error in line $. of config file: expected network ID\n";
-				next;
-			};
-			my $netid = $1;
-			$net = $nets{$netid};
-			# TODO get networks autoloading modules
-			if ($type eq 'unreal') {
-				unless (defined $net && $net->isa('Unreal')) {
-					print "Creating new Unreal net $netid\n";
-					$net = Unreal->new( id => $netid );
-				}
-			} elsif ($type eq 'caunreal') {
-				unless (defined $net && $net->isa('CAUnreal')) {
-					print "Creating new CAUnreal net $netid\n";
-					$net = CAUnreal->new( id => $netid );
-				}
-			} else {
-				print "Error: unknown network type '$type'";
-				$net = undef;
-			}
-			$nconf = {};
-		} elsif ($type eq '}') {
-			unless (defined $net) {
-				print "Extra closing brace at line $. of config file\n";
-				next;
-			}
-			$net->configure($nconf);
-			unless (exists $nets{$net->id()}) {
-				my $sock;
-				print "Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}\n";
-				my $addr = sockaddr_in6($nconf->{linkport}, inet_pton(AF_INET6, $nconf->{linkaddr}));
-				$sock = IO::Socket::INET6->new(Proto => 'tcp', Blocking => 0);
-				fcntl $sock, F_SETFL, O_NONBLOCK;
-				connect $sock, $addr;
-
-				if ($nconf->{linktype} =~ /^ssl/) {
-					IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
-					$sock->connect_SSL();
-				}
-				$net->intro($nconf);
-				&Janus::link($net, $sock);
-
-				# we start out waiting on writes because that's what connect(2) says for EINPROGRESS connects
-				$netqueues{$net->id()} = [$sock, '', '', $net, 0, 1];
-			}
-			$net = undef;
-		} elsif ($type eq '{') {
-		} else {
-			unless (defined $net) {
-				print "Error in line $. of config file: not in a network definition\n";
-				next;
-			}
-			$nconf->{$type} = $_;
-		}
-	}
-	close $conf;
+	unshift @qstack, [];
+	_run(+{
+		type => 'NETLINK',
+		net => $net,
+		sendto => [ values %nets ],
+	});
+	_runq(shift @qstack);
 }
 
-sub modload {
- my($class,$cfile) = @_;
- $conffile = $cfile;
- hook_add($class,
-	REHASH => act => sub {
-		rehash;
-	}, LINKED => act => sub {
-		my $act = shift;
-		my $net = $act->{net};
-		open my $links, 'links.'.$net->id().'.conf' or return;
-		while (<$links>) {
-			my($cname1, $nname, $cname2) = /^\s*(#\S*)\s+(\S+)\s+(#\S*)/ or next;
-			my $net2 = $Janus::nets{$nname} or next;
-			&Janus::append(+{
-				type => 'LINKREQ',
-				net => $net,
-				dst => $net2,
-				slink => $cname1,
-				dlink => $cname2,
-				sendto => [ $net2 ],
-				linkfile => 1,
-			});
-		}
-		close $links;
+sub delink {
+	my($net,$msg) = @_;
+	my $id = $net->id();
+	delete $nets{$id};
+	my $q = delete $netqueues{$id};
+	$q->[0] = $q->[3] = undef; # fail-fast on remaining references
+	return if $net->isa('Pending');
+	unshift @qstack, [];
+	_run(+{
+		type => 'NETSPLIT',
+		net => $net,
+		sendto => [ values %nets ],
+		msg => $msg,
 	});
-	command_add({
+	_runq(shift @qstack);
+}
+
+
+sub modload {
+	&Janus::command_add({
 		cmd => 'help',
 		help => 'the text you are reading now',
 		code => sub {

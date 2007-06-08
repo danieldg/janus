@@ -4,15 +4,15 @@ use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
 
-my @parms :Field :Set(configure); # filled from rehash
-my @cparms :Field; # currently active
+my @cparms :Field; # currently active parameters
 
 my @lreq :Field;
 my @synced :Field Get(is_synced);
 my @ponged :Field;
 
 sub param {
-	$parms[${$_[0]}]{$_[1]};
+	my $net = shift;
+	$Conffile::netconf{$net->id()}{$_[0]};
 }
 sub cparam {
 	$cparms[${$_[0]}]{$_[1]};
@@ -55,7 +55,7 @@ sub pongcheck {
 
 sub intro :Cumulative {
 	my $net = shift;
-	$cparms[$$net] = { %{$parms[$$net]} };
+	$cparms[$$net] = { %{$Conffile::netconf{$net->id()}} };
 	$net->_set_netname($cparms[$$net]->{netname});
 	$ponged[$$net] = time;
 	my $pinger = {

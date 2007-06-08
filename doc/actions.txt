@@ -99,7 +99,7 @@ BANLINE: * -> Network
 -------------------------------------------------------------------------------
 Virtual actions:
 
-REHASH: * -> []
+REHASH: Nick -> []
 	rehashes the current janus
 
 LINKREQ: * -> Network
