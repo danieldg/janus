@@ -103,7 +103,8 @@ while (%Janus::netqueues) {
 			readable $l;
 		} else {
 			# this is a listening socket; accept a new connection
-			my($sock,$peer) = $l->accept();
+			my $lsock = $$l[0];
+			my($sock,$peer) = $lsock->accept();
 			if ($sock) {
 				&Janus::in_newsock($sock, $peer);
 			}

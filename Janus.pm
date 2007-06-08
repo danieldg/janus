@@ -2,6 +2,7 @@ package Janus;
 use strict;
 use warnings;
 use InterJanus;
+use Pending;
 
 # Actions: arguments: (Janus, Action)
 #  parse - possible reparse point (/msg janus *) - only for local origin
@@ -239,9 +240,8 @@ sub timer {
 
 sub in_newsock {
 	my($sock,$peer) = @_;
-	my($port,$addr) = unpack_sockaddr_in6($peer);
-	print "Incoming connection $addr:$port\n";
-	# TODO
+	my $net = Pending->new(peer => $peer);
+	$netqueues{$net->id()} = [$sock, '', '', $net, 1, 0];
 }
 
 sub command_add {

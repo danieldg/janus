@@ -44,6 +44,18 @@ sub rehash {
 
 			$current = {};
 			$newconf{$1} = $current;
+		} elsif ($type eq 'listen') {
+			if (defined $current) {
+				&Janus::err_jmsg($nick, "Missing closing brace at line $. of config file, aborting");
+				return;
+			}
+			/^(\d+)/ or do {
+				&Janus::err_jmsg($nick, "Error in line $. of config file: expected port");
+				return;
+			};
+			$current = {};
+			$current->{port} = $1;
+			$newconf{'LISTEN:'.$1} = $current;
 		} elsif ($type eq '}') {
 			unless (defined $current) {
 				&Janus::err_jmsg($nick, "Extra closing brace at line $. of config file");
@@ -63,29 +75,40 @@ sub rehash {
 	%netconf = %newconf;
 	for my $id (keys %netconf) {
 		my $nconf = $netconf{$id};
-		next if exists $Janus::nets{$id} || !$nconf->{autoconnect};
-		my $type = $nconf->{type};
-		my $net = eval "use $type; return ${type}->new(id => \$id)";
-		unless ($net) {
-			&Janus::err_jmsg($nick, "Error creating $type network $id: $@");
-		} else {
-			print "Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}\n";
-
-			my $sock;
-			my $addr = sockaddr_in6($nconf->{linkport}, inet_pton(AF_INET6, $nconf->{linkaddr}));
-			$sock = IO::Socket::INET6->new(Proto => 'tcp', Blocking => 0);
+		next if exists $Janus::netqueues{$id};
+		if ($id =~ /^LISTEN:/) {
+			my $port = $nconf->{port};
+			my $sock = IO::Socket::INET6->new(
+				Listen => 5, 
+				Proto => 'tcp', 
+				LocalPort => $port, 
+				Blocking => 0,
+			);
 			fcntl $sock, F_SETFL, O_NONBLOCK;
-			connect $sock, $addr;
-
-			if ($nconf->{linktype} =~ /^ssl/) {
-				IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
-				$sock->connect_SSL();
+			$Janus::netqueues{$id} = [$sock, undef, undef, undef, 1, 0];
+		} elsif ($nconf->{autoconnect}) {
+			my $type = $nconf->{type};
+			my $net = eval "use $type; return ${type}->new(id => \$id)";
+			unless ($net) {
+				&Janus::err_jmsg($nick, "Error creating $type network $id: $@");
+			} else {
+				print "Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}\n";
+	
+				my $addr = sockaddr_in6($nconf->{linkport}, inet_pton(AF_INET6, $nconf->{linkaddr}));
+				my $sock = IO::Socket::INET6->new(Proto => 'tcp', Blocking => 0);
+				fcntl $sock, F_SETFL, O_NONBLOCK;
+				connect $sock, $addr;
+	
+				if ($nconf->{linktype} =~ /^ssl/) {
+					IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
+					$sock->connect_SSL();
+				}
+				$net->intro($nconf);
+				&Janus::link($net, $sock);
+	
+				# we start out waiting on writes because that's what connect(2) says for EINPROGRESS connects
+				$Janus::netqueues{$id} = [$sock, '', '', $net, 0, 1];
 			}
-			$net->intro($nconf);
-			&Janus::link($net, $sock);
-
-			# we start out waiting on writes because that's what connect(2) says for EINPROGRESS connects
-			$Janus::netqueues{$id} = [$sock, '', '', $net, 0, 1];
 		}
 	}
 	&Janus::jmsg($nick,'Rehashed');
