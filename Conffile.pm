@@ -104,7 +104,7 @@ sub rehash {
 					$sock->connect_SSL();
 				}
 				$net->intro($nconf);
-				&Janus::link($net, $sock);
+				&Janus::link($net);
 	
 				# we start out waiting on writes because that's what connect(2) says for EINPROGRESS connects
 				$Janus::netqueues{$id} = [$sock, '', '', $net, 0, 1];

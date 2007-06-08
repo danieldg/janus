@@ -262,7 +262,7 @@ sub in_command {
 }
 
 sub link {
-	my($net,$sock) = @_;
+	my $net = shift;
 	my $id = $net->id();
 	$nets{$id} = $net;
 
