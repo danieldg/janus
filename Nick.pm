@@ -40,6 +40,7 @@ sub to_ij {
 	my($nick, $ij) = @_;
 	local $_;
 	my $out = '';
+	$out .= ' id="'.$nick->gid().'"';
 # perl -e "print q[\$out .= ' ],\$_,q[='.\$ij->ijstr(\$],\$_,q[{\$\$nick});],qq(\n) for qw/homenet homenick ts nicks mode info/"
 	$out .= ' homenet='.$ij->ijstr($homenet[$$nick]);
 	$out .= ' homenick='.$ij->ijstr($homenick[$$nick]);
@@ -160,7 +161,7 @@ sub _netclean {
 
 sub gid {
 	my $nick = $_[0];
-	return $homenet[$$nick]->id() . '~' . $homenick[$$nick];
+	return $homenet[$$nick]->id() . ':' . $$nick;
 }
 
 sub lid {
