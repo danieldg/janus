@@ -143,7 +143,7 @@ sub modload {
 				'The source code can be found at http://danieldegraaf.afraid.org/janus/trunk/',
 				'This file was checked out from the $URL$ $Rev$;',
 				'the rest of the project may be at a later revision within this respository.',
-				'If you make any modifications to this software, you must change these URLs'
+				'If you make any modifications to this software, you must change these URLs',
 				'to one which allows downloading the version of the code you are running.'
 			);
 		}
