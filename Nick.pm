@@ -123,7 +123,6 @@ sub _part {
 	my($nick,$chan) = @_;
 	my $name = $chan->str($homenet[$$nick]);
 	delete $chans[$$nick]->{lc $name};
-	return if $nick->jlink();
 	$nick->_netclean($chan->nets());
 }
 

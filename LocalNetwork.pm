@@ -302,6 +302,7 @@ sub modload {
 	}, NETSPLIT => cleanup => sub {
 		my $act = shift;
 		my $net = $act->{net};
+		return unless $net->isa('LocalNetwork');
 		my $tid = $net->id();
 		if (%{$nicks[$$net]}) {
 			my @clean;
