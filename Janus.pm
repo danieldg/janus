@@ -178,6 +178,7 @@ sub err_jmsg {
 	local $_;
 	for (@_) { 
 		print "$_\n";
+		next unless $dst;
 		append(+{
 			type => 'MSG',
 			src => $interface,
@@ -190,6 +191,7 @@ sub err_jmsg {
 	
 sub jmsg {
 	my $dst = shift;
+	return unless $dst;
 	local $_;
 	append(map +{
 		type => 'MSG',
@@ -294,7 +296,7 @@ sub delink {
 		my $q = delete $netqueues{$net->id()};
 		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
 		for my $snet (values %nets) {
-			next unless $net eq $snet->jlink();
+			next unless $net && $net eq $snet->jlink();
 			fire_event(+{
 				type => 'NETSPLIT',
 				net => $snet,

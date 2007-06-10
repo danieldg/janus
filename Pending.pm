@@ -51,7 +51,7 @@ sub parse {
 				&Janus::in_socket($rnet, $l);
 			}
 		}
-	} elsif ($line eq 'InterJanus 0.1') {
+	} elsif ($line eq '<InterJanus version="0.1">') {
 		my $q = delete $Janus::netqueues{$pnet->id()};
 		my $ij = InterJanus->new();
 		print "Shifting new connection to InterJanus link\n";

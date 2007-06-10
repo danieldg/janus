@@ -21,7 +21,7 @@ sub id {
 
 sub intro {
 	my $ij = shift;
-	$sendq[$$ij] = "InterJanus 0.1\n";
+	$sendq[$$ij] = "<InterJanus version=\"0.1\">\n";
 	for my $net (values %Janus::nets) {
 		next if $net->isa('Interface');
 		$ij->ij_send(+{
@@ -177,6 +177,7 @@ sub parse {
 	my $act = { type => $1 };
 	$ij->_kv_pairs($act);
 	warn "bad line: $_[0]" unless /^\s*>\s*$/;
+	$act->{except} = $ij;
 	$act;
 }
 
