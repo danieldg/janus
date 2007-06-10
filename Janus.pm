@@ -5,6 +5,7 @@ use InterJanus;
 use Pending;
 
 # Actions: arguments: (Janus, Action)
+#  validate - make sure arguments are the proper type etc - for IJ origin
 #  parse - possible reparse point (/msg janus *) - only for local origin
 #  check - reject unauthorized and/or impossible commands
 #  act - Main state processing
@@ -221,7 +222,9 @@ sub in_socket {
 				_run($act);
 			}
 		} else {
-			_run($act);
+			unless (_mod_hook($act->{type}, validate => $act)) {
+				_run($act);
+			}
 		}
 		_runq(shift @qstack);
 	}
@@ -275,12 +278,10 @@ sub in_command {
 sub link {
 	my $net = shift;
 	$nets{$net->id()} = $net;
-	unshift @qstack, [];
-	_run(+{
+	fire_event(+{
 		type => 'NETLINK',
 		net => $net,
 	});
-	_runq(shift @qstack);
 }
 
 sub delink {
@@ -290,14 +291,29 @@ sub delink {
 		delete $nets{$id};
 		delete $netqueues{$id};
 	} elsif ($net->isa('InterJanus')) {
-		# TODO enumerate all linked networks and delink them
+		my $q = delete $netqueues{$net->id()};
+		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
+		for my $snet (values %nets) {
+			next unless $net eq $snet->jlink();
+			fire_event(+{
+				type => 'NETSPLIT',
+				net => $snet,
+				msg => $msg,
+			});
+		}
 	} else {
-		unshift @qstack, [];
-		_run(+{
+		fire_event(+{
 			type => 'NETSPLIT',
 			net => $net,
 			msg => $msg,
 		});
+	}
+}
+
+sub fire_event {
+	for my $act (@_) {
+		unshift @qstack, [];
+		_run($act);
 		_runq(shift @qstack);
 	}
 }

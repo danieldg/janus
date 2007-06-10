@@ -182,7 +182,7 @@ sub _link_into {
 	}
 
 	if (($topic[$$src] || '') ne ($topic[$$chan] || '')) {
-		Janus::append(+{
+		&Janus::append(+{
 			type => 'TOPIC',
 			dst => $src,
 			topic => $topic[$$chan],
@@ -193,7 +193,7 @@ sub _link_into {
 	}
 
 	my ($mode, $marg) = $src->_mode_delta($chan);
-	Janus::append(+{
+	&Janus::append(+{
 		type => 'MODE',
 		dst => $src,
 		mode => $mode,
@@ -253,8 +253,16 @@ sub timesync {
 
 sub modload {
  my $me = shift;
- Janus::hook_add($me, 
-	JOIN => act => sub {
+ &Janus::hook_add($me,
+ 	JOIN => validate => sub {
+		my $act = $_[0];
+		my $valid = eval {
+			return 0 unless $act->{src}->isa('Nick');
+			return 0 unless $act->{dst}->isa('Channel');
+			1;
+		};
+		$valid ? undef : 1;
+	}, JOIN => act => sub {
 		my $act = $_[0];
 		my $nick = $act->{src};
 		my $chan = $act->{dst};

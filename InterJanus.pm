@@ -22,6 +22,13 @@ sub id {
 sub intro {
 	my $ij = shift;
 	$sendq[$$ij] = "InterJanus 0.1\n";
+	for my $net (values %Janus::nets) {
+		next if $net->isa('Interface');
+		$ij->ij_send(+{
+			type => 'NETLINK',
+			net => $net,
+		});
+	}
 }
 
 sub jlink {
@@ -60,8 +67,9 @@ sub ijstr {
 		return 'c:'.$itm->keyname();
 	} elsif ($itm->isa('Network')) {
 		return 's:'.$itm->id();
+	} elsif ($itm->isa('InterJanus')) {
+		return '';
 	}
-
 	warn "Unknown object $itm";
 	return '""';
 }
@@ -106,7 +114,7 @@ my %to_ij = (
 		$out . '>>';
 	}, CONNECT => sub {
 		my($ij, $act) = @_;
-		my $out = send_hdr(@_, qw/net/) . ' nick=<n';
+		my $out = send_hdr(@_, qw/net/) . ' dst=<n';
 		$out .= $act->{dst}->to_ij($ij);
 		$out . '>>';
 	}, NICK => sub {
@@ -146,7 +154,7 @@ sub ij_send {
 			}
 		}
 	}
-	print "    OUT\@IJ $_\n" for @out;
+	print "    OUT\@IJ$$ij $_\n" for @out;
 	$sendq[$$ij] .= join '', map "$_\n", @out;
 }
 
@@ -160,6 +168,7 @@ sub dump_sendq {
 sub parse {
 	my $ij = shift;
 	local $_ = $_[0];
+	print "    IN\@IJ $_\n";
 
 	s/^\s*<(\S+)// or do {
 		warn "bad line: $_";
@@ -182,11 +191,11 @@ my %v_type; %v_type = (
 	}, 'n' => sub {
 		my $ij = shift;
 		s/^n:([^ >]+)// or return undef;
-		$Janus::gnick{$1};
+		$Janus::gnicks{$1};
 	}, 'c' => sub {
 		my $ij = shift;
 		s/^c:([^ >]+)// or return undef;
-		$Janus::gchan{$1};
+		$Janus::gchans{$1};
 	}, 's' => sub {
 		my $ij = shift;
 		s/^s:([^ >]+)// or return undef;
@@ -229,7 +238,7 @@ my %v_type; %v_type = (
 		$ij->_kv_pairs($h);
 		s/^>// or warn;
 		# TODO verify that homenet is not forged
-		Nick->new(%$h);
+		$Janus::gnicks{$h->{gid}} || Nick->new(%$h);
 	},
 );
 
@@ -240,6 +249,7 @@ sub _kv_pairs {
 		my $k = $1;
 		my $v_t = substr $_,0,1;
 		$v_t = substr $_,0,2 if $v_t eq '<';
+		return warn "Cannot find v_t for: $_" unless $v_type{$v_t};
 		$h->{$k} = $v_type{$v_t}->($ij);
 	}
 }

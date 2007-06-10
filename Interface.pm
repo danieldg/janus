@@ -31,10 +31,12 @@ sub modload {
 	&Janus::hook_add($class, 
 		LINKED => act => sub {
 			my $act = shift;
+			my $net = $act->{net};
+			return if $net->jlink();
 			&Janus::append(+{
 				type => 'CONNECT',
 				dst => $Janus::interface,
-				net => $act->{net},
+				net => $net,
 			});
 		}, NETSPLIT => act => sub {
 			my $act = shift;

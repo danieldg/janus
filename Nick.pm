@@ -45,10 +45,9 @@ sub to_ij {
 	my($nick, $ij) = @_;
 	local $_;
 	my $out = '';
-# perl -e "print q[\$out .= ' ],\$_,q[='.\$ij->ijstr(\$],\$_,q[{\$\$nick});],qq(\n) for qw/gid homenet homenick ts nicks mode info/"
 	$out .= ' gid='.$ij->ijstr($gid[$$nick]);
-	$out .= ' homenet='.$ij->ijstr($homenet[$$nick]);
-	$out .= ' homenick='.$ij->ijstr($homenick[$$nick]);
+	$out .= ' net='.$ij->ijstr($homenet[$$nick]);
+	$out .= ' nick='.$ij->ijstr($homenick[$$nick]);
 	$out .= ' ts='.$ij->ijstr($ts[$$nick]);
 	$out .= ' mode='.$ij->ijstr($mode[$$nick]);
 	$out .= ' info=';
@@ -116,7 +115,6 @@ sub rejoin {
 			type => 'CONNECT',
 			dst => $nick,
 			net => $net,
-			nojlink => 1,
 		});
 	}
 }
