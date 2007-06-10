@@ -1,3 +1,6 @@
+# Copyright (C) 2007 Daniel De Graaf
+# Released under the Affero General Public License
+# http://www.affero.org/oagpl.html
 package LocalNetwork; {
 use Object::InsideOut qw(Network);
 use Scalar::Util qw(isweak weaken);
