@@ -1,7 +1,7 @@
+#!/usr/bin/perl -w
 # Copyright (C) 2007 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
-#!/usr/bin/perl -w
 use strict;
 BEGIN { push @INC, '.' }
 use Janus;
