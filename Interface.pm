@@ -1,3 +1,6 @@
+# Copyright (C) 2007 Daniel De Graaf
+# Released under the Affero General Public License
+# http://www.affero.org/oagpl.html
 package Interface; {
 use Object::InsideOut qw(Network);
 use Nick;
@@ -127,6 +130,24 @@ sub modload {
 		},
 	);
 	&Janus::command_add({
+		cmd => 'info',
+		help => 'provides information about janus, including a link to the complete source code',
+		code => sub {
+			my $nick = shift;
+			&Janus::jmsg($nick, 
+				'Janus is a server that allows IRC networks to share certain channels to other',
+				'linked networks without needing to share all channels and make all users visible',
+				'across both networks. If configured to allow it, users can also share their own',
+				'channels across any linked network.',
+				'-------------------------',
+				'The source code can be found at http://danieldegraaf.afraid.org/janus/trunk/',
+				'This file was checked out from the $URL$ $Rev$;',
+				'the rest of the project may be at a later revision within this respository.',
+				'If you make any modifications to this software, you must change these URLs'
+				'to one which allows downloading the version of the code you are running.'
+			);
+		}
+	}, {
 		cmd => 'list',
 		help => 'shows a list of the linked networks and shared channels',
 		code => sub {
