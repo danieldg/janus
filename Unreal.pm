@@ -897,8 +897,7 @@ sub srvname {
 		delete $servers[$$net]{$_} for keys %sgone;
 
 		my @quits;
-		my $nicks = $net->_nicks();
-		for my $nick (values %$nicks) {
+		for my $nick ($net->all_nicks()) {
 			next unless $nick->homenet()->id() eq $netid;
 			next unless $sgone{lc $nick->info('home_server')};
 			push @quits, +{
@@ -1098,11 +1097,11 @@ sub cmd2 {
 			for $id (keys %Janus::nets) {
 				$new = $Janus::nets{$id};
 				next if $new->isa('Interface') || $id eq $net->id();
-				push @out, $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->cparam('numeric'), $new->netname());
+				push @out, $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->numeric(), $new->netname());
 			}
 			return @out;
 		} else {
-			return $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->cparam('numeric'), $new->netname());
+			return $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->numeric(), $new->netname());
 		}
 	}, LINKED => sub {
 		my($net,$act) = @_;

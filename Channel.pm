@@ -6,9 +6,9 @@ use warnings;
 
 my @ts :Field :Get(ts);
 my @keyname :Field :Get(keyname);
-my @topic :Field;
+my @topic :Field :Arg(topic);
 my @topicts :Field;
-my @topicset :Field;
+my @topicset :Field :Arg(topicset);
 my @mode :Field;
 
 my @names :Field;
@@ -29,7 +29,8 @@ sub has_nmode {
 sub to_ij {
 	my($chan,$ij) = @_;
 	my $out = '';
-# perl -e "print q[\$out .= ' ],\$_,q[='.\$ij->ijstr(\$],\$_,q[{\$\$chan});],qq(\n) for qw/ts topic topicts topicset mode names/"
+# perl -e "print q[\$out .= ' ],\$_,q[='.\$ij->ijstr(\$],\$_,q[{\$\$chan});],qq(\n) for qw/keyname ts topic topicts topicset mode names/"
+	$out .= ' keyname='.$ij->ijstr($keyname[$$chan]);
 	$out .= ' ts='.$ij->ijstr($ts[$$chan]);
 	$out .= ' topic='.$ij->ijstr($topic[$$chan]);
 	$out .= ' topicts='.$ij->ijstr($topicts[$$chan]);
@@ -40,24 +41,38 @@ sub to_ij {
 }
 
 my %initargs :InitArgs = (
-	_INTERNAL => '',
+	keyname => '',
+	names => '',
 	net => '',
 	name => '',
 	ts => '',
+	topicts => '',
+	mode => '',
 );
 
 sub _init :Init {
 	my($c, $ifo) = @_;
-	$topicts[$$c] = 0;
-	$mode[$$c] = {};
-
-	return if $ifo->{_INTERNAL};
-	my $net = $ifo->{net};
-	my $id = $net->id();
-	$nets[$$c]{$id} = $net;
-	$names[$$c]{$id} = $ifo->{name};
-	$ts[$$c] = $ifo->{ts} || (time + 60);
-	$keyname[$$c] = $id.$ifo->{name};
+	$topicts[$$c] = $ifo->{topicts} || 0;
+	$mode[$$c] = $ifo->{mode} || {};
+	if ($ifo->{keyname}) {
+		$keyname[$$c] = $ifo->{keyname};
+		my $names = $ifo->{names} || {};
+		$names[$$c] = $names;
+		for my $id (keys %$names) {
+			my $name = $names->{$id};
+			$nets[$$c]{$id} = $Janus::nets{$id};
+			$Janus::gchans{$id.$name} = $c;
+		}
+		$ts[$$c] = $ifo->{ts} || (time + 60);
+	} else {
+		my $net = $ifo->{net};
+		my $id = $net->id();
+		$keyname[$$c] = $id.$ifo->{name};
+		$nets[$$c]{$id} = $net;
+		$names[$$c]{$id} = $ifo->{name};
+		$Janus::gchans{$id.$ifo->{name}} = $c;
+		$ts[$$c] = $ifo->{ts} || (time + 60);
+	}
 }
 
 sub _destroy :Destroy {
@@ -144,6 +159,8 @@ sub _link_into {
 	for my $id (keys %{$nets[$$src]}) {
 		my $net = $nets[$$src]{$id};
 		my $name = $names[$$src]{$id};
+		$Janus::gchans{$id.$name} = $chan;
+		next if $net->jlink();
 		$net->replace_chan($name, $chan);
 	}
 
@@ -155,7 +172,7 @@ sub _link_into {
 		$nmode[$$chan]{$nid} = $mode;
 
 		$nick->rejoin($chan);
-		Janus::append(+{
+		&Janus::append(+{
 			type => 'JOIN',
 			src => $nick,
 			dst => $chan,
@@ -212,6 +229,8 @@ sub part {
 	for my $id (keys %{$nets[$$chan]}) {
 		my $net = $nets[$$chan]{$id};
 		my $name = $names[$$chan]{$id};
+		delete $Janus::gchans{$id.$name};
+		next if $net->jlink();
 		$net->replace_chan($name, undef);
 	}
 }
@@ -309,8 +328,7 @@ sub modload {
 			}
 		}
 	
-		my $chan = Channel->new(_INTERNAL => 1);
-		$keyname[$$chan] = $keyname[$$chan1];
+		my $chan = Channel->new(keyname => $keyname[$$chan1], names => {});
 
 		my $tsctl = ($ts[$$chan2] <=> $ts[$$chan1]);
 		# topic timestamps are backwards: later topic change is taken IF the creation stamps are the same
@@ -362,7 +380,7 @@ sub modload {
 		$chan->_mergenet($chan1);
 		$chan->_mergenet($chan2);
 
-		Janus::append(+{
+		&Janus::append(+{
 			type => 'LINK',
 			src => $act->{src},
 			dst => $chan,
@@ -374,8 +392,8 @@ sub modload {
 		my $chan = $act->{dst};
 		my($chan1,$chan2) = ($act->{chan1}, $act->{chan2});
 		
-		$chan1->_link_into($chan);
-		$chan2->_link_into($chan);
+		$chan1->_link_into($chan) if $chan1;
+		$chan2->_link_into($chan) if $chan2;
 	}, DELINK => check => sub {
 		my $act = shift;
 		my $chan = $act->{dst};

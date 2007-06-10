@@ -893,8 +893,7 @@ sub srvname {
 		delete $servers[$$net]{$_} for keys %sgone;
 
 		my @quits;
-		my $nicks = $net->_nicks();
-		for my $nick (values %$nicks) {
+		for my $nick ($net->all_nicks()) {
 			next unless $nick->homenet()->id() eq $netid;
 			next unless $sgone{lc $nick->info('home_server')};
 			push @quits, +{

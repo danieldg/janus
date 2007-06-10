@@ -84,8 +84,13 @@ sub rehash {
 				LocalPort => $port, 
 				Blocking => 0,
 			);
-			fcntl $sock, F_SETFL, O_NONBLOCK;
-			$Janus::netqueues{$id} = [$sock, undef, undef, undef, 1, 0];
+			if ($sock) {
+				fcntl $sock, F_SETFL, O_NONBLOCK;
+				setsockopt $sock, SOL_SOCKET, SO_REUSEADDR, 1;
+				$Janus::netqueues{$id} = [$sock, undef, undef, undef, 1, 0];
+			} else {
+				&Janus::err_jmsg($nick, "Could not listen on port $port: $!");
+			}
 		} elsif ($nconf->{autoconnect}) {
 			my $type = $nconf->{type};
 			my $net = eval "use $type; return ${type}->new(id => \$id)";

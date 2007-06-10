@@ -21,7 +21,11 @@ use Pending;
 #  Object linking must remain intact in the act hook
 
 our $interface;
+
 our %nets;
+our %gnicks;
+our %gchans;
+
 our $last_check = time;
 
 # (net | port number) => [ sock, recvq, sendq, (Net | undef if listening), trying_read, trying_write ]
@@ -89,6 +93,13 @@ sub _send {
 	my @to;
 	if (exists $act->{sendto} && ref $act->{sendto}) {
 		@to = @{$act->{sendto}};
+	} elsif ($act->{type} =~ /^NET(LINK|SPLIT)/) {
+		@to = values %nets;
+		for my $q (values %netqueues) {
+			my $net = $$q[3];
+			next unless defined $net;
+			push @to, $net if $net->isa('InterJanus');
+		}
 	} elsif (!ref $act->{dst}) {
 		warn "Action $act of type $act->{type} does not have a destination or sendto list";
 		return;
@@ -176,7 +187,6 @@ sub err_jmsg {
 	}
 }
 	
-
 sub jmsg {
 	my $dst = shift;
 	local $_;
@@ -236,6 +246,7 @@ sub timer {
 			push @{$tqueue{$t}}, $event;
 		}
 	}
+	$ij_testlink->dump_sendq();
 }
 
 sub in_newsock {
@@ -263,37 +274,49 @@ sub in_command {
 
 sub link {
 	my $net = shift;
-	my $id = $net->id();
-	$nets{$id} = $net;
-
+	$nets{$net->id()} = $net;
 	unshift @qstack, [];
 	_run(+{
 		type => 'NETLINK',
 		net => $net,
-		sendto => [ values %nets ],
 	});
 	_runq(shift @qstack);
 }
 
 sub delink {
 	my($net,$msg) = @_;
-	my $id = $net->id();
-	delete $nets{$id};
-	my $q = delete $netqueues{$id};
-	$q->[0] = $q->[3] = undef; # fail-fast on remaining references
-	return if $net->isa('Pending');
-	unshift @qstack, [];
-	_run(+{
-		type => 'NETSPLIT',
-		net => $net,
-		sendto => [ values %nets ],
-		msg => $msg,
-	});
-	_runq(shift @qstack);
+	if ($net->isa('Pending')) {
+		my $id = $net->id();
+		delete $nets{$id};
+		delete $netqueues{$id};
+	} elsif ($net->isa('InterJanus')) {
+		# TODO enumerate all linked networks and delink them
+	} else {
+		unshift @qstack, [];
+		_run(+{
+			type => 'NETSPLIT',
+			net => $net,
+			msg => $msg,
+		});
+		_runq(shift @qstack);
+	}
 }
 
-
 sub modload {
+ &Janus::hook_add('Janus',
+	NETLINK => act => sub {
+		my $act = shift;
+		my $net = $act->{net};
+		my $id = $net->id();
+		$nets{$id} = $net;
+	}, NETSPLIT => act => sub {
+		my $act = shift;
+		my $net = $act->{net};
+		my $id = $net->id();
+		delete $nets{$id};
+		my $q = delete $netqueues{$id};
+		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
+	});
 	&Janus::command_add({
 		cmd => 'help',
 		help => 'the text you are reading now',

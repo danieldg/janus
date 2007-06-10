@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use Scalar::Util 'weaken';
 
+my @gid :Field :Get(gid);
 my @homenet :Field :Get(homenet);
 my @homenick :Field :Get(homenick);
 my @nets :Field;
@@ -14,6 +15,7 @@ my @info :Field;
 my @ts :Field :Get(ts);
 
 my %initargs :InitArgs = (
+	gid => '',
 	net => '',
 	nick => '',
 	ts => '',
@@ -24,6 +26,9 @@ my %initargs :InitArgs = (
 sub _init :Init {
 	my($nick, $ifo) = @_;
 	my $net = $ifo->{net};
+	my $gid = $ifo->{gid} || $net->id() . ':' . $$nick;
+	$gid[$$nick] = $gid;
+	$Janus::gnicks{$gid} = $nick;
 	$homenet[$$nick] = $net;
 	$homenick[$$nick] = $ifo->{nick};
 	my $homeid = $net->id();
@@ -40,12 +45,11 @@ sub to_ij {
 	my($nick, $ij) = @_;
 	local $_;
 	my $out = '';
-	$out .= ' id="'.$nick->gid().'"';
-# perl -e "print q[\$out .= ' ],\$_,q[='.\$ij->ijstr(\$],\$_,q[{\$\$nick});],qq(\n) for qw/homenet homenick ts nicks mode info/"
+# perl -e "print q[\$out .= ' ],\$_,q[='.\$ij->ijstr(\$],\$_,q[{\$\$nick});],qq(\n) for qw/gid homenet homenick ts nicks mode info/"
+	$out .= ' gid='.$ij->ijstr($gid[$$nick]);
 	$out .= ' homenet='.$ij->ijstr($homenet[$$nick]);
 	$out .= ' homenick='.$ij->ijstr($homenick[$$nick]);
 	$out .= ' ts='.$ij->ijstr($ts[$$nick]);
-	$out .= ' nicks='.$ij->ijstr($nicks[$$nick]);
 	$out .= ' mode='.$ij->ijstr($mode[$$nick]);
 	$out .= ' info=';
 	my %sinfo;
@@ -159,11 +163,6 @@ sub _netclean {
 	}
 }
 
-sub gid {
-	my $nick = $_[0];
-	return $homenet[$$nick]->id() . ':' . $$nick;
-}
-
 sub lid {
 	my $nick = $_[0];
 	return $$nick;
@@ -267,6 +266,7 @@ sub modload {
 			my $name = $nicks[$$nick]->{$id};
 			$net->release_nick($name);
 		}
+		delete $Janus::gnicks{$nick->gid()};
 	}, JOIN => act => sub {
 		my $act = shift;
 		my $nick = $act->{src};

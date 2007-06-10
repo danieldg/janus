@@ -30,16 +30,17 @@ Ban->modload();
 
 sub readable {
 	my $l = shift;
-	my ($sock, $recvq, $sendq, $net) = @$l;
+	my ($sock, $recvq, $sendq) = @$l;
 	my $len = $sock->sysread($recvq, 8192, length $recvq);
 	if ($len) {
 		while ($recvq =~ /\n/) {
 			my $line;
 			($line, $recvq) = split /[\r\n]+/, $recvq, 2;
-			&Janus::in_socket($net, $line);
+			&Janus::in_socket($$l[3], $line);
 		}
 		$$l[1] = $recvq;
 	} else {
+		my $net = $$l[3];
 		if ($sock->isa('IO::Socket::SSL')) {
 			print "SSL error @".$net->id().": ".$sock->errstr()."\n";
 			if ($sock->errstr() eq SSL_WANT_READ) {

@@ -2,10 +2,19 @@ package Pending; {
 use Object::InsideOut;
 use strict;
 use warnings;
+use InterJanus;
+use Socket6;
 
 my @buffer :Field;
 my @delegate :Field;
 my @peer :Field :Arg(peer);
+
+sub _init :Init {
+	my $net = shift;
+	my($port,$addr) = unpack_sockaddr_in6 $peer[$$net];
+	$addr = inet_ntop AF_INET6, $addr;
+	print "Pending connection from $addr:$port\n";
+}
 
 sub id {
 	my $net = shift;
@@ -42,6 +51,13 @@ sub parse {
 				&Janus::in_socket($rnet, $l);
 			}
 		}
+	} elsif ($line eq 'InterJanus 0.1') {
+		my $q = delete $Janus::netqueues{$pnet->id()};
+		my $ij = InterJanus->new();
+		print "Shifting new connection to InterJanus link\n";
+		$ij->intro();
+		$$q[3] = $ij;
+		$Janus::netqueues{$ij->id()} = $q;
 	}
 	();
 }

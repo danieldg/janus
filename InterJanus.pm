@@ -1,21 +1,31 @@
-package InterJanus;
+package InterJanus; {
+use Object::InsideOut;
 use strict;
 use warnings;
 use Nick;
+use RemoteNetwork;
+
+my @sendq :Field;
 
 my %fromirc;
 my %toirc;
-
-sub new {
-	my %j;
-	bless \%j, $_[0];
-}
 
 sub str {
 	$_[1]->{linkname};
 }
 
+sub id {
+	my $ij = shift;
+	'IJ#'.$$ij;
+}
+
 sub intro {
+	my $ij = shift;
+	$sendq[$$ij] = "InterJanus 0.1\n";
+}
+
+sub jlink {
+	$_[0];
 }
 
 my %esc2char = (
@@ -91,7 +101,7 @@ my %to_ij = (
 		$out . '>>';
 	}, LINK => sub {
 		my($ij, $act) = @_;
-		my $out = send_hdr(@_, qw/chan1 chan2/) . ' chan=<c';
+		my $out = send_hdr(@_, qw/chan1 chan2/) . ' dst=<c';
 		$out .= $act->{dst}->to_ij($ij);
 		$out . '>>';
 	}, CONNECT => sub {
@@ -137,7 +147,14 @@ sub ij_send {
 		}
 	}
 	print "    OUT\@IJ $_\n" for @out;
-#	$ij->{sock}->print(map "$_\r\n", @out);
+	$sendq[$$ij] .= join '', map "$_\n", @out;
+}
+
+sub dump_sendq {
+	my $ij = shift;
+	my $q = $sendq[$$ij];
+	$sendq[$$ij] = '';
+	$q;
 }
 
 sub parse {
@@ -164,24 +181,23 @@ my %v_type; %v_type = (
 		$v;
 	}, 'n' => sub {
 		my $ij = shift;
-		s/^n:(\S+)~([^ >]+)// or return undef;
-		$ij->{nets}->{$1}->nick($2);
+		s/^n:([^ >]+)// or return undef;
+		$Janus::gnick{$1};
 	}, 'c' => sub {
 		my $ij = shift;
-		s/^c:(\S+)(#[^ >]*)// or return undef;
-		$ij->{nets}->{$1}->chan($2,0);
+		s/^c:([^ >]+)// or return undef;
+		$Janus::gchan{$1};
 	}, 's' => sub {
 		my $ij = shift;
-		s/^s:(\S+)// or return undef;
-		$ij->{nets}->{$1};
+		s/^s:([^ >]+)// or return undef;
+		$Janus::nets{$1};
 	}, '<a' => sub {
-		my $ij = shift;
 		my @arr;
 		s/^<a// or warn;
 		while (s/^\s+//) {
 			my $v_t = substr $_,0,1;
 			$v_t = substr $_,0,2 if $v_t eq '<';
-			push @arr, $v_type{$v_t}->($ij);
+			push @arr, $v_type{$v_t}->(@_);
 		}
 		s/^>// or warn;
 		\@arr;
@@ -198,21 +214,22 @@ my %v_type; %v_type = (
 		s/^<s// or warn;
 		$ij->_kv_pairs($h);
 		s/^>// or warn;
-		RemoteNetwork->from_ij($ij, $h);
+		RemoteNetwork->new(jlink => $ij, %$h);
 	}, '<c' => sub {
 		my $ij = shift;
 		my $h = {};
-		s/^<h// or warn;
+		s/^<c// or warn;
 		$ij->_kv_pairs($h);
 		s/^>// or warn;
-		Channel->from_ij($ij, $h);
+		Channel->new(%$h);
 	}, '<n' => sub {
 		my $ij = shift;
 		my $h = {};
-		s/^<h// or warn;
+		s/^<n// or warn;
 		$ij->_kv_pairs($h);
 		s/^>// or warn;
-		Nick->from_ij($ij, $h);
+		# TODO verify that homenet is not forged
+		Nick->new(%$h);
 	},
 );
 
@@ -223,8 +240,14 @@ sub _kv_pairs {
 		my $k = $1;
 		my $v_t = substr $_,0,1;
 		$v_t = substr $_,0,2 if $v_t eq '<';
-		$v_type{$v_t}->($ij);
+		$h->{$k} = $v_type{$v_t}->($ij);
 	}
 }
 
-1;
+sub modload {
+ my $class = shift;
+ &Janus::hook_add($class,
+	);
+}
+
+} 1;
