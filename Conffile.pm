@@ -132,6 +132,7 @@ sub modload {
 	}, LINKED => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
+		return if $net->jlink();
 		open my $links, 'links.'.$net->id().'.conf' or return;
 		while (<$links>) {
 			my($cname1, $nname, $cname2) = /^\s*(#\S*)\s+(\S+)\s+(#\S*)/ or next;
