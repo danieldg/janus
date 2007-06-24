@@ -103,7 +103,7 @@ sub modload {
 			my $dnet = $act->{dst};
 			return if $dnet->jlink();
 			my $recip = $dnet->is_req($act->{dlink}, $snet);
-			$recip = 'any' if $act->{override};
+			$recip = 'any' if $recip && $act->{override};
 			if ($act->{linkfile}) {
 				if ($dnet->is_synced()) {
 					$recip = 'any';
