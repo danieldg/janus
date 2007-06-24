@@ -7,6 +7,14 @@ use strict;
 use warnings;
 use Scalar::Util 'weaken';
 
+=head1 Nick
+
+Object representing a nick that exists across several networks
+
+=over
+
+=cut
+
 my @gid :Field :Get(gid);
 my @homenet :Field :Get(homenet);
 my @homenick :Field :Get(homenick);
@@ -80,30 +88,70 @@ sub sendto {
 	}
 }
 
+=item $nick->is_on($net)
+
+return true if the nick is on the given network
+
+=cut
+
 sub is_on {
 	my($nick, $net) = @_;
 	return exists $nets[$$nick]{$net->id()};
 }
+
+=item $nick->has_mode($mode)
+
+return true if the nick has the given umode
+
+=cut
 
 sub has_mode {
 	my $nick = $_[0];
 	return $mode[$$nick]->{$_[1]};
 }
 
+=item $nick->umodes()
+
+returns the (sorted) list of umodes that this nick has set
+
+=cut
+
 sub umodes {
 	my $nick = $_[0];
 	return sort keys %{$mode[$$nick]};
 }
 
+=item $nick->jlink()
+
+returns the InterJanus link if this nick is remote, or undef if it is local
+
+=cut
+
 sub jlink {
 	return $homenet[${$_[0]}]->jlink();
 }
 
-# vhost, ident, etc
+=item $nick->info($item)
+
+information about this nick. Defined global info fields: 
+	host ident ip name vhost away swhois
+
+Locally, more info may be defined by the home Network; this should
+be for use only by that local network
+
+=cut
+
 sub info {
 	my $nick = $_[0];
 	$info[$$nick]{$_[1]};
 }
+
+=item $nick->rejoin($chan)
+
+Connecting to all networks that the given channel is on
+(used when linking channels)
+
+=cut
 
 sub rejoin {
 	my($nick,$chan) = @_;
@@ -114,7 +162,7 @@ sub rejoin {
 		
 	for my $net ($chan->nets()) {
 		next if $nets[$$nick]->{$net->id()};
-		&Janus::insert(+{
+		&Janus::insert_partial(+{
 			type => 'CONNECT',
 			dst => $nick,
 			net => $net,
@@ -163,15 +211,31 @@ sub _netclean {
 	}
 }
 
+=item $nick->lid()
+
+Locally unique ID for this nick (unique for the lifetime of the nick only)
+
+=cut
+
 sub lid {
 	my $nick = $_[0];
 	return $$nick;
 }
 
+=item $nick->str($net)
+
+Get the nick's name on the given network
+
+=cut
+
 sub str {
 	my($nick,$net) = @_;
 	$nicks[$$nick]{$net->id()};
 }
+
+=back
+
+=cut
 
 sub modload {
  my $me = shift;
@@ -279,7 +343,7 @@ sub modload {
 		
 		for my $net ($chan->nets()) {
 			next if $nets[$$nick]->{$net->id()};
-			Janus::insert(+{
+			&Janus::insert_partial(+{
 				type => 'CONNECT',
 				dst => $nick,
 				net => $net,

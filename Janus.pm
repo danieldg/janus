@@ -7,22 +7,11 @@ use warnings;
 use InterJanus;
 use Pending;
 
-# Actions: arguments: (Janus, Action)
-#  validate - make sure arguments are the proper type etc - for IJ origin
-#  parse - possible reparse point (/msg janus *) - only for local origin
-#  check - reject unauthorized and/or impossible commands
-#  act - Main state processing
-#  send - for both local and remote
-#  cleanup - Reference deletion
-#
-# parse and check hooks should return one of the tribool items:
-#  undef if the action was not modified
-#  0 if the action was modified (to detect duplicate hooks)
-#  1 if the action was rejected (should be dropped)
-#
-# act and cleanup hooks ignore the return values.
-#  $act itself should NEVER be modified at this point
-#  Object linking must remain intact in the act hook
+=head1 Janus
+
+Primary event multiplexer
+
+=cut
 
 our $interface;
 
@@ -47,6 +36,34 @@ my %commands = (
 my @qstack;
 my %tqueue;
 
+=head2 Action Hooks
+
+The given coderef will be called with a single argument, the action hashref
+
+Hooks, in order of execution:
+  validate - make sure arguments are the proper type etc - for IJ origin
+  parse - possible reparse point (/msg janus *) - only for local origin
+  check - reject unauthorized and/or impossible commands
+  act - Main state processing
+  send (not a hook) - event is sent to local and remote networks
+  cleanup - Reference deletion
+
+validate, parse and check hooks should return one of the tribool values:
+  undef if the action was not modified
+  0 if the action was modified (to detect duplicate hooks)
+  1 if the action was rejected (should be dropped)
+
+act and cleanup hooks ignore the return values. The action
+hashref itself should NEVER be modified in these hooks
+
+=over
+
+=item Janus::hook_add($module, [type, level, coderef]+)
+
+Add hooks for a module. Should be called from your module's modload() sub
+
+=cut
+
 sub hook_add {
 	my $module = shift;
 	while (@_) {
@@ -56,14 +73,26 @@ sub hook_add {
 	}
 }
 
+=item Janus::hook_del($module)
+
+Remove hooks for a module. Is called automatically when your module is unladed
+
+(however, module unloading is not implemented yet)
+
+=cut
+
 sub hook_del {
-	my $module = @_;
+	my $module = $_[0];
 	for my $t (keys %hooks) {
 		for my $l (keys %{$hooks{$t}}) {
 			delete $hooks{$t}{$l}{$module};
 		}
 	}
 }
+
+=back
+
+=cut
 
 sub _hook {
 	my($type, $lvl, @args) = @_;
@@ -156,11 +185,28 @@ sub _run {
 	_hook($act->{type}, cleanup => $act);
 }
 
-sub insert {
+=head2 Command generation
+
+=over
+
+=item Janus::insert_partial($action,...)
+
+Run the given actions right now, but run any generated actions later
+(use insert_full unless you need this behaviour)
+
+=cut
+
+sub insert_partial {
 	for my $act (@_) {
 		_run($act);
 	}
 }
+
+=item Janus::insert_full($action,...)
+
+Fully run the given actions (including generated ones) before returning
+
+=cut
 
 sub insert_full {
 	for my $act (@_) {
@@ -170,26 +216,23 @@ sub insert_full {
 	}
 }
 
+=item Janus::append($action,...)
+
+Run the given actions after this one is done executing
+
+=cut
+
 sub append {
 	push @{$qstack[0]}, @_;
 }
 
-sub err_jmsg {
-	my $dst = shift;
-	local $_;
-	for (@_) { 
-		print "$_\n";
-		next unless $dst;
-		append(+{
-			type => 'MSG',
-			src => $interface,
-			dst => $dst,
-			msgtype => ($dst->isa('Channel') ? 1 : 2), # channel notice == annoying
-			msg => $_,
-		});
-	}
-}
-	
+=item Janus::jmsg($dst, $msg,...)
+
+Send the given message(s), sourced from the janus interface,
+to the given destination
+
+=cut
+
 sub jmsg {
 	my $dst = shift;
 	return unless $dst;
@@ -202,6 +245,44 @@ sub jmsg {
 		msg => $_,
 	}, @_);
 }
+
+=item Janus::err_jmsg($dst, $msg,...)
+
+Send error messages to the given destination and to standard error
+
+=cut
+
+sub err_jmsg {
+	my $dst = shift;
+	local $_;
+	for (@_) { 
+		print STDERR "$_\n";
+		next unless $dst;
+		append(+{
+			type => 'MSG',
+			src => $interface,
+			dst => $dst,
+			msgtype => ($dst->isa('Channel') ? 1 : 2), # channel notice == annoying
+			msg => $_,
+		});
+	}
+}
+
+=item Janus::schedule(TimeEvent,...)
+
+schedule the given events for later execution
+
+specify {time} as the time to execute
+
+specify {repeat} to repeat the action every N seconds (the action should remove this when it is done)
+
+specify {delay} to run the event once, N seconds from now
+
+{code} is the subref, which is passed the event as its single argument
+
+All other fields are available for use in passing additional arguments to the sub
+
+=cut
 
 sub schedule {
 	for my $event (@_) {
@@ -279,8 +360,7 @@ sub in_command {
 
 sub link {
 	my $net = shift;
-	$nets{$net->id()} = $net;
-	fire_event(+{
+	insert_full(+{
 		type => 'NETLINK',
 		net => $net,
 	});
@@ -297,14 +377,14 @@ sub delink {
 		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
 		for my $snet (values %nets) {
 			next unless $snet->jlink() && $net->id() eq $snet->jlink()->id();
-			fire_event(+{
+			insert_full(+{
 				type => 'NETSPLIT',
 				net => $snet,
 				msg => $msg,
 			});
 		}
 	} else {
-		fire_event(+{
+		insert_full(+{
 			type => 'NETSPLIT',
 			net => $net,
 			msg => $msg,
@@ -312,13 +392,9 @@ sub delink {
 	}
 }
 
-sub fire_event {
-	for my $act (@_) {
-		unshift @qstack, [];
-		_run($act);
-		_runq(shift @qstack);
-	}
-}
+=back
+
+=cut
 
 sub modload {
  &Janus::hook_add('Janus',

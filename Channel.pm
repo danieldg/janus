@@ -7,6 +7,14 @@ use Nick;
 use strict;
 use warnings;
 
+=head1 Channel
+
+Object representing a set of linked channels
+
+=over
+
+=cut
+
 my @ts :Field :Get(ts);
 my @keyname :Field :Get(keyname);
 my @topic :Field :Arg(topic);
@@ -20,9 +28,21 @@ my @nets :Field;
 my @nicks :Field;
 my @nmode :Field;
 
+=item $chan->nets()
+
+List of all networks this channel is on
+
+=cut
+
 sub nets {
 	values %{$nets[${$_[0]}]};
 }
+
+=item $chan->has_nmode($mode, $nick)
+
+Returns true if the nick has the given mode in the channel (n_* modes)
+
+=cut
 
 sub has_nmode {
 	my($chan, $mode, $nick) = @_;
@@ -205,11 +225,23 @@ sub _link_into {
 	}) if @$mode;
 }
 
-# get name on a network
+=item $chan->str($net)
+
+get the channel's name on a given network, or undef if the channel is
+not on the network
+
+=cut
+
 sub str {
 	my($chan,$net) = @_;
 	$names[$$chan]{$net->id()};
 }
+
+=item $chan->is_on($net)
+
+returns true if the channel is linked onto the given network
+
+=cut
 
 sub is_on {
 	my($chan, $net) = @_;
@@ -222,6 +254,12 @@ sub sendto {
 	delete $n{$except->id()} if $except;
 	values %n;
 }
+
+=item $chan->part($nick)
+
+remove records of this nick (for quitting nicks)
+
+=cut
 
 sub part {
 	my($chan,$nick) = @_;
@@ -237,6 +275,13 @@ sub part {
 		$net->replace_chan($name, undef);
 	}
 }
+
+=item $chan->timesync($newts)
+
+If the new timestamp is lower than the current one, wipe modes on the channel
+and set the new timestmp
+
+=cut
 
 # TODO send the new timestamp and/or mode wipe across IJ link
 sub timesync {
@@ -469,5 +514,9 @@ sub modload {
 		}
 	});
 }
+
+=back
+
+=cut
 
 } 1;
