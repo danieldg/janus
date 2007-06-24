@@ -13,6 +13,11 @@ my @sendq :Field;
 my %fromirc;
 my %toirc;
 
+my $INST_DBG = do {
+	my $no;
+	bless \$no;
+};
+
 sub str {
 	$_[1]->{linkname};
 }
@@ -138,9 +143,21 @@ my %to_ij = (
 	DELINK => \&ssend,
 	LINKED => \&ssend,
 	NETSPLIT => \&ssend,
-
-	RECONNECT => \&ssend, # should never be send over an IJ link
 );
+
+sub debug_send {
+	my $ij = $INST_DBG;
+	for my $act (@_) {
+		my $type = $act->{type};
+		print "    ACTION ";
+		if (exists $to_ij{$type}) {
+			print $to_ij{$type}->($ij, $act);
+		} else {
+			print ssend($ij, $act);
+		}
+		print "\n";
+	}
+}
 
 sub ij_send {
 	my $ij = shift;
@@ -150,14 +167,10 @@ sub ij_send {
 		if (exists $to_ij{$type}) {
 			push @out, $to_ij{$type}->($ij, $act);
 		} else {
-			if ($act->{sendto} && !@{$act->{sendto}}) {
-				push @out, '(debug)' . ssend($ij, $act);
-			} else {
-				print "Unknown action type '$type'\n";
-			}
+			print "Unknown action type '$type'\n";
 		}
 	}
-	print "    OUT\@IJ$$ij $_\n" for @out;
+	print "    OUT#$$ij  $_\n" for @out;
 	$sendq[$$ij] .= join '', map "$_\n", @out;
 }
 
@@ -171,7 +184,7 @@ sub dump_sendq {
 sub parse {
 	my $ij = shift;
 	local $_ = $_[0];
-	print "    IN\@IJ $_\n";
+	print "     IN#$$ij  $_\n";
 
 	s/^\s*<(\S+)// or do {
 		warn "bad line: $_";

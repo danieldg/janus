@@ -47,8 +47,6 @@ my %commands = (
 my @qstack;
 my %tqueue;
 
-my $ij_testlink = InterJanus->new();
-
 sub hook_add {
 	my $module = shift;
 	while (@_) {
@@ -94,6 +92,7 @@ sub _mod_hook {
 
 sub _send {
 	my $act = $_[0];
+	&InterJanus::debug_send($act);
 	my @to;
 	if (exists $act->{sendto} && ref $act->{sendto}) {
 		@to = @{$act->{sendto}};
@@ -153,7 +152,6 @@ sub _run {
 		return;
 	}
 	_hook($act->{type}, act => $act);
-	$ij_testlink->ij_send($act);
 	_send($act);
 	_hook($act->{type}, cleanup => $act);
 }
@@ -254,7 +252,6 @@ sub timer {
 			push @{$tqueue{$t}}, $event;
 		}
 	}
-	$ij_testlink->dump_sendq();
 }
 
 sub in_newsock {
