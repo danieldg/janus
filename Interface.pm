@@ -102,30 +102,43 @@ sub modload {
 			my $act = shift;
 			my $snet = $act->{net};
 			my $dnet = $act->{dst};
-			return if $dnet->jlink();
-			my $recip = $dnet->is_req($act->{dlink}, $snet);
-			$recip = 'any' if $act->{override};
-			if ($act->{linkfile}) {
-				if ($dnet->is_synced()) {
-					$recip = 'any';
-				} else {
-					$recip = '';
-					print "Ignoring link to non-synced network\n"
+			print "Link request:";
+			if ($dnet->jlink()) { 
+				print " dst non-local";
+			} else {
+				my $recip = $dnet->is_req($act->{dlink}, $snet);
+				print $recip ? " dst req:$recip" : " dst new req";
+				$recip = 'any' if $recip && $act->{override};
+				if ($act->{linkfile}) {
+					if ($dnet->is_synced()) {
+						print '; linkfile: override';
+						$recip = 'any';
+					} else {
+						$recip = '';
+						print '; linkfile: not synced';
+					}
+				}
+				if ($recip && ($recip eq 'any' || lc $recip eq lc $act->{slink})) {
+					print " => LINK OK!\n";
+					# there has already been a request to link this channel to that network
+					# also, if it was not an override, the request was for this pair of channels
+					$dnet->del_req($act->{dlink}, $snet);
+					&Janus::append(+{
+						type => 'LSYNC',
+						src => $dnet,
+						dst => $snet,
+						chan => $dnet->chan($act->{dlink},1),
+						linkto => $act->{slink},
+					});
+					# do not add it to request list now
+					return;
 				}
 			}
-			if ($recip && ($recip eq 'any' || lc $recip eq lc $act->{slink})) {
-				# there has already been a request to link this channel to that network
-				# also, if it was not an override, the request was for this pair of channels
-				$dnet->del_req($act->{dlink}, $snet);
-				&Janus::append(+{
-					type => 'LSYNC',
-					src => $dnet,
-					dst => $snet,
-					chan => $dnet->chan($act->{dlink},1),
-					linkto => $act->{slink},
-				});
+			if ($snet->jlink()) {
+				print "; src non-local\n";
 			} else {
 				$snet->add_req($act->{slink}, $dnet, $act->{dlink});
+				print "; added to src requests\n";
 			}
 		},
 	);

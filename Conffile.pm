@@ -115,7 +115,7 @@ sub rehash {
 				&Janus::link($net) unless $net->isa('InterJanus');
 	
 				# we start out waiting on writes because that's what connect(2) says for EINPROGRESS connects
-				$Janus::netqueues{$id} = [$sock, '', '', $net, 0, 1];
+				$Janus::netqueues{$net->id()} = [$sock, '', '', $net, 0, 1];
 			}
 		}
 	}

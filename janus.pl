@@ -57,7 +57,7 @@ sub readable {
 				return;
 			}
 		} else {
-			print "Delink from failed read: $!\n";
+			print 'Delink '.$net->id()." from failed read: $!\n";
 		}
 		&Janus::delink($net, 'Socket read failure ('.$!.')');
 	}
