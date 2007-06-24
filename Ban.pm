@@ -73,8 +73,8 @@ sub modload {
 	help => [
 		'Bans are matched against nick!ident@host%netid:name on any remote joins to a shared channel',
 		' ban list - list all active janus bans',
-		' ban add $expr $reason $expire - add a ban',
-		' ban kadd $expr $reason $expire - add a ban, and kill all users matching it',
+		' ban add $expr $expire $reason - add a ban',
+		' ban kadd $expr $expire $reason - add a ban, and kill all users matching it',
 		' ban del $expr|$index - remove a ban by expression or index in the ban list',
 	], code => sub {
 		my $nick = shift;
@@ -92,14 +92,15 @@ sub modload {
 			&Janus::jmsg($nick, 'No bans defined') unless @list;
 		} elsif ($cmd =~ /^k?a/i) {
 			unless ($arg[1]) {
-				&Janus::jmsg($nick, 'Use: ban add $expr $reason $duration');
+				&Janus::jmsg($nick, 'Use: ban add $expr $duration $reason');
 				return;
 			}
+			my $reason = join ' ', @arg[2..$#arg];
 			my $ban = &Ban::add(
 				net => $net,
 				expr => $arg[0],
-				reason => $arg[1],
-				expire => $arg[2] ? $arg[2] + time : 0,
+				expire => $arg[1] ? $arg[1] + time : 0,
+				reason => $reason,
 				setter => $nick->homenick(),
 			);
 			if ($cmd =~ /^a/i) {
@@ -113,7 +114,7 @@ sub modload {
 						type => 'KILL',
 						dst => $n,
 						net => $net,
-						msg => 'Banned by '.$net->netname().': '.$arg[1],
+						msg => 'Banned by '.$net->netname().": $reason",
 					});
 					$c++;
 				}

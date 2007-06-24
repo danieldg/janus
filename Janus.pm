@@ -299,7 +299,7 @@ sub delink {
 		my $q = delete $netqueues{$net->id()};
 		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
 		for my $snet (values %nets) {
-			next unless $net && $net eq $snet->jlink();
+			next unless $snet->jlink() && $net->id() eq $snet->jlink()->id();
 			fire_event(+{
 				type => 'NETSPLIT',
 				net => $snet,
