@@ -368,19 +368,35 @@ sub modload {
 
 		for my $id (keys %{$nets[$$chan1]}) {
 			if (exists $nets[$$chan2]{$id}) {
-				Janus::jmsg($act->{src}, "Cannot link: this channel would be in $id twice");
+				&Janus::jmsg($act->{src}, "Cannot link: this channel would be in $id twice");
 				return;
 			}
 		}
 	
-		my $chan = Channel->new(keyname => $keyname[$$chan1], names => {});
-
 		my $tsctl = ($ts[$$chan2] <=> $ts[$$chan1]);
 		# topic timestamps are backwards: later topic change is taken IF the creation stamps are the same
 		# otherwise go along with the channel sync
 
 		# basic strategy: Modify the two channels in-place to have the same modes as we create
 		# the unified channel
+
+		if ($tsctl > 0) {
+			print "Channel 1 wins TS\n";
+			&Janus::insert_full(+{
+				type => 'TIMESYNC',
+				dst => $chan2,
+				ts => $ts[$$chan1],
+			});
+		} elsif ($tsctl < 0) {
+			print "Channel 2 wins TS\n";
+			&Janus::insert_full(+{
+				type => 'TIMESYNC',
+				dst => $chan1,
+				ts => $ts[$$chan2],
+			});
+		}
+
+		my $chan = Channel->new(keyname => $keyname[$$chan1], names => {});
 
 		my $topctl = ($tsctl > 0 || ($tsctl == 0 && $topicts[$$chan1] >= $topicts[$$chan2]))
 			? $$chan1 : $$chan2;
@@ -389,16 +405,14 @@ sub modload {
 		$topicset[$$chan] = $topicset[$topctl];
 
 		if ($tsctl > 0) {
-			print "Channel 1 wins TS\n";
 			$ts[$$chan] = $ts[$$chan1];
 			$chan->_modecpy($chan1);
 		} elsif ($tsctl < 0) {
-			print "Channel 2 wins TS\n";
 			$ts[$$chan] = $ts[$$chan2];
 			$chan->_modecpy($chan2);
 		} else {
-			$ts[$$chan] = $ts[$$chan1];
 			# Equal timestamps; recovering from a split. Merge any information
+			$ts[$$chan] = $ts[$$chan1];
 			my @allmodes = keys(%{$mode[$$chan1]}), keys(%{$mode[$$chan2]});
 			for my $txt (@allmodes) {
 				if ($txt =~ /^l/) {
@@ -469,7 +483,7 @@ sub modload {
 
 		$act->{split} = $split;
 		$split->_modecpy($chan);
-		$net->replace_chan($name, $split);
+		$net->replace_chan($name, $split) unless $net->jlink();
 
 		for my $nid (keys %{$nicks[$$chan]}) {
 			if ($nicks[$$chan]{$nid}->homenet()->id() eq $id) {
