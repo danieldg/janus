@@ -767,11 +767,17 @@ sub srvname {
 		my $chan = $net->chan($_[3], 1);
 		my $ts = $net->sjbint($_[2]);
 		my $applied = ($chan->ts() >= $ts);
-		$chan->timesync($ts);
 		my $joins = pop;
+		my $cmode = $_[4] || '+';
 
 		my @acts;
-		my $cmode = $_[4] || '+';
+
+		push @acts, +{
+			type => 'TIMESYNC',
+			src => $net,
+			dst => $chan,
+			ts => $ts,
+		} if $chan->ts() > $ts;
 
 		for (split /\s+/, $joins) {
 			if (/^([&"'])(.+)/) {

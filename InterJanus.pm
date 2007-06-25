@@ -133,6 +133,7 @@ my %to_ij = (
 	NICKINFO => \&ssend,
 	UMODE => \&ssend,
 	MODE => \&ssend,
+	TIMESYNC => \&ssend,
 	JOIN => \&ssend,
 	PART => \&ssend,
 	KICK => \&ssend,

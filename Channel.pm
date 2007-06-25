@@ -276,29 +276,6 @@ sub part {
 	}
 }
 
-=item $chan->timesync($newts)
-
-If the new timestamp is lower than the current one, wipe modes on the channel
-and set the new timestmp
-
-=cut
-
-# TODO send the new timestamp and/or mode wipe across IJ link
-sub timesync {
-	my($chan, $new) = @_;
-	unless ($new > 1000000) {
-		#don't EVER destroy channel TSes with that annoying Unreal message
-		warn "Not destroying channel timestamp; mode desync may happen!" if $new;
-		return;
-	}
-	my $old = $ts[$$chan];
-	return if $old <= $new; # we are actually not resetting the TS, how nice!
-	# Wipe modes in preparation for an overriding merge
-	$ts[$$chan] = $new;
-	$nmode[$$chan] = {};
-	$mode[$$chan] = {};
-}
-
 sub modload {
  my $me = shift;
  &Janus::hook_add($me,
@@ -328,6 +305,18 @@ sub modload {
 		my $nick = $act->{kickee};
 		my $chan = $act->{dst};
 		$chan->part($nick);
+	}, TIMESYNC => act => sub {
+		my $act = $_[0];
+		my $chan = $act->{dst};
+		my $ts = $act->{ts};
+		if ($ts < 1000000) {
+			#don't EVER destroy channel TSes with that annoying Unreal message
+			warn "Not destroying channel timestamp; mode desync may happen!" if $ts;
+			return;
+		}
+		$ts[$$chan] = $ts;
+		$nmode[$$chan] = {};
+		$mode[$$chan] = {};
 	}, MODE => act => sub {
 		my $act = $_[0];
 		local $_;
@@ -393,11 +382,6 @@ sub modload {
 		# basic strategy: Modify the two channels in-place to have the same modes as we create
 		# the unified channel
 
-		# First, set the timestamps
-		$chan1->timesync($ts[$$chan2]);
-		$chan2->timesync($ts[$$chan1]);
-		$ts[$$chan] = $ts[$$chan1]; # the timestamps are now equal so just copy #1 because it's first
-
 		my $topctl = ($tsctl > 0 || ($tsctl == 0 && $topicts[$$chan1] >= $topicts[$$chan2]))
 			? $$chan1 : $$chan2;
 		$topic[$$chan] = $topic[$topctl];
@@ -406,11 +390,14 @@ sub modload {
 
 		if ($tsctl > 0) {
 			print "Channel 1 wins TS\n";
+			$ts[$$chan] = $ts[$$chan1];
 			$chan->_modecpy($chan1);
 		} elsif ($tsctl < 0) {
 			print "Channel 2 wins TS\n";
+			$ts[$$chan] = $ts[$$chan2];
 			$chan->_modecpy($chan2);
 		} else {
+			$ts[$$chan] = $ts[$$chan1];
 			# Equal timestamps; recovering from a split. Merge any information
 			my @allmodes = keys(%{$mode[$$chan1]}), keys(%{$mode[$$chan2]});
 			for my $txt (@allmodes) {
