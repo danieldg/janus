@@ -296,6 +296,7 @@ sub schedule {
 
 sub in_socket {
 	my($src,$line) = @_;
+	return unless $src;
 	my @act = $src->parse($line);
 	my $parse_hook = $src->isa('Network');
 	for my $act (@act) {

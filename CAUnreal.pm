@@ -1174,8 +1174,7 @@ sub cmd2 {
 			return $net->cmd2($src, MODE => $act->{dst}, @interp, 0);
 		}
 	}, TIMESYNC => sub {
-		my($net,$act) = @_;
-		$net->cmd1(MODE => $act->{dst}, '+', $act->{ts});
+		();
 	}, TOPIC => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, TOPIC => $act->{dst}, $act->{topicset}, 
