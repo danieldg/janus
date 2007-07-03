@@ -142,7 +142,7 @@ sub _mode_delta {
 	(\@modes, \@args);
 }
 
-sub _link_into {
+sub _link_into_start {
 	my($src,$chan) = @_;
 	for my $id (keys %{$nets[$$src]}) {
 		my $net = $nets[$$src]{$id};
@@ -166,7 +166,10 @@ sub _link_into {
 			rejoin => 1,
 		}) unless $nick->jlink();
 	}
+}
 
+sub _link_into_finish {
+	my($src,$chan) = @_;
 	if (($topic[$$src] || '') ne ($topic[$$chan] || '')) {
 		Janus::append(+{
 			type => 'TOPIC',
@@ -377,8 +380,10 @@ sub modload {
 		my $chan = $act->{dst};
 		my($chan1,$chan2) = ($act->{chan1}, $act->{chan2});
 		
-		$chan1->_link_into($chan);
-		$chan2->_link_into($chan);
+		$chan1->_link_into_start($chan);
+		$chan2->_link_into_start($chan);
+		$chan1->_link_into_finish($chan);
+		$chan2->_link_into_finish($chan);
 	}, DELINK => check => sub {
 		my $act = shift;
 		my $chan = $act->{dst};
