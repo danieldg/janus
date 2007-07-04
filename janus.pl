@@ -12,6 +12,7 @@ use Network;
 use LocalNetwork;
 use Interface;
 use Ban;
+use IO::Select;
 use IO::Socket::SSL;
 
 $| = 1;
@@ -28,8 +29,6 @@ LocalNetwork->modload();
 # Eventually, some may be able to be loaded and unloaded without needing to restart janus
 Interface->modload('janus2');
 Ban->modload();
-
-&Conffile::rehash($Janus::interface);
 
 sub readable {
 	my $l = shift;

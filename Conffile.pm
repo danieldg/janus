@@ -4,19 +4,18 @@
 package Conffile;
 use strict;
 use warnings;
-use InterJanus;
-use IO::Select;
-use IO::Socket::INET6;
-use IO::Socket::SSL 'inet6';
-use Socket6;
-use Fcntl;
-use CAUnreal;
-use Unreal;
 
 our $conffile;
 our %netconf;
+our %inet = (
+	# these values are replaced in modload by IPv4 or IPv6 code
+	# for creating IO::Socket objects. The dynamic choice can only
+	# happen once as it defines some symbols in this package
+	listn => sub { die },
+	conn => sub { die },
+);
 
-sub rehash {
+sub read_conf {
 	my $nick = shift;
 
 	local $_;
@@ -59,6 +58,13 @@ sub rehash {
 			$current = {};
 			$current->{port} = $1;
 			$newconf{'LISTEN:'.$1} = $current;
+		} elsif ($type eq 'set') {
+			if (defined $current) {
+				&Janus::err_jmsg($nick, "Missing closing brace at line $. of config file, aborting");
+				return;
+			}
+			$current = {};
+			$newconf{janus} = $current;
 		} elsif ($type eq '}') {
 			unless (defined $current) {
 				&Janus::err_jmsg($nick, "Extra closing brace at line $. of config file");
@@ -76,23 +82,19 @@ sub rehash {
 	}
 	close $conf;
 	%netconf = %newconf;
+}
+
+sub do_reconnects {
+	my $nick = shift;
 	for my $id (keys %netconf) {
 		my $nconf = $netconf{$id};
 		next if exists $Janus::netqueues{$id};
 		if ($id =~ /^LISTEN:/) {
-			my $port = $nconf->{port};
-			my $sock = IO::Socket::INET6->new(
-				Listen => 5, 
-				Proto => 'tcp', 
-				LocalPort => $port, 
-				Blocking => 0,
-			);
+			my $sock = $inet{listn}->($nconf->{port});
 			if ($sock) {
-				fcntl $sock, F_SETFL, O_NONBLOCK;
-				setsockopt $sock, SOL_SOCKET, SO_REUSEADDR, 1;
 				$Janus::netqueues{$id} = [$sock, undef, undef, undef, 1, 0];
 			} else {
-				&Janus::err_jmsg($nick, "Could not listen on port $port: $!");
+				&Janus::err_jmsg($nick, "Could not listen on port $nconf->{port}: $!");
 			}
 		} elsif ($nconf->{autoconnect}) {
 			my $type = $nconf->{type};
@@ -102,16 +104,10 @@ sub rehash {
 			} else {
 				print "Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}\n";
 	
-				my $addr = sockaddr_in6($nconf->{linkport}, inet_pton(AF_INET6, $nconf->{linkaddr}));
-				my $sock = IO::Socket::INET6->new(Proto => 'tcp', Blocking => 0);
-				fcntl $sock, F_SETFL, O_NONBLOCK;
-				connect $sock, $addr;
-	
-				if ($nconf->{linktype} =~ /^ssl/) {
-					IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
-					$sock->connect_SSL();
-				}
+				my $sock = $inet{conn}->($nconf->{linkaddr}, $nconf->{linkport}, $nconf->{linktype} =~ /^ssl/);
+
 				$net->intro($nconf);
+
 				&Janus::link($net) unless $net->isa('InterJanus');
 	
 				# we start out waiting on writes because that's what connect(2) says for EINPROGRESS connects
@@ -119,6 +115,12 @@ sub rehash {
 			}
 		}
 	}
+}
+
+sub rehash {
+	my $nick = shift;
+	read_conf $nick;
+	do_reconnects $nick;
 	&Janus::jmsg($nick,'Rehashed');
 }
 
@@ -149,6 +151,82 @@ sub modload {
 		}
 		close $links;
 	});
+
+	read_conf;
+	if ($netconf{janus}{ipv6}) {
+		eval q[
+			use IO::Socket::INET6;
+			use IO::Socket::SSL 'inet6';
+			use Socket6;
+			use Fcntl;
+			1;
+		] or die "Could not load IPv6 socket code: $@";
+		%Conffile::inet = (
+			listn => eval q[ sub {
+				my $port = shift;
+				my $sock = IO::Socket::INET6->new(
+					Listen => 5, 
+					Proto => 'tcp', 
+					LocalPort => $port, 
+					Blocking => 0,
+				);
+				if ($sock) {
+					fcntl $sock, F_SETFL, O_NONBLOCK;
+					setsockopt $sock, SOL_SOCKET, SO_REUSEADDR, 1;
+				}
+				$sock;
+			} ], 
+			conn => eval q[ sub {
+				my($ip,$port,$ssl) = @_;
+				my $addr = sockaddr_in6($port, inet_pton(AF_INET6, $ip));
+				my $sock = IO::Socket::INET6->new(Proto => 'tcp', Blocking => 0);
+				fcntl $sock, F_SETFL, O_NONBLOCK;
+				connect $sock, $addr;
+	
+				if ($ssl) {
+					IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
+					$sock->connect_SSL();
+				}
+				$sock;
+			} ],
+		);
+	} else {
+		eval q[
+			use IO::Socket::INET;
+			use IO::Socket::SSL;
+			use Socket;
+			use Fcntl;
+			1;
+		] or die "Could not load IPv4 socket code: $@";
+		%Conffile::inet = (
+			listn => eval q[ sub {
+				my $port = shift;
+				my $sock = IO::Socket::INET->new(
+					Listen => 5, 
+					Proto => 'tcp', 
+					LocalPort => $port, 
+					Blocking => 0,
+				);
+				fcntl $sock, F_SETFL, O_NONBLOCK;
+				setsockopt $sock, SOL_SOCKET, SO_REUSEADDR, 1;
+				$sock;
+			} ], 
+			conn => eval q[ sub {
+				my($ip,$port,$ssl) = @_;
+				my $addr = sockaddr_in($port, inet_aton($ip));
+				my $sock = IO::Socket::INET->new(Proto => 'tcp', Blocking => 0);
+				fcntl $sock, F_SETFL, O_NONBLOCK;
+				connect $sock, $addr;
+	
+				if ($ssl) {
+					IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
+					$sock->connect_SSL();
+				}
+				$sock;
+			} ],
+		);
+	}
+	do_reconnects;
 }
 
 1;
