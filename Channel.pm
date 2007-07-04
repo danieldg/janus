@@ -177,7 +177,7 @@ sub _mode_delta {
 	(\@modes, \@args);
 }
 
-sub _link_into_start {
+sub _link_into {
 	my($src,$chan) = @_;
 	for my $id (keys %{$nets[$$src]}) {
 		my $net = $nets[$$src]{$id};
@@ -185,6 +185,26 @@ sub _link_into_start {
 		$Janus::gchans{$id.$name} = $chan;
 		next if $net->jlink();
 		$net->replace_chan($name, $chan);
+	}
+
+	my ($mode, $marg) = $src->_mode_delta($chan);
+	&Janus::append(+{
+		type => 'MODE',
+		dst => $src,
+		mode => $mode,
+		args => $marg,
+		nojlink => 1,
+	}) if @$mode;
+
+	if (($topic[$$src] || '') ne ($topic[$$chan] || '')) {
+		&Janus::append(+{
+			type => 'TOPIC',
+			dst => $src,
+			topic => $topic[$$chan],
+			topicts => $topicts[$$chan],
+			topicset => $topicset[$$chan],
+			nojlink => 1,
+		});
 	}
 
 	for my $nid (keys %{$nicks[$$src]}) {
@@ -203,29 +223,6 @@ sub _link_into_start {
 			rejoin => 1,
 		}) unless $nick->jlink();
 	}
-}
-
-sub _link_into_finish {
-	my($src,$chan) = @_;
-	if (($topic[$$src] || '') ne ($topic[$$chan] || '')) {
-		&Janus::append(+{
-			type => 'TOPIC',
-			dst => $src,
-			topic => $topic[$$chan],
-			topicts => $topicts[$$chan],
-			topicset => $topicset[$$chan],
-			nojlink => 1,
-		});
-	}
-
-	my ($mode, $marg) = $src->_mode_delta($chan);
-	&Janus::append(+{
-		type => 'MODE',
-		dst => $src,
-		mode => $mode,
-		args => $marg,
-		nojlink => 1,
-	}) if @$mode;
 }
 
 =item $chan->str($net)
@@ -318,8 +315,10 @@ sub modload {
 			return;
 		}
 		$ts[$$chan] = $ts;
-		$nmode[$$chan] = {};
-		$mode[$$chan] = {};
+		if ($act->{wipe}) {
+			$nmode[$$chan] = {};
+			$mode[$$chan] = {};
+		}
 	}, MODE => act => sub {
 		my $act = $_[0];
 		local $_;
@@ -385,17 +384,19 @@ sub modload {
 
 		if ($tsctl > 0) {
 			print "Channel 1 wins TS\n";
-			&Janus::insert_full(+{
+			&Janus::append(+{
 				type => 'TIMESYNC',
 				dst => $chan2,
 				ts => $ts[$$chan1],
+				wipe => 1,
 			});
 		} elsif ($tsctl < 0) {
 			print "Channel 2 wins TS\n";
-			&Janus::insert_full(+{
+			&Janus::append(+{
 				type => 'TIMESYNC',
 				dst => $chan1,
 				ts => $ts[$$chan2],
+				wipe => 1,
 			});
 		}
 
@@ -437,6 +438,7 @@ sub modload {
 			}
 		}
 
+		# copy in nets and names of the channel
 		$chan->_mergenet($chan1);
 		$chan->_mergenet($chan2);
 
@@ -452,10 +454,8 @@ sub modload {
 		my $chan = $act->{dst};
 		my($chan1,$chan2) = ($act->{chan1}, $act->{chan2});
 		
-		$chan1->_link_into_start($chan) if $chan1;
-		$chan2->_link_into_start($chan) if $chan2;
-		$chan1->_link_into_finish($chan) if $chan1;
-		$chan2->_link_into_finish($chan) if $chan2;
+		$chan1->_link_into($chan) if $chan1;
+		$chan2->_link_into($chan) if $chan2;
 	}, DELINK => check => sub {
 		my $act = shift;
 		my $chan = $act->{dst};

@@ -781,6 +781,7 @@ sub srvname {
 			src => $net,
 			dst => $chan,
 			ts => $ts,
+			wipe => 1,
 		} if $chan->ts() > $ts;
 
 		for (split /\s+/, $joins) {
@@ -831,6 +832,23 @@ sub srvname {
 		};
 	}, MODE => sub {
 		my $net = shift;
+		my $src = $net->item($_[0]);
+		my $chan = $net->item($_[2]);
+		if ($chan->isa('Nick')) {
+			# umode change
+			return () unless $chan->homenet()->id() eq $net->id();
+			return $net->_parse_umode($chan, @_[3 .. $#_]);
+		}
+		my @out;
+		if ($src->isa('Network') && $_[-1] =~ /^(\d+)$/) {
+			#TS update
+			push @out, +{
+				type => 'TIMESYNC',
+				dst => $chan,
+				ts => $1,
+				wipe => 0,
+			} if $1 && $1 < $chan->ts();
+		}
 		if ($_[3] =~ /^&/) {
 			# mode bounce: assume we are correct, and inform the server
 			# that they are mistaken about whatever they think we have wrong. 
@@ -838,16 +856,17 @@ sub srvname {
 			$mode =~ s/&//;
 			$mode =~ y/+-/-+/;
 			$net->send($net->cmd1(MODE => $_[2], $mode, @_[4 .. $#_]));
-			return ();
+		} else {
+			my($modes,$args) = $net->_modeargs(@_[3 .. $#_]);
+			push @out, {
+				type => 'MODE',
+				src => $src,
+				dst => $chan,
+				mode => $modes,
+				args => $args,
+			};
 		}
-		my($modes,$args) = $net->_modeargs(@_[3 .. $#_]);
-		return {
-			type => 'MODE',
-			src => $net->item($_[0]),
-			dst => $net->item($_[2]),
-			mode => $modes,
-			args => $args,
-		};
+		@out;
 	}, TOPIC => sub {
 		my $net = shift;
 		my %act = (
@@ -1158,7 +1177,7 @@ sub cmd2 {
 			$mode .= $net->txt2cmode($_) for keys %{$act->{mode}};
 		}
 		$mode =~ tr/qaohv/*~@%+/;
-		$net->cmd1(SJOIN => $net->sjb64($chan->ts()), $chan->str($net), $mode.$net->_out($act->{src}));
+		$net->cmd1(SJOIN => $net->sjb64($chan->ts()), $chan, $mode.$net->_out($act->{src}));
 	}, PART => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, PART => $act->{dst}, $act->{msg});
@@ -1177,7 +1196,12 @@ sub cmd2 {
 			return $net->cmd2($src, MODE => $act->{dst}, @interp, 0);
 		}
 	}, TIMESYNC => sub {
-		();
+		my($net,$act) = @_;
+		if ($act->{wipe}) {
+			return $net->cmd1(SJOIN => $net->sjb64($act->{ts}), $act->{dst}, '+', '');
+		} else {
+			return $net->cmd1(MODE => $act->{dst}, '+', $act->{ts});
+		}
 	}, TOPIC => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, TOPIC => $act->{dst}, $act->{topicset}, 
