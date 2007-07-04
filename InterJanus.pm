@@ -31,7 +31,6 @@ sub intro {
 	my $ij = shift;
 	$sendq[$$ij] = "<InterJanus version=\"0.1\">\n";
 	for my $net (values %Janus::nets) {
-		next if $net->isa('Interface');
 		$ij->ij_send(+{
 			type => 'NETLINK',
 			net => $net,
@@ -107,9 +106,10 @@ sub ignore { (); }
 my %to_ij = (
 	NETLINK => sub {
 		my($ij, $act) = @_;
+		return '' if $act->{net}->isa('Interface');
 		my $out = send_hdr(@_, qw/sendto/) . ' net=<s';
 		$out .= $act->{net}->to_ij($ij);
-		$out .= '>>';
+		$out . '>>';
 	}, LSYNC => sub {
 		my($ij, $act) = @_;
 		my $out = send_hdr(@_, qw/dst linkto/) . ' chan=<c';
@@ -171,6 +171,7 @@ sub ij_send {
 			print "Unknown action type '$type'\n";
 		}
 	}
+	@out = grep $_, @out; #remove blank lines
 	print "    OUT#$$ij  $_\n" for @out;
 	$sendq[$$ij] .= join '', map "$_\n", @out;
 }
@@ -270,12 +271,6 @@ sub _kv_pairs {
 		return warn "Cannot find v_t for: $_" unless $v_type{$v_t};
 		$h->{$k} = $v_type{$v_t}->($ij);
 	}
-}
-
-sub modload {
- my $class = shift;
- &Janus::hook_add($class,
-	);
 }
 
 } 1;
