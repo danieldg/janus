@@ -7,7 +7,14 @@ use strict;
 use warnings;
 
 # TODO track these
-sub all_nicks { () }
-sub all_chans { () }
+sub all_nicks { 
+	my $net = shift;
+	grep { $_->is_on($net) } values %Janus::gnicks;
+}
+
+sub all_chans {
+	my $net = shift;
+	grep { $_->is_on($net) } values %Janus::gchans;
+}
 
 } 1;

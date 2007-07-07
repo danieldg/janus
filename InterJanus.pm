@@ -95,7 +95,7 @@ sub ssend {
 	my($ij, $act) = @_;
 	my $out = "<$act->{type}";
 	for my $key (sort keys %$act) {
-		next if $key eq 'type';
+		next if $key eq 'type' || $key eq 'except';
 		$out .= ' '.$key.'='.$ij->ijstr($act->{$key}) 
 	}
 	$out.'>';

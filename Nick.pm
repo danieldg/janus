@@ -159,10 +159,10 @@ sub rejoin {
 	$chans[$$nick]{lc $name} = $chan;
 
 	return if $nick->jlink();
-		
+
 	for my $net ($chan->nets()) {
 		next if $nets[$$nick]->{$net->id()};
-		&Janus::insert_partial(+{
+		&Janus::append(+{
 			type => 'CONNECT',
 			dst => $nick,
 			net => $net,

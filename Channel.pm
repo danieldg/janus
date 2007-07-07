@@ -84,7 +84,7 @@ sub _init :Init {
 		for my $id (keys %$names) {
 			my $name = $names->{$id};
 			$nets[$$c]{$id} = $Janus::nets{$id};
-			$Janus::gchans{$id.$name} = $c;
+			$Janus::gchans{$id.$name} = $c unless $Janus::gchans{$id.$name};
 		}
 		$ts[$$c] = $ifo->{ts} || (time + 60);
 	} else {
@@ -179,13 +179,17 @@ sub _mode_delta {
 
 sub _link_into {
 	my($src,$chan) = @_;
+	print "Link into:";
 	for my $id (keys %{$nets[$$src]}) {
+		print " $id";
 		my $net = $nets[$$src]{$id};
 		my $name = $names[$$src]{$id};
 		$Janus::gchans{$id.$name} = $chan;
 		next if $net->jlink();
+		print '+';
 		$net->replace_chan($name, $chan);
 	}
+	print "\n";
 
 	my ($mode, $marg) = $src->_mode_delta($chan);
 	&Janus::append(+{
