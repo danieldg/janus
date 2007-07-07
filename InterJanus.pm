@@ -1,24 +1,45 @@
 # Copyright (C) 2007 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
-package InterJanus;
+package InterJanus; {
+use Object::InsideOut;
 use strict;
 use warnings;
 use Nick;
+use RemoteNetwork;
+
+my @sendq :Field;
 
 my %fromirc;
 my %toirc;
 
-sub new {
-	my %j;
-	bless \%j, $_[0];
-}
+my $INST_DBG = do {
+	my $no;
+	bless \$no;
+};
 
 sub str {
 	$_[1]->{linkname};
 }
 
+sub id {
+	my $ij = shift;
+	'IJ#'.$$ij;
+}
+
 sub intro {
+	my $ij = shift;
+	$sendq[$$ij] = "<InterJanus version=\"0.1\">\n";
+	for my $net (values %Janus::nets) {
+		$ij->ij_send(+{
+			type => 'NETLINK',
+			net => $net,
+		});
+	}
+}
+
+sub jlink {
+	$_[0];
 }
 
 my %esc2char = (
@@ -53,8 +74,9 @@ sub ijstr {
 		return 'c:'.$itm->keyname();
 	} elsif ($itm->isa('Network')) {
 		return 's:'.$itm->id();
+	} elsif ($itm->isa('InterJanus')) {
+		return '';
 	}
-
 	warn "Unknown object $itm";
 	return '""';
 }
@@ -73,7 +95,7 @@ sub ssend {
 	my($ij, $act) = @_;
 	my $out = "<$act->{type}";
 	for my $key (sort keys %$act) {
-		next if $key eq 'type';
+		next if $key eq 'type' || $key eq 'except';
 		$out .= ' '.$key.'='.$ij->ijstr($act->{$key}) 
 	}
 	$out.'>';
@@ -84,9 +106,10 @@ sub ignore { (); }
 my %to_ij = (
 	NETLINK => sub {
 		my($ij, $act) = @_;
+		return '' if $act->{net}->isa('Interface');
 		my $out = send_hdr(@_, qw/sendto/) . ' net=<s';
 		$out .= $act->{net}->to_ij($ij);
-		$out .= '>>';
+		$out . '>>';
 	}, LSYNC => sub {
 		my($ij, $act) = @_;
 		my $out = send_hdr(@_, qw/dst linkto/) . ' chan=<c';
@@ -94,12 +117,12 @@ my %to_ij = (
 		$out . '>>';
 	}, LINK => sub {
 		my($ij, $act) = @_;
-		my $out = send_hdr(@_, qw/chan1 chan2/) . ' chan=<c';
+		my $out = send_hdr(@_, qw/chan1 chan2/) . ' dst=<c';
 		$out .= $act->{dst}->to_ij($ij);
 		$out . '>>';
 	}, CONNECT => sub {
 		my($ij, $act) = @_;
-		my $out = send_hdr(@_, qw/net/) . ' nick=<n';
+		my $out = send_hdr(@_, qw/net/) . ' dst=<n';
 		$out .= $act->{dst}->to_ij($ij);
 		$out . '>>';
 	}, NICK => sub {
@@ -110,6 +133,7 @@ my %to_ij = (
 	NICKINFO => \&ssend,
 	UMODE => \&ssend,
 	MODE => \&ssend,
+	TIMESYNC => \&ssend,
 	JOIN => \&ssend,
 	PART => \&ssend,
 	KICK => \&ssend,
@@ -120,9 +144,21 @@ my %to_ij = (
 	DELINK => \&ssend,
 	LINKED => \&ssend,
 	NETSPLIT => \&ssend,
-
-	RECONNECT => \&ssend, # should never be send over an IJ link
 );
+
+sub debug_send {
+	my $ij = $INST_DBG;
+	for my $act (@_) {
+		my $type = $act->{type};
+		print "    ACTION ";
+		if (exists $to_ij{$type}) {
+			print $to_ij{$type}->($ij, $act);
+		} else {
+			print ssend($ij, $act);
+		}
+		print "\n";
+	}
+}
 
 sub ij_send {
 	my $ij = shift;
@@ -132,20 +168,25 @@ sub ij_send {
 		if (exists $to_ij{$type}) {
 			push @out, $to_ij{$type}->($ij, $act);
 		} else {
-			if ($act->{sendto} && !@{$act->{sendto}}) {
-				push @out, '(debug)' . ssend($ij, $act);
-			} else {
-				print "Unknown action type '$type'\n";
-			}
+			print "Unknown action type '$type'\n";
 		}
 	}
-	print "    OUT\@IJ $_\n" for @out;
-#	$ij->{sock}->print(map "$_\r\n", @out);
+	@out = grep $_, @out; #remove blank lines
+	print "    OUT#$$ij  $_\n" for @out;
+	$sendq[$$ij] .= join '', map "$_\n", @out;
+}
+
+sub dump_sendq {
+	my $ij = shift;
+	my $q = $sendq[$$ij];
+	$sendq[$$ij] = '';
+	$q;
 }
 
 sub parse {
 	my $ij = shift;
 	local $_ = $_[0];
+	print "     IN#$$ij  $_\n";
 
 	s/^\s*<(\S+)// or do {
 		warn "bad line: $_";
@@ -154,6 +195,7 @@ sub parse {
 	my $act = { type => $1 };
 	$ij->_kv_pairs($act);
 	warn "bad line: $_[0]" unless /^\s*>\s*$/;
+	$act->{except} = $ij;
 	$act;
 }
 
@@ -167,24 +209,23 @@ my %v_type; %v_type = (
 		$v;
 	}, 'n' => sub {
 		my $ij = shift;
-		s/^n:(\S+)~([^ >]+)// or return undef;
-		$ij->{nets}->{$1}->nick($2);
+		s/^n:([^ >]+)// or return undef;
+		$Janus::gnicks{$1};
 	}, 'c' => sub {
 		my $ij = shift;
-		s/^c:(\S+)(#[^ >]*)// or return undef;
-		$ij->{nets}->{$1}->chan($2,0);
+		s/^c:([^ >]+)// or return undef;
+		$Janus::gchans{$1};
 	}, 's' => sub {
 		my $ij = shift;
-		s/^s:(\S+)// or return undef;
-		$ij->{nets}->{$1};
+		s/^s:([^ >]+)// or return undef;
+		$Janus::nets{$1};
 	}, '<a' => sub {
-		my $ij = shift;
 		my @arr;
 		s/^<a// or warn;
 		while (s/^\s+//) {
 			my $v_t = substr $_,0,1;
 			$v_t = substr $_,0,2 if $v_t eq '<';
-			push @arr, $v_type{$v_t}->($ij);
+			push @arr, $v_type{$v_t}->(@_);
 		}
 		s/^>// or warn;
 		\@arr;
@@ -201,21 +242,22 @@ my %v_type; %v_type = (
 		s/^<s// or warn;
 		$ij->_kv_pairs($h);
 		s/^>// or warn;
-		RemoteNetwork->from_ij($ij, $h);
+		RemoteNetwork->new(jlink => $ij, %$h);
 	}, '<c' => sub {
 		my $ij = shift;
 		my $h = {};
-		s/^<h// or warn;
+		s/^<c// or warn;
 		$ij->_kv_pairs($h);
 		s/^>// or warn;
-		Channel->from_ij($ij, $h);
+		Channel->new(%$h);
 	}, '<n' => sub {
 		my $ij = shift;
 		my $h = {};
-		s/^<h// or warn;
+		s/^<n// or warn;
 		$ij->_kv_pairs($h);
 		s/^>// or warn;
-		Nick->from_ij($ij, $h);
+		# TODO verify that homenet is not forged
+		$Janus::gnicks{$h->{gid}} || Nick->new(%$h);
 	},
 );
 
@@ -226,8 +268,9 @@ sub _kv_pairs {
 		my $k = $1;
 		my $v_t = substr $_,0,1;
 		$v_t = substr $_,0,2 if $v_t eq '<';
-		$v_type{$v_t}->($ij);
+		return warn "Cannot find v_t for: $_" unless $v_type{$v_t};
+		$h->{$k} = $v_type{$v_t}->($ij);
 	}
 }
 
-1;
+} 1;

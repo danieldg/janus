@@ -7,6 +7,15 @@ use strict;
 use warnings;
 use Scalar::Util 'weaken';
 
+=head1 Nick
+
+Object representing a nick that exists across several networks
+
+=over
+
+=cut
+
+my @gid :Field :Get(gid);
 my @homenet :Field :Get(homenet);
 my @homenick :Field :Get(homenick);
 my @nets :Field;
@@ -17,6 +26,7 @@ my @info :Field;
 my @ts :Field :Get(ts);
 
 my %initargs :InitArgs = (
+	gid => '',
 	net => '',
 	nick => '',
 	ts => '',
@@ -27,6 +37,9 @@ my %initargs :InitArgs = (
 sub _init :Init {
 	my($nick, $ifo) = @_;
 	my $net = $ifo->{net};
+	my $gid = $ifo->{gid} || $net->id() . ':' . $$nick;
+	$gid[$$nick] = $gid;
+	$Janus::gnicks{$gid} = $nick;
 	$homenet[$$nick] = $net;
 	$homenick[$$nick] = $ifo->{nick};
 	my $homeid = $net->id();
@@ -43,12 +56,10 @@ sub to_ij {
 	my($nick, $ij) = @_;
 	local $_;
 	my $out = '';
-	$out .= ' id="'.$nick->gid().'"';
-# perl -e "print q[\$out .= ' ],\$_,q[='.\$ij->ijstr(\$],\$_,q[{\$\$nick});],qq(\n) for qw/homenet homenick ts nicks mode info/"
-	$out .= ' homenet='.$ij->ijstr($homenet[$$nick]);
-	$out .= ' homenick='.$ij->ijstr($homenick[$$nick]);
+	$out .= ' gid='.$ij->ijstr($gid[$$nick]);
+	$out .= ' net='.$ij->ijstr($homenet[$$nick]);
+	$out .= ' nick='.$ij->ijstr($homenick[$$nick]);
 	$out .= ' ts='.$ij->ijstr($ts[$$nick]);
-	$out .= ' nicks='.$ij->ijstr($nicks[$$nick]);
 	$out .= ' mode='.$ij->ijstr($mode[$$nick]);
 	$out .= ' info=';
 	my %sinfo;
@@ -77,30 +88,70 @@ sub sendto {
 	}
 }
 
+=item $nick->is_on($net)
+
+return true if the nick is on the given network
+
+=cut
+
 sub is_on {
 	my($nick, $net) = @_;
 	return exists $nets[$$nick]{$net->id()};
 }
+
+=item $nick->has_mode($mode)
+
+return true if the nick has the given umode
+
+=cut
 
 sub has_mode {
 	my $nick = $_[0];
 	return $mode[$$nick]->{$_[1]};
 }
 
+=item $nick->umodes()
+
+returns the (sorted) list of umodes that this nick has set
+
+=cut
+
 sub umodes {
 	my $nick = $_[0];
 	return sort keys %{$mode[$$nick]};
 }
 
+=item $nick->jlink()
+
+returns the InterJanus link if this nick is remote, or undef if it is local
+
+=cut
+
 sub jlink {
 	return $homenet[${$_[0]}]->jlink();
 }
 
-# vhost, ident, etc
+=item $nick->info($item)
+
+information about this nick. Defined global info fields: 
+	host ident ip name vhost away swhois
+
+Locally, more info may be defined by the home Network; this should
+be for use only by that local network
+
+=cut
+
 sub info {
 	my $nick = $_[0];
 	$info[$$nick]{$_[1]};
 }
+
+=item $nick->rejoin($chan)
+
+Connecting to all networks that the given channel is on
+(used when linking channels)
+
+=cut
 
 sub rejoin {
 	my($nick,$chan) = @_;
@@ -108,14 +159,13 @@ sub rejoin {
 	$chans[$$nick]{lc $name} = $chan;
 
 	return if $nick->jlink();
-		
+
 	for my $net ($chan->nets()) {
 		next if $nets[$$nick]->{$net->id()};
-		&Janus::insert(+{
+		&Janus::append(+{
 			type => 'CONNECT',
 			dst => $nick,
 			net => $net,
-			nojlink => 1,
 		});
 	}
 }
@@ -124,7 +174,6 @@ sub _part {
 	my($nick,$chan) = @_;
 	my $name = $chan->str($homenet[$$nick]);
 	delete $chans[$$nick]->{lc $name};
-	return if $nick->jlink();
 	$nick->_netclean($chan->nets());
 }
 
@@ -162,20 +211,31 @@ sub _netclean {
 	}
 }
 
-sub gid {
-	my $nick = $_[0];
-	return $homenet[$$nick]->id() . ':' . $$nick;
-}
+=item $nick->lid()
+
+Locally unique ID for this nick (unique for the lifetime of the nick only)
+
+=cut
 
 sub lid {
 	my $nick = $_[0];
 	return $$nick;
 }
 
+=item $nick->str($net)
+
+Get the nick's name on the given network
+
+=cut
+
 sub str {
 	my($nick,$net) = @_;
 	$nicks[$$nick]{$net->id()};
 }
+
+=back
+
+=cut
 
 sub modload {
  my $me = shift;
@@ -270,6 +330,7 @@ sub modload {
 			my $name = $nicks[$$nick]->{$id};
 			$net->release_nick($name);
 		}
+		delete $Janus::gnicks{$nick->gid()};
 	}, JOIN => act => sub {
 		my $act = shift;
 		my $nick = $act->{src};
@@ -282,7 +343,7 @@ sub modload {
 		
 		for my $net ($chan->nets()) {
 			next if $nets[$$nick]->{$net->id()};
-			Janus::insert(+{
+			&Janus::insert_partial(+{
 				type => 'CONNECT',
 				dst => $nick,
 				net => $net,

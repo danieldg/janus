@@ -107,7 +107,7 @@ sub modload {
 				&Janus::jmsg($nick, 'Ban added');
 			} else {
 				my $c = 0;
-				for my $n (values %{$net->_nicks()}) {
+				for my $n ($net->all_nicks()) {
 					next if $n->homenet()->id() eq $net->id();
 					next unless $ban->match($n);
 					&Janus::append(+{

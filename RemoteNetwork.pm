@@ -6,16 +6,15 @@ use Object::InsideOut 'Network';
 use strict;
 use warnings;
 
-sub connect {
-	die;
+# TODO track these
+sub all_nicks { 
+	my $net = shift;
+	grep { $_->is_on($net) } values %Janus::gnicks;
 }
 
-sub request_nick {
-	die;
-}
-
-sub release_nick {
-	die;
+sub all_chans {
+	my $net = shift;
+	grep { $_->is_on($net) } values %Janus::gchans;
 }
 
 } 1;
