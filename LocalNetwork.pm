@@ -1,20 +1,22 @@
 # Copyright (C) 2007 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
-package LocalNetwork; {
+package LocalNetwork;
+BEGIN { &Janus::load('Network'); }
+use Persist;
 use Object::InsideOut qw(Network);
 use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
 
-my @cparms :Field; # currently active parameters
-
-my @lreq :Field;
-my @synced :Field Get(is_synced);
-my @ponged :Field;
-
-my @nicks :Field;
-my @chans :Field;
+__PERSIST__
+persist @cparms :Field; # currently active parameters
+persist @lreq   :Field;
+persist @synced :Field :Get(is_synced);
+persist @ponged :Field;
+persist @nicks  :Field;
+persist @chans  :Field;
+__RUNELSE__ no warnings 'redefine';
 
 sub _init :Init {
 	my $net = shift;
@@ -292,11 +294,7 @@ sub item {
 	return undef;
 }
 
-
-sub modload {
- my $me = shift;
- return unless $me eq 'LocalNetwork';
- &Janus::hook_add($me,
+&Janus::hook_add(
  	LINKED => check => sub {
 		my $act = shift;
 		my $net = $act->{net};
@@ -327,7 +325,7 @@ sub modload {
 			warn "channels remain after a netsplit";
 			$chans[$$net] = undef;
 		}
-	});
-}
+	},
+);
 
-} 1;
+1;

@@ -1,18 +1,22 @@
 # Copyright (C) 2007 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
-package Ban; {
+package Ban;
+use Persist;
 use Object::InsideOut;
 use strict;
 use warnings;
 
-my %netbans;
-my @regex  :Field              :Get(regex);
-my @expr   :Field :Arg(expr)   :Get(expr);
-my @net    :Field :Arg(net)    :Get(net);
-my @setter :Field :Arg(setter) :Get(setter);
-my @expire :Field :Arg(expire) :Get(expire);
-my @reason :Field :Arg(reason) :Get(reason);
+__PERSIST__
+persist %netbans;
+persist @regex  :Field              :Get(regex);
+persist @expr   :Field :Arg(expr)   :Get(expr);
+persist @net    :Field :Arg(net)    :Get(net);
+persist @setter :Field :Arg(setter) :Get(setter);
+persist @expire :Field :Arg(expire) :Get(expire);
+persist @reason :Field :Arg(reason) :Get(reason);
+
+__RUNELSE__ no warnings 'redefine';
 
 sub add {
 	my $ban = Ban->new(@_);
@@ -66,9 +70,7 @@ sub match {
 	$mask =~ /$regex[$$ban]/;
 }
 
-sub modload {
- my $me = shift;
- &Janus::command_add({
+&Janus::command_add({
 	cmd => 'ban',
 	help => [
 		'Bans are matched against nick!ident@host%netid:name on any remote joins to a shared channel',
@@ -132,8 +134,8 @@ sub modload {
 			}
 		}
 	}
- });
- &Janus::hook_add($me,
+});
+&Janus::hook_add(
 	CONNECT => check => sub {
 		my $act = shift;
 		my $nick = $act->{dst};
@@ -182,7 +184,7 @@ sub modload {
 		my $act = shift;
 		my $net = $act->{net};
 		delete $netbans{$net->id()};
-	});
-}
+	},
+);
 
-} 1;
+1;

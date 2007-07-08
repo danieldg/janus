@@ -1,16 +1,19 @@
 # Copyright (C) 2007 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
-package Pending; {
-use Object::InsideOut;
+package Pending;
 use strict;
 use warnings;
-use InterJanus;
+use Persist;
+use Object::InsideOut;
 use Socket6;
+&Janus::load('InterJanus');
 
-my @buffer :Field;
-my @delegate :Field;
-my @peer :Field :Arg(peer);
+__PERSIST__
+persist @buffer   :Field;
+persist @delegate :Field;
+persist @peer     :Field :Arg(peer);
+__RUNELSE__ no warnings 'redefine'
 
 sub _init :Init {
 	my $net = shift;
@@ -67,4 +70,4 @@ sub parse {
 
 sub dump_sendq { '' }
 
-} 1;
+1;

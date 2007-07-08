@@ -1,11 +1,12 @@
 # Copyright (C) 2007 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
-package Channel; {
+package Channel;
 use Object::InsideOut;
-use Nick;
+use Persist;
 use strict;
 use warnings;
+&Janus::load('Nick');
 
 =head1 Channel
 
@@ -15,18 +16,20 @@ Object representing a set of linked channels
 
 =cut
 
-my @ts :Field :Get(ts);
-my @keyname :Field :Get(keyname);
-my @topic :Field :Arg(topic);
-my @topicts :Field;
-my @topicset :Field :Arg(topicset);
-my @mode :Field;
+__PERSIST__
+persist @ts       :Field :Get(ts);
+persist @keyname  :Field :Arg(keyname) :Get(keyname);
+persist @topic    :Field :Arg(topic);
+persist @topicts  :Field :Arg(topicts);
+persist @topicset :Field :Arg(topicset);
+persist @mode     :Field;
 
-my @names :Field;
-my @nets :Field;
+persist @names    :Field;
+persist @nets     :Field;
 
-my @nicks :Field;
-my @nmode :Field;
+persist @nicks    :Field;
+persist @nmode    :Field;
+__RUNELSE__ no warnings 'redefine';
 
 =item $chan->nets()
 
@@ -64,21 +67,18 @@ sub to_ij {
 }
 
 my %initargs :InitArgs = (
-	keyname => '',
 	names => '',
 	net => '',
 	name => '',
 	ts => '',
-	topicts => '',
 	mode => '',
 );
 
 sub _init :Init {
 	my($c, $ifo) = @_;
-	$topicts[$$c] = $ifo->{topicts} || 0;
+	$topicts[$$c] = 0 unless $topicts[$$c];
 	$mode[$$c] = $ifo->{mode} || {};
-	if ($ifo->{keyname}) {
-		$keyname[$$c] = $ifo->{keyname};
+	if ($keyname[$$c]) {
 		my $names = $ifo->{names} || {};
 		$names[$$c] = $names;
 		for my $id (keys %$names) {
@@ -280,9 +280,7 @@ sub part {
 	}
 }
 
-sub modload {
- my $me = shift;
- &Janus::hook_add($me,
+&Janus::hook_add(
  	JOIN => validate => sub {
 		my $act = $_[0];
 		my $valid = eval {
@@ -522,11 +520,11 @@ sub modload {
 				});
 			}
 		}
-	});
-}
+	}
+);
 
 =back
 
 =cut
 
-} 1;
+1;

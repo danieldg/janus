@@ -2,11 +2,11 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package RemoteNetwork; {
+BEGIN { &Janus::load('Network') }
 use Object::InsideOut 'Network';
 use strict;
 use warnings;
 
-# TODO track these
 sub all_nicks { 
 	my $net = shift;
 	grep { $_->is_on($net) } values %Janus::gnicks;

@@ -5,30 +5,14 @@
 use strict;
 BEGIN { push @INC, '.' }
 use Janus;
-use Conffile;
-use Channel;
-use Nick;
-use Network;
-use LocalNetwork;
-use Interface;
-use Ban;
 use IO::Select;
 use IO::Socket::SSL;
 
 $| = 1;
 
-# Core modules: these must be loaded for any functionality
-Janus->modload();
-Conffile->modload(shift || 'janus.conf');
-Nick->modload();
-Channel->modload();
-Network->modload();
-LocalNetwork->modload();
-
-# Extra modules: These add functionality, but janus should function without them
-# Eventually, some may be able to be loaded and unloaded without needing to restart janus
-Interface->modload('janus2');
-Ban->modload();
+&Janus::load($_) or die for qw(Nick Channel Network LocalNetwork);
+&Janus::load('Conffile', shift || 'janus.conf') or die;
+&Janus::load($_) or die for qw(Interface Ban);
 
 sub readable {
 	my $l = shift;

@@ -1,14 +1,18 @@
 # Copyright (C) 2007 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
-package InterJanus; {
+package InterJanus;
 use Object::InsideOut;
+use Persist;
 use strict;
 use warnings;
-use Nick;
-use RemoteNetwork;
+&Janus::load('Nick');
+&Janus::load('RemoteNetwork');
 
-my @sendq :Field;
+__PERSIST__
+persist @sendq :Field;
+
+__RUNELSE__ no warnings 'redefine';
 
 my %fromirc;
 my %toirc;
@@ -273,4 +277,4 @@ sub _kv_pairs {
 	}
 }
 
-} 1;
+1;

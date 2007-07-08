@@ -4,12 +4,13 @@
 package Janus;
 use strict;
 use warnings;
-use InterJanus;
-use Pending;
+use Carp 'cluck';
+&Janus::load('InterJanus');
+&Janus::load('Pending');
 
 =head1 Janus
 
-Primary event multiplexer
+Primary event multiplexer and module loader/unloader
 
 =cut
 
@@ -24,9 +25,13 @@ our $last_check = time;
 # (net | port number) => [ sock, recvq, sendq, (Net | undef if listening), trying_read, trying_write ]
 our %netqueues;
 
+# module => state (0 = unloaded, 1 = loading, 2 = loaded)
+my %modules = (Janus => 1);
+# module => { varname => ref }
 my %hooks;
 my %commands = (
 	unk => +{
+		class => 'Janus',
 		code => sub {
 			&Janus::jmsg($_[0], 'Unknown command. Use "help" to see available commands');
 		},
@@ -58,14 +63,15 @@ hashref itself should NEVER be modified in these hooks
 
 =over
 
-=item Janus::hook_add($module, [type, level, coderef]+)
+=item Janus::hook_add([type, level, coderef]+)
 
-Add hooks for a module. Should be called from your module's modload() sub
+Add hooks for a module. Should be called from module init
 
 =cut
 
 sub hook_add {
-	my $module = shift;
+	my $module = caller;
+	cluck "hook_add called outside module load" unless $modules{$module} == 1;
 	while (@_) {
 		my ($type, $level, $sub) = (shift, shift, shift);
 		warn unless $sub;
@@ -73,21 +79,83 @@ sub hook_add {
 	}
 }
 
-=item Janus::hook_del($module)
+=item Janus::command_add($cmdhash+)
 
-Remove hooks for a module. Is called automatically when your module is unladed
+Add commands (/msg janus <command> <cmdargs>). Should be called from module init
 
-(however, module unloading is not implemented yet)
+Command hashref contains:
+	cmd - command name
+	code - will be executed with two arguments: ($nick, $cmdargs)
 
 =cut
 
-sub hook_del {
+sub command_add {
+	my $class = caller;
+	cluck "command_add called outside module load" unless $modules{$class} == 1;
+	for my $h (@_) {
+		my $cmd = $h->{cmd};
+		if (exists $commands{$cmd}) {
+			my $c = $commands{$cmd}{class};
+			warn "Overriding command '$cmd' from class '$c' with one from class '$class'";
+		}
+		$h->{class} = $class;
+		$commands{$cmd} = $h;
+	}
+}
+
+=item Janus::load($module, @args)
+
+Loads a module from a file, allowing it to register hooks as it loads and
+registering it for unloading
+
+=item Janus::unload($module)
+
+Remove hooks and commands for a module. This is called automatically when your module
+is unladed or reloaded
+
+=item Janus::reload($module, @args)
+
+Same as calling unload and load sequentially
+
+=cut
+
+sub reload {
 	my $module = $_[0];
+
+	&Janus::unload if $modules{$module};
+	&Janus::load;
+}
+
+sub load {
+	my $module = shift;
+	return if $modules{$module};
+
+	my $do_require = exists $modules{$module} ? 'do' : 'require';
+
+	$modules{$module} = 1;
+
+	if (eval "$do_require '$module.pm';") {
+		$modules{$module} = 2;
+	} else {
+		warn "Cannot load module $module: $@";
+		$modules{$module} = 0;
+	}
+}
+
+sub unload {
+	my $module = $_[0];
+
 	for my $t (keys %hooks) {
 		for my $l (keys %{$hooks{$t}}) {
 			delete $hooks{$t}{$l}{$module};
 		}
 	}
+	for my $cmd (keys %commands) {
+		next unless $commands{$cmd}{class} eq $module;
+		delete $commands{$cmd};
+	}
+
+	$modules{$module} = 0;
 }
 
 =back
@@ -237,7 +305,7 @@ sub jmsg {
 	my $dst = shift;
 	return unless $dst;
 	local $_;
-	append(map +{
+	&Janus::append(map +{
 		type => 'MSG',
 		src => $interface,
 		dst => $dst,
@@ -258,7 +326,7 @@ sub err_jmsg {
 	for (@_) { 
 		print STDERR "$_\n";
 		next unless $dst;
-		append(+{
+		&Janus::append(+{
 			type => 'MSG',
 			src => $interface,
 			dst => $dst,
@@ -315,6 +383,15 @@ sub in_socket {
 	}
 } 
 
+sub in_command {
+	my($cmd, $nick, $text) = @_;
+	my $csub = exists $commands{$cmd} ?
+		$commands{$cmd}{code} : $commands{unk}{code};
+	unshift @qstack, [];
+	$csub->($nick, $text);
+	_runq(shift @qstack);
+}
+
 sub timer {
 	my $now = time;
 	return if $now == $last_check;
@@ -342,26 +419,9 @@ sub in_newsock {
 	$netqueues{$net->id()} = [$sock, '', '', $net, 1, 0];
 }
 
-sub command_add {
-	for my $h (@_) {
-		my $cmd = $h->{cmd};
-		die "Cannot double-add command '$cmd'" if exists $commands{$cmd};
-		$commands{$cmd} = $h;
-	}
-}
-
-sub in_command {
-	my($cmd, $nick, $text) = @_;
-	my $csub = exists $commands{$cmd} ?
-		$commands{$cmd}{code} : $commands{unk}{code};
-	unshift @qstack, [];
-	$csub->($nick, $text);
-	_runq(shift @qstack);
-}
-
 sub link {
 	my $net = shift;
-	insert_full(+{
+	&Janus::insert_full(+{
 		type => 'NETLINK',
 		net => $net,
 	});
@@ -378,14 +438,14 @@ sub delink {
 		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
 		for my $snet (values %nets) {
 			next unless $snet->jlink() && $net->id() eq $snet->jlink()->id();
-			insert_full(+{
+			&Janus::insert_full(+{
 				type => 'NETSPLIT',
 				net => $snet,
 				msg => $msg,
 			});
 		}
 	} else {
-		insert_full(+{
+		&Janus::insert_full(+{
 			type => 'NETSPLIT',
 			net => $net,
 			msg => $msg,
@@ -397,8 +457,7 @@ sub delink {
 
 =cut
 
-sub modload {
- &Janus::hook_add('Janus',
+&Janus::hook_add(
 	NETLINK => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
@@ -411,25 +470,27 @@ sub modload {
 		delete $nets{$id};
 		my $q = delete $netqueues{$id};
 		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
-	});
-	&Janus::command_add({
-		cmd => 'help',
-		help => 'the text you are reading now',
-		code => sub {
-			my(@cmds,@helps);
-			for my $cmd (sort keys %commands) {
-				my $h = $commands{$cmd}{help};
-				next unless $h;
-				push @cmds, $cmd;
-				if (ref $h) {
-					push @helps, @$h;
-				} else {
-					push @helps, " $cmd - $h";
-				}
+	},
+);
+&Janus::command_add({
+	cmd => 'help',
+	help => 'the text you are reading now',
+	code => sub {
+		my(@cmds,@helps);
+		for my $cmd (sort keys %commands) {
+			my $h = $commands{$cmd}{help};
+			next unless $h;
+			push @cmds, $cmd;
+			if (ref $h) {
+				push @helps, @$h;
+			} else {
+				push @helps, " $cmd - $h";
 			}
-			&Janus::jmsg($_[0], 'Available commands: '.join(' ', @cmds), @helps);
 		}
-	});
-}
+		&Janus::jmsg($_[0], 'Available commands: '.join(' ', @cmds), @helps);
+	},
+});
+
+$modules{Janus} = 2;
 
 1;

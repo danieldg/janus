@@ -5,7 +5,8 @@ package Conffile;
 use strict;
 use warnings;
 
-our $conffile;
+our $conffile = $_[0];
+
 our %netconf;
 our %inet = (
 	# these values are replaced in modload by IPv4 or IPv6 code
@@ -124,10 +125,7 @@ sub rehash {
 	&Janus::jmsg($nick,'Rehashed');
 }
 
-sub modload {
- my($class,$cfile) = @_;
- $conffile = $cfile;
- &Janus::hook_add($class,
+&Janus::hook_add(
 	REHASH => act => sub {
 		my $act = shift;
 		&Conffile::rehash($act->{src});
@@ -150,83 +148,83 @@ sub modload {
 			});
 		}
 		close $links;
-	});
+	},
+);
 
-	read_conf;
-	if ($netconf{janus}{ipv6}) {
-		eval q[
-			use IO::Socket::INET6;
-			use IO::Socket::SSL 'inet6';
-			use Socket6;
-			use Fcntl;
-			1;
-		] or die "Could not load IPv6 socket code: $@";
-		%Conffile::inet = (
-			listn => eval q[ sub {
-				my $port = shift;
-				my $sock = IO::Socket::INET6->new(
-					Listen => 5, 
-					Proto => 'tcp', 
-					LocalPort => $port, 
-					Blocking => 0,
-				);
-				if ($sock) {
-					fcntl $sock, F_SETFL, O_NONBLOCK;
-					setsockopt $sock, SOL_SOCKET, SO_REUSEADDR, 1;
-				}
-				$sock;
-			} ], 
-			conn => eval q[ sub {
-				my($ip,$port,$ssl) = @_;
-				my $addr = sockaddr_in6($port, inet_pton(AF_INET6, $ip));
-				my $sock = IO::Socket::INET6->new(Proto => 'tcp', Blocking => 0);
-				fcntl $sock, F_SETFL, O_NONBLOCK;
-				connect $sock, $addr;
-	
-				if ($ssl) {
-					IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
-					$sock->connect_SSL();
-				}
-				$sock;
-			} ],
-		);
-	} else {
-		eval q[
-			use IO::Socket::INET;
-			use IO::Socket::SSL;
-			use Socket;
-			use Fcntl;
-			1;
-		] or die "Could not load IPv4 socket code: $@";
-		%Conffile::inet = (
-			listn => eval q[ sub {
-				my $port = shift;
-				my $sock = IO::Socket::INET->new(
-					Listen => 5, 
-					Proto => 'tcp', 
-					LocalPort => $port, 
-					Blocking => 0,
-				);
+read_conf;
+if ($netconf{janus}{ipv6}) {
+	eval q[
+		use IO::Socket::INET6;
+		use IO::Socket::SSL 'inet6';
+		use Socket6;
+		use Fcntl;
+		1;
+	] or die "Could not load IPv6 socket code: $@";
+	%Conffile::inet = (
+		listn => eval q[ sub {
+			my $port = shift;
+			my $sock = IO::Socket::INET6->new(
+				Listen => 5, 
+				Proto => 'tcp', 
+				LocalPort => $port, 
+				Blocking => 0,
+			);
+			if ($sock) {
 				fcntl $sock, F_SETFL, O_NONBLOCK;
 				setsockopt $sock, SOL_SOCKET, SO_REUSEADDR, 1;
-				$sock;
-			} ], 
-			conn => eval q[ sub {
-				my($ip,$port,$ssl) = @_;
-				my $addr = sockaddr_in($port, inet_aton($ip));
-				my $sock = IO::Socket::INET->new(Proto => 'tcp', Blocking => 0);
-				fcntl $sock, F_SETFL, O_NONBLOCK;
-				connect $sock, $addr;
-	
-				if ($ssl) {
-					IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
-					$sock->connect_SSL();
-				}
-				$sock;
-			} ],
-		);
-	}
-	do_reconnects;
+			}
+			$sock;
+		} ], 
+		conn => eval q[ sub {
+			my($ip,$port,$ssl) = @_;
+			my $addr = sockaddr_in6($port, inet_pton(AF_INET6, $ip));
+			my $sock = IO::Socket::INET6->new(Proto => 'tcp', Blocking => 0);
+			fcntl $sock, F_SETFL, O_NONBLOCK;
+			connect $sock, $addr;
+
+			if ($ssl) {
+				IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
+				$sock->connect_SSL();
+			}
+			$sock;
+		} ],
+	);
+} else {
+	eval q[
+		use IO::Socket::INET;
+		use IO::Socket::SSL;
+		use Socket;
+		use Fcntl;
+		1;
+	] or die "Could not load IPv4 socket code: $@";
+	%Conffile::inet = (
+		listn => eval q[ sub {
+			my $port = shift;
+			my $sock = IO::Socket::INET->new(
+				Listen => 5, 
+				Proto => 'tcp', 
+				LocalPort => $port, 
+				Blocking => 0,
+			);
+			fcntl $sock, F_SETFL, O_NONBLOCK;
+			setsockopt $sock, SOL_SOCKET, SO_REUSEADDR, 1;
+			$sock;
+		} ], 
+		conn => eval q[ sub {
+			my($ip,$port,$ssl) = @_;
+			my $addr = sockaddr_in($port, inet_aton($ip));
+			my $sock = IO::Socket::INET->new(Proto => 'tcp', Blocking => 0);
+			fcntl $sock, F_SETFL, O_NONBLOCK;
+			connect $sock, $addr;
+
+			if ($ssl) {
+				IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
+				$sock->connect_SSL();
+			}
+			$sock;
+		} ],
+	);
 }
+do_reconnects;
 
 1;

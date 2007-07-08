@@ -1,15 +1,19 @@
 # Copyright (C) 2007 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
-package CAUnreal; {
+package CAUnreal;
+BEGIN { &Janus::load('LocalNetwork'); }
+use Persist;
 use Object::InsideOut 'LocalNetwork';
 use strict;
 use warnings;
-use Nick;
+&Janus::load('Nick');
 
-my @sendq :Field;
-my @srvname :Field;
-my @servers :Field;
+__PERSIST__
+persist @sendq   :Field;
+persist @srvname :Field;
+persist @servers :Field;
+__RUNELSE__ no warnings 'redefine';
 
 my %fromirc;
 my %toirc;
@@ -1293,4 +1297,4 @@ sub cmd2 {
 	},
 );
 
-} 1;
+1;

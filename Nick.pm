@@ -1,10 +1,11 @@
 # Copyright (C) 2007 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
-package Nick; {
-use Object::InsideOut;
+package Nick;
 use strict;
 use warnings;
+use Persist;
+use Object::InsideOut;
 use Scalar::Util 'weaken';
 
 =head1 Nick
@@ -15,17 +16,21 @@ Object representing a nick that exists across several networks
 
 =cut
 
-my @gid :Field :Get(gid);
-my @homenet :Field :Get(homenet);
-my @homenick :Field :Get(homenick);
-my @nets :Field;
-my @nicks :Field;
-my @chans :Field;
-my @mode :Field;
-my @info :Field;
-my @ts :Field :Get(ts);
+__PERSIST__
+persist @gid      :Field :Get(gid);
+persist @homenet  :Field :Get(homenet);
+persist @homenick :Field :Get(homenick);
+persist @nets     :Field;
+persist @nicks    :Field;
+persist @chans    :Field;
+persist @mode     :Field;
+persist @info     :Field;
+persist @ts       :Field :Get(ts);
+persist %initargs :InitArgs;
 
-my %initargs :InitArgs = (
+__RUNELSE__ no warnings 'redefine';
+
+%initargs = (
 	gid => '',
 	net => '',
 	nick => '',
@@ -237,9 +242,7 @@ sub str {
 
 =cut
 
-sub modload {
- my $me = shift;
- Janus::hook_add($me, 
+&Janus::hook_add(
 	CONNECT => act => sub {
 		my $act = shift;
 		my $nick = $act->{dst};
@@ -382,7 +385,7 @@ sub modload {
 		my $nick = $act->{dst};
 		my $net = $act->{net};
 		$nick->_netpart($net);
-	});
-}
+	},
+);
 
-} 1;
+1;

@@ -1,16 +1,18 @@
 # Copyright (C) 2007 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
-package Network; {
+package Network;
+use Persist;
 use Object::InsideOut;
-use Channel;
 use strict;
 use warnings;
 
-my @jlink :Field :Arg(jlink) :Get(jlink);
-my @id :Field :Arg(id) :Get(id);
-my @netname :Field :Arg(netname) :Get(netname) :Set(_set_netname);
-my @numeric :Field :Arg(numeric) :Get(numeric) :Set(_set_numeric);
+__PERSIST__
+persist @jlink   :Field :Arg(jlink) :Get(jlink);
+persist @id      :Field :Arg(id) :Get(id);
+persist @netname :Field :Arg(netname) :Get(netname) :Set(_set_netname);
+persist @numeric :Field :Arg(numeric) :Get(numeric) :Set(_set_numeric);
+__RUNELSE__ no warnings 'redefine';
 
 sub to_ij {
 	my($net,$ij) = @_;
@@ -26,14 +28,7 @@ sub str {
 	$_[0]->id();
 }
 
-################################################################################
-# Basic Actions
-################################################################################
-
-sub modload {
- my $me = shift;
- return unless $me eq 'Network';
- &Janus::hook_add($me,
+&Janus::hook_add(
  	NETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
@@ -65,7 +60,7 @@ sub modload {
 		print "Channel deallocation start\n";
 		@clean = ();
 		print "Channel deallocation end\n";
-	});
-}
+	},
+);
 
-} 1;
+1;
