@@ -130,11 +130,9 @@ sub load {
 	my $module = shift;
 	return if $modules{$module};
 
-	my $do_require = exists $modules{$module} ? 'do' : 'require';
-
 	$modules{$module} = 1;
 
-	if (eval "$do_require '$module.pm';") {
+	if (do "$module.pm") {
 		$modules{$module} = 2;
 	} else {
 		warn "Cannot load module $module: $@";
