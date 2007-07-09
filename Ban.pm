@@ -16,7 +16,7 @@ persist @setter :Field :Arg(setter) :Get(setter);
 persist @expire :Field :Arg(expire) :Get(expire);
 persist @reason :Field :Arg(reason) :Get(reason);
 
-__RUNELSE__ no warnings 'redefine';
+__CODE__
 
 sub add {
 	my $ban = Ban->new(@_);

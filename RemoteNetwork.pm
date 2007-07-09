@@ -1,11 +1,14 @@
 # Copyright (C) 2007 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
-package RemoteNetwork; {
+package RemoteNetwork;
 BEGIN { &Janus::load('Network') }
 use Object::InsideOut 'Network';
+use Persist;
 use strict;
 use warnings;
+
+__CODE__
 
 sub all_nicks { 
 	my $net = shift;
@@ -17,4 +20,4 @@ sub all_chans {
 	grep { $_->is_on($net) } values %Janus::gchans;
 }
 
-} 1;
+1;

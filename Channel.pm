@@ -29,7 +29,8 @@ persist @nets     :Field;
 
 persist @nicks    :Field;
 persist @nmode    :Field;
-__RUNELSE__ no warnings 'redefine';
+
+__CODE__
 
 =item $chan->nets()
 

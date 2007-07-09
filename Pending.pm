@@ -13,7 +13,7 @@ __PERSIST__
 persist @buffer   :Field;
 persist @delegate :Field;
 persist @peer     :Field :Arg(peer);
-__RUNELSE__ no warnings 'redefine'
+__CODE__
 
 sub _init :Init {
 	my $net = shift;

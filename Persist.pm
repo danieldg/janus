@@ -12,6 +12,7 @@ sub import {
 		pkg => $pkg,
 		init => 0,
 		runonce => 0,
+		qlevel => 0,
 		first => $first,
 		state => $state,
 	};
@@ -21,10 +22,21 @@ sub import {
 sub filter {
 	my $self = $_[0];
 	my $status = filter_read();
-	return $status unless $status > 0;
+	unless ($status > 0) {
+		if ($self->{qlevel}) {
+			$_ = '';
+			for my $i (1 .. $self->{qlevel}) {
+				s/(['\\])/\\$1/g;
+				$_ .= "';";
+			}
+			$self->{qlevel} = 0;
+			return 1;
+		}
+		return $status;
+	}
 	if (/^__PERSIST__$/) {
 		$self->{init}++;
-		$_ = "our \$PERSIST_STATE;\n";
+		$_ = ($self->{first} ? '' : 'use Data::Alias;'). "our \$PERSIST_STATE;\n";
 	} elsif (s/^\s*__RUNFIRST__//) {
 		s/^/#/ unless $self->{first};
 	} elsif (s/^\s*__RUNFIRST_START__//) {
@@ -35,9 +47,15 @@ sub filter {
 		$self->{comment} = $self->{first};
 	} elsif (s/^\s*__RUN(FIRST|ELSE)_END__//) {
 		$self->{comment} = 0;
+	} elsif (/^__CODE__$/) {
+		$self->{qlevel}++;
+		$_ = q{eval '#line '.__LINE__.' "'.__FILE__."\"\n".'};
+		$_ .= $self->{first} ? "\n" : "no warnings qw(redefine);\n";
+		return $status;
 	}
 
 	s/^/#/ if $self->{comment};
+	for my $i (1 .. $self->{qlevel}) { s/(['\\])/\\$1/g }
 	return $status unless $self->{init};
 
 	if (/^persist ([\%\@\$])([^ =]+)(.*?);\s*(#|$)/) {

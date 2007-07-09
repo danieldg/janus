@@ -3,9 +3,11 @@
 # http://www.affero.org/oagpl.html
 package Interface;
 use Object::InsideOut qw(Network);
+use Persist;
 use strict;
 use warnings;
 &Janus::load('Nick');
+__CODE__
 
 my $inick = $Conffile::netconf{janus}{janus} || 'janus';
 
@@ -20,6 +22,7 @@ if ($Janus::interface) {
 			nickts => 100000000,
 		});
 	}
+	Interface->new(id => '__reloader__');
 } else {
 	my $int = Interface->new(
 		id => 'janus',

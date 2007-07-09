@@ -13,7 +13,7 @@ __PERSIST__
 persist @sendq   :Field;
 persist @srvname :Field;
 persist @servers :Field;
-__RUNELSE__ no warnings 'redefine';
+__CODE__
 
 my %fromirc;
 my %toirc;

@@ -8,6 +8,7 @@ use Object::InsideOut qw(Network);
 use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
+&Janus::load('Channel');
 
 __PERSIST__
 persist @cparms :Field; # currently active parameters
@@ -16,7 +17,7 @@ persist @synced :Field :Get(is_synced);
 persist @ponged :Field;
 persist @nicks  :Field;
 persist @chans  :Field;
-__RUNELSE__ no warnings 'redefine';
+__CODE__
 
 sub _init :Init {
 	my $net = shift;

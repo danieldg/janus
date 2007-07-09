@@ -12,7 +12,7 @@ persist @jlink   :Field :Arg(jlink) :Get(jlink);
 persist @id      :Field :Arg(id) :Get(id);
 persist @netname :Field :Arg(netname) :Get(netname) :Set(_set_netname);
 persist @numeric :Field :Arg(numeric) :Get(numeric) :Set(_set_numeric);
-__RUNELSE__ no warnings 'redefine';
+__CODE__
 
 sub to_ij {
 	my($net,$ij) = @_;

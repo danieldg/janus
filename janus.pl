@@ -10,7 +10,6 @@ use IO::Socket::SSL;
 
 $| = 1;
 
-&Janus::load($_) or die for qw(Nick Channel Network LocalNetwork);
 &Janus::load('Conffile', shift || 'janus.conf') or die;
 &Janus::load($_) or die for qw(Interface Ban);
 

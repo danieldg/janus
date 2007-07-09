@@ -26,11 +26,10 @@ persist @chans    :Field;
 persist @mode     :Field;
 persist @info     :Field;
 persist @ts       :Field :Get(ts);
-persist %initargs :InitArgs;
 
-__RUNELSE__ no warnings 'redefine';
+__CODE__
 
-%initargs = (
+my %initargs :InitArgs = (
 	gid => '',
 	net => '',
 	nick => '',
@@ -75,7 +74,7 @@ sub to_ij {
 
 sub _destroy :Destroy {
 	my $n = $_[0];
-	print "   NICK: $n $homenick[$$n] deallocated\n";
+	print "   NICK:$$n $n $homenick[$$n] deallocated\n";
 }
 
 # send to all but possibly one network for NICKINFO

@@ -5,8 +5,6 @@ package Janus;
 use strict;
 use warnings;
 use Carp 'cluck';
-&Janus::load('InterJanus');
-&Janus::load('Pending');
 
 =head1 Janus
 
@@ -491,4 +489,6 @@ sub delink {
 
 $modules{Janus} = 2;
 
+&Janus::load('InterJanus');
+&Janus::load('Pending');
 1;
