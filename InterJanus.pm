@@ -144,6 +144,7 @@ my %to_ij = (
 	TOPIC => \&ssend,
 	MSG => \&ssend,
 	WHOIS => \&ssend,
+	CHATOPS => \&ssend,
 	LINKREQ => \&ssend,
 	DELINK => \&ssend,
 	LINKED => \&ssend,

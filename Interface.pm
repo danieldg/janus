@@ -277,7 +277,7 @@ if ($Janus::interface) {
 	},
 }, {
 	cmd => 'netsplit',
-	help => 'cause a network split and automatic rehash',
+	help => 'netsplit $net - cause a network split and automatic rehash',
 	code => sub {
 		my $nick = shift;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
@@ -290,7 +290,7 @@ if ($Janus::interface) {
 	},
 }, {
 	cmd => 'renick',
-	help => 'renick the janus nick',
+	help => 'renick $nick - change the janus nick',
 	code => sub {
 		my($nick,$name) = @_;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
@@ -299,12 +299,40 @@ if ($Janus::interface) {
 	},
 }, {
 	cmd => 'reload',
-	help => "load or reload a module, live. \002EXPERIMENTAL\002. ".
+	help => "reload \$module - load or reload a module, live. \002EXPERIMENTAL\002. ".
 		'Reloading core modules may introduce bugs because of persistance of old code by the perl interpreter',
 	code => sub {
 		my($nick,$name) = @_;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		&Janus::reload($name) or &Janus::err_jmsg($nick, "Module load failed: $@");
+	},
+}, {
+	cmd => 'chatops',
+	help => 'chatops $msg - send a messge to opers on all other networks (if enabled, this is done by /chatops)',
+	code => sub {
+		my($nick,$msg) = @_;
+		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
+		&Janus::append(+{
+			type => 'CHATOPS',
+			src => $nick,
+			sendto => [ values %Janus::nets ],
+			msg => $msg,
+		});
+	},
+}, {
+	cmd => 'chatto',
+	help => 'chatto $netid $msg - send a message to all opers on a specific network',
+	code => sub {
+		my($nick,$msg) = @_;
+		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
+		$msg =~ s/^(\S+) // or return;
+		my $net = $Janus::nets{$1} or return;
+		&Janus::append(+{
+			type => 'CHATOPS',
+			src => $nick,
+			dst => $net,
+			msg => $msg,
+		});
 	},
 });
 

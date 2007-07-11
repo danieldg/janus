@@ -992,10 +992,19 @@ sub srvname {
 	SENDUMODE => \&ignore,
 	GLOBOPS => \&ignore,
 	WALLOPS => \&ignore,
-	CHATOPS => \&ignore,
 	NACHAT => \&ignore,
 	ADMINCHAT => \&ignore,
-	
+
+	CHATOPS => sub {
+		my $net = shift;
+		return () unless $net->param('send_chatops');
+		return +{
+			type => 'CHATOPS',
+			src => $net->item($_[0]),
+			sendto => [ values %Janus::nets ],
+			msg => $_[-1],
+		};
+	},
 	TKL => sub {
 		my $net = shift;
 		my $iexpr;
@@ -1224,6 +1233,10 @@ sub cmd2 {
 		my($net,$act) = @_;
 		my $dst = $act->{dst};
 		$net->cmd2($act->{src}, WHOIS => $dst->info('home_server'), $dst);
+	}, CHATOPS => sub {
+		my($net,$act) = @_;
+		return () unless $act->{src}->is_on($net);
+		$net->cmd2($act->{src}, CHATOPS => $act->{msg});
 	}, NICK => sub {
 		my($net,$act) = @_;
 		my $id = $net->id();
