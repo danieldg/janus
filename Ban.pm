@@ -93,7 +93,7 @@ sub match {
 			}
 			&Janus::jmsg($nick, 'No bans defined') unless @list;
 		} elsif ($cmd =~ /^k?a/i) {
-			unless ($arg[1]) {
+			unless ($arg[2]) {
 				&Janus::jmsg($nick, 'Use: ban add $expr $duration $reason');
 				return;
 			}

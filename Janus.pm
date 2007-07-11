@@ -126,7 +126,7 @@ sub reload {
 
 sub load {
 	my $module = shift;
-	return if $modules{$module};
+	return 1 if $modules{$module};
 
 	$modules{$module} = 1;
 

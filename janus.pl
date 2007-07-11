@@ -10,8 +10,8 @@ use IO::Socket::SSL;
 
 $| = 1;
 
-&Janus::load('Conffile', shift || 'janus.conf') or die;
 &Janus::load($_) or die for qw(Interface Ban);
+&Janus::load('Conffile', shift || 'janus.conf') or die;
 
 sub readable {
 	my $l = shift;

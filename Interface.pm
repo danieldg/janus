@@ -14,6 +14,7 @@ my $inick = $Conffile::netconf{janus}{janus} || 'janus';
 if ($Janus::interface) {
 	# we are being live-reloaded as a module. Don't recreate 
 	# the network or nick, just reload commands
+	print "Reloading Interface\n";
 	if ($inick ne $Janus::interface->homenick()) {
 		&Janus::insert_full(+{
 			type => 'NICK',
@@ -267,8 +268,11 @@ if ($Janus::interface) {
 	cmd => 'rehash',
 	help => 'reload the config and attempt to reconnect to split servers',
 	code => sub {
-		my $nick = shift;
-		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
+		my($nick,$pass) = shift;
+		unless ($nick->has_mode('oper') || $pass eq $Conffile::netconf{janus}{pass}) {
+			&Janus::jmsg($nick, "You must be an IRC operator to use this command");
+			return;
+		}
 		&Janus::append(+{
 			src => $nick,
 			type => 'REHASH',
