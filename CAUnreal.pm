@@ -1218,11 +1218,11 @@ sub cmd2 {
 		}
 	}, JOIN => sub {
 		my($net,$act) = @_;
+		my $chan = $act->{dst};
 		if ($act->{src}->homenet()->id() eq $net->id()) {
-			print "ERR: Trying to join nick to channel without rejoin" unless $act->{rejoin};
+			print 'ERR: Trying to force channel join remotely ('.$act->{src}->gid().$chan->str($net).")\n";
 			return ();
 		}
-		my $chan = $act->{dst};
 		my $mode = '';
 		if ($act->{mode}) {
 			$mode .= $net->txt2cmode($_) for keys %{$act->{mode}};

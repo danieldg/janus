@@ -180,34 +180,39 @@ sub _mode_delta {
 
 sub _link_into {
 	my($src,$chan) = @_;
+	my %dstnets = %{$nets[$$chan]};
 	print "Link into:";
 	for my $id (keys %{$nets[$$src]}) {
 		print " $id";
 		my $net = $nets[$$src]{$id};
 		my $name = $names[$$src]{$id};
 		$Janus::gchans{$id.$name} = $chan;
+		delete $dstnets{$id};
 		next if $net->jlink();
 		print '+';
 		$net->replace_chan($name, $chan);
 	}
 	print "\n";
+	my $sendnets = [ values %dstnets ];
 
 	my ($mode, $marg) = $src->_mode_delta($chan);
 	&Janus::append(+{
 		type => 'MODE',
-		dst => $src,
+		dst => $chan,
 		mode => $mode,
 		args => $marg,
+		sendto => $sendnets,
 		nojlink => 1,
 	}) if @$mode;
 
 	if (($topic[$$src] || '') ne ($topic[$$chan] || '')) {
 		&Janus::append(+{
 			type => 'TOPIC',
-			dst => $src,
+			dst => $chan,
 			topic => $topic[$$chan],
 			topicts => $topicts[$$chan],
 			topicset => $topicset[$$chan],
+			sendto => $sendnets,
 			nojlink => 1,
 		});
 	}
@@ -226,6 +231,7 @@ sub _link_into {
 			dst => $chan,
 			mode => $nmode[$$src]{$nid},
 			rejoin => 1,
+			sendto => $sendnets,
 		}) unless $nick->jlink();
 	}
 }
