@@ -27,7 +27,7 @@ sub filter {
 			$_ = '';
 			for my $i (1 .. $self->{qlevel}) {
 				s/(['\\])/\\$1/g;
-				$_ .= "';";
+				$_ .= "' or die \$\@;";
 			}
 			$self->{qlevel} = 0;
 			return 1;

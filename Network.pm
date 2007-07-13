@@ -41,6 +41,7 @@ sub str {
 				dst => $nick,
 				msg => "hub.janus $tid.janus",
 				except => $net,
+				netsplit_quit => 1,
 				nojlink => 1,
 			};
 		}
@@ -53,6 +54,7 @@ sub str {
 				type => 'DELINK',
 				dst => $chan,
 				net => $net,
+				netsplit_quit => 1,
 				except => $net,
 			};
 		}

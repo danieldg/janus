@@ -15,6 +15,11 @@ persist @srvname :Field;
 persist @servers :Field;
 __CODE__
 
+sub _init :Init {
+	my $net = shift;
+	$sendq[$$net] = [];
+}
+
 my %fromirc;
 my %toirc;
 my %cmd2token = (qw/
@@ -266,27 +271,59 @@ sub parse {
 
 sub send {
 	my $net = shift;
-	my @out;
 	for my $act (@_) {
 		if (ref $act) {
 			my $type = $act->{type};
 			if (exists $toirc{$type}) {
-				push @out, $toirc{$type}->($net, $act);
+				push @{$sendq[$$net]}, $toirc{$type}->($net, $act);
 			} else {
 				debug "Unknown action type '$type'";
 			}
 		} else {
-			push @out, $act;
+			push @{$sendq[$$net]}, $act;
 		}
 	}
-	debug '    OUT@'.$net->id().' '.$_ for @out;
-	$sendq[$$net] .= "$_\r\n" for @out;
 }
 
 sub dump_sendq {
 	my $net = shift;
-	my $q = $sendq[$$net];
-	$sendq[$$net] = '';
+	local $_;
+	my $q = '';
+	my %sjmerge;
+	my $mode = 0;
+	for my $i (@{$sendq[$$net]}, '') {
+		$_ = ref $i ? $i->[0] : '';
+		my $cmode = /JOIN|FLOAT_ADD/ ? 1 : 0;
+		$cmode = $mode if /FLOAT_ALL/;
+		if ($mode == 1 && $cmode != 1) {
+			local $_;
+			for my $c (keys %sjmerge) {
+				$_ = $sjmerge{$c}{j}; chomp;
+				# IRC limits to 512 char lines; we output a line like: ~ !123456 #<32> :<510-45>
+				$q .= $net->cmd1(SJOIN => $sjmerge{$c}{ts}, $c, $1)."\r\n" while s/^(.{,465}) //;
+				$q .= $net->cmd1(SJOIN => $sjmerge{$c}{ts}, $c, $_)."\r\n";
+			}
+			%sjmerge = ();
+		}
+		$mode = $cmode;
+		if (/JOIN/) {
+			my $c = $i->[2];
+			if ($sjmerge{$c}{ts} && $sjmerge{$c}{ts} ne $i->[1]) {
+				$sjmerge{$c}{j} =~ s/(^|\s)[\*\@\$\%\+]+/$1/g;
+			} else {
+				$sjmerge{$i->[2]}{ts} = $i->[1];
+			}
+			$sjmerge{$c}{j} .= $i->[3].' ';
+		} elsif (/^FLOAT_/) {
+			$q .= join "\r\n", @$i[1 .. $#$i], '';
+		} elsif ($_ eq '') {
+			$q .= $i."\r\n" if $i;
+		} else {
+			warn "ignoring unknown OUTDATA $_";
+		}
+	}
+	$sendq[$$net] = [];
+	debug '    OUT@'.$net->id().' '.$_ for split /[\r\n]+/, $q;
 	$q;
 }
 
@@ -370,7 +407,7 @@ sub _connect_ifo {
 	push @out, $net->cmd1(SWHOIS => $nick, $whois) if defined $whois && $whois ne '';
 	my $away = $nick->info('away');
 	push @out, $net->cmd2($nick, AWAY => $away) if defined $away && $away ne '';
-	@out;
+	[ 'FLOAT_ADD', @out ];
 }
 
 # IRC Parser
@@ -1145,12 +1182,16 @@ sub cmd2 {
 		my($net,$act) = @_;
 		my $new = $act->{net};
 		my $id = $new->id();
-		$net->cmd1(SMO => 'o', "(\002link\002) Janus Network $id (".$new->netname().") is now linked");
+		$net->cmd1(SMO => 'o', "(\002link\002) Janus Network $id (".$new->netname().') is now linked');
 	}, NETSPLIT => sub {
 		my($net,$act) = @_;
 		my $gone = $act->{net};
 		my $id = $gone->id();
-		$net->cmd1(SQUIT => "$id.janus", ($act->{msg} || "Reason? What's that?"));
+		my $msg = $act->{msg} || 'Excessive Core Radiation';
+		(
+			$net->cmd1(SMO => 'o', "(\002delink\002) Janus Network $id (".$gone->netname().") has delinked: $msg"),
+			$net->cmd1(SQUIT => "$id.janus", $msg),
+		);
 	}, CONNECT => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
@@ -1187,7 +1228,7 @@ sub cmd2 {
 			$mode .= $net->txt2cmode($_) for keys %{$act->{mode}};
 		}
 		$mode =~ tr/qaohv/*~@%+/;
-		$net->cmd1(SJOIN => $net->sjb64($chan->ts()), $chan, $mode.$net->_out($act->{src}));
+		[ JOIN => $net->sjb64($chan->ts()), $chan->str($net), $mode.$net->_out($act->{src}) ];
 	}, PART => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, PART => $act->{dst}, $act->{msg});
@@ -1225,7 +1266,7 @@ sub cmd2 {
 			$type == 2 ? 'NOTICE' :
 			sprintf '%03d', $type;
 		my @msg = ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg};
-		$net->cmd2($act->{src}, $type, ($act->{prefix} || '').$net->_out($act->{dst}), @msg);
+		[ FLOAT_ALL => $net->cmd2($act->{src}, $type, ($act->{prefix} || '').$net->_out($act->{dst}), @msg) ];
 	}, WHOIS => sub {
 		my($net,$act) = @_;
 		my $dst = $act->{dst};
@@ -1276,20 +1317,22 @@ sub cmd2 {
 		$net->cmd2($act->{dst}, UMODE2 => $mode);
 	}, QUIT => sub {
 		my($net,$act) = @_;
+		return () if $act->{netsplit_quit};
 		return () unless $act->{dst}->is_on($net);
 		$net->cmd2($act->{dst}, QUIT => $act->{msg});
 	}, LINK => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst}->str($net);
-		$net->cmd1(GLOBOPS => "Channel $chan linked");
+		[ FLOAT_ALL => $net->cmd1(GLOBOPS => "Channel $chan linked") ];
 	}, LSYNC => sub {
 		();
 	}, LINKREQ => sub {
 		my($net,$act) = @_;
 		my $src = $act->{net};
-		$net->cmd1(GLOBOPS => $src->netname()." would like to link $act->{slink} to $act->{dlink}");
+		[ FLOAT_ALL => $net->cmd1(GLOBOPS => $src->netname()." would like to link $act->{slink} to $act->{dlink}") ];
 	}, DELINK => sub {
 		my($net,$act) = @_;
+		return () if $act->{netsplit_quit};
 		if ($act->{net}->id() eq $net->id()) {
 			my $name = $act->{split}->str($net);
 			my $nick = $act->{src} ? $act->{src}->str($net) : 'janus';
