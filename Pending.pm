@@ -34,7 +34,6 @@ sub parse {
 
 	push @{$buffer[$$pnet]}, $line;
 	if ($line =~ /SERVER (\S+)/) {
-		my $rnet;
 		for my $id (keys %Conffile::netconf) {
 			my $nconf = $Conffile::netconf{$id};
 			if ($nconf->{server} && $nconf->{server} eq $1) {
