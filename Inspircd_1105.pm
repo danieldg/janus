@@ -11,15 +11,19 @@ use warnings;
 
 __PERSIST__
 persist @sendq     :Field;
-persist @fromirc   :Field;
-persist @act_hooks :Field;
-persist @cmode2txt :Field;
+
+persist @meta      :Field; # key => sub{} for METADATA command
+persist @fromirc   :Field; # command => sub{} for IRC commands
+persist @act_hooks :Field; # type => module => sub{} for Janus Action => output (m
+
+persist @cmode2txt :Field; # Quick lookup tables
 persist @txt2cmode :Field;
 persist @umode2txt :Field;
 persist @txt2umode :Field;
 
-persist @modules   :Field;
-persist @modstate  :Field;
+persist @modules   :Field; 
+# {module} => definition - List of modules
+# persistant state storage is allowed inside this hash
 __CODE__
 
 sub _init :Init {
@@ -54,12 +58,19 @@ sub module_add {
 	}
 	if ($mod->{cmds}) {
 		for my $cmd (keys %{$mod->{cmds}}) {
+			warn "Overriding command $cmd" if $fromirc[$$net]{$cmd};
 			$fromirc[$$net]{$cmd} = $mod->{cmds}{$cmd};
 		}
 	}
 	if ($mod->{acts}) {
 		for my $t (keys %{$mod->{acts}}) {
 			$act_hooks[$$net]{$t}{$name} = $mod->{acts}{$t};
+		}
+	}
+	if ($mod->{metadata}) {
+		for my $i (keys %{$mod->{metadata}}) {
+			warn "Overriding metadata $i" if $meta[$$net]{$i};
+			$meta[$$net]{$i} = $mod->{acts}{$i};
 		}
 	}
 }
@@ -280,8 +291,6 @@ sub _parse_umode {
 	my($net, $nick, $mode) = @_;
 	my @mode;
 	my $pm = '+';
-	my $vh_pre = $nick->has_mode('vhost') ? 3 : $nick->has_mode('vhost_x') ? 1 : 0;
-	my $vh_post = $vh_pre;
 	for (split //, $mode) {
 		if (/[-+]/) {
 			$pm = $_;
@@ -290,11 +299,6 @@ sub _parse_umode {
 				warn "Unknown umode '$_'";
 				next;
 			};
-			if ($txt eq 'vhost') {
-				$vh_post = $pm eq '+' ? 3 : $vh_post & 1;
-			} elsif ($txt eq 'vhost_x') {
-				$vh_post = $pm eq '+' ? $vh_post | 1 : 0;
-			}
 			push @mode, $pm.$txt;
 		}
 	}
@@ -304,21 +308,6 @@ sub _parse_umode {
 		dst => $nick,
 		mode => \@mode,
 	} if @mode;
-
-	if ($vh_pre != $vh_post) {
-		if ($vh_post > 1) {
-			#invalid
-			warn "Ignoring extraneous umode +t";
-		} else {
-			my $vhost = $vh_post ? $nick->info('chost') : $nick->info('host');
-			push @out,{
-				type => 'NICKINFO',
-				dst => $nick,
-				item => 'vhost',
-				value => $vhost,
-			};
-		}
-	}				
 	@out;
 }
 
@@ -359,31 +348,67 @@ sub cmd2 {
 }
 
 %moddef = (
-'m_alltime.so' => {
+'m_alias.so' => {
+}, 'm_alltime.so' => {
 	cmds => { ALLTIME => \&ignore, },
+}, 'm_antibear.so' => {
+}, 'm_antibottler.so' => {
+}, 'm_auditorium.so' => {
+	cmode => { u => 'r_auditorium' },
 }, 'm_banexception.so' => {
-	cmode => { 'e' => 'l_except' },
+	cmode => { e => 'l_except' },
+}, 'm_banredirect.so' => {
+}, 'm_blockamsg.so' => {
+}, 'm_blockcaps.so' => {
 }, 'm_blockcolor.so' => {
-	cmode => { 'c' => 'r_colorblock' },
+	cmode => { c => 'r_colorblock' },
 }, 'm_botmode.so' => {
-	umode => { 'B' => 'bot' },
+	umode => { B => 'bot' },
+}, 'm_cban.so' => {
 }, 'm_censor.so' => {
-	cmode => { 'G' => 'r_badword' },
-	umode => { 'G' => 'badword' },
+	cmode => { G => 'r_badword' },
+	umode => { G => 'badword' },
+}, 'm_cgiirc.so' => {
+}, 'm_chancreate.so' => {
+}, 'm_chanfilter.so' => {
+	cmode => { g => 'l_badwords' },
+}, 'm_chanprotect.so' => {
+	cmode => { a => 'n_admin', q => 'n_owner' },
+}, 'm_check.so' => {
+}, 'm_chghost.so' => {
+	cmds => { CHGHOST => sub {
+		my $net = shift;
+		my $dst = $net->mynick($_[2]) or return ();
+		return +{
+			type => 'NICKINFO',
+			src => $net->item($_[0]),
+			dst => $dst,
+			item => 'host',
+			value => $_[3],
+		};
+	} },
+# TODO continue alphabetically on the module list
 }, CORE => {
 	cmode => {
-		o => 'n_op',
-		h => 'n_halfop',
-		v => 'n_voice',
-		
 		b => 'l_ban',
+		h => 'n_halfop',
+		i => 'r_invite',
+		k => 'v_key',
+		l => 's_limit',
+		m => 'r_moderated',
 		n => 'r_mustjoin',
+		o => 'n_op',
+		p => 'r_private',
+		s => 'r_secret',
 		t => 'r_topic',
+		v => 'n_voice',
 	},
 	umode => {
-		'o' => 'oper',
-		'i' => 'invisible',
-		'w' => 'wallops',
+		i => 'invisible',
+		n => 'snomask2', # TODO difference between +n and +s ?
+		o => 'oper',
+		s => 'snomask',
+		w => 'wallops',
 	},
   cmds => {
   	NICK => sub {
@@ -431,6 +456,24 @@ sub cmd2 {
 			item => 'away',
 			value => $_[2],
 		};
+	}, FHOST => sub {
+		my $net = shift;
+		my $nick = $net->mynick($_[0]) or return ();
+		return +{
+			dst => $nick,
+			type => 'NICKINFO',
+			item => 'host',
+			value => $_[2],
+		};
+	}, FNAME => sub {
+		my $net = shift;
+		my $nick = $net->mynick($_[0]) or return ();
+		return +{
+			dst => $nick,
+			type => 'NICKINFO',
+			item => 'name',
+			value => $_[2],
+		};
 	},
 
 	FJOIN => sub {
@@ -460,6 +503,18 @@ sub cmd2 {
 			};
 		}
 		@acts;
+	}, JOIN => sub {
+		my $net = shift;
+		my $src = $net->mynick($_[0]);
+		my $ts = $_[3];
+		map {
+			my $chan = $net->chan($_);
+			+{
+				type => 'JOIN',
+				src => $src,
+				dst => $chan,
+			};
+		} split /,/, $_[2];
 	}, FMODE => sub {
 		my $net = shift;
 		my $src = $net->item($_[0]);
@@ -477,15 +532,19 @@ sub cmd2 {
 	}, MODE => sub {
 		my $net = shift;
 		my $src = $net->item($_[0]);
-		my $chan = $net->chan($_[2]);
-		my($modes,$args) = $net->_modeargs(@_[3 .. $#_]);
-		return +{
-			type => 'MODE',
-			src => $src,
-			dst => $chan,
-			mode => $modes,
-			args => $args,
-		};
+		my $dst = $net->item($_[2]);
+		if ($dst->isa('Nick')) {
+			$net->_parse_umode($dst, $_[3]);
+		} else {
+			my($modes,$args) = $net->_modeargs(@_[3 .. $#_]);
+			return +{
+				type => 'MODE',
+				src => $src,
+				dst => $dst,
+				mode => $modes,
+				args => $args,
+			};
+		}
 	}, REMSTATUS => sub {
 		my $net = shift;
 		my $chan = $net->chan($_[2]);
@@ -496,17 +555,26 @@ sub cmd2 {
 			ts => $chan->ts(),
 			wipe => 1,
 		};
+	}, FTOPIC => sub {
+		() # TODO
+	}, TOPIC => sub {
+		() # TODO
 	},
 
 	SERVER => sub {
 		my $net = shift;
 		if ($_[3] eq $net->param('yourpass')) {
-			$modstate[$$net]{CORE}{auth} = 1;
+			$modules[$$net]{CORE}{auth} = 1;
 			$net->send('BURST '.time);
 		} else {
-			$net->send('ERROR :Bad password') unless $modstate[$$net]{CORE}{auth};
+			$net->send('ERROR :Bad password') unless $modules[$$net]{CORE}{auth};
 		}
 		# TODO add it to the server map... if we need one
+		();
+	}, SQUIT => sub { 
+		(); # TODO
+	}, RSQUIT => sub {
+		# hey, isn't that nice, I can ignore this!
 		();
 	}, PING => sub {
 		my $net = shift;
@@ -515,8 +583,8 @@ sub cmd2 {
 		();
 	}, BURST => sub {
 		my $net = shift;
-		return () if $modstate[$$net]{CORE}{auth} > 1;
-		$modstate[$$net]{CORE}{auth} = 2;
+		return () if $modules[$$net]{CORE}{auth} > 1;
+		$modules[$$net]{CORE}{auth} = 2;
 		my @out;
 		for my $id (keys %Janus::nets) {
 			my $new = $Janus::nets{$id};
@@ -538,7 +606,7 @@ sub cmd2 {
 			$net->send(
 				'ENDBURST',
 				'CAPAB START',
-				'CAPAB MODULES '.join(',',keys %mods),
+				'CAPAB MODULES '.join(',',sort keys %mods),
 				'CAPAB CAPABILITIES :NICKMAX=32 HALFOP=1 CHANMAX=65 MAXMODES=20 IDENTMAX=12 MAXQUIT=255 MAXTOPIC=307 MAXKICK=255 MAXGECOS=128 MAXAWAY=200 IP6NATIVE=1 IP6SUPPORT=1 PROTOCOL=1105 PREFIX=(ohv)@%+ CHANMODES=Iabeq,k,jl,CKMNOQRTcimnprst',
 				'CAPAB END',
 			);
@@ -548,9 +616,17 @@ sub cmd2 {
 	PONG => \&ignore,
 	VERSION => \&ignore,
 	ADDLINE => \&ignore, 
-
-	PRIVMSG => \&nc_msg,
-	NOTICE => \&nc_msg,
+	GLINE => \&ignore, 
+	ELINE => \&ignore, 
+	ZLINE => \&ignore, 
+	QLINE => \&ignore, 
+	SVSNICK => sub {
+		() # TODO
+	}, SVSMODE => sub {
+		() # TODO
+	},
+	REHASH => \&ignore,
+	MODULES => \&ignore,
 	ENDBURST => sub {
 		my $net = shift;
 		return +{
@@ -559,24 +635,65 @@ sub cmd2 {
 			sendto => [ values %Janus::nets ],
 		};
 	},
+
+	PRIVMSG => \&nc_msg,
+	NOTICE => \&nc_msg,
+	OPERNOTICE => \&ignore,
+	MODENOTICE => \&ignore,
+	SNONOTICE => \&ignore,
+	METADATA => sub {
+		my $net = $_[0];
+		my $key = $_[4];
+		my $mdh = $meta[$$net]{$key};
+		return () unless $mdh;
+		$mdh->($net, @_);
+	},
+	IDLE => \&ignore,
+	PUSH => \&ignore,
+	TIME => \&ignore,
+	TIMESET => \&ignore,
   }, acts => {
 	NETLINK => sub {
 		my($net,$act) = @_;
 		my $new = $act->{net};
 		my $id = $new->id();
-		return () unless $modstate[$$net]{CORE}{auth};
+		return () unless $modules[$$net]{CORE}{auth};
 		if ($net->id() eq $id) {
 			();
 		} else {
 			return $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", '*', 1, $new->netname());
 		}
-	},
-	CONNECT => sub {
+	}, NETSPLIT => sub {
+		my($net,$act) = @_;
+		my $gone = $act->{net};
+		my $id = $gone->id();
+		my $msg = $act->{msg} || 'Excessive Core Radiation';
+		$net->cmd2($net->cparam('linkname'), SQUIT => "$id.janus", $msg),
+	}, CONNECT => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
 		return () if $act->{net}->id() ne $net->id();
-	
+		
 		return $net->_connect_ifo($nick);
+	}, RECONNECT => sub {
+		my($net,$act) = @_;
+		my $nick = $act->{dst};
+		return () if $act->{net}->id() ne $net->id();
+
+		if ($act->{killed}) {
+			my @out = $net->_connect_ifo($nick);
+			for my $chan (@{$act->{reconnect_chans}}) {
+				next unless $chan->is_on($net);
+				my $mode = join '', map {
+					$chan->has_nmode($_, $nick) ? $net->txt2cmode($_) : ''
+				} qw/n_voice n_halfop n_op/;
+				$mode =~ tr/ohv/@%+/;
+				push @out, $net->cmd1(FJOIN => $chan, $chan->ts(), $mode.','.$nick->str($net));
+			}
+			return @out;
+		} else {
+			return $net->cmd2($act->{from}, NICK => $act->{to}, $nick->ts());
+		}
 	}, JOIN => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
@@ -590,6 +707,12 @@ sub cmd2 {
 		}
 		$mode =~ tr/ohv/@%+/;
 		$net->cmd1(FJOIN => $chan, $chan->ts(), $mode.','.$net->_out($act->{src}));
+	}, PART => sub {
+		my($net,$act) = @_;
+		$net->cmd2($act->{src}, PART => $act->{dst}, $act->{msg});
+	}, KICK => sub {
+		my($net,$act) = @_;
+		$net->cmd2($act->{src}, KICK => $act->{dst}, $act->{kickee}, $act->{msg});
 	}, MODE => sub {
 		my($net,$act) = @_;
 		my $src = $act->{src};
@@ -597,8 +720,17 @@ sub cmd2 {
 		return () unless @interp;
 		return () if @interp == 1 && $interp[0] =~ /^[+-]+$/;
 		return $net->cmd2($src, MODE => $act->{dst}, @interp);
+	}, NICKINFO => sub {
+		my($net,$act) = @_;
+		if ($act->{item} eq 'host') {
+			return $net->cmd2($act->{dst}, FHOST => $act->{value});
+		} elsif ($act->{item} eq 'name') {
+			return $net->cmd2($act->{dst}, FNAME => $act->{value});
+		} elsif ($act->{item} eq 'away') {
+			return $net->cmd2($act->{dst}, AWAY => defined $act->{value} ? $act->{value} : ());
+		}
+		return ();
 	},
-		
 	MSG => sub {
 		my($net,$act) = @_;
 		return if $act->{dst}->isa('Network');
