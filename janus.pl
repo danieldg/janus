@@ -24,14 +24,18 @@ sub readable {
 			&Janus::in_socket($$l[3], $line);
 		}
 		$$l[1] = $recvq;
+		$$l[4] = 1 if $$l[4]; #reset SSL error counter
 	} else {
 		my $net = $$l[3];
 		if ($sock->isa('IO::Socket::SSL')) {
-			print "SSL error @".$net->id().": ".$sock->errstr()."\n";
+			print "SSL read error @".$net->id().": ".$sock->errstr()."\n";
 			if ($sock->errstr() eq SSL_WANT_READ) {
 				# we were trying to read, and want another read: act just like reading
 				# half of a line, i.e. return and wait for the next incoming blob
-				return;
+				return unless $$l[4]++ > 10; 
+				# However, if we have had more than 10 errors, assume something else is wrong
+				# and bail out.
+				print "Bailing out!\n";
 			} elsif ($sock->errstr() eq SSL_WANT_WRITE) {
 				# since are waiting for a write, we do NOT want to come back when reads
 				# are available, at least not until we have unblocked a write.
