@@ -12,12 +12,20 @@ use warnings;
 __PERSIST__
 persist @sendq     :Field;
 
+persist @modules   :Field; # {module} => definition - List of active modules
 persist @meta      :Field; # key => sub{} for METADATA command
 persist @fromirc   :Field; # command => sub{} for IRC commands
-persist @act_hooks :Field; # type => module => sub{} for Janus Action => output (m
+persist @act_hooks :Field; # type => module => sub{} for Janus Action => output
 
-persist @modules   :Field; # {module} => definition - List of active modules
-persist @state     :Field; # state data
+persist @auth      :Field; # 0/undef = unauth connection; 1 = authed, in burst; 2 = after burst
+persist @capabs    :Field;
+
+persist @txt2cmode :Field; # quick lookup hashes for translation in/out of janus 
+persist @cmode2txt :Field;
+persist @txt2umode :Field;
+persist @umode2txt :Field;
+persist @txt2pfx   :Field;
+persist @pfx2txt   :Field;
 __CODE__
 
 sub _init :Init {
@@ -37,17 +45,17 @@ sub module_add {
 	if ($mod->{cmode}) {
 		for my $cm (keys %{$mod->{cmode}}) {
 			my $txt = $mod->{cmode}{$cm};
-			warn "Overriding mode $cm" if $state[$$net]{cmode2txt}{$cm} || $state[$$net]{txt2cmode}{$txt};
-			$state[$$net]{cmode2txt}{$cm} = $txt;
-			$state[$$net]{txt2cmode}{$txt} = $cm;
+			warn "Overriding mode $cm" if $cmode2txt[$$net]{$cm} || $txt2cmode[$$net]{$txt};
+			$cmode2txt[$$net]{$cm} = $txt;
+			$txt2cmode[$$net]{$txt} = $cm;
 		}
 	}
 	if ($mod->{umode}) {
 		for my $um (keys %{$mod->{umode}}) {
 			my $txt = $mod->{umode}{$um};
-			warn "Overriding mode $um" if $state[$$net]{umode2txt}{$um} || $state[$$net]{txt2umode}{$txt};
-			$state[$$net]{umode2txt}{$um} = $txt;
-			$state[$$net]{txt2umode}{$txt} = $um;
+			warn "Overriding mode $um" if $umode2txt[$$net]{$um} || $txt2umode[$$net]{$txt};
+			$umode2txt[$$net]{$um} = $txt;
+			$txt2umode[$$net]{$txt} = $um;
 		}
 	}
 	if ($mod->{cmds}) {
@@ -71,12 +79,12 @@ sub module_add {
 
 sub cmode2txt {
 	my($net,$cm) = @_;
-	$state[$$net]{cmode2txt}{$cm};
+	$cmode2txt[$$net]{$cm};
 }
 
 sub txt2cmode {
 	my($net,$tm) = @_;
-	$state[$$net]{txt2cmode}{$tm};
+	$txt2cmode[$$net]{$tm};
 }
 
 sub nicklen { 32 }
@@ -92,7 +100,9 @@ sub str {
 
 sub intro :Cumulative {
 	my($net,$param) = @_;
-	# do nothing until we receive a CAPAB message
+	$net->send('CAPAB START');
+	# we cannot continue until we get the remote CAPAB list so we can
+	# forge the module list
 }
 
 # parse one line of input
@@ -107,16 +117,18 @@ sub parse {
 		unshift @args, undef;
 	}
 	my $cmd = $args[1];
-	unless ($state[$$net]{auth} || $cmd eq 'CAPAB' || $cmd eq 'SERVER') {
+	unless ($auth[$$net] || $cmd eq 'CAPAB' || $cmd eq 'SERVER') {
 		$net->send('ERROR :Not authorized yet');
 		return ();
 	}
 	return $net->nick_msg(@args) if $cmd =~ /^\d+$/;
-	unless (exists $fromirc[$$net]{$cmd}) {
+	$cmd = $fromirc[$$net]{$cmd} || $cmd;
+	$cmd = $fromirc[$$net]{$cmd} || $cmd if $cmd && !ref $cmd; # allow one layer of indirection
+	unless ($cmd && ref $cmd) {
 		debug "Unknown command '$cmd'";
 		return ();
 	}
-	$fromirc[$$net]{$cmd}->($net,@args);
+	$cmd->($net,@args);
 }
 
 sub send {
@@ -157,8 +169,8 @@ sub umode_text {
 	my $mode = '+';
 	for my $m ($nick->umodes()) {
 		next if $skip_umode{$m};
-		next unless exists $state[$$net]{txt2umode}{$m};
-		$mode .= $state[$$net]{txt2umode}{$m};
+		next unless exists $txt2umode[$$net]{$m};
+		$mode .= $txt2umode[$$net]{$m};
 	}
 	unless ($net->param('show_roper') || $nick->info('_is_janus')) {
 		$mode .= 'H' if $mode =~ /o/ && $mode !~ /H/;
@@ -250,39 +262,6 @@ sub nick_msg {
 }
 
 sub nc_msg {
-	my $net = shift;
-	my $src = $net->item($_[0]);
-	my $msgtype = 
-		$_[1] eq 'PRIVMSG' ? 1 :
-		$_[1] eq 'NOTICE' ? 2 :
-		0;
-	if ($_[2] =~ /^\$/) {
-		# server broadcast message. No action; these are confined to source net
-		return ();
-	} elsif ($_[2] =~ /(.?)(#\S*)/) {
-		# channel message, possibly to a mode prefix
-		return {
-			type => 'MSG',
-			src => $src,
-			prefix => $1,
-			dst => $net->chan($2),
-			msg => $_[3],
-			msgtype => $msgtype,
-		};
-	} elsif ($_[2] =~ /^(\S+?)(@\S+)?$/) {
-		# nick message, possibly with a server mask
-		# server mask is ignored as the server is going to be wrong anyway
-		my $dst = $net->nick($1);
-		return () unless $dst;
-		return {
-			type => 'MSG',
-			src => $src,
-			dst => $dst,
-			msg => $_[3],
-			msgtype => $msgtype,
-		};
-	}
-	();
 }
 
 sub _parse_umode {
@@ -293,7 +272,7 @@ sub _parse_umode {
 		if (/[-+]/) {
 			$pm = $_;
 		} else {
-			my $txt = $state[$$net]{umode2txt}{$_} or do {
+			my $txt = $umode2txt[$$net]{$_} or do {
 				warn "Unknown umode '$_'";
 				next;
 			};
@@ -430,8 +409,8 @@ sub cmd2 {
 		my @m = split //, $_[7];
 		warn unless '+' eq shift @m;
 		$nick{mode} = +{ map { 
-			if (exists $state[$$net]{umode2txt}{$_}) {
-				$state[$$net]{umode2txt}{$_} => 1 
+			if (exists $umode2txt[$$net]{$_}) {
+				$umode2txt[$$net]{$_} => 1 
 			} else {
 				warn "Unknown umode '$_'";
 				();
@@ -458,8 +437,8 @@ sub cmd2 {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
 		return +{
-			dst => $nick,
 			type => 'NICKINFO',
+			dst => $nick,
 			item => 'host',
 			value => $_[2],
 		};
@@ -467,17 +446,45 @@ sub cmd2 {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
 		return +{
-			dst => $nick,
 			type => 'NICKINFO',
+			dst => $nick,
 			item => 'name',
 			value => $_[2],
 		};
-	},
-
-	FJOIN => sub {
+	}, QUIT => sub {
 		my $net = shift;
-		my $chan = $net->chan($_[2], 1);
+		my $nick = $net->mynick($_[0]) or return ();
+		return +{
+			type => 'QUIT',
+			dst => $nick,
+			msg => $_[-1],
+		};	
+	}, KILL => sub {
+		my $net = shift;
+		my $src = $net->item($_[0]);
+		my $dst = $net->nick($_[2]) or return ();
+		my $msg = $_[3];
+		$msg =~ s/^\S+!//;
+
+		if ($dst->homenet()->id() eq $net->id()) {
+			return {
+				type => 'QUIT',
+				dst => $dst,
+				msg => "Killed ($msg)",
+				killer => $src,
+			};
+		}
+		return {
+			type => 'KILL',
+			src => $src,
+			dst => $dst,
+			net => $net,
+			msg => $msg,
+		};
+	}, FJOIN => sub {
+		my $net = shift;
 		my $ts = $_[3];
+		my $chan = $net->chan($_[2], $ts);
 		my $applied = ($chan->ts() >= $ts);
 		my @acts;
 		push @acts, +{
@@ -492,7 +499,7 @@ sub cmd2 {
 			$nm =~ /(?:(.*),)?(\S+)$/ or next;
 			my $nmode = $1;
 			my $nick = $net->mynick($2);
-			my %mh = map { $state[$$net]{pfx2txt}{$_} => 1 } split //, $nmode;
+			my %mh = map { $pfx2txt[$$net]{$_} => 1 } split //, $nmode;
 			push @acts, +{
 				type => 'JOIN',
 				src => $nick,
@@ -506,7 +513,7 @@ sub cmd2 {
 		my $src = $net->mynick($_[0]);
 		my $ts = $_[3];
 		map {
-			my $chan = $net->chan($_);
+			my $chan = $net->chan($_, $ts);
 			+{
 				type => 'JOIN',
 				src => $src,
@@ -554,16 +561,40 @@ sub cmd2 {
 			wipe => 1,
 		};
 	}, FTOPIC => sub {
-		() # TODO
+		my $net = shift;
+		return +{
+			type => 'TOPIC',
+			src => $net->item($_[0]),
+			dst => $net->chan($_[2]),
+			topicts => $_[3],
+			topicset => $_[4],
+			topic => $_[-1],
+		};
 	}, TOPIC => sub {
-		() # TODO
+		my $net = shift;
+		return +{
+			type => 'TOPIC',
+			src => $net->item($_[0]),
+			dst => $net->chan($_[2]),
+			topicts => time,
+			topicset => $_[0],
+			topic => $_[-1],
+		};
+	}, PART => sub {
+		my $net = shift;
+		return map +{
+			type => 'PART',
+			src => $net->mynick($_[0]),
+			dst => $net->chan($_),
+			msg => $_[3],
+		}, split /,/, $_[2];
 	},
 
 	SERVER => sub {
 		my $net = shift;
-		unless ($state[$$net]{auth}) {
+		unless ($auth[$$net]) {
 			if ($_[3] eq $net->param('yourpass')) {
-				$state[$$net]{auth} = 1;
+				$auth[$$net] = 1;
 				$net->send('BURST '.time);
 			} else {
 				$net->send('ERROR :Bad password');
@@ -583,8 +614,8 @@ sub cmd2 {
 		();
 	}, BURST => sub {
 		my $net = shift;
-		return () if $state[$$net]{auth} != 1;
-		$state[$$net]{auth} = 2;
+		return () if $auth[$$net] != 1;
+		$auth[$$net] = 2;
 		my @out;
 		for my $id (keys %Janus::nets) {
 			my $new = $Janus::nets{$id};
@@ -600,7 +631,7 @@ sub cmd2 {
 		} elsif ($_[2] eq 'CAPABILITIES') {
 			$_ = $_[3];
 			while (s/^\s*(\S+)=(\S+)//) {
-				$state[$$net]{CAPAB}{$1} = $2;
+				$capabs[$$net]{$1} = $2;
 			}
 # NICKMAX=32 HALFOP=1 CHANMAX=65 MAXMODES=20 IDENTMAX=12 MAXQUIT=255 MAXTOPIC=307 MAXKICK=255 MAXGECOS=128 
 # MAXAWAY=200 IP6NATIVE=1 IP6SUPPORT=1 PROTOCOL=1105 PREFIX=(qaohv)~&@%+ CHANMODES=Ibe,k,jl,CKMNOQRTcimnprst
@@ -608,28 +639,34 @@ sub cmd2 {
 			# yep, we lie about all this.
 			my $mods = join ',', sort grep $_ ne 'CORE', keys %{$modules[$$net]};
 			my $capabs = join ' ', sort map {
-				my($k,$v) = ($_, $state[$$net]{CAPAB}{$_});
+				my($k,$v) = ($_, $capabs[$$net]{$_});
 				$k = undef if $k eq 'CHALLENGE'; # TODO generate our own challenge and use SHA256 passwords
 				$k ? "$k=$v" : ();
-			} keys %{$state[$$net]{CAPAB}};
-			$net->send('CAPAB START');
-			$net->send('CAPAB MODULES '.$1) while $mods =~ s/(.{1,450})(,|$)//;
+			} keys %{$capabs[$$net]};
+			$net->send('CAPAB MODULES '.$1) while $mods =~ s/(.{1,495})(,|$)//;
 			$net->send('CAPAB CAPABILITIES :'.$1) while $capabs =~ s/(.{1,450})( |$)//;
 	        $net->send('CAPAB END');
 			$net->send($net->cmd1(SERVER => $net->param('linkname'), $net->param('mypass'), 0, 'Janus Network Link'));
-			$_ = $state[$$net]{CAPAB}{PREFIX};
+			$_ = $capabs[$$net]{PREFIX};
 			my(%p2t,%t2p);
 			while (s/\((.)(.*)\)(.)/($2)/) {
-				my $txt = $state[$$net]{cmode2txt}{$1};
+				my $txt = $cmode2txt[$$net]{$1};
 				$t2p{$txt} = $3;
 				$p2t{$3} = $txt;
 			}
-			$state[$$net]{pfx2txt} = \%p2t;
-			$state[$$net]{txt2pfx} = \%t2p;
+			$pfx2txt[$$net] = \%p2t;
+			$txt2pfx[$$net] = \%t2p;
 			# TODO verify the set of CHANMODES is identical
 			# note without +qa prefix, they appear in the 'list' part of CHANMODES
 		} # ignore START and any others
 		();
+	}, ERROR => sub {
+		my $net = shift;
+		+{
+			type => 'NETSPLIT',
+			net => $net,
+			msg => 'ERROR: '.$_[-1],
+		};
 	},
 	PONG => \&ignore,
 	VERSION => \&ignore,
@@ -638,11 +675,21 @@ sub cmd2 {
 	ELINE => \&ignore, 
 	ZLINE => \&ignore, 
 	QLINE => \&ignore, 
-	SVSNICK => sub {
-		() # TODO
-	}, SVSMODE => sub {
-		() # TODO
+	SVSJOIN => sub {
+		my $net = shift;
+		my $src = $net->mynick($_[2]);
+		map {
+			my $chan = $net->chan($_);
+			+{
+				type => 'JOIN',
+				src => $src,
+				dst => $chan,
+			};
+		} split /,/, $_[3];
+
 	},
+	SVSNICK => 'NICK',
+	SVSMODE => 'JOIN',
 	REHASH => \&ignore,
 	MODULES => \&ignore,
 	ENDBURST => sub {
@@ -654,8 +701,41 @@ sub cmd2 {
 		};
 	},
 
-	PRIVMSG => \&nc_msg,
-	NOTICE => \&nc_msg,
+	PRIVMSG => sub {
+		my $net = shift;
+		my $src = $net->item($_[0]);
+		my $msgtype = 
+			$_[1] eq 'PRIVMSG' ? 1 :
+			$_[1] eq 'NOTICE' ? 2 :
+			0;
+		if ($_[2] =~ /^\$/) {
+			# server broadcast message. No action; these are confined to source net
+			return ();
+		} elsif ($_[2] =~ /(.?)(#\S*)/) {
+			# channel message, possibly to a mode prefix
+			return {
+				type => 'MSG',
+				src => $src,
+				prefix => $1,
+				dst => $net->chan($2),
+				msg => $_[3],
+				msgtype => $msgtype,
+			};
+		} elsif ($_[2] =~ /^(\S+?)(@\S+)?$/) {
+			# nick message, possibly with a server mask
+			# server mask is ignored as the server is going to be wrong anyway
+			my $dst = $net->nick($1);
+			return +{
+				type => 'MSG',
+				src => $src,
+				dst => $dst,
+				msg => $_[3],
+				msgtype => $msgtype,
+			} if $dst;
+		}
+		();
+	}, 
+	NOTICE => 'PRIVMSG',
 	OPERNOTICE => \&ignore,
 	MODENOTICE => \&ignore,
 	SNONOTICE => \&ignore,
@@ -666,7 +746,7 @@ sub cmd2 {
 		return () unless $mdh;
 		$mdh->(@_);
 	},
-	IDLE => \&ignore,
+	IDLE => \&ignore, # TODO this is WHOIS - need to figure out how to encapsulate
 	PUSH => \&ignore,
 	TIME => \&ignore,
 	TIMESET => \&ignore,
@@ -675,7 +755,7 @@ sub cmd2 {
 		my($net,$act) = @_;
 		my $new = $act->{net};
 		my $id = $new->id();
-		return () unless $state[$$net]{auth};
+		return () unless $auth[$$net];
 		if ($net->id() eq $id) {
 			();
 		} else {
@@ -703,7 +783,7 @@ sub cmd2 {
 			for my $chan (@{$act->{reconnect_chans}}) {
 				next unless $chan->is_on($net);
 				my $mode = join '', map {
-					$chan->has_nmode($_, $nick) ? $state[$$net]{txt2pfx}{$_} : ''
+					$chan->has_nmode($_, $nick) ? $txt2pfx[$$net]{$_} : ''
 				} qw/n_voice n_halfop n_op n_admin n_owner/;
 				push @out, $net->cmd1(FJOIN => $chan, $chan->ts(), $mode.','.$nick->str($net));
 			}
@@ -711,6 +791,11 @@ sub cmd2 {
 		} else {
 			return $net->cmd2($act->{from}, NICK => $act->{to}, $nick->ts());
 		}
+	}, QUIT => sub {
+		my($net,$act) = @_;
+		return () if $act->{netsplit_quit};
+		return () unless $act->{dst}->is_on($net);
+		$net->cmd2($act->{dst}, QUIT => $act->{msg});
 	}, JOIN => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
@@ -720,7 +805,7 @@ sub cmd2 {
 		}
 		my $mode = '';
 		if ($act->{mode}) {
-			$mode .= $state[$$net]{txt2pfx}{$_} for keys %{$act->{mode}};
+			$mode .= $txt2pfx[$$net]{$_} for keys %{$act->{mode}};
 		}
 		$net->cmd1(FJOIN => $chan, $chan->ts(), $mode.','.$net->_out($act->{src}));
 	}, PART => sub {
@@ -736,6 +821,9 @@ sub cmd2 {
 		return () unless @interp;
 		return () if @interp == 1 && $interp[0] =~ /^[+-]+$/;
 		return $net->cmd2($src, MODE => $act->{dst}, @interp);
+	}, TOPIC => sub {
+		my($net,$act) = @_;
+		return $net->cmd2($act->{src}, FTOPIC => $act->{dst}, $act->{topicts}, $act->{topicset}, $act->{topic});
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
 		if ($act->{item} eq 'host') {
@@ -765,6 +853,6 @@ sub cmd2 {
 
 });
 
-$moddef{$_} or $moddef{$_} = {} for qw/m_globops.so m_invisible.so m_inviteexception.so m_joinflood.so m_knock.so m_noctcp.so m_nokicks.so m_nonicks.so m_nonotice.so m_operchans.so m_services.so m_showwhois.so/;
+$moddef{$_} or $moddef{$_} = {} for qw/m_globops.so m_invisible.so m_inviteexception.so m_joinflood.so m_knock.so m_noctcp.so m_nokicks.so m_nonicks.so m_nonotice.so m_operchans.so m_services.so m_showwhois.so m_cloaking.so m_dccallow.so m_deaf.so m_hidechans.so m_hideoper.so m_kicknorejoin.so m_messageflood.so m_noinvite.so m_redirect.so m_services_account.so m_sslmodes.so m_stripcolor.so m_svshold.so/;
 
 1;

@@ -95,6 +95,7 @@ sub chan {
 		$chans[$$net]{lc $name} = Channel->new(
 			net => $net, 
 			name => $name,
+			ts => $new,
 		);
 	}
 	$chans[$$net]{lc $name};

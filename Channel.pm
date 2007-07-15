@@ -79,6 +79,8 @@ sub _init :Init {
 	my($c, $ifo) = @_;
 	$topicts[$$c] = 0 unless $topicts[$$c];
 	$mode[$$c] = $ifo->{mode} || {};
+	$ts[$$c] = $ifo->{ts} || 0;
+	$ts[$$c] = (time + 60) if $ts[$$c] < 1000000;
 	if ($keyname[$$c]) {
 		my $names = $ifo->{names} || {};
 		$names[$$c] = $names;
@@ -87,7 +89,6 @@ sub _init :Init {
 			$nets[$$c]{$id} = $Janus::nets{$id};
 			$Janus::gchans{$id.$name} = $c unless $Janus::gchans{$id.$name};
 		}
-		$ts[$$c] = $ifo->{ts} || (time + 60);
 	} else {
 		my $net = $ifo->{net};
 		my $id = $net->id();
@@ -95,7 +96,6 @@ sub _init :Init {
 		$nets[$$c]{$id} = $net;
 		$names[$$c]{$id} = $ifo->{name};
 		$Janus::gchans{$id.$ifo->{name}} = $c;
-		$ts[$$c] = $ifo->{ts} || (time + 60);
 	}
 }
 
