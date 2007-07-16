@@ -20,7 +20,7 @@ persist @act_hooks :Field; # type => module => sub{} for Janus Action => output
 persist @auth      :Field; # 0/undef = unauth connection; 1 = authed, in burst; 2 = after burst
 persist @capabs    :Field;
 
-persist @txt2cmode :Field; # quick lookup hashes for translation in/out of janus 
+persist @txt2cmode :Field; # quick lookup hashes for translation in/out of janus
 persist @cmode2txt :Field;
 persist @txt2umode :Field;
 persist @umode2txt :Field;
@@ -193,7 +193,7 @@ sub _connect_ifo {
 	my $ip = $nick->info('ip') || '0.0.0.0';
 	$ip = '0.0.0.0' if $ip eq '*';
 	my @out;
-	push @out, $net->cmd2($srv, NICK => $nick->ts(), $nick, $nick->info('host'), $vhost, 
+	push @out, $net->cmd2($srv, NICK => $nick->ts(), $nick, $nick->info('host'), $vhost,
 		$nick->info('ident'), $mode, $ip, $nick->info('name'));
 	@out;
 }
@@ -296,7 +296,7 @@ sub _out {
 		return $itm->str($net) if $itm->is_on($net);
 		return $itm->homenet()->id() . '.janus';
 	} elsif ($itm->isa('Channel')) {
-		warn "This channel message must have been misrouted: ".$itm->keyname() 
+		warn "This channel message must have been misrouted: ".$itm->keyname()
 			unless $itm->is_on($net);
 		return $itm->str($net);
 	} elsif ($itm->isa('Network')) {
@@ -328,10 +328,10 @@ sub cmd2 {
 	'm_alias.so' => { },
 	'm_alltime.so' => {
 		cmds => { ALLTIME => \&ignore, },
-	}, 
+	},
 	'm_antibear.so' => { },
 	'm_antibottler.so' => { },
-	# This can be set in config to hide ops too, see 
+	# This can be set in config to hide ops too, see
 	# http://www.inspircd.org/wiki/Modules/auditorium
 	'm_auditorium.so' => {
 		cmode => { u => 'r_auditorium' },
@@ -346,7 +346,7 @@ sub cmd2 {
 	},
 	'm_blockcolor.so' => {
 		cmode => { c => 'r_colorblock' },
-	}, 
+	},
 	'm_botmode.so' => {
 		umode => { B => 'bot' },
 	},
@@ -370,13 +370,13 @@ sub cmd2 {
 		},
 	},
 	'm_check.so' => { },
-	'm_inviteexception.so' => { 
+	'm_inviteexception.so' => {
 		cmode => { I => 'l_invex' }
 	},
 	
 	'm_chgident.so' => { },
 	'm_chgname.so' => { },
-	'm_cloaking.so' => { 
+	'm_cloaking.so' => {
 		umode => { x => 'vhost_x' }
 	},
 	'm_clones.so' => { },
@@ -386,7 +386,7 @@ sub cmd2 {
 	'm_connflood.so' => { },
 	'm_cycle.so' => { },
 	'm_dccallow.so' => { },
-	'm_deaf.so' => { 
+	'm_deaf.so' => {
 		umode => { d => 'deaf_chan' }
 	},
 	'm_denychans.so' => { },
@@ -399,10 +399,10 @@ sub cmd2 {
 	'm_globops.so' => {
 	 # This doesn't add a umode in inspircd 1.1, a snomask is added though
 	},
-	'm_helpop.so' => { 
+	'm_helpop.so' => {
 	 # This doesn't add a umode in inspircd 1.1, a snomask is added though
 	},
-	'm_hideoper.so' => { 
+	'm_hideoper.so' => {
 		umode => { H => 'hideoper' }
 	},
 	'm_hostchange.so' => { },
@@ -411,17 +411,17 @@ sub cmd2 {
 	'm_httpd_stats.so' => { },
 	'm_ident.so' => { },
 	# I hate this module!
-	'm_invisible.so' => { 
+	'm_invisible.so' => {
 		umode => { Q => 'hiddenabusiveoper' }
 	},
-	'm_joinflood.so' => { 
+	'm_joinflood.so' => {
 		cmode => { j => 's_joinlimit' }
 	},
 	'm_jumpserver.so' => { },
-	'm_kicknorejoin.so' => { 
+	'm_kicknorejoin.so' => {
 		cmode => { J => 's_kicknorejoin' }
 	},
-	'm_knock.so' => { 
+	'm_knock.so' => {
 		# FIXME
 		cmode => { K => 'r_noknock' }
 	},
@@ -431,23 +431,23 @@ sub cmd2 {
 	'm_messageflood.so' => { },
 	'm_namesx.so' => { },
 	'm_nicklock.so' => { },
-	'm_noctcp.so' => { 
+	'm_noctcp.so' => {
 		cmode => { C => 'r_ctcpblock' }
 	},
-	'm_noinvite.so' => { 
+	'm_noinvite.so' => {
 		cmode => { V => 'r_noinvite' }
 	},
-	'm_nokicks.so' => { 
+	'm_nokicks.so' => {
 		cmode => { Q => 'r_nokick' }
 	},
-	'm_nonicks.so' => { 
+	'm_nonicks.so' => {
 		cmode => { N => 'r_norenick' }
 	},
-	'm_nonotice.so' => { 
+	'm_nonotice.so' => {
 		cmode => { T => 'r_noticeblock' }
 	},
 	'm_oper_hash.so' => { },
-	'm_operchans.so' => { 
+	'm_operchans.so' => {
 		cmode => { O => 'r_oper' }
 	},
 	'm_operjoin.so' => { },
@@ -457,7 +457,7 @@ sub cmd2 {
 	'm_opermotd.so' => { },
 	'm_override.so' => { },
 	'm_randquote.so' => { },
-	'm_redirect.so' => { 
+	'm_redirect.so' => {
 		cmode => { L => 'v_forward' }
 	},
 	'm_regonlycreate.so' => { },
@@ -474,7 +474,7 @@ sub cmd2 {
 	'm_saquit.so' => { },
 	'm_securelist.so' => { },
 	'm_seenicks.so' => { },
-	'm_services.so' => { 
+	'm_services.so' => {
 		cmode => {
 			r => 'r_register',
 			R => 'r_reginvite',
@@ -497,14 +497,14 @@ sub cmd2 {
 	'm_setidle.so' => { },
 	'm_setname.so' => { },
 	'm_sha256.so' => { },
-	'm_showwhois.so' => { 
+	'm_showwhois.so' => {
 		umode => { W => 'whois_notice' }
 	},
 	'm_silence.so' => { },
 	'm_silence_ext.so' => { },
 	'm_spanningtree.so' => { },
 	'm_spy.so' => { },
-	'm_ssl_dummy.so' => { 
+	'm_ssl_dummy.so' => {
 		cmode => { z => 'r_sslonly' }
 	},
 	'm_ssl_gnutls.so' => { },
@@ -526,7 +526,7 @@ sub cmd2 {
 	'm_userip.so' => { },
 	'm_vhost.so' => { },
 	'm_watch.so' => { },
-	'm_xmlsocket.so' => { },
+# 	'm_xmlsocket.so' => { },
 	'm_chghost.so' => {
 		cmds => {
 			CHGHOST => sub {
@@ -586,9 +586,9 @@ sub cmd2 {
 		);
 		my @m = split //, $_[7];
 		warn unless '+' eq shift @m;
-		$nick{mode} = +{ map { 
+		$nick{mode} = +{ map {
 			if (exists $umode2txt[$$net]{$_}) {
-				$umode2txt[$$net]{$_} => 1 
+				$umode2txt[$$net]{$_} => 1
 			} else {
 				warn "Unknown umode '$_'";
 				();
@@ -780,7 +780,7 @@ sub cmd2 {
 		}
 		# TODO add it to the server map... if we need one
 		();
-	}, SQUIT => sub { 
+	}, SQUIT => sub {
 		(); # TODO
 	}, RSQUIT => sub {
 		# hey, isn't that nice, I can ignore this!
@@ -811,7 +811,7 @@ sub cmd2 {
 			while (s/^\s*(\S+)=(\S+)//) {
 				$capabs[$$net]{$1} = $2;
 			}
-# NICKMAX=32 HALFOP=1 CHANMAX=65 MAXMODES=20 IDENTMAX=12 MAXQUIT=255 MAXTOPIC=307 MAXKICK=255 MAXGECOS=128 
+# NICKMAX=32 HALFOP=1 CHANMAX=65 MAXMODES=20 IDENTMAX=12 MAXQUIT=255 MAXTOPIC=307 MAXKICK=255 MAXGECOS=128
 # MAXAWAY=200 IP6NATIVE=1 IP6SUPPORT=1 PROTOCOL=1105 PREFIX=(qaohv)~&@%+ CHANMODES=Ibe,k,jl,CKMNOQRTcimnprst
 		} elsif ($_[2] eq 'END') {
 			# yep, we lie about all this.
@@ -848,11 +848,11 @@ sub cmd2 {
 	},
 	PONG => \&ignore,
 	VERSION => \&ignore,
-	ADDLINE => \&ignore, 
-	GLINE => \&ignore, 
-	ELINE => \&ignore, 
-	ZLINE => \&ignore, 
-	QLINE => \&ignore, 
+	ADDLINE => \&ignore,
+	GLINE => \&ignore,
+	ELINE => \&ignore,
+	ZLINE => \&ignore,
+	QLINE => \&ignore,
 	SVSJOIN => sub {
 		my $net = shift;
 		my $src = $net->mynick($_[2]);
@@ -882,7 +882,7 @@ sub cmd2 {
 	PRIVMSG => sub {
 		my $net = shift;
 		my $src = $net->item($_[0]);
-		my $msgtype = 
+		my $msgtype =
 			$_[1] eq 'PRIVMSG' ? 1 :
 			$_[1] eq 'NOTICE' ? 2 :
 			0;
@@ -912,7 +912,7 @@ sub cmd2 {
 			} if $dst;
 		}
 		();
-	}, 
+	},
 	NOTICE => 'PRIVMSG',
 	OPERNOTICE => \&ignore,
 	MODENOTICE => \&ignore,
@@ -1017,7 +1017,7 @@ sub cmd2 {
 		my($net,$act) = @_;
 		return if $act->{dst}->isa('Network');
 		my $type = $act->{msgtype} || 1;
-		$type = 
+		$type =
 			$type == 1 ? 'PRIVMSG' :
 			$type == 2 ? 'NOTICE' :
 			sprintf '%03d', $type;
