@@ -11,6 +11,7 @@ use warnings;
 
 __PERSIST__
 persist @sendq     :Field;
+persist @servers   :Field;
 
 persist @modules   :Field; # {module} => definition - List of active modules
 persist @meta      :Field; # key => sub{} for METADATA command
@@ -572,14 +573,21 @@ sub cmd2 {
   	NICK => sub {
 		my $net = shift;
 		if (@_ < 10) {
-			# TODO nick change
-			return ();
+			my $nick = $net->mynick($_[0]) or return ();
+			return +{
+				type => 'NICK',
+				src => $nick,
+				dst => $nick,
+				nick => $_[2],
+				nickts => (@_ == 4 ? $_[3] : time),
+			};
 		}
 		my %nick = (
 			net => $net,
 			ts => $_[2],
 			nick => $_[3],
 			info => {
+				home_server => $_[0],
 				host => $_[4],
 				vhost => $_[5],
 				ident => $_[6],
@@ -780,11 +788,41 @@ sub cmd2 {
 			} else {
 				$net->send('ERROR :Bad password');
 			}
+		} else {
+			# recall parent
+			$servers[$$net]{lc $_[2]} = lc $_[0];
 		}
-		# TODO add it to the server map... if we need one
 		();
 	}, SQUIT => sub {
-		(); # TODO
+		my $net = shift;
+		my $netid = $net->id();
+		my $srv = $_[2];
+		my $splitfrom = $servers[$$net]{lc $srv};
+		
+		my %sgone = (lc $srv => 1);
+		my $k = 0;
+		while ($k != scalar keys %sgone) {
+			# loop to traverse each layer of the map
+			$k = scalar keys %sgone;
+			for (keys %{$servers[$$net]}) {
+				$sgone{$_} = 1 if $sgone{$servers[$$net]{$_}};
+			}
+		}
+		print 'Lost servers: '.join(' ', sort keys %sgone)."\n";
+		delete $servers[$$net]{$_} for keys %sgone;
+
+		my @quits;
+		for my $nick ($net->all_nicks()) {
+			next unless $nick->homenet()->id() eq $netid;
+			next unless $sgone{lc $nick->info('home_server')};
+			push @quits, +{
+				type => 'QUIT',
+				src => $net,
+				dst => $nick,
+				msg => "$splitfrom $srv",
+			}
+		}
+		@quits;
 	}, RSQUIT => sub {
 		# hey, isn't that nice, I can ignore this!
 		();
@@ -972,6 +1010,10 @@ sub cmd2 {
 		} else {
 			return $net->cmd2($act->{from}, NICK => $act->{to}, $nick->ts());
 		}
+	}, NICK => sub {
+		my($net,$act) = @_;
+		my $id = $net->id();
+		$net->cmd2($act->{from}{$id}, NICK => $act->{to}{$id});		
 	}, QUIT => sub {
 		my($net,$act) = @_;
 		return () if $act->{netsplit_quit};
@@ -998,10 +1040,11 @@ sub cmd2 {
 	}, MODE => sub {
 		my($net,$act) = @_;
 		my $src = $act->{src};
+		my $dst = $act->{dst};
 		my @interp = $net->_mode_interp($act);
 		return () unless @interp;
 		return () if @interp == 1 && $interp[0] =~ /^[+-]+$/;
-		return $net->cmd2($src, MODE => $act->{dst}, @interp);
+		return $net->cmd2($src, FMODE => $dst, $dst->ts(), @interp);
 	}, TOPIC => sub {
 		my($net,$act) = @_;
 		return $net->cmd2($act->{src}, FTOPIC => $act->{dst}, $act->{topicts}, $act->{topicset}, $act->{topic});
