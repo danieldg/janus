@@ -352,11 +352,11 @@ sub cmd2 {
 	},
 	'm_cban.so' => { },
 	'm_censor.so' => {
-			cmode => { G => 'r_badword' },
-			umode => { G => 'badword' },
+		cmode => { G => 'r_badword' },
+		umode => { G => 'badword' },
 	},
 	'm_hidechans.so' => {
-			umode => { I => 'hide_chans' },
+		umode => { I => 'hide_chans' },
 	},
 	'm_cgiirc.so' => { },
 	'm_chancreate.so' => { },
