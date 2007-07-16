@@ -528,7 +528,7 @@ sub cmd2 {
 	'm_userip.so' => { },
 	'm_vhost.so' => { },
 	'm_watch.so' => { },
-# 	'm_xmlsocket.so' => { },
+ 	'm_xmlsocket.so' => { },
 	'm_chghost.so' => {
 		cmds => {
 			CHGHOST => sub {
