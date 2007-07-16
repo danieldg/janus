@@ -422,12 +422,10 @@ sub cmd2 {
 		cmode => { J => 's_kicknorejoin' }
 	},
 	'm_knock.so' => {
-		# FIXME
 		cmode => { K => 'r_noknock' }
 	},
 	'm_lockserv.so' => { },
 	'm_md5.so' => { },
-	# FIXME
 	'm_messageflood.so' => {
 		cmode => { f => 'v_flood' }
 	},
