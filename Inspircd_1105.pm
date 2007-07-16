@@ -366,7 +366,7 @@ sub cmd2 {
 	'm_chanprotect.so' => {
 		cmode => {
 			a => 'n_admin',
-			q => 'n_owner'
+			'q' => 'n_owner'
 		},
 	},
 	'm_check.so' => { },
