@@ -552,11 +552,11 @@ sub cmd2 {
 			i => 'r_invite',
 			k => 'v_key',
 			l => 's_limit',
-			m => 'r_moderated',
+			'm' => 'r_moderated',
 			n => 'r_mustjoin',
 			o => 'n_op',
 			p => 'r_private',
-			s => 'r_secret',
+			's' => 'r_secret',
 			t => 'r_topic',
 			v => 'n_voice',
 		},
@@ -564,7 +564,7 @@ sub cmd2 {
 			i => 'invisible',
 			n => 'snomask',
 			o => 'oper',
-			s => 'globops', # technically, server notices
+			's' => 'globops', # technically, server notices
 			w => 'wallops',
 		},
   cmds => {
