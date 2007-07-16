@@ -398,10 +398,10 @@ sub cmd2 {
 	'm_foobar.so' => { },
 	'm_globalload.so' => { },
 	'm_globops.so' => {
-	 # This doesn't add a umode in inspircd 1.1, a snomask is added though
+		# This doesn't add a umode in inspircd 1.1, a snomask is added though
 	},
 	'm_helpop.so' => {
-	 # This doesn't add a umode in inspircd 1.1, a snomask is added though
+		# This doesn't add a umode in inspircd 1.1, a snomask is added though
 	},
 	'm_hideoper.so' => {
 		umode => { H => 'hideoper' }
@@ -463,7 +463,7 @@ sub cmd2 {
 		cmode => { L => 'v_forward' }
 	},
 	'm_regonlycreate.so' => { },
-	'm_remove.so' => { 
+	'm_remove.so' => {
 		# TODO - /REMOVE <nick> <channel> [message] and /FPART <channel> <nick> [message]
 		# translate to kick
 	},
@@ -473,9 +473,13 @@ sub cmd2 {
 	'm_safelist.so' => { },
 	'm_sajoin.so' => { },
 	'm_samode.so' => { },
-	'm_sanick.so' => { },
+	'm_sanick.so' => {
+		# TODO This will likely cause desync when used.
+	},
 	'm_sapart.so' => { },
-	'm_saquit.so' => { },
+	'm_saquit.so' => {
+		# TODO This likely cause desync when used.
+	},
 	'm_securelist.so' => { },
 	'm_seenicks.so' => { },
 	'm_services.so' => {
@@ -508,6 +512,7 @@ sub cmd2 {
 	'm_silence_ext.so' => { },
 	'm_spanningtree.so' => { },
 	'm_spy.so' => { },
+	# TODO translate METADATA to umode +z and back.
 	'm_ssl_dummy.so' => {
 		cmode => { z => 'r_sslonly' }
 	},
