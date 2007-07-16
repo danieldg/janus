@@ -422,6 +422,7 @@ sub cmd2 {
 		cmode => { J => 's_kicknorejoin' }
 	},
 	'm_knock.so' => {
+		# TODO translate INVITE and KNOCK across janus
 		cmode => { K => 'r_noknock' }
 	},
 	'm_lockserv.so' => { },
@@ -461,8 +462,10 @@ sub cmd2 {
 		cmode => { L => 'v_forward' }
 	},
 	'm_regonlycreate.so' => { },
-	# FIXME: Janus will need to care about this command
-	'm_remove.so' => { },
+	'm_remove.so' => { 
+		# TODO - /REMOVE <nick> <channel> [message] and /FPART <channel> <nick> [message]
+		# translate to kick
+	},
 	'm_restrictbanned.so' => { },
 	'm_restrictchans.so' => { },
 	'm_restrictmsg.so' => { },
@@ -1030,7 +1033,5 @@ sub cmd2 {
 }
 
 });
-
-$moddef{$_} or $moddef{$_} = {} for qw/m_globops.so m_invisible.so m_inviteexception.so m_joinflood.so m_knock.so m_noctcp.so m_nokicks.so m_nonicks.so m_nonotice.so m_operchans.so m_services.so m_showwhois.so m_cloaking.so m_dccallow.so m_deaf.so m_hidechans.so m_hideoper.so m_kicknorejoin.so m_messageflood.so m_noinvite.so m_redirect.so m_services_account.so m_sslmodes.so m_stripcolor.so m_svshold.so/;
 
 1;

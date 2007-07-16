@@ -200,6 +200,7 @@ my %cmode2txt = (qw/
 	A r_operadmin
 	C r_ctcpblock
 	G r_badword
+	K r_noknock
 	L v_forward
 	M r_regmoderated
 	N r_norenick
