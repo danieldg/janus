@@ -325,68 +325,246 @@ sub cmd2 {
 }
 
 %moddef = (
-'m_alias.so' => {
-}, 'm_alltime.so' => {
-	cmds => { ALLTIME => \&ignore, },
-}, 'm_antibear.so' => {
-}, 'm_antibottler.so' => {
-}, 'm_auditorium.so' => {
-	cmode => { u => 'r_auditorium' },
-}, 'm_banexception.so' => {
-	cmode => { e => 'l_except' },
-}, 'm_banredirect.so' => {
-}, 'm_blockamsg.so' => {
-}, 'm_blockcaps.so' => {
-}, 'm_blockcolor.so' => {
-	cmode => { c => 'r_colorblock' },
-}, 'm_botmode.so' => {
-	umode => { B => 'bot' },
-}, 'm_cban.so' => {
-}, 'm_censor.so' => {
-	cmode => { G => 'r_badword' },
-	umode => { G => 'badword' },
-}, 'm_cgiirc.so' => {
-}, 'm_chancreate.so' => {
-}, 'm_chanfilter.so' => {
-	cmode => { g => 'l_badwords' },
-}, 'm_chanprotect.so' => {
-	cmode => { a => 'n_admin', q => 'n_owner' },
-}, 'm_check.so' => {
-}, 'm_chghost.so' => {
-	cmds => { CHGHOST => sub {
-		my $net = shift;
-		my $dst = $net->mynick($_[2]) or return ();
-		return +{
-			type => 'NICKINFO',
-			src => $net->item($_[0]),
-			dst => $dst,
-			item => 'host',
-			value => $_[3],
-		};
-	} },
-# TODO continue alphabetically on the module list
-}, CORE => {
-	cmode => {
-		b => 'l_ban',
-		h => 'n_halfop',
-		i => 'r_invite',
-		k => 'v_key',
-		l => 's_limit',
-		m => 'r_moderated',
-		n => 'r_mustjoin',
-		o => 'n_op',
-		p => 'r_private',
-		s => 'r_secret',
-		t => 'r_topic',
-		v => 'n_voice',
+	'm_alias.so' => { },
+	'm_alltime.so' => {
+		cmds => { ALLTIME => \&ignore, },
+	}, 
+	'm_antibear.so' => { },
+	'm_antibottler.so' => { },
+	# This can be set in config to hide ops too, see 
+	# http://www.inspircd.org/wiki/Modules/auditorium
+	'm_auditorium.so' => {
+		cmode => { u => 'r_auditorium' },
 	},
-	umode => {
-		i => 'invisible',
-		n => 'snomask',
-		o => 'oper',
-		s => 'globops', # technically, server notices
-		w => 'wallops',
+	'm_banexception.so' => {
+		cmode => { e => 'l_except' },
 	},
+	'm_banredirect.so' => { },
+	'm_blockamsg.so' => { },
+	'm_blockcaps.so' => {
+		cmode => { P => 'r_blockcaps' }
+	},
+	'm_blockcolor.so' => {
+		cmode => { c => 'r_colorblock' },
+	}, 
+	'm_botmode.so' => {
+		umode => { B => 'bot' },
+	},
+	'm_cban.so' => { },
+	'm_censor.so' => {
+			cmode => { G => 'r_badword' },
+			umode => { G => 'badword' },
+	},
+	'm_hidechans.so' => {
+			umode => { I => 'hide_chans' },
+	},
+	'm_cgiirc.so' => { },
+	'm_chancreate.so' => { },
+	'm_chanfilter.so' => {
+		cmode => { g => 'l_badwords' },
+	},
+	'm_chanprotect.so' => {
+		cmode => {
+			a => 'n_admin',
+			q => 'n_owner'
+		},
+	},
+	'm_check.so' => { },
+	'm_inviteexception.so' => { 
+		cmode => { I => 'l_invex' }
+	},
+	
+	'm_chgident.so' => { },
+	'm_chgname.so' => { },
+	'm_cloaking.so' => { 
+		umode => { x => 'vhost_x' }
+	},
+	'm_clones.so' => { },
+	'm_conn_join.so' => { },
+	'm_conn_umodes.so' => { },
+	'm_conn_waitpong.so' => { },
+	'm_connflood.so' => { },
+	'm_cycle.so' => { },
+	'm_dccallow.so' => { },
+	'm_deaf.so' => { 
+		umode => { d => 'deaf_chan' }
+	},
+	'm_denychans.so' => { },
+	'm_devoice.so' => { },
+	'm_dnsbl.so' => { },
+	'm_filter.so' => { },
+	'm_filter_pcre.so' => { },
+	'm_foobar.so' => { },
+	'm_globalload.so' => { },
+	'm_globops.so' => {
+	 # This doesn't add a umode in inspircd 1.1, a snomask is added though
+	},
+	'm_helpop.so' => { 
+	 # This doesn't add a umode in inspircd 1.1, a snomask is added though
+	},
+	'm_hideoper.so' => { 
+		umode => { H => 'hideoper' }
+	},
+	'm_hostchange.so' => { },
+	'm_http_client.so' => { },
+	'm_httpd.so' => { },
+	'm_httpd_stats.so' => { },
+	'm_ident.so' => { },
+	# I hate this module!
+	'm_invisible.so' => { 
+		umode => { Q => 'hiddenabusiveoper' }
+	},
+	'm_joinflood.so' => { 
+		cmode => { j => 's_joinlimit' }
+	},
+	'm_jumpserver.so' => { },
+	'm_kicknorejoin.so' => { 
+		cmode => { J => 's_kicknorejoin' }
+	},
+	'm_knock.so' => { 
+		# FIXME
+		cmode => { K => 'r_noknock' }
+	},
+	'm_lockserv.so' => { },
+	'm_md5.so' => { },
+	# FIXME
+	'm_messageflood.so' => { },
+	'm_namesx.so' => { },
+	'm_nicklock.so' => { },
+	'm_noctcp.so' => { 
+		cmode => { C => 'r_ctcpblock' }
+	},
+	'm_noinvite.so' => { 
+		cmode => { V => 'r_noinvite' }
+	},
+	'm_nokicks.so' => { 
+		cmode => { Q => 'r_nokick' }
+	},
+	'm_nonicks.so' => { 
+		cmode => { N => 'r_norenick' }
+	},
+	'm_nonotice.so' => { 
+		cmode => { T => 'r_noticeblock' }
+	},
+	'm_oper_hash.so' => { },
+	'm_operchans.so' => { 
+		cmode => { O => 'r_oper' }
+	},
+	'm_operjoin.so' => { },
+	'm_operlevels.so' => { },
+	'm_operlog.so' => { },
+	'm_opermodes.so' => { },
+	'm_opermotd.so' => { },
+	'm_override.so' => { },
+	'm_randquote.so' => { },
+	'm_redirect.so' => { 
+		cmode => { L => 'v_forward' }
+	},
+	'm_regonlycreate.so' => { },
+	# FIXME: Janus will need to care about this command
+	'm_remove.so' => { },
+	'm_restrictbanned.so' => { },
+	'm_restrictchans.so' => { },
+	'm_restrictmsg.so' => { },
+	'm_safelist.so' => { },
+	'm_sajoin.so' => { },
+	'm_samode.so' => { },
+	'm_sanick.so' => { },
+	'm_sapart.so' => { },
+	'm_saquit.so' => { },
+	'm_securelist.so' => { },
+	'm_seenicks.so' => { },
+	'm_services.so' => { 
+		cmode => {
+			r => 'r_register',
+			R => 'r_reginvite',
+			M => 'r_regmoderated'
+		},
+		umode => {
+			r => 'registered',
+			R => 'deaf_regpriv'
+		}
+	},
+	'm_services_account.so' => {
+		cmode => {
+			R => 'r_reginvite',
+			M => 'r_regmoderated'
+		},
+		umode => { R => 'deaf_regpriv' }
+	},
+	'm_sethost.so' => { },
+	'm_setident.so' => { },
+	'm_setidle.so' => { },
+	'm_setname.so' => { },
+	'm_sha256.so' => { },
+	'm_showwhois.so' => { 
+		umode => { W => 'whois_notice' }
+	},
+	'm_silence.so' => { },
+	'm_silence_ext.so' => { },
+	'm_spanningtree.so' => { },
+	'm_spy.so' => { },
+	'm_ssl_dummy.so' => { 
+		cmode => { z => 'r_sslonly' }
+	},
+	'm_ssl_gnutls.so' => { },
+	'm_sslmodes.so' => {
+		cmode => { z => 'r_sslonly' }
+	},
+	'm_stripcolor.so' => {
+		umode => { S => 'colorstrip' },
+		cmode => { S => 'r_colorstrip' }
+	},
+	'm_svshold.so' => { },
+	'm_swhois.so' => { },
+	'm_taxonomy.so' => { },
+	'm_testcommand.so' => { },
+	'm_timedbans.so' => { },
+	'm_tline.so' => { },
+	'm_uhnames.so' => { },
+	'm_uninvite.so' => { },
+	'm_userip.so' => { },
+	'm_vhost.so' => { },
+	'm_watch.so' => { },
+	'm_xmlsocket.so' => { },
+	'm_chghost.so' => {
+		cmds => {
+			CHGHOST => sub {
+				my $net = shift;
+				my $dst = $net->mynick($_[2]) or return ();
+				return +{
+					type => 'NICKINFO',
+					src => $net->item($_[0]),
+					dst => $dst,
+					item => 'host',
+					value => $_[3],
+				};
+			}
+		},
+	},
+	# TODO continue alphabetically on the module list
+	CORE => {
+		cmode => {
+			b => 'l_ban',
+			h => 'n_halfop',
+			i => 'r_invite',
+			k => 'v_key',
+			l => 's_limit',
+			m => 'r_moderated',
+			n => 'r_mustjoin',
+			o => 'n_op',
+			p => 'r_private',
+			s => 'r_secret',
+			t => 'r_topic',
+			v => 'n_voice',
+		},
+		umode => {
+			i => 'invisible',
+			n => 'snomask',
+			o => 'oper',
+			s => 'globops', # technically, server notices
+			w => 'wallops',
+		},
   cmds => {
   	NICK => sub {
 		my $net = shift;
