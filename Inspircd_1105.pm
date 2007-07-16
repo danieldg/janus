@@ -428,7 +428,9 @@ sub cmd2 {
 	'm_lockserv.so' => { },
 	'm_md5.so' => { },
 	# FIXME
-	'm_messageflood.so' => { },
+	'm_messageflood.so' => {
+		cmode => { f => 'v_flood' }
+	},
 	'm_namesx.so' => { },
 	'm_nicklock.so' => { },
 	'm_noctcp.so' => {
