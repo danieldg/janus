@@ -126,6 +126,7 @@ sub parse {
 	$cmd = $fromirc[$$net]{$cmd} || $cmd;
 	$cmd = $fromirc[$$net]{$cmd} || $cmd if $cmd && !ref $cmd; # allow one layer of indirection
 	unless ($cmd && ref $cmd) {
+		$net->send($net->cmd2($Janus::interface, GLOBOPS => "Unknown command $cmd, janus is possibly desynced"));
 		debug "Unknown command '$cmd'";
 		return ();
 	}
@@ -375,6 +376,21 @@ sub cmd2 {
 		cmode => { I => 'l_invex' }
 	},
 	
+	'm_chghost.so' => {
+		cmds => {
+			CHGHOST => sub {
+				my $net = shift;
+				my $dst = $net->mynick($_[2]) or return ();
+				return +{
+					type => 'NICKINFO',
+					src => $net->item($_[0]),
+					dst => $dst,
+					item => 'host',
+					value => $_[3],
+				};
+			}
+		},
+	},
 	'm_chgident.so' => { },
 	'm_chgname.so' => { },
 	'm_cloaking.so' => {
@@ -411,8 +427,8 @@ sub cmd2 {
 	'm_httpd.so' => { },
 	'm_httpd_stats.so' => { },
 	'm_ident.so' => { },
-	# I hate this module!
 	'm_invisible.so' => {
+		# sadly, you are NOT invisible to remote users :P
 		umode => { Q => 'hiddenabusiveoper' }
 	},
 	'm_joinflood.so' => {
@@ -464,8 +480,21 @@ sub cmd2 {
 	},
 	'm_regonlycreate.so' => { },
 	'm_remove.so' => {
-		# TODO - /REMOVE <nick> <channel> [message] and /FPART <channel> <nick> [message]
-		# translate to kick
+		cmds => {
+			FPART => 'KICK',
+			REMOVE => sub { 
+				# this is stupid. Three commands that do the SAME EXACT THING...
+				my $net = shift;
+				my $nick = $net->nick($_[2]) or return ();
+				return +{
+					type => 'KICK',
+					src => $net->item($_[0]),
+					dst => $net->chan($_[3]),
+					kickee => $nick,
+					msg => $_[4],
+				};
+			},
+		},
 	},
 	'm_restrictbanned.so' => { },
 	'm_restrictchans.so' => { },
@@ -474,11 +503,29 @@ sub cmd2 {
 	'm_sajoin.so' => { },
 	'm_samode.so' => { },
 	'm_sanick.so' => {
-		# TODO This will likely cause desync when used.
+		cmds => {
+			SANICK => sub {
+				my $net = shift;
+				my $nick = $net->nick($_[2]);
+				if ($nick->homenet()->id() eq $net->id()) {
+					# accept as normal nick change
+					return +{
+						type => 'NICK',
+						src => $nick,
+						dst => $nick,
+						nick => $_[3],
+						nickts => time,
+					};
+				}
+				# reject
+				$net->send($net->cmd2($_[2], NICK => $_[3]));
+				();
+			},
+		},
 	},
 	'm_sapart.so' => { },
 	'm_saquit.so' => {
-		# TODO This likely cause desync when used.
+		cmds => { 'SAQUIT' => 'KILL' },
 	},
 	'm_securelist.so' => { },
 	'm_seenicks.so' => { },
@@ -512,20 +559,57 @@ sub cmd2 {
 	'm_silence_ext.so' => { },
 	'm_spanningtree.so' => { },
 	'm_spy.so' => { },
-	# TODO translate METADATA to umode +z and back.
 	'm_ssl_dummy.so' => {
+		metadata => {
+			ssl => sub {
+				my $net = shift;
+				my $nick = $net->mynick($_[2]) or return ();
+				warn "Unknown SSL value $_[4]" unless $_[4] eq 'ON';
+				return +{
+					type => 'UMODE',
+					dst => $nick,
+					mode => [ '+ssl' ],
+				};
+			},
+		},
 		cmode => { z => 'r_sslonly' }
 	},
 	'm_ssl_gnutls.so' => { },
 	'm_sslmodes.so' => {
-		cmode => { z => 'r_sslonly' }
+		metadata => {
+			ssl => sub {
+				my $net = shift;
+				my $nick = $net->mynick($_[2]) or return ();
+				warn "Unknown SSL value $_[4]" unless $_[4] eq 'ON';
+				return +{
+					type => 'UMODE',
+					dst => $nick,
+					mode => [ '+ssl' ],
+				};
+			},
+		},
+		cmode => { z => 'r_sslonly' },
 	},
 	'm_stripcolor.so' => {
 		umode => { S => 'colorstrip' },
 		cmode => { S => 'r_colorstrip' }
 	},
 	'm_svshold.so' => { },
-	'm_swhois.so' => { },
+	'm_swhois.so' => {
+		metadata => {
+			swhois => sub {
+				my $net = shift;
+				my $nick = $net->mynick($_[2]) or return ();
+				return +{
+					type => 'NICKINFO',
+					src => $net->item($_[0]),
+					dst => $_[2],
+					item => 'swhois',
+					value => $_[4],
+				};
+			},
+		},
+	},
 	'm_taxonomy.so' => { },
 	'm_testcommand.so' => { },
 	'm_timedbans.so' => { },
@@ -536,22 +620,6 @@ sub cmd2 {
 	'm_vhost.so' => { },
 	'm_watch.so' => { },
  	'm_xmlsocket.so' => { },
-	'm_chghost.so' => {
-		cmds => {
-			CHGHOST => sub {
-				my $net = shift;
-				my $dst = $net->mynick($_[2]) or return ();
-				return +{
-					type => 'NICKINFO',
-					src => $net->item($_[0]),
-					dst => $dst,
-					item => 'host',
-					value => $_[3],
-				};
-			}
-		},
-	},
-	# TODO continue alphabetically on the module list
 	CORE => {
 		cmode => {
 			b => 'l_ban',
@@ -615,7 +683,13 @@ sub cmd2 {
 		$net->nick_collide($_[3], $nick);
 		();
 	}, OPERTYPE => sub {
-		(); # we don't particularly care
+		my $net = shift;
+		return +{
+			type => 'NICKINFO',
+			dst => $net->mynick($_[0]),
+			item => 'opertype',
+			value => $_[2],
+		};
 	}, OPERQUIT => sub {
 		(); # that's only of interest to local opers
 	}, AWAY => sub {
@@ -782,7 +856,17 @@ sub cmd2 {
 			dst => $net->chan($_),
 			msg => $_[3],
 		}, split /,/, $_[2];
-	},
+	}, KICK => sub {
+		my $net = shift;
+		my $nick = $net->nick($_[3]) or return ();
+		return {
+			type => 'KICK',
+			src => $net->item($_[0]),
+			dst => $net->chan($_[2]),
+			kickee => $nick,
+			msg => $_[4],
+		};
+	}, 
 
 	SERVER => sub {
 		my $net = shift;
