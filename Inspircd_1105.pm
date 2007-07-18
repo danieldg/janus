@@ -329,7 +329,7 @@ sub cmd2 {
 %moddef = (
 	'm_alias.so' => { },
 	'm_alltime.so' => {
-		cmds => { ALLTIME => \&ignore, },
+		cmds => { ALLTIME => \&ignore },
 	},
 	'm_antibear.so' => { },
 	'm_antibottler.so' => { },
@@ -500,7 +500,9 @@ sub cmd2 {
 	'm_restrictchans.so' => { },
 	'm_restrictmsg.so' => { },
 	'm_safelist.so' => { },
-	'm_sajoin.so' => { },
+	'm_sajoin.so' => {
+		cmds => { 'SAPART' => \&ignore },
+	},
 	'm_samode.so' => { },
 	'm_sanick.so' => {
 		cmds => {
@@ -523,7 +525,9 @@ sub cmd2 {
 			},
 		},
 	},
-	'm_sapart.so' => { },
+	'm_sapart.so' => { 
+		cmds => { 'SAPART' => \&ignore },
+	},
 	'm_saquit.so' => {
 		cmds => { 'SAQUIT' => 'KILL' },
 	},
@@ -1123,6 +1127,7 @@ sub cmd2 {
 		}
 	}, NETSPLIT => sub {
 		my($net,$act) = @_;
+		return () unless $auth[$$net];
 		my $gone = $act->{net};
 		my $id = $gone->id();
 		my $msg = $act->{msg} || 'Excessive Core Radiation';
@@ -1188,7 +1193,9 @@ sub cmd2 {
 		return $net->cmd2($src, FMODE => $dst, $dst->ts(), @interp);
 	}, TOPIC => sub {
 		my($net,$act) = @_;
-		return $net->cmd2($act->{src}, FTOPIC => $act->{dst}, $act->{topicts}, $act->{topicset}, $act->{topic});
+		# TODO there is also FTOPIC, but we should only use it when needed as it has bugs
+		# (cannot clear topic)
+		return $net->cmd2($act->{src}, TOPIC => $act->{dst}, $act->{topic});
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
 		if ($act->{item} eq 'host') {

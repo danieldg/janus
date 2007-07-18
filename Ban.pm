@@ -92,7 +92,7 @@ my %timespec = (
 	], code => sub {
 		my $nick = shift;
 		my($cmd, @arg) = split /\s+/, shift;
-		return &Janus::jmsg("You must be an IRC operator to use this command") unless $nick->has_mode('oper');
+		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my $net = $nick->homenet();
 		my @list = banlist($net);
 		if ($cmd =~ /^l/i) {
