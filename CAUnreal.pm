@@ -465,7 +465,6 @@ sub todo { (); }
 sub nick_msg {
 	my $net = shift;
 	my $src = $net->item($_[0]);
-	my $msgtype = $_[1] + 0;
 	my $msg = [ @_[3..$#_] ];
 	my $dst = $net->nick($_[2]) or return ();
 	return {
@@ -473,7 +472,7 @@ sub nick_msg {
 		src => $src,
 		dst => $dst,
 		msg => $msg,
-		msgtype => $msgtype,
+		msgtype => $_[1],
 	};
 }
 
@@ -481,10 +480,7 @@ sub nc_msg {
 	my $net = shift;
 	return () if $_[2] eq 'AUTH' && $_[0] =~ /\./;
 	my $src = $net->item($_[0]);
-	my $msgtype = 
-		$_[1] eq 'PRIVMSG' ? 1 :
-		$_[1] eq 'NOTICE' ? 2 :
-		0;
+	my $msgtype = $_[1];
 	if ($_[2] =~ /^\$/) {
 		# server broadcast message. No action; these are confined to source net
 		return ();
@@ -1261,11 +1257,7 @@ sub cmd2 {
 	}, MSG => sub {
 		my($net,$act) = @_;
 		return if $act->{dst}->isa('Network');
-		my $type = $act->{msgtype} || 1;
-		$type = 
-			$type == 1 ? 'PRIVMSG' :
-			$type == 2 ? 'NOTICE' :
-			sprintf '%03d', $type;
+		my $type = $act->{msgtype} || 'PRIVMSG';
 		my @msg = ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg};
 		[ FLOAT_ALL => $net->cmd2($act->{src}, $type, ($act->{prefix} || '').$net->_out($act->{dst}), @msg) ];
 	}, WHOIS => sub {

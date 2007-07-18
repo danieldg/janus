@@ -305,7 +305,7 @@ sub jmsg {
 		type => 'MSG',
 		src => $interface,
 		dst => $dst,
-		msgtype => ($dst->isa('Channel') ? 1 : 2), # channel notice == annoying
+		msgtype => ($dst->isa('Channel') ? 'PRIVMSG' : 'NOTICE'), # channel notice == annoying
 		msg => $_,
 	}, @_);
 }
@@ -326,7 +326,7 @@ sub err_jmsg {
 			type => 'MSG',
 			src => $interface,
 			dst => $dst,
-			msgtype => ($dst->isa('Channel') ? 1 : 2), # channel notice == annoying
+			msgtype => ($dst->isa('Channel') ? 'PRIVMSG' : 'NOTICE'), # channel notice == annoying
 			msg => $_,
 		});
 	}

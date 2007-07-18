@@ -251,7 +251,7 @@ sub nickact {
 sub nick_msg {
 	my $net = shift;
 	my $src = $net->item($_[0]);
-	my $msgtype = $_[1] + 0;
+	my $msgtype = $_[1];
 	my $msg = [ @_[3..$#_] ];
 	my $dst = $net->nick($_[2]) or return ();
 	return {
@@ -439,7 +439,7 @@ sub cmd2 {
 		cmode => { J => 's_kicknorejoin' }
 	},
 	'm_knock.so' => {
-		# TODO translate INVITE and KNOCK across janus
+		# TODO translate INVITE and KNOCK across janus 
 		cmode => { K => 'r_noknock' }
 	},
 	'm_lockserv.so' => { },
@@ -607,6 +607,15 @@ sub cmd2 {
 					item => 'swhois',
 					value => $_[4],
 				};
+			},
+		},
+		acts => {
+			NICKINFO => sub {
+				my($net,$act) = @_;
+				if ($act->{item} eq 'swhois') {
+					return $net->cmd2($net->cparam('linkname'), METADATA => $act->{dst}, 'swhois', $act->{value});
+				}
+				()
 			},
 		},
 	},
@@ -1012,10 +1021,6 @@ sub cmd2 {
 	PRIVMSG => sub {
 		my $net = shift;
 		my $src = $net->item($_[0]);
-		my $msgtype =
-			$_[1] eq 'PRIVMSG' ? 1 :
-			$_[1] eq 'NOTICE' ? 2 :
-			0;
 		if ($_[2] =~ /^\$/) {
 			# server broadcast message. No action; these are confined to source net
 			return ();
@@ -1027,7 +1032,7 @@ sub cmd2 {
 				prefix => $1,
 				dst => $net->chan($2),
 				msg => $_[3],
-				msgtype => $msgtype,
+				msgtype => $_[1],
 			};
 		} elsif ($_[2] =~ /^(\S+?)(@\S+)?$/) {
 			# nick message, possibly with a server mask
@@ -1038,7 +1043,7 @@ sub cmd2 {
 				src => $src,
 				dst => $dst,
 				msg => $_[3],
-				msgtype => $msgtype,
+				msgtype => $_[1],
 			} if $dst;
 		}
 		();
@@ -1054,8 +1059,55 @@ sub cmd2 {
 		return () unless $mdh;
 		$mdh->(@_);
 	},
-	IDLE => \&ignore, # TODO this is WHOIS - need to figure out how to encapsulate
-	PUSH => \&ignore,
+	IDLE => sub {
+		my $net = shift;
+		my $src = $net->mynick($_[0]) or return ();
+		my $dst = $net->nick($_[2]) or return ();
+		if (@_ == 3) {
+			return +{
+				type => 'WHOIS',
+				src => $src,
+				dst => $dst,
+			};
+		} else {
+			# we have to assume the requesting server is one like unreal that needs the whole thing sent
+			# across. The important part for remote inspircd servers is the 317 line
+			my @msgs = (
+				[ 311, $src->info('ident'), $src->info('vhost'), '*', $src->info('name') ],
+				[ 312, $src->info('home_server'), 'Remote Janus Server' ], # TODO I don't currently track the descriptions
+			);
+			push @msgs, [ 313, 'is a '.($src->info('opertype') || 'Unknown Oper') ] if $src->has_mode('oper');
+			push @msgs, (
+				[ 317, $_[4], $_[3], 'seconds idle, signon time'],
+				[ 318, 'End of /WHOIS list' ],
+			);
+			return map +{
+				type => 'MSG',
+				src => $net,
+				dst => $dst,
+				msgtype => $_->[0], # first part of message
+				msg => [$src, @$_[1 .. $#$_] ], # source nick, rest of message array
+			}, @msgs;
+		}
+	},
+	PUSH => sub {
+		my $net = shift;
+		my $dst = $net->nick($_[2]) or return ();
+		my($rmsg, $txt) = split /\s+:/, $_[-1], 2;
+		my @msg = split /\s+/, $rmsg;
+		push @msg, $txt if defined $txt;
+		unshift @msg, undef unless $msg[0] =~ s/^://;
+		my $src = $net->item(shift @msg) || $net;
+		my $cmd = shift @msg;
+		shift @msg;
+		return +{
+			type => 'MSG',
+			src => $net,
+			dst => $dst,
+			msgtype => $cmd,
+			msg => (@msg == 1 ? $msg[0] : \@msg),
+		};
+	},
 	TIME => \&ignore,
 	TIMESET => \&ignore,
   }, acts => {
@@ -1151,13 +1203,26 @@ sub cmd2 {
 	MSG => sub {
 		my($net,$act) = @_;
 		return if $act->{dst}->isa('Network');
-		my $type = $act->{msgtype} || 1;
-		$type =
-			$type == 1 ? 'PRIVMSG' :
-			$type == 2 ? 'NOTICE' :
-			sprintf '%03d', $type;
-		my @msg = ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg};
-		$net->cmd2($act->{src}, $type, ($act->{prefix} || '').$net->_out($act->{dst}), @msg);
+		my $type = $act->{msgtype} || 'PRIVMSG';
+		my $dst = ($act->{prefix} || '').$net->_out($act->{dst});
+		if ($type eq '317') {
+			my @msg = @{$act->{msg}};
+			return () unless @msg >= 3;
+			return $net->cmd2($msg[0], IDLE => $act->{dst}, $msg[2], $msg[1]);
+		} elsif ($type =~ /^[356789]\d\d$/) {
+			# assume this is part of a WHOIS reply; discard
+			return ();
+		}
+		if (($type eq 'PRIVMSG' || $type eq 'NOTICE') && ($act->{src}->isa('Nick'))) {
+			return $net->cmd2($act->{src}, $type, $dst, $act->{msg});
+		} else {
+			return () unless $act->{dst}->isa('Nick');
+			my $msg = $net->cmd2($act->{src}, $type, $dst, ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg});
+			return $net->cmd2($net->cparam('linkname'), PUSH => $act->{dst}, $msg);
+		}
+	}, WHOIS => sub {
+		my($net,$act) = @_;
+		$net->cmd2($act->{src}, IDLE => $act->{dst});
 	}, PING => sub {
 		my($net,$act) = @_;
 		$net->cmd2($net->cparam('linkname'), PING => $net->cparam('linkto'));
