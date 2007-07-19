@@ -197,6 +197,10 @@ sub _connect_ifo {
 	my @out;
 	push @out, $net->cmd2($srv, NICK => $nick->ts(), $nick, $nick->info('host'), $vhost,
 		$nick->info('ident'), $mode, $ip, $nick->info('name'));
+	push @out, $net->cmd2($nick, OPERTYPE => $nick->info('opertype')) if $nick->info('opertype');
+	# TODO oper types don't have to be valid elsewhere...
+	push @out, $net->cmd2($nick, AWAY => $nick->info('away')) if $nick->info('away');
+	
 	@out;
 }
 
@@ -391,8 +395,44 @@ sub cmd2 {
 			}
 		},
 	},
-	'm_chgident.so' => { },
-	'm_chgname.so' => { },
+	'm_chgident.so' => {
+		cmds => {
+			CHGIDENT => sub {
+				my $net = shift;
+				my $dst = $net->mynick($_[2]) or return ();
+				return +{
+					type => 'NICKINFO',
+					src => $net->item($_[0]),
+					dst => $dst,
+					item => 'ident',
+					value => $_[3],
+				};
+			}
+		}, acts => {
+			NICKINFO => sub {
+				my($net,$act) = @_;
+				if ($act->{item} eq 'ident') {
+					return $net->cmd2($act->{dst}, CHGIDENT => $act->{dst}, $act->{value});
+				}
+				();
+			},
+		},
+	},
+	'm_chgname.so' => {
+		cmds => {
+			CHGNAME => sub {
+				my $net = shift;
+				my $dst = $net->mynick($_[2]) or return ();
+				return +{
+					type => 'NICKINFO',
+					src => $net->item($_[0]),
+					dst => $dst,
+					item => 'name',
+					value => $_[3],
+				};
+			}
+		},
+	},
 	'm_cloaking.so' => {
 		umode => { x => 'vhost_x' }
 	},
@@ -414,10 +454,11 @@ sub cmd2 {
 	'm_foobar.so' => { },
 	'm_globalload.so' => { },
 	'm_globops.so' => {
-		# This doesn't add a umode in inspircd 1.1, a snomask is added though
+		cmds => { GLOBOPS => \&ignore },
 	},
 	'm_helpop.so' => {
-		# This doesn't add a umode in inspircd 1.1, a snomask is added though
+		umode => { h => 'helpop' },
+		cmds => { HELPOP => \&ignore },
 	},
 	'm_hideoper.so' => {
 		umode => { H => 'hideoper' }
@@ -501,7 +542,7 @@ sub cmd2 {
 	'm_restrictmsg.so' => { },
 	'm_safelist.so' => { },
 	'm_sajoin.so' => {
-		cmds => { 'SAPART' => \&ignore },
+		cmds => { 'SAJOIN' => \&ignore },
 	},
 	'm_samode.so' => { },
 	'm_sanick.so' => {
@@ -551,10 +592,10 @@ sub cmd2 {
 		},
 		umode => { R => 'deaf_regpriv' }
 	},
-	'm_sethost.so' => { },
-	'm_setident.so' => { },
+	'm_sethost.so' => { }, # TODO
+	'm_setident.so' => { }, # TODO
 	'm_setidle.so' => { },
-	'm_setname.so' => { },
+	'm_setname.so' => { }, # TODO
 	'm_sha256.so' => { },
 	'm_showwhois.so' => {
 		umode => { W => 'whois_notice' }
@@ -625,12 +666,12 @@ sub cmd2 {
 	},
 	'm_taxonomy.so' => { },
 	'm_testcommand.so' => { },
-	'm_timedbans.so' => { },
+#	'm_timedbans.so' => { }, # TODO (can cause desync)
 	'm_tline.so' => { },
 	'm_uhnames.so' => { },
 	'm_uninvite.so' => { },
 	'm_userip.so' => { },
-	'm_vhost.so' => { },
+	'm_vhost.so' => { }, # routed as normal FHOST
 	'm_watch.so' => { },
  	'm_xmlsocket.so' => { },
 CORE => {
@@ -888,7 +929,7 @@ CORE => {
 		unless ($auth[$$net]) {
 			if ($_[3] eq $net->param('yourpass')) {
 				$auth[$$net] = 1;
-				$net->send('BURST '.time);
+				$net->send('BURST '.time, $net->cmd2($net->info('linkname'), VERSION => 'Janus'));
 			} else {
 				$net->send('ERROR :Bad password');
 			}
@@ -928,14 +969,16 @@ CORE => {
 		}
 		@quits;
 	}, RSQUIT => sub {
-		# hey, isn't that nice, I can ignore this!
+		# TODO we should really de- and re-introduce the server after this
 		();
 	}, PING => sub {
 		my $net = shift;
 		my $from = $_[3] || $net->cparam('linkname');
 		$net->send($net->cmd2($from, 'PONG', $from, $_[2]));
 		();
-	}, BURST => sub {
+	},
+	PONG => \&ignore,
+	BURST => sub {
 		my $net = shift;
 		return () if $auth[$$net] != 1;
 		$auth[$$net] = 2;
@@ -944,6 +987,7 @@ CORE => {
 			my $new = $Janus::nets{$id};
 			next if $new->isa('Interface') || $id eq $net->id();
 			push @out, $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", '*', 1, $new->netname());
+			push @out, $net->cmd2("$id.janus", VERSION => 'Remote Janus Server: '.ref $id);
 		}
 		$net->send(@out);
 		();
@@ -993,25 +1037,21 @@ CORE => {
 	},
 	PONG => \&ignore,
 	VERSION => \&ignore,
-	ADDLINE => \&ignore,
+	ADDLINE => \&ignore, # TODO convert to BANLINE action
 	GLINE => \&ignore,
 	ELINE => \&ignore,
 	ZLINE => \&ignore,
 	QLINE => \&ignore,
 	SVSJOIN => sub {
 		my $net = shift;
-		my $src = $net->mynick($_[2]);
-		map {
-			my $chan = $net->chan($_);
-			+{
-				type => 'JOIN',
-				src => $src,
-				dst => $chan,
-			};
+		my $src = $net->mynick($_[2]) or return ();
+		return map +{
+			type => 'JOIN',
+			src => $src,
+			dst => $net->chan($_),
 		} split /,/, $_[3];
-
 	},
-	SVSNICK => 'NICK',
+	SVSNICK => \&ignore, # TODO convert to RECONNECT
 	SVSMODE => 'JOIN',
 	REHASH => \&ignore,
 	MODULES => \&ignore,
@@ -1095,10 +1135,10 @@ CORE => {
 				msg => [$src, @$_[1 .. $#$_] ], # source nick, rest of message array
 			}, @msgs;
 		}
-	},
-	PUSH => sub {
+	}, PUSH => sub {
 		my $net = shift;
 		my $dst = $net->nick($_[2]) or return ();
+		# TODO if dst is janus, it might be something we (janus) asked about
 		my($rmsg, $txt) = split /\s+:/, $_[-1], 2;
 		my @msg = split /\s+/, $rmsg;
 		push @msg, $txt if defined $txt;
@@ -1113,8 +1153,12 @@ CORE => {
 			msgtype => $cmd,
 			msg => (@msg == 1 ? $msg[0] : \@msg),
 		};
+	}, TIME => sub {
+		my $net = shift;
+		return unless @_ == 4;
+		$net->send($net->cmd2(@_[2,1,0,3], time));
+		();
 	},
-	TIME => \&ignore,
 	TIMESET => \&ignore,
   }, acts => {
 	NETLINK => sub {
@@ -1122,11 +1166,11 @@ CORE => {
 		my $new = $act->{net};
 		my $id = $new->id();
 		return () unless $auth[$$net];
-		if ($net->id() eq $id) {
-			();
-		} else {
-			return $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", '*', 1, $new->netname());
-		}
+		return () if $net->id() eq $id;
+		return (
+			$net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", '*', 1, $new->netname()),
+			$net->cmd2("$id.janus", VERSION => 'Remote Janus Server: '.ref $id),
+		);
 	}, NETSPLIT => sub {
 		my($net,$act) = @_;
 		return () unless $auth[$$net];
