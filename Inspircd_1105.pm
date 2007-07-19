@@ -318,6 +318,11 @@ sub cmd1 {
 	$net->cmd2(undef, @_);
 }
 
+sub ncmd {
+	my $net = shift;
+	$net->cmd2($net->cparam('linkname'), @_);
+}
+
 sub cmd2 {
 	my($net,$src,$cmd) = (shift,shift,shift);
 	my $out = defined $src ? ':'.$net->_out($src).' ' : '';
@@ -658,7 +663,7 @@ sub cmd2 {
 			NICKINFO => sub {
 				my($net,$act) = @_;
 				if ($act->{item} eq 'swhois') {
-					return $net->cmd2($net->cparam('linkname'), METADATA => $act->{dst}, 'swhois', $act->{value});
+					return $net->ncmd(METADATA => $act->{dst}, 'swhois', $act->{value});
 				}
 				()
 			},
@@ -929,7 +934,7 @@ CORE => {
 		unless ($auth[$$net]) {
 			if ($_[3] eq $net->param('yourpass')) {
 				$auth[$$net] = 1;
-				$net->send('BURST '.time, $net->cmd2($net->info('linkname'), VERSION => 'Janus'));
+				$net->send('BURST '.time, $net->ncmd(VERSION => 'Janus'));
 			} else {
 				$net->send('ERROR :Bad password');
 			}
@@ -986,7 +991,7 @@ CORE => {
 		for my $id (keys %Janus::nets) {
 			my $new = $Janus::nets{$id};
 			next if $new->isa('Interface') || $id eq $net->id();
-			push @out, $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", '*', 1, $new->netname());
+			push @out, $net->ncmd(SERVER => "$id.janus", '*', 1, $new->netname());
 			push @out, $net->cmd2("$id.janus", VERSION => 'Remote Janus Server: '.ref $id);
 		}
 		$net->send(@out);
@@ -1168,7 +1173,8 @@ CORE => {
 		return () unless $auth[$$net];
 		return () if $net->id() eq $id;
 		return (
-			$net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", '*', 1, $new->netname()),
+			$net->ncmd(SERVER => "$id.janus", '*', 1, $new->netname()),
+			$net->ncmd(OPERNOTICE => "Janus network $id (".$new->netname().") is now linked");
 			$net->cmd2("$id.janus", VERSION => 'Remote Janus Server: '.ref $id),
 		);
 	}, NETSPLIT => sub {
@@ -1177,7 +1183,10 @@ CORE => {
 		my $gone = $act->{net};
 		my $id = $gone->id();
 		my $msg = $act->{msg} || 'Excessive Core Radiation';
-		$net->cmd2($net->cparam('linkname'), SQUIT => "$id.janus", $msg),
+		return (
+			$net->ncmd(OPERNOTICE => "Janus network $id (".$gone->netname().") has delinked: $msg"),
+			$net->ncmd(SQUIT => "$id.janus", $msg),
+		);
 	}, CONNECT => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
@@ -1257,15 +1266,15 @@ CORE => {
 		my $chan = $act->{dst};
 		if ($act->{wipe}) {
 			if ($act->{ts} == $act->{oldts}) {
-				return $net->cmd2($net->info('linkname'), REMSTATUS => $chan);
+				return $net->ncmd(REMSTATUS => $chan);
 			} else {
-				return $net->cmd2($net->info('linkname'), FMODE => $chan, $act->{ts}, '+');
+				return $net->ncmd(FMODE => $chan, $act->{ts}, '+');
 			}
 		} else {
 			my @interp = $net->_mode_interp($chan->mode_delta());
 			# delta from channel to undef == remove all modes. We want to add.
 			$interp[0] =~ tr/-+/+-/ unless $interp[0] eq '+';
-			return $net->cmd2($net->info('linkname'), FMODE => $chan, $act->{ts}, @interp);
+			return $net->ncmd(FMODE => $chan, $act->{ts}, @interp);
 		}
 	}, MSG => sub {
 		my($net,$act) = @_;
@@ -1285,14 +1294,18 @@ CORE => {
 		} else {
 			return () unless $act->{dst}->isa('Nick');
 			my $msg = $net->cmd2($act->{src}, $type, $dst, ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg});
-			return $net->cmd2($net->cparam('linkname'), PUSH => $act->{dst}, $msg);
+			return $net->ncmd(PUSH => $act->{dst}, $msg);
 		}
 	}, WHOIS => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, IDLE => $act->{dst});
 	}, PING => sub {
 		my($net,$act) = @_;
-		$net->cmd2($net->cparam('linkname'), PING => $net->cparam('linkto'));
+		$net->ncmd(PING => $net->cparam('linkto'));
+	}, LINKREQ => sub {
+		my($net,$act) = @_;
+		my $src = $act->{net};
+		$net->ncmd(OPERNOTICE => $src->netname()." would like to link $act->{slink} to $act->{dlink}");
 	},
 }
 
