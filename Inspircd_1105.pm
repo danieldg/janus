@@ -1054,7 +1054,7 @@ CORE => {
 			type => 'JOIN',
 			src => $src,
 			dst => $net->chan($_),
-		} split /,/, $_[3];
+		}, split /,/, $_[3];
 	},
 	SVSNICK => \&ignore, # TODO convert to RECONNECT
 	SVSMODE => 'JOIN',
@@ -1174,7 +1174,7 @@ CORE => {
 		return () if $net->id() eq $id;
 		return (
 			$net->ncmd(SERVER => "$id.janus", '*', 1, $new->netname()),
-			$net->ncmd(OPERNOTICE => "Janus network $id (".$new->netname().") is now linked");
+			$net->ncmd(OPERNOTICE => "Janus network $id (".$new->netname().") is now linked"),
 			$net->cmd2("$id.janus", VERSION => 'Remote Janus Server: '.ref $id),
 		);
 	}, NETSPLIT => sub {
@@ -1304,6 +1304,7 @@ CORE => {
 		$net->ncmd(PING => $net->cparam('linkto'));
 	}, LINKREQ => sub {
 		my($net,$act) = @_;
+		return () unless $auth[$$net];
 		my $src = $act->{net};
 		$net->ncmd(OPERNOTICE => $src->netname()." would like to link $act->{slink} to $act->{dlink}");
 	},
