@@ -148,12 +148,12 @@ sub _modeargs {
 }
 
 sub _mode_interp {
-	my($net, $act) = @_;
+	my($net, $mods, $args) = @_;
 	my $pm = '';
 	my $mode;
-	my @argin = @{$act->{args}};
+	my @argin = @$args;
 	my @args;
-	for my $mtxt (@{$act->{mode}}) {
+	for my $mtxt (@$mods) {
 		my($ipm,$txt) = ($mtxt =~ /^([-+])(.*)/) or warn $mtxt;
 		my $itm = ($txt =~ /^[nlv]/ || $mtxt =~ /^\+s/) ? shift @argin : undef;
 		if (defined $net->txt2cmode($txt)) {

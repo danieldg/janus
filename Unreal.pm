@@ -819,6 +819,7 @@ sub srvname {
 			src => $net,
 			dst => $chan,
 			ts => $ts,
+			oldts => $chan->ts(),
 			wipe => 1,
 		} if $chan->ts() > $ts;
 
@@ -884,6 +885,7 @@ sub srvname {
 				type => 'TIMESYNC',
 				dst => $chan,
 				ts => $1,
+				oldts => $chan->ts(),
 				wipe => 0,
 			} if $1 && $1 < $chan->ts();
 		}
@@ -1238,7 +1240,7 @@ sub cmd2 {
 	}, MODE => sub {
 		my($net,$act) = @_;
 		my $src = $act->{src};
-		my @interp = $net->_mode_interp($act);
+		my @interp = $net->_mode_interp($act->{mode}, $act->{args});
 		return () unless @interp;
 		return () if @interp == 1 && $interp[0] =~ /^[+-]+$/;
 		if (ref $src && $src->isa('Nick') && $src->is_on($net)) {
@@ -1248,10 +1250,16 @@ sub cmd2 {
 		}
 	}, TIMESYNC => sub {
 		my($net,$act) = @_;
+		my $chan = $act->{dst};
 		if ($act->{wipe}) {
-			return $net->cmd1(SJOIN => $net->sjb64($act->{ts}), $act->{dst}, '+', '');
+			if ($act->{ts} == $act->{oldts}) {
+				my @interp = $net->_mode_interp($chan->mode_delta());
+				return $net->cmd1(MODE => $chan, @interp, 0);
+			} else {
+				return $net->cmd1(SJOIN => $net->sjb64($act->{ts}), $chan, '+', '');
+			}
 		} else {
-			return $net->cmd1(MODE => $act->{dst}, '+', $act->{ts});
+			return $net->cmd1(MODE => $chan, '+', $act->{ts});
 		}
 	}, TOPIC => sub {
 		my($net,$act) = @_;

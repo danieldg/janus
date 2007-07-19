@@ -124,9 +124,9 @@ sub _modecpy {
 	}
 }
 
-sub _mode_delta {
+sub mode_delta {
 	my($chan, $dst) = @_;
-	my %add = %{$mode[$$dst]};
+	my %add = $dst ? %{$mode[$$dst]} : ();
 	my(@modes, @args);
 	for my $txt (keys %{$mode[$$chan]}) {
 		if ($txt =~ /^l/) {
@@ -195,7 +195,7 @@ sub _link_into {
 	print "\n";
 	my $sendnets = [ values %dstnets ];
 
-	my ($mode, $marg) = $src->_mode_delta($chan);
+	my ($mode, $marg) = $src->mode_delta($chan);
 	&Janus::append(+{
 		type => 'MODE',
 		dst => $chan,
@@ -397,6 +397,7 @@ sub part {
 				type => 'TIMESYNC',
 				dst => $chan2,
 				ts => $ts[$$chan1],
+				oldts => $ts[$$chan2],
 				wipe => 1,
 			});
 		} elsif ($tsctl < 0) {
@@ -405,6 +406,7 @@ sub part {
 				type => 'TIMESYNC',
 				dst => $chan1,
 				ts => $ts[$$chan2],
+				oldts => $ts[$$chan1],
 				wipe => 1,
 			});
 		}

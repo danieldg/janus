@@ -633,28 +633,28 @@ sub cmd2 {
 	'm_vhost.so' => { },
 	'm_watch.so' => { },
  	'm_xmlsocket.so' => { },
-	CORE => {
-		cmode => {
-			b => 'l_ban',
-			h => 'n_halfop',
-			i => 'r_invite',
-			k => 'v_key',
-			l => 's_limit',
-			'm' => 'r_moderated',
-			n => 'r_mustjoin',
-			o => 'n_op',
-			p => 'r_private',
-			's' => 'r_secret',
-			t => 'r_topic',
-			v => 'n_voice',
-		},
-		umode => {
-			i => 'invisible',
-			n => 'snomask',
-			o => 'oper',
-			's' => 'globops', # technically, server notices
-			w => 'wallops',
-		},
+CORE => {
+  cmode => {
+		b => 'l_ban',
+		h => 'n_halfop',
+		i => 'r_invite',
+		k => 'v_key',
+		l => 's_limit',
+		'm' => 'r_moderated',
+		n => 'r_mustjoin',
+		o => 'n_op',
+		p => 'r_private',
+		's' => 'r_secret',
+		t => 'r_topic',
+		v => 'n_voice',
+  },
+  umode => {
+		i => 'invisible',
+		n => 'snomask',
+		o => 'oper',
+		's' => 'globops', # technically, server notices
+		w => 'wallops',
+  },
   cmds => {
   	NICK => sub {
 		my $net = shift;
@@ -773,6 +773,7 @@ sub cmd2 {
 			src => $net,
 			dst => $chan,
 			ts => $ts,
+			oldts => $chan->ts(),
 			wipe => 1,
 		} if $chan->ts() > $ts;
 
@@ -839,6 +840,7 @@ sub cmd2 {
 			src => $net,
 			dst => $chan,
 			ts => $chan->ts(),
+			oldts => $chan->ts(),
 			wipe => 1,
 		};
 	}, FTOPIC => sub {
@@ -1148,7 +1150,7 @@ sub cmd2 {
 			for my $chan (@{$act->{reconnect_chans}}) {
 				next unless $chan->is_on($net);
 				my $mode = join '', map {
-					$chan->has_nmode($_, $nick) ? $txt2pfx[$$net]{$_} : ''
+					$chan->has_nmode($_, $nick) ? ($txt2pfx[$$net]{$_} || '') : ''
 				} qw/n_voice n_halfop n_op n_admin n_owner/;
 				push @out, $net->cmd1(FJOIN => $chan, $chan->ts(), $mode.','.$nick->str($net));
 			}
@@ -1187,7 +1189,7 @@ sub cmd2 {
 		my($net,$act) = @_;
 		my $src = $act->{src};
 		my $dst = $act->{dst};
-		my @interp = $net->_mode_interp($act);
+		my @interp = $net->_mode_interp($act->{mode}, $act->{args});
 		return () unless @interp;
 		return () if @interp == 1 && $interp[0] =~ /^[+-]+$/;
 		return $net->cmd2($src, FMODE => $dst, $dst->ts(), @interp);
@@ -1206,8 +1208,22 @@ sub cmd2 {
 			return $net->cmd2($act->{dst}, AWAY => defined $act->{value} ? $act->{value} : ());
 		}
 		return ();
-	},
-	MSG => sub {
+	}, TIMESYNC => sub {
+		my($net,$act) = @_;
+		my $chan = $act->{dst};
+		if ($act->{wipe}) {
+			if ($act->{ts} == $act->{oldts}) {
+				return $net->cmd2($net->info('linkname'), REMSTATUS => $chan);
+			} else {
+				return $net->cmd2($net->info('linkname'), FMODE => $chan, $act->{ts}, '+');
+			}
+		} else {
+			my @interp = $net->_mode_interp($chan->mode_delta());
+			# delta from channel to undef == remove all modes. We want to add.
+			$interp[0] =~ tr/-+/+-/ unless $interp[0] eq '+';
+			return $net->cmd2($net->info('linkname'), FMODE => $chan, $act->{ts}, @interp);
+		}
+	}, MSG => sub {
 		my($net,$act) = @_;
 		return if $act->{dst}->isa('Network');
 		my $type = $act->{msgtype} || 'PRIVMSG';
