@@ -85,35 +85,33 @@ sub read_conf {
 	%netconf = %newconf;
 }
 
-sub do_reconnects {
-	my $nick = shift;
-	for my $id (keys %netconf) {
-		my $nconf = $netconf{$id};
-		next if exists $Janus::netqueues{$id};
-		if ($id =~ /^LISTEN:/) {
-			my $sock = $inet{listn}->($nconf->{port});
-			if ($sock) {
-				$Janus::netqueues{$id} = [$sock, undef, undef, undef, 1, 0];
-			} else {
-				&Janus::err_jmsg($nick, "Could not listen on port $nconf->{port}: $!");
-			}
-		} elsif ($nconf->{autoconnect}) {
-			my $type = $nconf->{type};
-			my $net = eval "use $type; return ${type}->new(id => \$id)";
-			unless ($net) {
-				&Janus::err_jmsg($nick, "Error creating $type network $id: $@");
-			} else {
-				print "Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}\n";
-	
-				my $sock = $inet{conn}->($nconf->{linkaddr}, $nconf->{linkport}, $nconf->{linktype} =~ /^ssl/);
+sub connect_net {
+	my($nick,$id) = @_;
+	my $nconf = $netconf{$id};
+	return if !$nconf || exists $Janus::netqueues{$id};
+	if ($id =~ /^LISTEN:/) {
+		my $sock = $inet{listn}->($nconf->{port});
+		if ($sock) {
+			$Janus::netqueues{$id} = [$sock, undef, undef, undef, 1, 0];
+		} else {
+			&Janus::err_jmsg($nick, "Could not listen on port $nconf->{port}: $!");
+		}
+	} elsif ($nconf->{autoconnect}) {
+		my $type = $nconf->{type};
+		my $net = eval "use $type; return ${type}->new(id => \$id)";
+		unless ($net) {
+			&Janus::err_jmsg($nick, "Error creating $type network $id: $@");
+		} else {
+			print "Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}\n";
 
-				$net->intro($nconf);
+			my $sock = $inet{conn}->($nconf->{linkaddr}, $nconf->{linkport}, $nconf->{linktype} =~ /^ssl/);
 
-				&Janus::link($net) unless $net->isa('InterJanus');
-	
-				# we start out waiting on writes because that's what connect(2) says for EINPROGRESS connects
-				$Janus::netqueues{$net->id()} = [$sock, '', '', $net, 0, 1];
-			}
+			$net->intro($nconf);
+
+			&Janus::link($net) unless $net->isa('InterJanus');
+
+			# we start out waiting on writes because that's what connect(2) says for EINPROGRESS connects
+			$Janus::netqueues{$net->id()} = [$sock, '', '', $net, 0, 1];
 		}
 	}
 }
@@ -121,7 +119,7 @@ sub do_reconnects {
 sub rehash {
 	my $nick = shift;
 	read_conf $nick;
-	do_reconnects $nick;
+	connect_net $nick,$_ for keys %netconf;
 	&Janus::jmsg($nick,'Rehashed');
 }
 
@@ -225,6 +223,6 @@ if ($netconf{janus}{ipv6}) {
 		} ],
 	);
 }
-do_reconnects;
+connect_net undef,$_ for keys %netconf;
 
 1;

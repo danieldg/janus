@@ -48,6 +48,7 @@ sub pongcheck {
 	}
 	unless ($net) {
 		delete $p->{repeat};
+		&Conffile::connect_net(undef, $p->{netid});
 		return;
 	}
 	unless ($Janus::nets{$net->id()} eq $net) {
@@ -59,9 +60,10 @@ sub pongcheck {
 	if ($last + 90 <= time) {
 		print "PING TIMEOUT!\n";
 		&Janus::delink($net, 'Ping timeout');
+		&Conffile::connect_net(undef, $p->{netid});
 		delete $p->{net};
 		delete $p->{repeat};
-	} else {
+	} elsif ($last + 29 <= time) {
 		$net->send(+{
 			type => 'PING',
 		});
@@ -77,6 +79,7 @@ sub intro :Cumulative {
 	my $pinger = {
 		repeat => 30,
 		net => $net,
+		netid => $net->id(),
 		code => \&pongcheck,
 	};
 	weaken($pinger->{net});
