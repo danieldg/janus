@@ -150,6 +150,9 @@ sub nicklen { 40 }
 		my $dst = $act->{dst}->str($net);
 		"$type $dst :<$src> $act->{msg}";
 	},
+	PING => sub {
+		"PING :hello there";
+	},
 );
 
 sub pm_not {

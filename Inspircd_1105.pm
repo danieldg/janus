@@ -1289,7 +1289,7 @@ CORE => {
 			# assume this is part of a WHOIS reply; discard
 			return ();
 		}
-		if (($type eq 'PRIVMSG' || $type eq 'NOTICE') && ($act->{src}->isa('Nick'))) {
+		if (($type eq 'PRIVMSG' || $type eq 'NOTICE') && $act->{src}->isa('Nick') && $act->{src}->is_on($net)) {
 			return $net->cmd2($act->{src}, $type, $dst, $act->{msg});
 		} else {
 			return () unless $act->{dst}->isa('Nick');
