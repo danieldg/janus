@@ -27,6 +27,8 @@ sub debug {
 	print @_, "\n";
 }
 
+sub ignore { () }
+
 sub intro :Cumulative {
 	my($net,$param) = @_;
 	$net->send(
@@ -36,7 +38,7 @@ sub intro :Cumulative {
 }
 
 sub cli_hostintro {
-	my($net, $nname, $ident, $host) = @_;
+	my($net, $nname, $ident, $host, $gecos) = @_;
 	my $nick = $nicks[$$net]{$nname};
 	unless ($nick) {
 		$nick = Nick->new(
@@ -47,7 +49,7 @@ sub cli_hostintro {
 				host => $host,
 				vhost => $host,
 				ident => $ident,
-				name => 'MirrorServ Client',
+				name => ($gecos || 'MirrorServ Client'),
 			},
 		);
 		$nicks[$$net]{$nname} = $nick;
@@ -70,6 +72,15 @@ sub cli_hostintro {
 			dst => $nick,
 			item => 'ident',
 			value => $ident,
+		};
+	}
+	if (defined $gecos && $nick->info('name') ne $gecos) {
+		push @out, +{
+			type => 'NICKINFO',
+			src => $nick,
+			dst => $nick,
+			item => 'name',
+			value => $gecos,
 		};
 	}
 	@out;
@@ -115,8 +126,8 @@ sub send {
 	}
 }
 
-sub cmd1 { warn }
-sub cmd2 { warn }
+sub cmd1 { warn; () }
+sub cmd2 { warn; () }
 
 sub dump_sendq {
 	my $net = shift;
@@ -129,10 +140,10 @@ sub dump_sendq {
 }
 
 # force tags
-sub request_nick {
-	my($net, $nick, $reqnick) = @_;
-	&LocalNetwork::request_nick($net, $nick, $reqnick, 1);
-}
+#sub request_nick {
+#	my($net, $nick, $reqnick) = @_;
+#	&LocalNetwork::request_nick($net, $nick, $reqnick, 1);
+#}
 
 sub nicklen { 40 }
 
@@ -140,7 +151,7 @@ sub nicklen { 40 }
 	LINK => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst}->str($net);
-		"JOIN $chan";
+		("JOIN $chan", "WHO $chan");
 	},
 	MSG => sub {
 		my($net,$act) = @_;
@@ -203,6 +214,7 @@ sub pm_not {
 		$net->send("PONG $_[2]");
 		();
 	},
+	PONG => \&ignore,
 	'001' => sub {
 		my $net = shift;
 		return +{
@@ -210,6 +222,20 @@ sub pm_not {
 			net => $net,
 			sendto => [ values %Janus::nets ],
 		};
+	},
+	'352' => sub {
+		my $net = shift;
+#		:irc2.smashthestack.org 352 jmirror #test me admin.daniel irc2.smashthestack.org daniel Hr* :0 Why don't you ask me?
+		my $chan = $net->chan($_[3]);
+		my $n = $_[-1];
+		$n =~ s/^\d+\s+//;
+		my @out = $net->cli_hostintro($_[7], $_[4], $_[5], $n);
+		push @out, +{
+			type => 'JOIN',
+			src => $net->nick($_[7]),
+			dst => $chan,
+		};
+		@out;
 	},
 );
 
