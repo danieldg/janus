@@ -289,6 +289,19 @@ if ($Janus::interface) {
 		});
 	},
 }, {
+	cmd => 'autoconnect',
+	help => 'autoconnect $net 1|0 - enable or disable autoconnect on a network',
+	code => sub {
+		my($nick, $args) = @_;
+		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
+		my($id, $onoff) = ($args =~ /(\S+) (\d)/) or warn;
+		my $nconf = $Conffile::netconf{$id} or do {
+			&Janus::jmsg($nick, 'Cannot find network');
+			return;
+		};
+		$nconf->{autoconnect} = $onoff;
+	},
+}, {
 	cmd => 'netsplit',
 	help => 'netsplit $net - cause a network split and automatic rehash',
 	code => sub {
