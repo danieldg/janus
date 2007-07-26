@@ -113,6 +113,15 @@ if ($Janus::interface) {
 			return 1;
 		}
 		undef;
+	}, LINKREQ => validate => sub {
+		my $act = shift;
+		my $valid = eval {
+			return 0 unless $act->{net}->isa('Network');
+			return 0 unless $act->{dst}->isa('Network');
+			return 0 unless $act->{dlink} =~ /^#/;
+			1;
+		};
+		$valid ? undef : 1;		
 	}, LINKREQ => act => sub {
 		my $act = shift;
 		my $snet = $act->{net};
@@ -245,15 +254,15 @@ if ($Janus::interface) {
 		my($nick, $cname) = @_;
 		my $snet = $nick->homenet();
 		if ($snet->param('oper_only_link') && !$nick->has_mode('oper')) {
-			Janus::jmsg($nick, "You must be an IRC operator to use this command");
+			&Janus::jmsg($nick, "You must be an IRC operator to use this command");
 			return;
 		}
 		my $chan = $snet->chan($cname) or do {
-			Janus::jmsg($nick, "Cannot find channel $cname");
+			&Janus::jmsg($nick, "Cannot find channel $cname");
 			return;
 		};
 		unless ($nick->has_mode('oper') || $chan->has_nmode(n_owner => $nick)) {
-			Janus::jmsg($nick, "You must be a channel owner to use this command");
+			&Janus::jmsg($nick, "You must be a channel owner to use this command");
 			return;
 		}
 			

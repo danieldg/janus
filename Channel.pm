@@ -236,6 +236,17 @@ sub _link_into {
 	}
 }
 
+=item $chan->all_nicks()
+
+return a list of all nicks on the channel
+
+=cut
+
+sub all_nicks {
+	my $chan = $_[0];
+	return values %{$nicks[$$chan]};
+}
+
 =item $chan->str($net)
 
 get the channel's name on a given network, or undef if the channel is

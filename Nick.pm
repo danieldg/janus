@@ -103,6 +103,17 @@ sub is_on {
 	return exists $nets[$$nick]{$net->id()};
 }
 
+=item $nick->netlist() 
+
+return the list of all networks this nick is currently on
+
+=cut
+
+sub netlist {
+	my $nick = $_[0];
+	return values %{$nets[$$nick]};
+}
+
 =item $nick->has_mode($mode)
 
 return true if the nick has the given umode

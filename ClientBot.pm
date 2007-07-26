@@ -5,6 +5,7 @@ package ClientBot;
 BEGIN { &Janus::load('LocalNetwork'); }
 use Persist;
 use Object::InsideOut 'LocalNetwork';
+use Scalar::Util 'weaken';
 use strict;
 use warnings;
 &Janus::load('Nick');
@@ -12,15 +13,54 @@ use warnings;
 __PERSIST__
 persist @sendq     :Field;
 persist @nicks     :Field;
+persist @self      :Field;
 
 __CODE__
 
 my %fromirc;
 my %toirc;
 
+sub nick_sweep {
+	my $p = shift;
+	my $net = $p->{net};
+	unless ($net) {
+		delete $p->{repeat};
+		return;
+	}
+	my $id = $net->id();
+	my $normal = 1;
+	unless ($Janus::nets{$id} && $Janus::nets{$id} eq $net) {
+		delete $p->{repeat};
+		$normal = 0;
+	}
+	my @out;
+	for my $nn (keys %{$nicks[$$net]}) {
+		my $nick = $nicks[$$net]{$nn};
+		if (defined $nick) {
+			my @nets = $nick->netlist();
+			next if $normal && @nets > 1;
+			push @out, +{
+				type => 'QUIT',
+				dst => $nick,
+				msg => 'JanusTimeout: Not in any shared channels',
+			};
+		}
+		delete $nicks[$$net]{$nn};
+	}
+	&Janus::insert_full(@out) if @out;
+}
+
 sub _init :Init {
 	my $net = shift;
 	$sendq[$$net] = [];
+
+	my $sweeper = {
+		repeat => 58,
+		net => $net,
+		code => \&nick_sweep,
+	};
+	weaken($sweeper->{net});
+	&Janus::schedule($sweeper);
 }
 
 sub debug {
@@ -35,12 +75,24 @@ sub intro :Cumulative {
 		'USER mirror gamma * :Janus IRC Client',
 		"NICK $param->{nick}",
 	);
+	$self[$$net] = $param->{nick};
 }
 
 sub cli_hostintro {
 	my($net, $nname, $ident, $host, $gecos) = @_;
 	my $nick = $nicks[$$net]{$nname};
 	unless ($nick) {
+		$nick = $net->item($nname);
+		if ($nick) {
+			$net->release_nick(lc $nname);
+			&Janus::insert_full(+{
+				type => 'RECONNECT',
+				dst => $nick,
+				net => $net,
+				killed => 0,
+				nojlink => 1,
+			});
+		}
 		$nick = Nick->new(
 			net => $net,
 			ts => time,
@@ -51,9 +103,13 @@ sub cli_hostintro {
 				ident => $ident,
 				name => ($gecos || 'MirrorServ Client'),
 			},
+			mode => {
+				invisible => 1,
+			},
 		);
-		$nicks[$$net]{$nname} = $nick;
 		$net->nick_collide($nname, $nick);
+		$nicks[$$net]{$nname} = $nick;
+		weaken($nicks[$$net]{$nname});
 	}
 	my @out;
 	if ($nick->info('host') ne $host) {
@@ -139,7 +195,7 @@ sub dump_sendq {
 	$q;
 }
 
-# force tags
+# uncomment to force tags
 #sub request_nick {
 #	my($net, $nick, $reqnick) = @_;
 #	&LocalNetwork::request_nick($net, $nick, $reqnick, 1);
@@ -148,10 +204,24 @@ sub dump_sendq {
 sub nicklen { 40 }
 
 %toirc = (
+	LINKREQ => sub {
+		my($net,$act) = @_;
+		return if $act->{linkfile};
+		return if $act->{dlink} eq 'any';
+		&Janus::insert_full(+{
+			type => 'LINKREQ',
+			dst => $act->{net},
+			net => $net,
+			slink => $act->{dlink},
+			dlink => $act->{slink},
+			override => 1,
+		});
+		();
+	},
 	LINK => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst}->str($net);
-		("JOIN $chan", "WHO $chan");
+		"JOIN $chan";
 	},
 	MSG => sub {
 		my($net,$act) = @_;
@@ -162,13 +232,13 @@ sub nicklen { 40 }
 		"$type $dst :<$src> $act->{msg}";
 	},
 	PING => sub {
-		"PING :hello there";
+		"PING :poing";
 	},
 );
 
 sub pm_not {
 	my $net = shift;
-	my $src = $net->nick($_[0]) or return ();
+	my $src = $net->item($_[0]) or return ();
 	return +{
 		type => 'MSG',
 		src => $src,
@@ -176,6 +246,24 @@ sub pm_not {
 		dst => $net->item($_[2]),
 		msg => $_[3],
 	};
+}
+
+sub kicked {
+	my($net, $cname, $msg) = @_;
+	my $chan = $net->chan($cname);
+	my @out;
+	for my $nick ($chan->all_nicks()) {
+		next unless $nick->homenet()->id() eq $net->id();
+		push @out, +{
+			type => 'PART',
+			src => $nick,
+			dst => $chan,
+			msg => 'Janus relay bot kicked: '.$msg,
+		};
+	}
+	# try to rejoin - TODO enqueue the channel and delink it if this doesn't succeed in a little bit
+	$net->send("JOIN $cname");
+	@out;
 }
 
 %fromirc = (
@@ -190,14 +278,46 @@ sub pm_not {
 			dst => $net->chan($_[2], 1),
 		};
 	},
+	NICK => sub {
+		my $net = shift;
+		my $nick = $net->nick($_[0]) or return ();
+		$nicks[$$net]{$_[2]} = delete $nicks[$$net]{$_[0]};
+		weaken($nicks[$$net]{$_[2]});
+		return +{
+			type => 'NICK',
+			src => $nick,
+			dst => $nick,
+			nick => $_[2],
+		};
+	},
 	PART => sub {
 		my $net = shift;
+		if ($_[0] eq $self[$$net]) {
+			# SAPART gives an auto-rejoin just to spite the people who think it's better than kick
+			return $net->kicked($_[2], $_[3]);
+		}
 		my $src = $net->nick($_[0]) or return ();
 		return +{
 			type => 'PART',
 			src => $src,
 			dst => $net->chan($_[2], 1),
 			msg => $_[3],
+		};
+	},
+	KICK => sub {
+		my $net = shift;
+		if ($_[3] eq $self[$$net]) {
+			return $net->kicked($_[2], $_[4]);
+		}
+		my $src = $net->nick($_[0]);
+		my $chan = $net->chan($_[2]);
+		my $victim = $net->nick($_[3]) or return ();
+		return +{
+			type => 'KICK',
+			src => $src,
+			dst => $chan,
+			kickee => $victim,
+			msg => $_[4],
 		};
 	},
 	QUIT => sub {
@@ -223,10 +343,23 @@ sub pm_not {
 			sendto => [ values %Janus::nets ],
 		};
 	},
-	'352' => sub {
+	'002' => \&ignore,
+	'003' => \&ignore,
+	'004' => \&ignore,
+	'005' => \&ignore,
+	# intro
+	251 => \&ignore,
+	252 => \&ignore,
+	254 => \&ignore,
+	255 => \&ignore,
+	265 => \&ignore,
+	266 => \&ignore,
+
+	315 => \&ignore, # end of /WHO
+	352 => sub {
 		my $net = shift;
 #		:irc2.smashthestack.org 352 jmirror #test me admin.daniel irc2.smashthestack.org daniel Hr* :0 Why don't you ask me?
-		my $chan = $net->chan($_[3]);
+		my $chan = $net->chan($_[3]) or return ();
 		my $n = $_[-1];
 		$n =~ s/^\d+\s+//;
 		my @out = $net->cli_hostintro($_[7], $_[4], $_[5], $n);
@@ -237,6 +370,32 @@ sub pm_not {
 		};
 		@out;
 	},
+	353 => \&ignore, # /NAMES list
+	366 => sub { # end of /NAMES
+		my $net = shift;
+		$net->send("WHO $_[3]");
+		();
+	},
+	422 => \&ignore, # MOTD missing
+	433 => sub { # nick in use, try another
+		my $net = shift;
+		my $tried = $_[3];
+		my $n = '';
+		$n = $1 + 1 if $tried =~ s/_(\d*)$//;
+		$tried .= '_'.$n;
+		$net->send("NICK $tried");
+		$self[$$net] = $tried;
+		();
+	},
+	474 => sub { # we are banned
+		my $net = shift;
+		my $chan = $net->chan($_[3]) or return ();
+		return +{
+			type => 'DELINK',
+			dst => $chan,
+			net => $net,
+		};
+	},	
 );
 
 1;

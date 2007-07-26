@@ -44,14 +44,16 @@ my %tqueue;
 The given coderef will be called with a single argument, the action hashref
 
 Hooks, in order of execution:
-  validate - make sure arguments are the proper type etc - for IJ origin
+  validate - make sure arguments are the proper type etc - only for events originating from afar
   parse - possible reparse point (/msg janus *) - only for local origin
-  check - reject unauthorized and/or impossible commands
+  jparse - possible reparse point - only for interjanus origin
+
+  check - reject unauthorized and/or impossible commands (see also validate)
   act - Main state processing
   send (not a hook) - event is sent to local and remote networks
   cleanup - Reference deletion
 
-validate, parse and check hooks should return one of the tribool values:
+validate, parse, jparse, and check hooks should return one of the tribool values:
   undef if the action was not modified
   0 if the action was modified (to detect duplicate hooks)
   1 if the action was rejected (should be dropped)
@@ -366,12 +368,16 @@ sub in_socket {
 	for my $act (@act) {
 		$act->{except} = $src unless $act->{except};
 		unshift @qstack, [];
+		if (_mod_hook($act->{type}, validate => $act)) {
+			print "Validate hook stole $act->{type} [$@]\n";
+			next;
+		}
 		if ($parse_hook) {
 			unless (_mod_hook($act->{type}, parse => $act)) {
 				_run($act);
 			}
 		} else {
-			unless (_mod_hook($act->{type}, validate => $act)) {
+			unless (_mod_hook($act->{type}, jparse => $act)) {
 				_run($act);
 			}
 		}
