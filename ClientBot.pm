@@ -226,9 +226,13 @@ sub nicklen { 40 }
 	MSG => sub {
 		my($net,$act) = @_;
 		my $type = $act->{msgtype};
-		return unless $type eq 'PRIVMSG' || $type eq 'NOTICE';
-		my $src = $act->{src}->str($net);
-		my $dst = $act->{dst}->str($net);
+		return () unless $type eq 'PRIVMSG' || $type eq 'NOTICE';
+		my $src = $act->{src};
+		my $dst = $act->{dst};
+		return () unless ref $src && $src->isa('Nick');
+		return () unless ref $dst && ($dst->isa('Nick') || $dst->isa('Channel'));
+		$src = $src->str($net);
+		$dst = $dst->str($net);
 		"$type $dst :<$src> $act->{msg}";
 	},
 	PING => sub {
@@ -239,7 +243,7 @@ sub nicklen { 40 }
 sub pm_not {
 	my $net = shift;
 	my $src = $net->item($_[0]) or return ();
-	my $dst = $net->item($_[0]) or return ();
+	my $dst = $net->item($_[2]) or return ();
 	# TODO nick/nick privmsg support
 	return () unless $dst->isa('Channel');
 	return +{

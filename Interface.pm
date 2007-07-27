@@ -300,6 +300,7 @@ if ($Janus::interface) {
 			return;
 		};
 		$nconf->{autoconnect} = $onoff;
+		&Janus::jmsg($nick, 'Done');
 	},
 }, {
 	cmd => 'netsplit',
