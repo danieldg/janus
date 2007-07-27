@@ -229,11 +229,16 @@ sub nicklen { 40 }
 		return () unless $type eq 'PRIVMSG' || $type eq 'NOTICE';
 		my $src = $act->{src};
 		my $dst = $act->{dst};
+		my $msg = $act->{msg};
 		return () unless ref $src && $src->isa('Nick');
 		return () unless ref $dst && ($dst->isa('Nick') || $dst->isa('Channel'));
 		$src = $src->str($net);
 		$dst = $dst->str($net);
-		"$type $dst :<$src> $act->{msg}";
+		if ($msg =~ /^\001ACTION (.*?)\001?$/) {
+			return "$type $dst :* $src $1";
+		} else {
+			return "$type $dst :<$src> $msg";
+		}
 	},
 	PING => sub {
 		"PING :poing";
