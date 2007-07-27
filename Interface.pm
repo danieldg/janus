@@ -189,8 +189,8 @@ if ($Janus::interface) {
 	help => 'shows a list of the linked networks and shared channels',
 	code => sub {
 		my $nick = shift;
-		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		&Janus::jmsg($nick, 'Linked networks: '.join ' ', sort keys %Janus::nets);
+		return unless $nick->has_mode('oper');
 		my $hnet = $nick->homenet();
 		my @chans;
 		for my $chan ($hnet->all_chans()) {

@@ -14,6 +14,8 @@ __PERSIST__
 persist @sendq     :Field;
 persist @nicks     :Field;
 persist @self      :Field;
+persist @kicks     :Field;
+# $kicks[$$net]{$lid}{$channel} = time after which the nick will rejoin
 
 __CODE__
 
@@ -22,6 +24,7 @@ my %toirc;
 
 sub nick_sweep {
 	my $p = shift;
+	my $time = time;
 	my $net = $p->{net};
 	unless ($net) {
 		delete $p->{repeat};
@@ -34,18 +37,35 @@ sub nick_sweep {
 		$normal = 0;
 	}
 	my @out;
-	for my $nn (keys %{$nicks[$$net]}) {
+	NICK: for my $nn (keys %{$nicks[$$net]}) {
 		my $nick = $nicks[$$net]{$nn};
 		if (defined $nick) {
 			my @nets = $nick->netlist();
-			next if $normal && @nets > 1;
-			push @out, +{
-				type => 'QUIT',
-				dst => $nick,
-				msg => 'JanusTimeout: Not in any shared channels',
-			};
+			next NICK if $normal && @nets > 1;
+			my $kicks = $kicks[$$net]{$nick->lid()};
+			if (ref $kicks && %$kicks) {
+				# rejoin the nick to timed out channels
+				for my $cname (keys %$kicks) {
+					next if $kicks->{$cname} > $time;
+					push @out, +{
+						type => 'JOIN',
+						src => $nick,
+						dst => $net->chan($cname),
+					};
+					delete $kicks->{$cname};
+				}
+			} else {
+				delete $nicks[$$net]{$nn};
+				delete $kicks[$$net]{$nick->lid()};
+				push @out, +{
+					type => 'QUIT',
+					dst => $nick,
+					msg => 'JanusTimeout: Not in any shared channels',
+				};
+			}
+		} else {
+			delete $nicks[$$net]{$nn};
 		}
-		delete $nicks[$$net]{$nn};
 	}
 	&Janus::insert_full(@out) if @out;
 }
@@ -55,7 +75,7 @@ sub _init :Init {
 	$sendq[$$net] = [];
 
 	my $sweeper = {
-		repeat => 58,
+		repeat => 25,
 		net => $net,
 		code => \&nick_sweep,
 	};
@@ -240,6 +260,17 @@ sub nicklen { 40 }
 			return "$type $dst :<$src> $msg";
 		}
 	},
+	KICK => sub {
+		my($net,$act) = @_;
+		my $nick = $act->{kickee};
+		return () unless $nick->homenet()->id() eq $net->id();
+		my $src = $act->{src};
+		$src = ref $src && $src->isa('Nick') ? '<'.$src->str($net).'>' : '[?]';
+		my $chan = $act->{dst}->str($net);
+		my $nn = $nick->str($net);
+		$kicks[$$net]{$nick->lid()}{$chan} = time + 15;
+		"KICK $chan $nn :$src $act->{msg}";
+	},
 	PING => sub {
 		"PING :poing";
 	},
@@ -283,6 +314,7 @@ sub kicked {
 	NOTICE => \&pm_not,
 	JOIN => sub {
 		my $net = shift;
+		return () if $_[0] eq $self[$$net];
 		my $src = $net->nick($_[0]) or return ();
 		return +{
 			type => 'JOIN',
@@ -304,11 +336,12 @@ sub kicked {
 	},
 	PART => sub {
 		my $net = shift;
-		if ($_[0] eq $self[$$net]) {
+		if (lc $_[0] eq lc $self[$$net]) {
 			# SAPART gives an auto-rejoin just to spite the people who think it's better than kick
 			return $net->kicked($_[2], $_[3]);
 		}
 		my $src = $net->nick($_[0]) or return ();
+		delete $kicks[$$net]{$src->lid()}{$_[2]};
 		return +{
 			type => 'PART',
 			src => $src,
@@ -318,12 +351,13 @@ sub kicked {
 	},
 	KICK => sub {
 		my $net = shift;
-		if ($_[3] eq $self[$$net]) {
+		if (lc $_[3] eq lc $self[$$net]) {
 			return $net->kicked($_[2], $_[4]);
 		}
 		my $src = $net->nick($_[0]);
 		my $chan = $net->chan($_[2]) or return ();
 		my $victim = $net->nick($_[3]) or return ();
+		delete $kicks[$$net]{$victim->lid()}{$_[2]};
 		return +{
 			type => 'KICK',
 			src => $src,
@@ -335,6 +369,7 @@ sub kicked {
 	QUIT => sub {
 		my $net = shift;
 		my $src = $net->nick($_[0]) or return ();
+		delete $kicks[$$net]{$src->lid()};
 		return +{
 			type => 'QUIT',
 			dst => $src,
@@ -347,6 +382,7 @@ sub kicked {
 		();
 	},
 	PONG => \&ignore,
+	MODE => \&ignore,
 	'001' => sub {
 		my $net = shift;
 		return +{
@@ -374,6 +410,7 @@ sub kicked {
 		my $chan = $net->chan($_[3]) or return ();
 		my $n = $_[-1];
 		$n =~ s/^\d+\s+//;
+		return () if lc $_[7] eq lc $self[$$net];
 		my @out = $net->cli_hostintro($_[7], $_[4], $_[5], $n);
 		push @out, +{
 			type => 'JOIN',
@@ -408,6 +445,7 @@ sub kicked {
 			net => $net,
 		};
 	},	
+	482 => \&ignore, # kick failed (not enough information to determine which one
 );
 
 1;
