@@ -239,18 +239,21 @@ sub nicklen { 40 }
 sub pm_not {
 	my $net = shift;
 	my $src = $net->item($_[0]) or return ();
+	my $dst = $net->item($_[0]) or return ();
+	# TODO nick/nick privmsg support
+	return () unless $dst->isa('Channel');
 	return +{
 		type => 'MSG',
 		src => $src,
 		msgtype => $_[1],
-		dst => $net->item($_[2]),
+		dst => $dst,
 		msg => $_[3],
 	};
 }
 
 sub kicked {
 	my($net, $cname, $msg) = @_;
-	my $chan = $net->chan($cname);
+	my $chan = $net->chan($cname) or return ();
 	my @out;
 	for my $nick ($chan->all_nicks()) {
 		next unless $nick->homenet()->id() eq $net->id();
@@ -310,7 +313,7 @@ sub kicked {
 			return $net->kicked($_[2], $_[4]);
 		}
 		my $src = $net->nick($_[0]);
-		my $chan = $net->chan($_[2]);
+		my $chan = $net->chan($_[2]) or return ();
 		my $victim = $net->nick($_[3]) or return ();
 		return +{
 			type => 'KICK',
@@ -331,7 +334,7 @@ sub kicked {
 	},
 	PING => sub {
 		my $net = shift;
-		$net->send("PONG $_[2]");
+		$net->send("PONG :$_[2]");
 		();
 	},
 	PONG => \&ignore,
