@@ -1143,11 +1143,25 @@ CORE => {
 	}, PUSH => sub {
 		my $net = shift;
 		my $dst = $net->nick($_[2]) or return ();
-		# TODO if dst is janus, it might be something we (janus) asked about
 		my($rmsg, $txt) = split /\s+:/, $_[-1], 2;
 		my @msg = split /\s+/, $rmsg;
 		push @msg, $txt if defined $txt;
 		unshift @msg, undef unless $msg[0] =~ s/^://;
+		
+		if ($dst->info('_is_janus')) {
+			# a PUSH to the janus nick. Don't send any events, for one.
+			# However, it might be something we asked about, like the MODULES output
+			if (@msg == 4 && $msg[1] eq '900' && $msg[0] && $msg[0] eq $net->cparam('linkto')) {
+				if ($msg[3] =~ /^(\S+)$/) {
+					$net->module_add($1);
+				} elsif ($msg[3] =~ /^0x\S+ \S+ (\S+) \(.*\)$/) {
+					# alternate form of above which is returned to opers
+					$net->module_add($1);
+				}
+			}
+			return ();
+		}
+
 		my $src = $net->item(shift @msg) || $net;
 		my $cmd = shift @msg;
 		shift @msg;
@@ -1191,8 +1205,9 @@ CORE => {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
 		return () if $act->{net}->id() ne $net->id();
-		
-		return $net->_connect_ifo($nick);
+		my @out = $net->_connect_ifo($nick);
+		push @out, $net->cmd2($nick, MODULES => $net->cparam('linkto')) if $nick->info('_is_janus');
+		@out;
 	}, RECONNECT => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
