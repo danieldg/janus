@@ -277,9 +277,9 @@ if ($Janus::interface) {
 	cmd => 'rehash',
 	help => 'reload the config and attempt to reconnect to split servers',
 	code => sub {
-		my($nick,$pass) = shift;
+		my($nick,$pass) = @_;
 		unless ($nick->has_mode('oper') || $pass eq $Conffile::netconf{janus}{pass}) {
-			&Janus::jmsg($nick, "You must be an IRC operator to use this command");
+			&Janus::jmsg($nick, "You must be an IRC operator or specify the rehash password to use this command");
 			return;
 		}
 		&Janus::append(+{
@@ -292,12 +292,47 @@ if ($Janus::interface) {
 	cmd => 'die',
 	help => "kill the janus server; does \002NOT\002 restart it",
 	code => sub {
-		my($nick,$pass) = shift;
+		my($nick,$pass) = @_;
 		unless ($nick->has_mode('oper') && $pass && $pass eq $Conffile::netconf{janus}{diepass}) {
 			&Janus::jmsg($nick, "You must be an IRC operator and specify the 'diepass' password to use this command");
 			return;
 		}
 		exit;
+	},
+}, {
+	cmd => 'restart',
+	help => "restart the janus server",
+	code => sub {
+		my($nick,$pass) = @_;
+		unless ($nick->has_mode('oper') && $pass && $pass eq $Conffile::netconf{janus}{diepass}) {
+			&Janus::jmsg($nick, "You must be an IRC operator and specify the 'diepass' password to use this command");
+			return;
+		}
+		for my $net (values %Janus::nets) {
+			next if $net->jlink();
+			&Janus::append(+{
+				type => 'NETSPLIT',
+				net => $net,
+				msg => 'Restarting...',
+			});
+		}
+		# Clean up all non-LocalNetwork items in the I/O queue
+		for my $itm (keys %Janus::netqueues) {
+			my $net = $Janus::netqueues{$itm}[3];
+			unless (ref $net && $net->isa('LocalNetwork')) {
+				delete $Janus::netqueues{$itm};
+			}
+		}
+		# the I/O queue could possibly be empty by now; add an item to force it to stay around
+		$Janus::netqueues{RESTARTER} = [ undef, undef, undef, undef, 0, 0 ];
+		# sechedule the actual exec at a later time to try to send the restart netsplit message around
+		&Janus::schedule(+{
+			delay => 2,
+			code => sub {
+				$ENV{PATH} = '/usr/bin';
+				exec 'perl -T janus.pl';
+			},
+		});
 	},
 }, {
 	cmd => 'autoconnect',
@@ -320,8 +355,12 @@ if ($Janus::interface) {
 		my $nick = shift;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my $net = $Janus::nets{lc $_} or return;
-		&Janus::delink($net, 'Forced split by '.$nick->homenick().' on '.$nick->homenet()->id());
+		return if $net->jlink();
 		&Janus::append(+{
+			type => 'NETSPLIT',
+			net => $net,
+			msg => 'Forced split by '.$nick->homenick().' on '.$nick->homenet()->id()
+		}, {
 			type => 'REHASH',
 			sendto => [],
 		});
@@ -342,7 +381,13 @@ if ($Janus::interface) {
 	code => sub {
 		my($nick,$name) = @_;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
-		&Janus::reload($name) or &Janus::err_jmsg($nick, "Module load failed: $@");
+		return &Janus::jmsg($nick, "Invalid module name") unless $name =~ /^([0-9A-Za-z]+)$/;
+		my $n = $1;
+		if (&Janus::reload($n)) {
+			&Janus::err_jmsg($nick, "Module reloaded");
+		} else {
+			&Janus::err_jmsg($nick, "Module load failed: $@");
+		}
 	},
 }, {
 	cmd => 'chatops',
@@ -378,5 +423,7 @@ sub parse { () }
 sub send { }
 sub request_nick { $_[2] }
 sub release_nick { }
+sub all_nicks { $Janus::interface }
+sub all_chans { () }
 
 1;
