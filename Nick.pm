@@ -200,6 +200,15 @@ sub _netpart {
 	return if $net->jlink();
 	my $rnick = delete $nicks[$$nick]{$id};
 	$net->release_nick($rnick);
+	# this could be the last local network the nick was on
+	# if so, we need to remove it from Janus::gnicks
+	my $jl = $nick->jlink();
+	return unless $jl;
+	for my $net (values %{$nets[$$nick]}) {
+		my $njl = $net->jlink();
+		return unless $njl && $njl eq $jl;
+	}
+	delete $Janus::gnicks{$nick->gid()};
 }
 
 sub _netclean {
