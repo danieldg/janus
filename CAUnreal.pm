@@ -627,11 +627,16 @@ sub srvname {
 			} @m };
 			$nick{info}{vhost} = $_[10];
 		}
-		if (@_ >= 14) {
-			$nick{info}{chost} = $_[11];
-			local $_ = $_[12];
+		if (@_ >= 13) {
+			local $_;
+			if (@_ >= 14) {
+				$nick{info}{chost} = $_[11];
+				$_ = $_[12];
+			} else {
+				$nick{info}{chost} = 'unknown.cloaked';
+				$_ = $_[11];
+			}				
 			if (s/=+//) {
-				$nick{info}{ip_64} = $_[12];
 				s/(.)/sprintf '%06b', index $textip_table, $1/eg;
 				if (length $_[12] == 8) { # IPv4
 					s/(.{8})/sprintf '%d.', oct "0b$1"/eg;
@@ -644,7 +649,6 @@ sub srvname {
 			$nick{info}{ip} = $_;
 		} else {
 			$nick{info}{chost} = 'unknown.cloaked';
-			$nick{info}{ip} = $_[11] if @_ == 13;
 		}
 		
 		unless ($nick{mode}{vhost}) {
@@ -1171,11 +1175,11 @@ sub cmd2 {
 			for $id (keys %Janus::nets) {
 				$new = $Janus::nets{$id};
 				next if $new->isa('Interface') || $id eq $net->id();
-				push @out, $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->cparam('numeric'), $new->netname());
+				push @out, $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->numeric(), $new->netname());
 			}
 			return @out;
 		} else {
-			return $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->cparam('numeric'), $new->netname());
+			return $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->numeric(), $new->netname());
 		}
 	}, LINKED => sub {
 		my($net,$act) = @_;
@@ -1266,6 +1270,8 @@ sub cmd2 {
 		my($net,$act) = @_;
 		return if $act->{dst}->isa('Network');
 		my $type = $act->{msgtype} || 'PRIVMSG';
+		# only send things we know we should be able to get through to the client
+		return () unless $type eq 'PRIVMSG' || $type eq 'NOTICE' || $type =~ /^\d\d\d$/;
 		my @msg = ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg};
 		[ FLOAT_ALL => $net->cmd2($act->{src}, $type, ($act->{prefix} || '').$net->_out($act->{dst}), @msg) ];
 	}, WHOIS => sub {
