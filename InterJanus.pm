@@ -247,6 +247,13 @@ my %v_type; %v_type = (
 		s/^<s// or warn;
 		$ij->_kv_pairs($h);
 		s/^>// or warn;
+		if ($Janus::nets{$h->{id}}) {
+			# this is a NETLINK of a network we already know about.
+			# We either have a loop or a name collision. Either way, the IJ link
+			# cannot continue
+			&Janus::delink($ij, "InterJanus network name collision: network $h->{id} already exists");
+			return undef;
+		}
 		RemoteNetwork->new(jlink => $ij, %$h);
 	}, '<c' => sub {
 		my $ij = shift;
@@ -254,6 +261,8 @@ my %v_type; %v_type = (
 		s/^<c// or warn;
 		$ij->_kv_pairs($h);
 		s/^>// or warn;
+		# this creates a new object every time because LINK will fail if we
+		# give it a cached item
 		Channel->new(%$h);
 	}, '<n' => sub {
 		my $ij = shift;
