@@ -38,9 +38,14 @@ sub _init :Init {
 sub ignore { () }
 
 my %moddef;
+# no support for removing modules at the moment. I'm not sure exactly how to get notified of that either;
+# there's lots of potential for race conditions if I do something like "remove all and re-add"
 sub module_add {
 	my($net,$name) = @_;
-	my $mod = $moddef{$name} or return;
+	my $mod = $moddef{$name} or do {
+		$net->send($net->cmd2($Janus::interface, OPERNOTICE => "Unknown module $name, janus may become desynced if it is used"));
+		return;
+	};
 	return if $modules[$$net]{$name};
 	$modules[$$net]{$name} = $mod;
 	if ($mod->{cmode}) {
@@ -126,7 +131,7 @@ sub parse {
 	$cmd = $fromirc[$$net]{$cmd} || $cmd;
 	$cmd = $fromirc[$$net]{$cmd} || $cmd if $cmd && !ref $cmd; # allow one layer of indirection
 	unless ($cmd && ref $cmd) {
-		$net->send($net->cmd2($Janus::interface, GLOBOPS => "Unknown command $cmd, janus is possibly desynced"));
+		$net->send($net->cmd2($Janus::interface, OPERNOTICE => "Unknown command $cmd, janus is possibly desynced"));
 		debug "Unknown command '$cmd'";
 		return ();
 	}
@@ -417,6 +422,8 @@ sub cmd2 {
 			NICKINFO => sub {
 				my($net,$act) = @_;
 				if ($act->{item} eq 'ident') {
+					# prefer setident's action
+					return () if $modules[$$net]{'m_setident.so'};
 					return $net->cmd2($act->{dst}, CHGIDENT => $act->{dst}, $act->{value});
 				}
 				();
@@ -597,10 +604,60 @@ sub cmd2 {
 		},
 		umode => { R => 'deaf_regpriv' }
 	},
-	'm_sethost.so' => { }, # TODO
-	'm_setident.so' => { }, # TODO
+	'm_sethost.so' => {
+		cmds => {
+			SETHOST => sub {
+				my $net = shift;
+				my $nick = $net->mynick($_[0]) or return ();
+				return +{
+					type => 'NICKINFO',
+					src => $nick,
+					dst => $nick,
+					item => 'host',
+					value => $_[2],
+				};
+			}
+		},
+	},
+	'm_setident.so' => {
+		cmds => {
+			SETIDENT => sub {
+				my $net = shift;
+				my $nick = $net->mynick($_[0]) or return ();
+				return +{
+					type => 'NICKINFO',
+					src => $nick,
+					dst => $nick,
+					item => 'ident',
+					value => $_[2],
+				};
+			}
+		}, acts => {
+			NICKINFO => sub {
+				my($net,$act) = @_;
+				if ($act->{item} eq 'ident') {
+					return $net->cmd2($act->{dst}, SETIDENT => $act->{value});
+				}
+				();
+			},
+		},
+	},
+	'm_setname.so' => {
+		cmds => {
+			SETNAME => sub {
+				my $net = shift;
+				my $dst = $net->mynick($_[0]) or return ();
+				return +{
+					type => 'NICKINFO',
+					src => $dst,
+					dst => $dst,
+					item => 'name',
+					value => $_[2],
+				};
+			}
+		},
+	},
 	'm_setidle.so' => { },
-	'm_setname.so' => { }, # TODO
 	'm_sha256.so' => { },
 	'm_showwhois.so' => {
 		umode => { W => 'whois_notice' }
@@ -1056,9 +1113,34 @@ CORE => {
 			dst => $net->chan($_),
 		}, split /,/, $_[3];
 	},
-	SVSNICK => \&ignore, # TODO convert to RECONNECT
-	SVSMODE => 'JOIN',
-	REHASH => \&ignore,
+	SVSNICK => sub {
+		my $net = shift;
+		my $nick = $net->nick($_[2]) or return ();
+		if ($nick->homenet->id() eq $net->id()) {
+			warn "Misdirected SVSNICK!";
+			return ();
+		} elsif (lc $nick->homenick eq lc $_[2]) {
+			$net->release_nick(lc $_[2]);
+			return +{
+				type => 'RECONNECT',
+				src => $net->item($_[0]),
+				dst => $nick,
+				net => $net,
+				killed => 0,
+				sendto => [ $net ],
+			};
+		} else {
+			print "Ignoring SVSNICK on already tagged nick\n";
+			return ();
+		}
+	},
+	SVSMODE => 'MODE',
+	REHASH => sub {
+		return +{
+			type => 'REHASH',
+			sendto => [],
+		};
+	},
 	MODULES => \&ignore,
 	ENDBURST => sub {
 		my $net = shift;

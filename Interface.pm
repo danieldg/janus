@@ -289,6 +289,17 @@ if ($Janus::interface) {
 		});
 	},
 }, {
+	cmd => 'die',
+	help => "kill the janus server; does \002NOT\002 restart it",
+	code => sub {
+		my($nick,$pass) = shift;
+		unless ($nick->has_mode('oper') && $pass && $pass eq $Conffile::netconf{janus}{diepass}) {
+			&Janus::jmsg($nick, "You must be an IRC operator and specify the 'diepass' password to use this command");
+			return;
+		}
+		exit;
+	},
+}, {
 	cmd => 'autoconnect',
 	help => 'autoconnect $net 1|0 - enable or disable autoconnect on a network',
 	code => sub {
