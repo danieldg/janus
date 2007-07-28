@@ -771,6 +771,8 @@ CORE => {
 				nickts => (@_ == 4 ? $_[3] : time),
 			};
 		}
+		my $ip = $_[8];
+		$ip = $1 if $ip =~ /^[0:]+:ffff:(\d+\.\d+\.\d+\.\d+)$/
 		my %nick = (
 			net => $net,
 			ts => $_[2],
@@ -780,7 +782,7 @@ CORE => {
 				host => $_[4],
 				vhost => $_[5],
 				ident => $_[6],
-				ip => $_[8],
+				ip => $ip,
 				name => $_[-1],
 			},
 		);

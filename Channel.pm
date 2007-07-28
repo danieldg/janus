@@ -482,6 +482,8 @@ sub part {
 		my $act = shift;
 		my $chan = $act->{dst};
 		my $net = $act->{net};
+		return 1 unless ref $net && $net->isa('Network');
+		return 1 unless ref $chan && $chan->isa('Channel');
 		return 1 unless exists $nets[$$chan]{$net->id()};
 		my @nets = keys %{$nets[$$chan]};
 		return 1 if @nets == 1;
