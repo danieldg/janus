@@ -7,6 +7,19 @@ BEGIN { push @INC, '.' }
 use Janus;
 use IO::Select;
 use IO::Socket::SSL;
+use POSIX 'setsid';
+
+unless (@ARGV && $ARGV[0] =~ /d/) {
+	my $log = 'log/'.time;
+	umask 022;
+	open STDIN, '/dev/null' or die $!;
+	open STDOUT, '>', $log or die $!;
+	open STDERR, '>&', \*STDOUT or die $!;
+	my $pid = fork;
+	die $! unless defined $pid;
+	exit if $pid;
+	setsid;
+}
 
 $| = 1;
 
