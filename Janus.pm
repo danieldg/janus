@@ -460,7 +460,13 @@ sub delink {
 =cut
 
 &Janus::hook_add(
-	NETLINK => act => sub {
+	NETLINK => validate => sub {
+		my $act = shift;
+		eval {
+			return 0 unless $act->{net}->isa('Network');
+			1;
+		} ? undef : 1;
+	}, NETLINK => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		my $id = $net->id();
