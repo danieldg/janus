@@ -279,8 +279,28 @@ sub nicklen { 40 }
 sub pm_not {
 	my $net = shift;
 	my $src = $net->item($_[0]) or return ();
+	return () unless $src->isa('Nick');
+	if ($_[2] eq $self[$$net]) {
+		# PM to the bot
+		my $msg = $_[3];
+		if ($msg =~ s/^(\S+)\s//) {
+			my $dst = $net->item($1);
+			if (ref $dst && $dst->isa('Nick') && $dst->homenet()->id() ne $net->id()) {
+				return +{
+					type => 'MSG',
+					src => $src,
+					dst => $dst,
+					msgtype => $_[1],
+					msg => $msg,
+				};
+			}
+		}
+		if ($_[1] eq 'PRIVMSG') {
+			$net->send("NOTICE $_[0] :Error: user not found. To message a user, prefix your message with their nick");
+		}
+		return ();
+	}
 	my $dst = $net->item($_[2]) or return ();
-	# TODO nick/nick privmsg support
 	return () unless $dst->isa('Channel');
 	return +{
 		type => 'MSG',
