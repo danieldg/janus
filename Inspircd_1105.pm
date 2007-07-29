@@ -34,6 +34,7 @@ sub _init :Init {
 	my $net = shift;
 	$sendq[$$net] = [];
 	$net->module_add('CORE');
+	$auth[$$net] = 0;
 }
 
 sub ignore { () }
@@ -110,7 +111,7 @@ sub str {
 
 sub intro :Cumulative {
 	my($net,$param) = @_;
-	$net->send('CAPAB START');
+	$net->send(['INIT', 'CAPAB START']);
 	# we cannot continue until we get the remote CAPAB list so we can
 	# forge the module list
 }
@@ -128,7 +129,7 @@ sub parse {
 	}
 	my $cmd = $args[1];
 	unless ($auth[$$net] || $cmd eq 'CAPAB' || $cmd eq 'SERVER') {
-		$net->send('ERROR :Not authorized yet');
+		$net->send(['INIT', 'ERROR :Not authorized yet']);
 		return ();
 	}
 	return $net->nick_msg(@args) if $cmd =~ /^\d+$/;
@@ -145,7 +146,7 @@ sub parse {
 sub send {
 	my $net = shift;
 	for my $act (@_) {
-		if (ref $act) {
+		if (ref $act && ref $act eq 'HASH') {
 			my $type = $act->{type};
 			next unless $act_hooks[$$net]{$type};
 			for my $hook (values %{$act_hooks[$$net]{$type}}) {
@@ -160,9 +161,30 @@ sub send {
 sub dump_sendq {
 	my $net = shift;
 	local $_;
-	my $q = join "\n", @{$sendq[$$net]}, '';
-	$q =~ s/\n+/\r\n/g;
-	$sendq[$$net] = [];
+	my $q = '';
+	if ($auth[$$net] == 3) {
+		for my $i (@{$sendq[$$net]}, '') {
+			if (ref $i) {
+				$q .= join "\n", @$i[1..$#$i],'';
+			} else {
+				$q .= $i."\n";
+			}
+		}
+		$q =~ s/\n+/\r\n/g;
+		$sendq[$$net] = [];
+	} else {
+		my @delayed;
+		for my $i (@{$sendq[$$net]}) {
+			if (ref $i) {
+				$q .= join "\n", @$i[1..$#$i],'';
+			} else {
+				push @delayed, $i;
+			}
+		}
+		$q =~ s/\n+/\r\n/g;
+		$sendq[$$net] = \@delayed;
+		$auth[$$net] = 3 if $auth[$$net] == 2;
+	}
 	debug '    OUT@'.$net->id().' '.$_ for split /\r\n/, $q;
 	$q;
 }
@@ -1009,9 +1031,9 @@ CORE => {
 		unless ($auth[$$net]) {
 			if ($_[3] eq $net->param('yourpass')) {
 				$auth[$$net] = 1;
-				$net->send('BURST '.time, $net->ncmd(VERSION => 'Janus'));
+				$net->send(['INIT', 'BURST '.time, $net->ncmd(VERSION => 'Janus')]);
 			} else {
-				$net->send('ERROR :Bad password');
+				$net->send(['INIT', 'ERROR :Bad password']);
 			}
 		} else {
 			# recall parent
@@ -1094,10 +1116,10 @@ CORE => {
 				$k = undef if $k eq 'CHALLENGE'; # TODO generate our own challenge and use SHA256 passwords
 				$k ? "$k=$v" : ();
 			} keys %{$capabs[$$net]};
-			$net->send('CAPAB MODULES '.$1) while $mods =~ s/(.{1,495})(,|$)//;
-			$net->send('CAPAB CAPABILITIES :'.$1) while $capabs =~ s/(.{1,450})( |$)//;
-	        $net->send('CAPAB END');
-			$net->send($net->cmd1(SERVER => $net->param('linkname'), $net->param('mypass'), 0, 'Janus Network Link'));
+			$net->send(['INIT', 'CAPAB MODULES '.$1]) while $mods =~ s/(.{1,495})(,|$)//;
+			$net->send(['INIT', 'CAPAB CAPABILITIES :'.$1]) while $capabs =~ s/(.{1,450})( |$)//;
+			$net->send(['INIT', 'CAPAB END']);
+			$net->send(['INIT', $net->cmd1(SERVER => $net->param('linkname'), $net->param('mypass'), 0, 'Janus Network Link')]);
 			$_ = $capabs[$$net]{PREFIX};
 			my(%p2t,%t2p);
 			while (s/\((.)(.*)\)(.)/($2)/) {
@@ -1166,6 +1188,7 @@ CORE => {
 	MODULES => \&ignore,
 	ENDBURST => sub {
 		my $net = shift;
+		$net->send('ENDBURST');
 		return +{
 			type => 'LINKED',
 			net => $net,
