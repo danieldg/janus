@@ -13,18 +13,8 @@ __CODE__
 &Janus::hook_add(
 	NEWNICK => act => sub {
 		my $act = shift;
+		my $nick = $act->{dst};
 		for my $net (values %Janus::nets) {
-			next unless $net->is_synced();
-			&Janus::append({
-				type => 'CONNECT',
-				dst => $act->{dst},
-				net => $net,
-			});
-		}
-	}, LINKED => act => sub {
-		my $act = shift;
-		my $net = $act->{net};
-		for my $nick (values %Janus::gnicks) {
 			next if $nick->homenet()->id() eq $net->id();
 			&Janus::append({
 				type => 'CONNECT',
