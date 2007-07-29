@@ -186,7 +186,6 @@ sub _part {
 	my($nick,$chan) = @_;
 	my $name = $chan->str($homenet[$$nick]);
 	delete $chans[$$nick]->{lc $name};
-	$nick->_netclean($chan->nets());
 }
 
 sub _netpart {
@@ -206,30 +205,6 @@ sub _netpart {
 		return unless $njl && $njl eq $jl;
 	}
 	delete $Janus::gnicks{$nick->gid()};
-}
-
-sub _netclean {
-	my $nick = shift;
-	return if $info[$$nick]{_is_janus};
-	my %leave = @_ ? map { $_->id() => $_ } @_ : %{$nets[$$nick]};
-	delete $leave{$homenet[$$nick]->id()};
-	for my $chan (values %{$chans[$$nick]}) {
-		for my $net ($chan->nets()) {
-			delete $leave{$net->id()};
-		}
-	}
-	for my $net (values %leave) {
-		# This sending mechanism deliberately bypasses
-		# the message queue because a QUIT is intended
-		# to destroy the nick from all nets, not just one
-		$net->send({
-			type => 'QUIT',
-			src => $nick,
-			dst => $nick,
-			msg => 'Left all shared channels',
-		}) unless $net->jlink();
-		$nick->_netpart($net);
-	}
 }
 
 =item $nick->lid()
@@ -357,17 +332,6 @@ sub str {
 
 		my $name = $chan->str($homenet[$$nick]);
 		$chans[$$nick]->{lc $name} = $chan;
-
-		return if $homenet[$$nick]->jlink();
-		
-		for my $net ($chan->nets()) {
-			next if $nets[$$nick]->{$net->id()};
-			&Janus::insert_partial(+{
-				type => 'CONNECT',
-				dst => $nick,
-				net => $net,
-			});
-		}
 	}, PART => cleanup => sub {
 		my $act = $_[0];
 		my $nick = $act->{src};
