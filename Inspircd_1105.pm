@@ -904,7 +904,7 @@ CORE => {
 			return {
 				type => 'QUIT',
 				dst => $dst,
-				msg => "Killed ($msg)",
+				msg => $msg,
 				killer => $src,
 			};
 		}
