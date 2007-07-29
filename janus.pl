@@ -24,6 +24,7 @@ unless ($args =~ /d/) {
 
 $| = 1;
 
+&Janus::load('Bridge') or die;
 &Janus::load('Conffile', shift || 'janus.conf') or die;
 
 sub readable {
