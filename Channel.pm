@@ -203,12 +203,7 @@ sub part {
 	delete $nmode[$$chan]{$nick->lid()};
 	return if keys %{$nicks[$$chan]};
 	# destroy channel
-	for my $id (keys %Janus::nets) {
-		my $net = $Janus::nets{$id};
-		my $name = $name[$$chan];
-		next if $net->jlink();
-		$net->replace_chan($name, undef);
-	}
+	&LocalNetwork::replace_chan(undef, $name[$$chan], undef);
 }
 
 &Janus::hook_add(
