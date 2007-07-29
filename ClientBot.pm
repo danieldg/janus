@@ -403,6 +403,7 @@ sub kicked {
 	},
 	PONG => \&ignore,
 	MODE => \&ignore,
+	# misc
 	'001' => sub {
 		my $net = shift;
 		return +{
@@ -415,13 +416,22 @@ sub kicked {
 	'003' => \&ignore,
 	'004' => \&ignore,
 	'005' => \&ignore,
-	# intro
+	'042' => \&ignore,
+	# intro (/lusers etc)
 	251 => \&ignore,
 	252 => \&ignore,
+	253 => \&ignore,
 	254 => \&ignore,
 	255 => \&ignore,
 	265 => \&ignore,
 	266 => \&ignore,
+	# MOTD
+	372 => \&ignore,
+	375 => \&ignore,
+	376 => \&ignore,
+
+	332 => \&ignore, # topic
+	333 => \&ignore, # topic setter & ts
 
 	315 => \&ignore, # end of /WHO
 	352 => sub {

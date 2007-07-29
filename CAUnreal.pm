@@ -1261,7 +1261,7 @@ sub cmd2 {
 		my $src = $act->{src};
 		my @interp = $net->_mode_interp($act->{mode}, $act->{args});
 		return () unless @interp;
-		return () if @interp == 1 && $interp[0] =~ /^[+-]+$/;
+		return () if @interp == 1 && (!$interp[0] || $interp[0] =~ /^[+-]+$/);
 		if (ref $src && $src->isa('Nick') && $src->is_on($net)) {
 			return $net->cmd2($src, MODE => $act->{dst}, @interp);
 		} else {

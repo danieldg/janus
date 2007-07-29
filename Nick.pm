@@ -297,7 +297,7 @@ sub str {
 		my $new = lc $act->{nick};
 		return 1 if $old eq $new;
 		undef;
-		# Not transmitting case changes is the easiset way to do it
+		# TODO Not transmitting case changes is the easiset way to do it
 		# If this is ever changed: the local network's bookkeeping is easy
 		# remote networks could have this nick tagged; they can untag but 
 		# only if they can assure that it is impossible to be collided

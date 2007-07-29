@@ -327,7 +327,18 @@ sub item {
 			$nicks[$$net] = undef;
 		}
 		if (%{$chans[$$net]}) {
-			warn "channels remain after a netsplit";
+			my @clean;
+			warn "channels remain after a netsplit, delinking...";
+			for my $chan ($net->all_chans()) {
+				push @clean, +{
+					type => 'DELINK',
+					dst => $chan,
+					net => $net,
+					nojlink => 1,
+				};
+			}
+			&Janus::insert_full(@clean);
+			warn "channels still remain after double delinks" if %{$chans[$$net]};
 			$chans[$$net] = undef;
 		}
 	},
