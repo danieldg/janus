@@ -733,20 +733,11 @@ sub srvname {
 		my $msg = $_[3];
 		$msg =~ s/^\S+!//;
 
-		if ($dst->homenet()->id() eq $net->id()) {
-			return {
-				type => 'QUIT',
-				dst => $dst,
-				msg => "Killed ($msg)",
-				killer => $src,
-			};
-		}
 		return {
-			type => 'KILL',
-			src => $src,
+			type => 'QUIT',
 			dst => $dst,
-			net => $net,
-			msg => $msg,
+			msg => "Killed ($msg)",
+			killer => $src,
 		};
 	}, SVSKILL => sub {
 		my $net = shift;
@@ -773,8 +764,8 @@ sub srvname {
 			# OperServ session limit kills will continue. So we interpret this
 			# just as a normal kill.
 			return +{
-				type => 'KILL',
-				src => $net->item($_[0]),
+				type => 'QUIT',
+				killer => $net->item($_[0]),
 				dst => $nick,
 				net => $net,
 				msg => $_[3],
@@ -1389,9 +1380,16 @@ sub cmd2 {
 		$net->cmd2($act->{dst}, UMODE2 => $mode);
 	}, QUIT => sub {
 		my($net,$act) = @_;
+		my $dst = $act->{dst};
 		return () if $act->{netsplit_quit};
-		return () unless $act->{dst}->is_on($net);
-		$net->cmd2($act->{dst}, QUIT => $act->{msg});
+		if ($dst->homenet()->id() eq $net->id()) {
+			my $msg = $act->{msg};
+			$msg =~ s/^Killed \((.*)\)$/$1/;
+			$net->cmd2($act->{killer}, KILL => $dst, $msg);
+		} else {
+			return () unless $dst->is_on($net);
+			$net->cmd2($dst, QUIT => $act->{msg});
+		}
 	}, LINK => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst}->str($net);

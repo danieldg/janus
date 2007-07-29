@@ -342,29 +342,6 @@ sub str {
 		my $nick = $act->{kickee};
 		my $chan = $act->{dst};
 		$nick->_part($chan);
-	}, KILL => act => sub {
-		my $act = shift;
-		my $nick = $act->{dst};
-		my $net = $act->{net};
-		for my $chan (values %{$chans[$$nick]}) {
-			next unless $chan->is_on($net);
-			my $act = {
-				type => 'KICK',
-				src => $act->{src},
-				dst => $chan,
-				kickee => $nick,
-				msg => $act->{msg},
-				except => $net,
-				nojlink => 1,
-			};
-			$act->{sendto} = [ $chan->sendto($act, $net) ];
-			&Janus::append($act);
-		}
-	}, KILL => cleanup => sub {
-		my $act = shift;
-		my $nick = $act->{dst};
-		my $net = $act->{net};
-		$nick->_netpart($net);
 	},
 );
 

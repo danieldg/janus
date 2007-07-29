@@ -899,20 +899,11 @@ CORE => {
 		my $msg = $_[3];
 		$msg =~ s/^\S+!//;
 
-		if ($dst->homenet()->id() eq $net->id()) {
-			return {
-				type => 'QUIT',
-				dst => $dst,
-				msg => "Killed ($msg)",
-				killer => $src,
-			};
-		}
 		return {
-			type => 'KILL',
-			src => $src,
+			type => 'QUIT',
 			dst => $dst,
-			net => $net,
 			msg => $msg,
+			killer => $src,
 		};
 	}, FJOIN => sub {
 		my $net = shift;
@@ -1360,9 +1351,14 @@ CORE => {
 		$net->cmd2($act->{from}{$id}, NICK => $act->{to}{$id});		
 	}, QUIT => sub {
 		my($net,$act) = @_;
+		my $dst = $act->{dst};
 		return () if $act->{netsplit_quit};
-		return () unless $act->{dst}->is_on($net);
-		$net->cmd2($act->{dst}, QUIT => $act->{msg});
+		if ($dst->homenet()->id() eq $net->id()) {
+			$net->cmd2($act->{killer}, KILL => $dst, $act->{msg});
+		} else {
+			return () unless $dst->is_on($net);
+			$net->cmd2($dst, QUIT => $act->{msg});
+		}
 	}, JOIN => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
