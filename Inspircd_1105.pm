@@ -111,9 +111,19 @@ sub str {
 
 sub intro :Cumulative {
 	my($net,$param) = @_;
-	$net->send(['INIT', 'CAPAB START']);
+	my @out;
+	push @out, ['INIT', 'CAPAB START'];
 	# we cannot continue until we get the remote CAPAB list so we can
-	# forge the module list
+	# forge the module list. However, we can set up the other server introductions
+	# as they will be sent after auth is done
+	push @out, $net->ncmd(VERSION => 'Janus Hub');
+	for my $id (keys %Janus::nets) {
+		my $new = $Janus::nets{$id};
+		next if $new->isa('Interface') || $id eq $net->id();
+		push @out, $net->ncmd(SERVER => "$id.janus", '*', 1, $new->netname());
+		push @out, $net->cmd2("$id.janus", VERSION => 'Remote Janus Server: '.ref $new);
+	}
+	$net->send(@out);
 }
 
 # parse one line of input
@@ -1086,15 +1096,6 @@ CORE => {
 		my $net = shift;
 		return () if $auth[$$net] != 1;
 		$auth[$$net] = 2;
-		my @out;
-		push @out, $net->ncmd(VERSION => 'Janus Hub');
-		for my $id (keys %Janus::nets) {
-			my $new = $Janus::nets{$id};
-			next if $new->isa('Interface') || $id eq $net->id();
-			push @out, $net->ncmd(SERVER => "$id.janus", '*', 1, $new->netname());
-			push @out, $net->cmd2("$id.janus", VERSION => 'Remote Janus Server: '.ref $new);
-		}
-		$net->send(@out);
 		();
 	}, CAPAB => sub {
 		my $net = shift;
@@ -1116,10 +1117,12 @@ CORE => {
 				$k = undef if $k eq 'CHALLENGE'; # TODO generate our own challenge and use SHA256 passwords
 				$k ? "$k=$v" : ();
 			} keys %{$capabs[$$net]};
-			$net->send(['INIT', 'CAPAB MODULES '.$1]) while $mods =~ s/(.{1,495})(,|$)//;
-			$net->send(['INIT', 'CAPAB CAPABILITIES :'.$1]) while $capabs =~ s/(.{1,450})( |$)//;
-			$net->send(['INIT', 'CAPAB END']);
-			$net->send(['INIT', $net->cmd1(SERVER => $net->param('linkname'), $net->param('mypass'), 0, 'Janus Network Link')]);
+			my @out = 'INIT';
+			push @out, 'CAPAB MODULES '.$1 while $mods =~ s/(.{1,495})(,|$)//;
+			push @out, 'CAPAB CAPABILITIES :'.$1 while $capabs =~ s/(.{1,450})( |$)//;
+			push @out, 'CAPAB END';
+			push @out, $net->cmd1(SERVER => $net->param('linkname'), $net->param('mypass'), 0, 'Janus Network Link');
+			$net->send(\@out);
 			$_ = $capabs[$$net]{PREFIX};
 			my(%p2t,%t2p);
 			while (s/\((.)(.*)\)(.)/($2)/) {
@@ -1312,7 +1315,6 @@ CORE => {
 		my($net,$act) = @_;
 		my $new = $act->{net};
 		my $id = $new->id();
-		return () unless $auth[$$net];
 		return () if $net->id() eq $id;
 		return (
 			$net->ncmd(SERVER => "$id.janus", '*', 1, $new->netname()),
@@ -1321,7 +1323,6 @@ CORE => {
 		);
 	}, NETSPLIT => sub {
 		my($net,$act) = @_;
-		return () unless $auth[$$net];
 		my $gone = $act->{net};
 		my $id = $gone->id();
 		my $msg = $act->{msg} || 'Excessive Core Radiation';
@@ -1454,7 +1455,6 @@ CORE => {
 		$net->ncmd(PING => $net->cparam('linkto'));
 	}, LINKREQ => sub {
 		my($net,$act) = @_;
-		return () unless $auth[$$net];
 		my $src = $act->{net};
 		$net->ncmd(OPERNOTICE => $src->netname()." would like to link $act->{slink} to $act->{dlink}");
 	},
