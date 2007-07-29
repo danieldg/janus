@@ -713,7 +713,10 @@ sub srvname {
 
 		my $nick = Nick->new(%nick);
 		$net->nick_collide($_[2], $nick);
-		();
+		return +{
+			type => 'NEWNICK',
+			dst => $nick,
+		};
 	}, QUIT => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();

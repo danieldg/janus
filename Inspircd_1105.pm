@@ -692,6 +692,7 @@ sub cmd2 {
 		cmode => { z => 'r_sslonly' }
 	},
 	'm_ssl_gnutls.so' => { },
+	'm_ssl_openssl.so' => { },
 	'm_sslmodes.so' => {
 		metadata => {
 			ssl => sub {
@@ -809,7 +810,10 @@ CORE => {
 
 		my $nick = Nick->new(%nick);
 		$net->nick_collide($_[3], $nick);
-		();
+		return +{
+			type => 'NEWNICK',
+			dst => $nick,
+		};
 	}, OPERTYPE => sub {
 		my $net = shift;
 		my $otype = $_[2];
