@@ -66,10 +66,7 @@ sub to_ij {
 	$out .= ' ts='.$ij->ijstr($ts[$$nick]);
 	$out .= ' mode='.$ij->ijstr($mode[$$nick]);
 	$out .= ' info=';
-	my %sinfo;
-	$sinfo{$_} = $info[$$nick]{$_} for 
-		qw/ident host vhost ip name away swhois/;
-	$out . $ij->ijstr(\%sinfo);
+	$out . $ij->ijstr($info[$$nick]);
 }
 
 sub _destroy :Destroy {

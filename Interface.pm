@@ -40,6 +40,7 @@ if ($Janus::interface) {
 			host => 'services.janus',
 			vhost => 'services',
 			name => 'Janus Control Interface',
+			opertype => 'Janus Service',
 			_is_janus => 1,
 		},
 		mode => { oper => 1, service => 1, bot => 1 },

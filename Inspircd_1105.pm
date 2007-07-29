@@ -12,6 +12,7 @@ use warnings;
 __PERSIST__
 persist @sendq     :Field;
 persist @servers   :Field;
+persist @serverdsc :Field;
 
 persist @modules   :Field; # {module} => definition - List of active modules
 persist @meta      :Field; # key => sub{} for METADATA command
@@ -93,7 +94,10 @@ sub txt2cmode {
 	$txt2cmode[$$net]{$tm};
 }
 
-sub nicklen { 32 }
+sub nicklen { 
+	my $net = shift;
+	$capabs[$$net]{NICKMAX} || 31;
+}
 
 sub debug {
 	print @_, "\n";
@@ -202,8 +206,14 @@ sub _connect_ifo {
 	my @out;
 	push @out, $net->cmd2($srv, NICK => $nick->ts(), $nick, $nick->info('host'), $vhost,
 		$nick->info('ident'), $mode, $ip, $nick->info('name'));
-	push @out, $net->cmd2($nick, OPERTYPE => $nick->info('opertype')) if $nick->info('opertype');
-	# TODO oper types don't have to be valid elsewhere...
+	if ($nick->has_mode('oper')) {
+		my $type = $nick->info('opertype') || 'IRC Operator';
+		my $len = $net->nicklen() - 9;
+		$type = substr $type, 0, $len;
+		$type .= ' (remote)';
+		$type =~ s/ /_/g;
+		push @out, $net->cmd2($nick, OPERTYPE => $type);
+	}
 	push @out, $net->cmd2($nick, AWAY => $nick->info('away')) if $nick->info('away');
 	
 	@out;
@@ -802,11 +812,13 @@ CORE => {
 		();
 	}, OPERTYPE => sub {
 		my $net = shift;
+		my $otype = $_[2];
+		$otype =~ s/_/ /g;
 		return +{
 			type => 'NICKINFO',
 			dst => $net->mynick($_[0]),
 			item => 'opertype',
-			value => $_[2],
+			value => $otype,
 		};
 	}, OPERQUIT => sub {
 		(); # that's only of interest to local opers
@@ -1001,6 +1013,7 @@ CORE => {
 			# recall parent
 			$servers[$$net]{lc $_[2]} = lc $_[0];
 		}
+		$serverdsc[$$net]{lc $_[2]} = $_[-1];
 		();
 	}, SQUIT => sub {
 		my $net = shift;
@@ -1019,6 +1032,7 @@ CORE => {
 		}
 		print 'Lost servers: '.join(' ', sort keys %sgone)."\n";
 		delete $servers[$$net]{$_} for keys %sgone;
+		delete $serverdsc[$$net]{$_} for keys %sgone;
 
 		my @quits;
 		for my $nick ($net->all_nicks()) {
@@ -1047,11 +1061,12 @@ CORE => {
 		return () if $auth[$$net] != 1;
 		$auth[$$net] = 2;
 		my @out;
+		push @out, $net->ncmd(VERSION => 'Janus Hub');
 		for my $id (keys %Janus::nets) {
 			my $new = $Janus::nets{$id};
 			next if $new->isa('Interface') || $id eq $net->id();
 			push @out, $net->ncmd(SERVER => "$id.janus", '*', 1, $new->netname());
-			push @out, $net->cmd2("$id.janus", VERSION => 'Remote Janus Server: '.ref $id);
+			push @out, $net->cmd2("$id.janus", VERSION => 'Remote Janus Server: '.ref $new);
 		}
 		$net->send(@out);
 		();
@@ -1064,6 +1079,7 @@ CORE => {
 			while (s/^\s*(\S+)=(\S+)//) {
 				$capabs[$$net]{$1} = $2;
 			}
+# TODO consider supporting more of these limits:
 # NICKMAX=32 HALFOP=1 CHANMAX=65 MAXMODES=20 IDENTMAX=12 MAXQUIT=255 MAXTOPIC=307 MAXKICK=255 MAXGECOS=128
 # MAXAWAY=200 IP6NATIVE=1 IP6SUPPORT=1 PROTOCOL=1105 PREFIX=(qaohv)~&@%+ CHANMODES=Ibe,k,jl,CKMNOQRTcimnprst
 		} elsif ($_[2] eq 'END') {
@@ -1207,9 +1223,10 @@ CORE => {
 		} else {
 			# we have to assume the requesting server is one like unreal that needs the whole thing sent
 			# across. The important part for remote inspircd servers is the 317 line
+			my $home_srv = $src->info('home_server');
 			my @msgs = (
 				[ 311, $src->info('ident'), $src->info('vhost'), '*', $src->info('name') ],
-				[ 312, $src->info('home_server'), 'Remote Janus Server' ], # TODO I don't currently track the descriptions
+				[ 312, $home_srv, $serverdsc[$$net]{$home_srv} ],
 			);
 			push @msgs, [ 313, 'is a '.($src->info('opertype') || 'Unknown Oper') ] if $src->has_mode('oper');
 			push @msgs, (
@@ -1358,6 +1375,13 @@ CORE => {
 			return $net->cmd2($act->{dst}, FNAME => $act->{value});
 		} elsif ($act->{item} eq 'away') {
 			return $net->cmd2($act->{dst}, AWAY => defined $act->{value} ? $act->{value} : ());
+		} elsif ($act->{item} eq 'opertype') {
+			return () unless $act->{value};
+			my $len = $net->nicklen() - 9;
+			my $type = substr $act->{value}, 0, $len;
+			$type .= ' (remote)';
+			$type =~ s/ /_/g;
+			return $net->cmd2($act->{dst}, OPERTYPE => $type);
 		}
 		return ();
 	}, TIMESYNC => sub {

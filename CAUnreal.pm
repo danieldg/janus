@@ -521,12 +521,38 @@ sub nc_msg {
 	();
 }
 
+my %opermodes = (
+	oper => 1,
+	coadmin => 2,
+	admin => 4,
+	service => 8,
+	svs_admin => 16,
+	netadmin => 32,
+);
+
+my @opertypes = (
+	'IRC Operator', 'Server Co-Admin', 'Server Administrator', 
+	'Service', 'Services Administrator', 'Network Administrator',
+);
+
+sub operlevel {
+	my($net, $nick) = @_;
+	my $lvl = 0;
+	for my $m (keys %opermodes) {
+		next unless $nick->has_mode($m);
+		$lvl |= $opermodes{$m};
+	}
+	$lvl;
+}
+
 sub _parse_umode {
 	my($net, $nick, $mode) = @_;
 	my @mode;
 	my $pm = '+';
 	my $vh_pre = $nick->has_mode('vhost') ? 3 : $nick->has_mode('vhost_x') ? 1 : 0;
 	my $vh_post = $vh_pre;
+	my $oper_pre = $net->operlevel($nick);
+	my $oper_post = $oper_pre;
 	for (split //, $mode) {
 		if (/[-+]/) {
 			$pm = $_;
@@ -541,6 +567,8 @@ sub _parse_umode {
 				$vh_post = $pm eq '+' ? 3 : $vh_post & 1;
 			} elsif ($txt eq 'vhost_x') {
 				$vh_post = $pm eq '+' ? $vh_post | 1 : 0;
+			} elsif ($opermodes{$txt}) {
+				$oper_post = $pm eq '+' ? $oper_post | $opermodes{$txt} : $oper_post & ~$opermodes{$txt};
 			}
 			push @mode, $pm.$txt;
 		}
@@ -565,7 +593,18 @@ sub _parse_umode {
 				value => $vhost,
 			};
 		}
-	}				
+	}
+
+	if ($oper_pre != $oper_post) {
+		my $t = undef;
+		$oper_post & (1 << $_) ? $t = $opertypes[$_] : 0 for 0..$#opertypes;
+		push @out, +{
+			type => 'NICKINFO',
+			dst => $nick,
+			item => 'opertype',
+			value => $t,
+		};
+	}
 	@out;
 }
 
@@ -665,6 +704,12 @@ sub srvname {
 		unless ($nick{mode}{vhost}) {
 			$nick{info}{vhost} = $nick{mode}{vhost_x} ? $nick{info}{chost} : $nick{info}{host};
 		}
+		my $oplvl = 0;
+		for my $m (keys %opermodes) {
+			$oplvl |= $opermodes{$m} if $nick{mode}{$m};
+		}
+		print "Oper level $oplvl\n";
+		$oplvl & (1 << $_) ? $nick{info}{opertype} = $opertypes[$_] : 0 for 0..$#opertypes;
 
 		my $nick = Nick->new(%nick);
 		$net->nick_collide($_[2], $nick);
