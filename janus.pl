@@ -24,7 +24,6 @@ unless ($args =~ /d/) {
 
 $| = 1;
 
-&Janus::load($_) or die for qw(Interface Ban);
 &Janus::load('Conffile', shift || 'janus.conf') or die;
 
 sub readable {

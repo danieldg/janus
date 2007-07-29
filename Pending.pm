@@ -7,7 +7,6 @@ use warnings;
 use Persist;
 use Object::InsideOut;
 use Socket6;
-&Janus::load('InterJanus');
 
 __PERSIST__
 persist @buffer   :Field;
@@ -55,15 +54,6 @@ sub parse {
 			for my $l (@{$buffer[$$pnet]}) {
 				&Janus::in_socket($rnet, $l);
 			}
-		}
-	} elsif ($line =~ /^<InterJanus /) {
-		my $q = delete $Janus::netqueues{$pnet->id()};
-		my $ij = InterJanus->new();
-		print "Shifting new connection to InterJanus link\n";
-		if ($ij->parse($line)) {
-			$$q[3] = $ij;
-			$Janus::netqueues{$ij->id()} = $q;
-			$ij->intro($Conffile::netconf{$ij->id()}, 1);
 		}
 	}
 	();
