@@ -13,6 +13,8 @@ __PERSIST__
 persist @sendq   :Field;
 persist @srvname :Field;
 persist @servers :Field;
+persist @auth    :Field;
+
 __CODE__
 
 sub _init :Init {
@@ -262,6 +264,15 @@ sub parse {
 	}
 	my $cmd = $args[1];
 	$cmd = $args[1] = $token2cmd{$cmd} if exists $token2cmd{$cmd};
+	unless ($auth[$$net] || $cmd eq 'PASS' || $cmd eq 'SERVER' || $cmd eq 'PROTOCTL') {
+		return () if $cmd eq 'NOTICE'; # NOTICE AUTH ... annoying
+		$net->send('ERROR :Not authorized');
+		return +{
+			type => 'NETSPLIT',
+			net => $net,
+			msg => 'Sent command '.$cmd.' without authenticating',
+		};
+	}
 	return $net->nick_msg(@args) if $cmd =~ /^\d+$/;
 	unless (exists $fromirc{$cmd}) {
 		debug "Unknown command '$cmd'";
@@ -983,8 +994,15 @@ sub srvname {
 		();
 	},
 	PONG => \&ignore,
-	PASS => \&todo,
-	NETINFO => sub {
+	PASS => sub {
+		my $net = shift;
+		if ($_[2] eq $net->param('yourpass')) {
+			$auth[$$net] = 1;
+		} else {
+			$net->send('ERROR :Bad password');
+		}
+		();
+	}, NETINFO => sub {
 		my $net = shift;
 		return +{
 			type => 'LINKED',
