@@ -16,7 +16,11 @@ __CODE__
 
 sub to_ij {
 	my($net,$ij) = @_;
-	' id="'.$net->id().'" netname="'.$net->netname().'"';
+	my $out = '';
+	$out .= ' id='.$ij->ijstr($net->id());
+	$out .= ' netname='.$ij->ijstr($net->netname());
+	$out .= ' numeric='.$ij->ijstr($net->numeric());
+	$out;
 }
 
 sub _destroy :Destroy {

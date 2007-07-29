@@ -9,7 +9,8 @@ use IO::Select;
 use IO::Socket::SSL;
 use POSIX 'setsid';
 
-unless (@ARGV && $ARGV[0] =~ /d/) {
+my $args = @ARGV && $ARGV[0] =~ /^-/ ? shift : '';
+unless ($args =~ /d/) {
 	my $log = 'log/'.time;
 	umask 022;
 	open STDIN, '/dev/null' or die $!;

@@ -11,6 +11,8 @@ use warnings;
 
 __PERSIST__
 persist @sendq :Field;
+persist @id    :Field :Arg(id);
+persist @auth  :Field;
 
 __CODE__
 
@@ -23,17 +25,24 @@ my $INST_DBG = do {
 };
 
 sub str {
-	$_[1]->{linkname};
+	warn;
+	"";
 }
 
 sub id {
 	my $ij = shift;
-	'IJ#'.$$ij;
+	$id[$$ij];
 }
 
 sub intro {
-	my $ij = shift;
-	$sendq[$$ij] = "<InterJanus version=\"0.1\">\n";
+	my($ij,$nconf) = @_;
+	$sendq[$$ij] = '';
+	$ij->ij_send(+{
+		type => 'InterJanus',
+		version => 1,
+		id => $nconf->{id},
+		pass => $nconf->{sendpass},
+	});
 	for my $net (values %Janus::nets) {
 		$ij->ij_send(+{
 			type => 'NETLINK',
@@ -132,6 +141,7 @@ my %to_ij = (
 	}, NICK => sub {
 		send_hdr(@_,qw/dst nick/) . '>';
 	},
+	InterJanus => \&ssend,
 	QUIT => \&ssend,
 	KILL => \&ssend,
 	NICKINFO => \&ssend,
@@ -201,11 +211,36 @@ sub parse {
 	$ij->_kv_pairs($act);
 	warn "bad line: $_[0]" unless /^\s*>\s*$/;
 	$act->{except} = $ij;
-	$act;
+	if ($auth[$$ij]) {
+		return $act;
+	} elsif ($act->{type} eq 'InterJanus') {
+		print "Unsupported InterJanus version $act->{version}\n" if $act->{version} ne '1';
+		my $id = $id[$$ij];
+		if ($id && $act->{id} ne $id) {
+			print "Unexpected ID reply $act->{id} from IJ $id\n"
+		} else {
+			$id = $id[$$ij] = $act->{id};
+		}
+		my $nconf = $Conffile::netconf{$id};
+		if (!$nconf) {
+			print "Unknown InterJanus server $id\n";
+		} elsif ($act->{pass} ne $nconf->{recvpass}) {
+			print "Failed authorization\n";
+		} else {
+			$auth[$$ij] = 1;
+			return $act;
+		}
+		delete $Janus::netqueues{$id};
+		return ();
+	} else {
+		return ();
+	}
 }
 
 my %v_type; %v_type = (
 	' ' => sub {
+		undef;
+	}, '>' => sub {
 		undef;
 	}, '"' => sub {
 		s/^"([^"]*)"//;
@@ -283,6 +318,7 @@ sub _kv_pairs {
 		my $v_t = substr $_,0,1;
 		$v_t = substr $_,0,2 if $v_t eq '<';
 		return warn "Cannot find v_t for: $_" unless $v_type{$v_t};
+		return warn "Duplicate key $k" if $h->{$k};
 		$h->{$k} = $v_type{$v_t}->($ij);
 	}
 }

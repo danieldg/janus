@@ -45,7 +45,7 @@ sub read_conf {
 				return;
 			};
 
-			$current = {};
+			$current = { id => $1 };
 			$newconf{$1} = $current;
 		} elsif ($type eq 'listen') {
 			if (defined $current) {
@@ -56,8 +56,7 @@ sub read_conf {
 				&Janus::err_jmsg($nick, "Error in line $. of config file: expected port");
 				return;
 			};
-			$current = {};
-			$current->{port} = $1;
+			$current = { port => $1 };
 			$newconf{'LISTEN:'.$1} = $current;
 		} elsif ($type eq 'set') {
 			if (defined $current) {
