@@ -16,13 +16,12 @@ persist @lreq   :Field;
 persist @synced :Field :Get(is_synced);
 persist @ponged :Field;
 persist @nicks  :Field;
-persist @chans  :Field;
+persist %chans;
 __CODE__
 
 sub _init :Init {
 	my $net = shift;
 	$nicks[$$net] = {};
-	$chans[$$net] = {};
 }
 
 sub param {
@@ -92,31 +91,30 @@ sub intro :Cumulative {
 
 sub chan {
 	my($net, $name, $new) = @_;
-	unless (exists $chans[$$net]{lc $name}) {
+	unless (exists $chans{lc $name}) {
 		return undef unless $new;
 		print "Creating channel $name\n" if $new;
-		$chans[$$net]{lc $name} = Channel->new(
+		$chans{lc $name} = Channel->new(
 			net => $net, 
 			name => $name,
 			ts => $new,
 		);
 	}
-	$chans[$$net]{lc $name};
+	$chans{lc $name};
 }
 
 sub replace_chan {
 	my($net,$name,$new) = @_;
-	warn "replacing nonexistant channel" unless exists $chans[$$net]{lc $name};
+	warn "replacing nonexistant channel" unless exists $chans{lc $name};
 	if (defined $new) {
-		$chans[$$net]{lc $name} = $new;
+		$chans{lc $name} = $new;
 	} else {
-		delete $chans[$$net]{lc $name};
+		delete $chans{lc $name};
 	}
 }
 
 sub all_chans {
-	my $net = shift;
-	values %{$chans[$$net]};
+	values %chans;
 }
 
 sub _modeargs {
@@ -294,7 +292,7 @@ sub item {
 	my($net, $item) = @_;
 	return undef unless defined $item;
 	return $nicks[$$net]{lc $item} if exists $nicks[$$net]{lc $item};
-	return $chans[$$net]{lc $item} if exists $chans[$$net]{lc $item};
+	return $chans{lc $item} if exists $chans{lc $item};
 	return $net if $item =~ /\./;
 	return undef;
 }
@@ -305,42 +303,6 @@ sub item {
 		my $net = $act->{net};
 		$synced[$$net] = 1;
 		undef;
-	}, NETSPLIT => cleanup => sub {
-		my $act = shift;
-		my $net = $act->{net};
-		return unless $net->isa('LocalNetwork');
-		my $tid = $net->id();
-		if (%{$nicks[$$net]}) {
-			my @clean;
-			warn "nicks remain after a netsplit, killing...";
-			for my $nick ($net->all_nicks()) {
-				push @clean, +{
-					type => 'KILL',
-					dst => $nick,
-					net => $net,
-					msg => 'JanusSplit',
-					nojlink => 1,
-				};
-			}
-			&Janus::insert_full(@clean);
-			warn "nicks still remain after netsplit kills" if %{$nicks[$$net]};
-			$nicks[$$net] = undef;
-		}
-		if (%{$chans[$$net]}) {
-			my @clean;
-			warn "channels remain after a netsplit, delinking...";
-			for my $chan ($net->all_chans()) {
-				push @clean, +{
-					type => 'DELINK',
-					dst => $chan,
-					net => $net,
-					nojlink => 1,
-				};
-			}
-			&Janus::insert_full(@clean);
-			warn "channels still remain after double delinks" if %{$chans[$$net]};
-			$chans[$$net] = undef;
-		}
 	},
 );
 

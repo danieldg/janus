@@ -24,15 +24,13 @@ __CODE__
 	}, LINKED => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
-		for my $onet (values %Janus::nets) {
-			next if $onet->id() eq $net->id();
-			for my $nick ($onet->all_nicks()) {
-				&Janus::append({
-					type => 'CONNECT',
-					dst => $nick,
-					net => $net,
-				});
-			}
+		for my $nick (values %Janus::gnicks) {
+			next if $nick->homenet()->id() eq $net->id();
+			&Janus::append({
+				type => 'CONNECT',
+				dst => $nick,
+				net => $net,
+			});
 		}
 	},			
 );

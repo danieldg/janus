@@ -16,7 +16,6 @@ our $interface;
 
 our %nets;
 our %gnicks;
-our %gchans;
 
 our $last_check = time;
 

@@ -18,14 +18,12 @@ Object representing a set of linked channels
 
 __PERSIST__
 persist @ts       :Field :Get(ts);
-persist @keyname  :Field :Arg(keyname) :Get(keyname);
 persist @topic    :Field :Arg(topic);
 persist @topicts  :Field :Arg(topicts);
 persist @topicset :Field :Arg(topicset);
 persist @mode     :Field;
 
-persist @names    :Field;
-persist @nets     :Field;
+persist @name     :Field :Get(keyname);
 
 persist @nicks    :Field;
 persist @nmode    :Field;
@@ -39,7 +37,7 @@ List of all networks this channel is on
 =cut
 
 sub nets {
-	values %{$nets[${$_[0]}]};
+	values %Janus::nets;
 }
 
 =item $chan->has_nmode($mode, $nick)
@@ -56,19 +54,17 @@ sub has_nmode {
 sub to_ij {
 	my($chan,$ij) = @_;
 	my $out = '';
-# perl -e "print q[\$out .= ' ],\$_,q[='.\$ij->ijstr(\$],\$_,q[{\$\$chan});],qq(\n) for qw/keyname ts topic topicts topicset mode names/"
-	$out .= ' keyname='.$ij->ijstr($keyname[$$chan]);
+# perl -e "print q[\$out .= ' ],\$_,q[='.\$ij->ijstr(\$],\$_,q[{\$\$chan});],qq(\n) for qw/ts topic topicts topicset mode/"
 	$out .= ' ts='.$ij->ijstr($ts[$$chan]);
 	$out .= ' topic='.$ij->ijstr($topic[$$chan]);
 	$out .= ' topicts='.$ij->ijstr($topicts[$$chan]);
 	$out .= ' topicset='.$ij->ijstr($topicset[$$chan]);
 	$out .= ' mode='.$ij->ijstr($mode[$$chan]);
-	$out .= ' names='.$ij->ijstr($names[$$chan]);
+	$out .= ' name='.$ij->ijstr($name[$$chan]);
 	$out;
 }
 
 my %initargs :InitArgs = (
-	names => '',
 	net => '',
 	name => '',
 	ts => '',
@@ -81,36 +77,13 @@ sub _init :Init {
 	$mode[$$c] = $ifo->{mode} || {};
 	$ts[$$c] = $ifo->{ts} || 0;
 	$ts[$$c] = (time + 60) if $ts[$$c] < 1000000;
-	if ($keyname[$$c]) {
-		my $names = $ifo->{names} || {};
-		$names[$$c] = $names;
-		for my $id (keys %$names) {
-			my $name = $names->{$id};
-			$nets[$$c]{$id} = $Janus::nets{$id};
-			$Janus::gchans{$id.$name} = $c unless $Janus::gchans{$id.$name};
-		}
-	} else {
-		my $net = $ifo->{net};
-		my $id = $net->id();
-		$keyname[$$c] = $id.$ifo->{name};
-		$nets[$$c]{$id} = $net;
-		$names[$$c]{$id} = $ifo->{name};
-		$Janus::gchans{$id.$ifo->{name}} = $c;
-	}
+	$name[$$c] = $ifo->{name};
 }
 
 sub _destroy :Destroy {
 	my $c = $_[0];
-	my $n = join ',', map { $_.$names[$$c]{$_} } keys %{$names[$$c]};
+	my $n = $name[$$c];
 	print "   CHAN: $n deallocated\n";
-}
-
-sub _mergenet {
-	my($chan, $src) = @_;
-	for my $id (keys %{$nets[$$src]}) {
-		$nets[$$chan]{$id}  = $nets[$$src]{$id};
-		$names[$$chan]{$id} = $names[$$src]{$id};
-	}
 }
 
 sub _modecpy {
@@ -178,64 +151,6 @@ sub mode_delta {
 	(\@modes, \@args);
 }
 
-sub _link_into {
-	my($src,$chan) = @_;
-	my %dstnets = %{$nets[$$chan]};
-	print "Link into:";
-	for my $id (keys %{$nets[$$src]}) {
-		print " $id";
-		my $net = $nets[$$src]{$id};
-		my $name = $names[$$src]{$id};
-		$Janus::gchans{$id.$name} = $chan;
-		delete $dstnets{$id};
-		next if $net->jlink();
-		print '+';
-		$net->replace_chan($name, $chan);
-	}
-	print "\n";
-	my $sendnets = [ values %dstnets ];
-
-	my ($mode, $marg) = $src->mode_delta($chan);
-	&Janus::append(+{
-		type => 'MODE',
-		dst => $chan,
-		mode => $mode,
-		args => $marg,
-		sendto => $sendnets,
-		nojlink => 1,
-	}) if @$mode;
-
-	if (($topic[$$src] || '') ne ($topic[$$chan] || '')) {
-		&Janus::append(+{
-			type => 'TOPIC',
-			dst => $chan,
-			topic => $topic[$$chan],
-			topicts => $topicts[$$chan],
-			topicset => $topicset[$$chan],
-			sendto => $sendnets,
-			nojlink => 1,
-		});
-	}
-
-	for my $nid (keys %{$nicks[$$src]}) {
-		my $nick = $nicks[$$src]{$nid};
-		$nicks[$$chan]{$nid} = $nick;
-
-		my $mode = $nmode[$$src]{$nid};
-		$nmode[$$chan]{$nid} = $mode;
-
-		$nick->rejoin($chan);
-		&Janus::append(+{
-			type => 'JOIN',
-			src => $nick,
-			dst => $chan,
-			mode => $nmode[$$src]{$nid},
-			rejoin => 1,
-			sendto => $sendnets,
-		}) unless $nick->jlink();
-	}
-}
-
 =item $chan->all_nicks()
 
 return a list of all nicks on the channel
@@ -256,7 +171,7 @@ not on the network
 
 sub str {
 	my($chan,$net) = @_;
-	$names[$$chan]{$net->id()};
+	$name[$$chan];
 }
 
 =item $chan->is_on($net)
@@ -266,13 +181,12 @@ returns true if the channel is linked onto the given network
 =cut
 
 sub is_on {
-	my($chan, $net) = @_;
-	exists $nets[$$chan]{$net->id()};
+	1
 }
 
 sub sendto {
 	my($chan,$act,$except) = @_;
-	my %n = %{$nets[$$chan]};
+	my %n = %Janus::nets;
 	delete $n{$except->id()} if $except;
 	values %n;
 }
@@ -289,10 +203,9 @@ sub part {
 	delete $nmode[$$chan]{$nick->lid()};
 	return if keys %{$nicks[$$chan]};
 	# destroy channel
-	for my $id (keys %{$nets[$$chan]}) {
-		my $net = $nets[$$chan]{$id};
-		my $name = $names[$$chan]{$id};
-		delete $Janus::gchans{$id.$name};
+	for my $id (keys %Janus::nets) {
+		my $net = $Janus::nets{$id};
+		my $name = $name[$$chan];
 		next if $net->jlink();
 		$net->replace_chan($name, undef);
 	}
@@ -378,170 +291,6 @@ sub part {
 		$topic[$$chan] = $act->{topic};
 		$topicts[$$chan] = $act->{topicts} || time;
 		$topicset[$$chan] = $act->{topicset} || $act->{src}->homenick();
-	}, LSYNC => act => sub {
-		my $act = shift;
-		return if $act->{dst}->jlink();
-		my $chan1 = $act->{dst}->chan($act->{linkto},1);
-		my $chan2 = $act->{chan};
-	
-		# This is the atomic creation of the merged channel. Everyone else
-		# just gets a copy of the channel created here and send out the 
-		# events required to merge into it.
-
-		for my $id (keys %{$nets[$$chan1]}) {
-			if (exists $nets[$$chan2]{$id}) {
-				&Janus::jmsg($act->{src}, "Cannot link: this channel would be in $id twice");
-				return;
-			}
-		}
-	
-		my $tsctl = ($ts[$$chan2] <=> $ts[$$chan1]);
-		# topic timestamps are backwards: later topic change is taken IF the creation stamps are the same
-		# otherwise go along with the channel sync
-
-		# basic strategy: Modify the two channels in-place to have the same modes as we create
-		# the unified channel
-
-		if ($tsctl > 0) {
-			print "Channel 1 wins TS\n";
-			&Janus::append(+{
-				type => 'TIMESYNC',
-				dst => $chan2,
-				ts => $ts[$$chan1],
-				oldts => $ts[$$chan2],
-				wipe => 1,
-			});
-		} elsif ($tsctl < 0) {
-			print "Channel 2 wins TS\n";
-			&Janus::append(+{
-				type => 'TIMESYNC',
-				dst => $chan1,
-				ts => $ts[$$chan2],
-				oldts => $ts[$$chan1],
-				wipe => 1,
-			});
-		}
-
-		my $chan = Channel->new(keyname => $keyname[$$chan1], names => {});
-
-		my $topctl = ($tsctl > 0 || ($tsctl == 0 && $topicts[$$chan1] >= $topicts[$$chan2]))
-			? $$chan1 : $$chan2;
-		$topic[$$chan] = $topic[$topctl];
-		$topicts[$$chan] = $topicts[$topctl];
-		$topicset[$$chan] = $topicset[$topctl];
-
-		if ($tsctl > 0) {
-			$ts[$$chan] = $ts[$$chan1];
-			$chan->_modecpy($chan1);
-		} elsif ($tsctl < 0) {
-			$ts[$$chan] = $ts[$$chan2];
-			$chan->_modecpy($chan2);
-		} else {
-			# Equal timestamps; recovering from a split. Merge any information
-			$ts[$$chan] = $ts[$$chan1];
-			my @allmodes = keys(%{$mode[$$chan1]}), keys(%{$mode[$$chan2]});
-			for my $txt (@allmodes) {
-				if ($txt =~ /^l/) {
-					my %m;
-					if (exists $mode[$$chan1]{$txt}) {
-						$m{$_} = 1 for @{$mode[$$chan1]{$txt}};
-					}
-					if (exists $mode[$$chan2]{$txt}) {
-						$m{$_} = 1 for @{$mode[$$chan2]{$txt}};
-					}
-					$mode[$$chan]{$txt} = [ keys %m ];
-				} else {
-					if (exists $mode[$$chan1]) {
-						$mode[$$chan]{$txt} = $mode[$$chan1]{$txt};
-					} else {
-						$mode[$$chan]{$txt} = $mode[$$chan2]{$txt};
-					}
-				}
-			}
-		}
-
-		# copy in nets and names of the channel
-		$chan->_mergenet($chan1);
-		$chan->_mergenet($chan2);
-
-		&Janus::append(+{
-			type => 'LINK',
-			src => $act->{src},
-			dst => $chan,
-			chan1 => $chan1,
-			chan2 => $chan2,
-		});
-	}, LINK => act => sub {
-		my $act = shift;
-		my $chan = $act->{dst};
-		my($chan1,$chan2) = ($act->{chan1}, $act->{chan2});
-		
-		$chan1->_link_into($chan) if $chan1;
-		$chan2->_link_into($chan) if $chan2;
-	}, DELINK => check => sub {
-		my $act = shift;
-		my $chan = $act->{dst};
-		my $net = $act->{net};
-		return 1 unless ref $net && $net->isa('Network');
-		return 1 unless ref $chan && $chan->isa('Channel');
-		return 1 unless exists $nets[$$chan]{$net->id()};
-		my @nets = keys %{$nets[$$chan]};
-		return 1 if @nets == 1;
-		undef;
-	}, DELINK => act => sub {
-		my $act = shift;
-		my $chan = $act->{dst};
-		my $net = $act->{net};
-		my $id = $net->id();
-		$act->{sendto} = [ values %{$nets[$$chan]} ]; # before the splitting
-		delete $nets[$$chan]{$id} or warn;
-
-		my $name = delete $names[$$chan]{$id};
-		if ($keyname[$$chan] eq $id.$name) {
-			my @onets = sort keys %{$names[$$chan]};
-			$keyname[$$chan] = $onets[0].$names[$$chan]{$onets[0]};
-		}
-		my $split = Channel->new(
-			net => $net,
-			name => $name,
-			ts => $ts[$$chan],
-		);
-		$topic[$$split] = $topic[$$chan];
-		$topicts[$$split] = $topicts[$$chan];
-		$topicset[$$split] = $topicset[$$chan];
-
-		$act->{split} = $split;
-		$split->_modecpy($chan);
-		$net->replace_chan($name, $split) unless $net->jlink();
-
-		for my $nid (keys %{$nicks[$$chan]}) {
-			if ($nicks[$$chan]{$nid}->homenet()->id() eq $id) {
-				my $nick = $nicks[$$split]{$nid} = $nicks[$$chan]{$nid};
-				$nmode[$$split]{$nid} = $nmode[$$chan]{$nid};
-				$nick->rejoin($split);
-				&Janus::append(+{
-					type => 'PART',
-					src => $nick,
-					dst => $chan,
-					msg => 'Channel delinked',
-					nojlink => 1,
-				});
-			} else {
-				my $nick = $nicks[$$split]{$nid} = $nicks[$$chan]{$nid};
-				# need to insert the nick into the split off channel before the delink
-				# PART is sent, because code is allowed to assume a PARTed nick was actually
-				# in the channel it is parting from; this also keeps the channel from being 
-				# prematurely removed from the list.
-				&Janus::append(+{
-					type => 'PART',
-					src => $nick,
-					dst => $split,
-					sendto => [ $net ],
-					msg => 'Channel delinked',
-					nojlink => 1,
-				});
-			}
-		}
 	}
 );
 
