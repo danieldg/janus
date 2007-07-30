@@ -320,8 +320,13 @@ sub dump_sendq {
 		$mode = $cmode;
 		if (/JOIN/) {
 			my $c = $i->[2];
-			if ($sjmerge{$c}{ts} && $sjmerge{$c}{ts} ne $i->[1]) {
-				$sjmerge{$c}{j} =~ s/(^|\s)[\*\@\$\%\+]+/$1/g;
+			if ($sjmerge{$c}{ts}) {
+				if ($sjmerge{$c}{ts} > $i->[1]) {
+					$sjmerge{$c}{j} =~ s/(^|\s)[\*\@\$\%\+]+/$1/g;
+					$sjmerge{$c}{ts} = $i->[1];
+				} elsif ($sjmerge{$c}{ts} < $i->[1]) {
+					$i->[3] =~ s/(^|\s)[\*\@\$\%\+]+/$1/g;
+				}
 			} else {
 				$sjmerge{$i->[2]}{ts} = $i->[1];
 			}
@@ -1292,12 +1297,14 @@ sub cmd2 {
 			print 'ERR: Trying to force channel join remotely ('.$act->{src}->gid().$chan->str($net).")\n";
 			return ();
 		}
-		my $mode = '';
+		my $sj = '';
 		if ($act->{mode}) {
-			$mode .= $net->txt2cmode($_) for keys %{$act->{mode}};
+			$sj .= $net->txt2cmode($_) for keys %{$act->{mode}};
 		}
-		$mode =~ tr/qaohv/*~@%+/;
-		[ JOIN => $net->sjb64($chan->ts()), $chan->str($net), $mode.$net->_out($act->{src}) ];
+		$sj =~ tr/qaohv/*~@%+/;
+		return () unless $act->{src}->is_on($net);
+		$sj .= $net->_out($act->{src});
+		[ JOIN => $net->sjb64($chan->ts()), $chan->str($net), $sj ];
 	}, PART => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, PART => $act->{dst}, $act->{msg});
