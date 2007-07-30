@@ -724,6 +724,7 @@ sub cmd2 {
 		cmode => { z => 'r_sslonly' }
 	},
 	'm_ssl_gnutls.so' => { },
+	'm_ssl_openssl.so' => { },
 	'm_sslmodes.so' => {
 		metadata => {
 			ssl => sub {
