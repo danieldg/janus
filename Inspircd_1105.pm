@@ -97,7 +97,7 @@ sub txt2cmode {
 
 sub nicklen { 
 	my $net = shift;
-	$capabs[$$net]{NICKMAX} || 31;
+	($capabs[$$net]{NICKMAX} || 32) - 1;
 }
 
 sub debug {
@@ -249,6 +249,50 @@ sub _connect_ifo {
 	push @out, $net->cmd2($nick, AWAY => $nick->info('away')) if $nick->info('away');
 	
 	@out;
+}
+
+sub process_capabs {
+	my $net = shift;
+	# NICKMAX=32 - done below in nicklen()
+	# HALFOP=1
+	if ($capabs[$$net]{HALFOP}) {
+		$cmode2txt[$$net]{h} = 'n_halfop';
+		$txt2cmode[$$net]{n_halfop} = 'h';
+	}
+	# CHANMAX=65 - not applicable, we never send channels we have not heard before
+	# MAXMODES=20 - TODO
+	# IDENTMAX=12 - TODO
+	# MAXQUIT=255 - TODO
+	# MAXTOPIC=307 - TODO
+	# MAXKICK=255 - TODO
+	# MAXGECOS=128 -TODO
+	# MAXAWAY=200 - TODO
+	# IP6NATIVE=1 IP6SUPPORT=1 - we currently require IPv6 support, and claim to be native because we're cool like that :)
+	# PROTOCOL=1105 - TODO
+	# PREFIX=(qaohv)~&@%+ 
+	local $_ = $capabs[$$net]{PREFIX};
+	my(%p2t,%t2p);
+	while (s/\((.)(.*)\)(.)/($2)/) {
+		my $txt = $cmode2txt[$$net]{$1};
+		$t2p{$txt} = $3;
+		$p2t{$3} = $txt;
+	}
+	$pfx2txt[$$net] = \%p2t;
+	$txt2pfx[$$net] = \%t2p;
+
+	# CHANMODES=Ibe,k,jl,CKMNOQRTcimnprst
+	my %split2c;
+	$split2c{substr $_,0,1}{$_} = $txt2cmode[$$net]{$_} for keys %{$txt2cmode[$$net]};
+
+	# Without a prefix character, nick modes such as +qa appear in the "l" section
+	exists $t2p{$_} or $split2c{l}{$_} = $split2c{n}{$_} for keys %{$split2c{n}};
+
+	my $expect = join ',', map { join '', sort values %{$split2c{$_}} } qw(l v s r);
+
+	unless ($expect eq $capabs[$$net]{CHANMODES}) {
+		$net->send($net->ncmd(OPERNOTICE => 'Possible desync - CHANMODES do not match module list: '.
+				"expected $expect, got $capabs[$$net]{CHANMODES}"));
+	}
 }
 
 # IRC Parser
@@ -540,7 +584,7 @@ sub cmd2 {
 	'm_lockserv.so' => { },
 	'm_md5.so' => { },
 	'm_messageflood.so' => {
-		cmode => { f => 'v_flood' }
+		cmode => { f => 's_flood' }
 	},
 	'm_namesx.so' => { },
 	'm_nicklock.so' => { },
@@ -571,7 +615,7 @@ sub cmd2 {
 	'm_override.so' => { },
 	'm_randquote.so' => { },
 	'm_redirect.so' => {
-		cmode => { L => 'v_forward' }
+		cmode => { L => 's_forward' }
 	},
 	'm_regonlycreate.so' => { },
 	'm_remove.so' => {
@@ -774,7 +818,9 @@ sub cmd2 {
 #	'm_timedbans.so' => { }, # TODO (can cause desync)
 	'm_tline.so' => { },
 	'm_uhnames.so' => { },
-	'm_uninvite.so' => { },
+	'm_uninvite.so' => {
+		cmds => { UNINVITE => \&ignore },
+	},
 	'm_userip.so' => { },
 	'm_vhost.so' => { }, # routed as normal FHOST
 	'm_watch.so' => { },
@@ -782,7 +828,6 @@ sub cmd2 {
 CORE => {
   cmode => {
 		b => 'l_ban',
-		h => 'n_halfop',
 		i => 'r_invite',
 		k => 'v_key',
 		l => 's_limit',
@@ -1097,9 +1142,6 @@ CORE => {
 			while (s/^\s*(\S+)=(\S+)//) {
 				$capabs[$$net]{$1} = $2;
 			}
-# TODO consider supporting more of these limits:
-# NICKMAX=32 HALFOP=1 CHANMAX=65 MAXMODES=20 IDENTMAX=12 MAXQUIT=255 MAXTOPIC=307 MAXKICK=255 MAXGECOS=128
-# MAXAWAY=200 IP6NATIVE=1 IP6SUPPORT=1 PROTOCOL=1105 PREFIX=(qaohv)~&@%+ CHANMODES=Ibe,k,jl,CKMNOQRTcimnprst
 		} elsif ($_[2] eq 'END') {
 			# yep, we lie about all this.
 			my $mods = join ',', sort grep $_ ne 'CORE', keys %{$modules[$$net]};
@@ -1114,17 +1156,7 @@ CORE => {
 			push @out, 'CAPAB END';
 			push @out, $net->cmd1(SERVER => $net->param('linkname'), $net->param('mypass'), 0, 'Janus Network Link');
 			$net->send(\@out);
-			$_ = $capabs[$$net]{PREFIX};
-			my(%p2t,%t2p);
-			while (s/\((.)(.*)\)(.)/($2)/) {
-				my $txt = $cmode2txt[$$net]{$1};
-				$t2p{$txt} = $3;
-				$p2t{$3} = $txt;
-			}
-			$pfx2txt[$$net] = \%p2t;
-			$txt2pfx[$$net] = \%t2p;
-			# TODO verify the set of CHANMODES is identical
-			# note without +qa prefix, they appear in the 'list' part of CHANMODES
+			$net->process_capabs();
 		} # ignore START and any others
 		();
 	}, ERROR => sub {
@@ -1135,7 +1167,7 @@ CORE => {
 			msg => 'ERROR: '.$_[-1],
 		};
 	},
-	PONG => \&ignore,
+	PONG => \&ignore, # already got ->ponged() above
 	VERSION => \&ignore,
 	ADDLINE => \&ignore, # TODO convert to BANLINE action
 	GLINE => \&ignore,
