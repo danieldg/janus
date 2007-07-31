@@ -345,11 +345,8 @@ sub dump_sendq {
 }
 
 my %skip_umode = (
-	# TODO make this configurable
 	vhost => 1,
 	vhost_x => 1,
-	helpop => 1,
-	registered => 1,
 );
 
 sub umode_text {
@@ -1374,14 +1371,12 @@ sub cmd2 {
 		for my $ltxt (@{$act->{mode}}) {
 			my($d,$txt) = $ltxt =~ /([-+])(.+)/ or warn $ltxt;
 			next if $skip_umode{$txt};
-			next if $txt eq 'hideoper' && !$net->param('show_roper');
 			if ($pm ne $d) {
 				$pm = $d;
 				$mode .= $pm;
 			}
 			$mode .= $txt2umode{$txt};
 		}
-		$mode =~ s/o/oH/ unless $net->param('show_roper');
 
 		return () unless $mode;
 		$net->cmd2($act->{dst}, UMODE2 => $mode);
