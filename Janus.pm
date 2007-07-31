@@ -466,6 +466,7 @@ sub delink {
 		my $act = shift;
 		eval {
 			return 0 unless $act->{net}->isa('Network');
+			return 0 unless $act->{net}->id();
 			1;
 		} ? undef : 1;
 	}, NETLINK => act => sub {
