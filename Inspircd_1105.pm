@@ -53,7 +53,7 @@ sub module_add {
 	if ($mod->{cmode}) {
 		for my $cm (keys %{$mod->{cmode}}) {
 			my $txt = $mod->{cmode}{$cm};
-			warn "Overriding mode $cm" if $cmode2txt[$$net]{$cm} || $txt2cmode[$$net]{$txt};
+			warn "Overriding mode $cm = $txt" if $cmode2txt[$$net]{$cm} || $txt2cmode[$$net]{$txt};
 			$cmode2txt[$$net]{$cm} = $txt;
 			$txt2cmode[$$net]{$txt} = $cm;
 		}
@@ -61,9 +61,15 @@ sub module_add {
 	if ($mod->{umode}) {
 		for my $um (keys %{$mod->{umode}}) {
 			my $txt = $mod->{umode}{$um};
-			warn "Overriding mode $um" if $umode2txt[$$net]{$um} || $txt2umode[$$net]{$txt};
+			warn "Overriding umode $um = $txt" if $umode2txt[$$net]{$um} || $txt2umode[$$net]{$txt};
 			$umode2txt[$$net]{$um} = $txt;
 			$txt2umode[$$net]{$txt} = $um;
+		}
+	}
+	if ($mod->{umode_hook}) {
+		for my $txt (keys %{$mod->{umode}}) {
+			warn "Overriding umode $txt" if $txt2umode[$$net]{$txt} && !$mod->{umode}{$txt2umode[$$net]{$txt}};
+			$txt2umode[$$net]{$txt} = $mod->{umode_hook}{$txt};
 		}
 	}
 	if ($mod->{cmds}) {
@@ -142,7 +148,6 @@ sub parse {
 		$net->send(['INIT', 'ERROR :Not authorized yet']);
 		return ();
 	}
-	return $net->nick_msg(@args) if $cmd =~ /^\d+$/;
 	$cmd = $fromirc[$$net]{$cmd} || $cmd;
 	$cmd = $fromirc[$$net]{$cmd} || $cmd if $cmd && !ref $cmd; # allow one layer of indirection
 	unless ($cmd && ref $cmd) {
@@ -199,44 +204,29 @@ sub dump_sendq {
 	$q;
 }
 
-my %skip_umode = (
-	# TODO make this configurable
-	vhost => 1,
-	vhost_x => 1,
-	helpop => 1,
-	registered => 1,
-);
-
-sub umode_text {
-	my($net,$nick) = @_;
-	my $mode = '+';
-	for my $m ($nick->umodes()) {
-		next if $skip_umode{$m};
-		next unless exists $txt2umode[$$net]{$m};
-		$mode .= $txt2umode[$$net]{$m};
-	}
-	unless ($net->param('show_roper') || $nick->info('_is_janus')) {
-		$mode .= 'H' if $mode =~ /o/ && $mode !~ /H/;
-	}
-	$mode . 'xt';
-}
-
 sub _connect_ifo {
 	my ($net, $nick) = @_;
 
-	my $mode = $net->umode_text($nick);
-	my $vhost = $nick->info('vhost');
-	if ($vhost eq 'unknown.cloaked') {
-		$vhost = '*'; # XXX: CA HACK
-		$mode =~ s/t//;
+	my @out;
+
+	my $mode = '+';
+	for my $m ($nick->umodes()) {
+		next unless exists $txt2umode[$$net]{$m};
+		if (ref $txt2umode[$$net]{$m}) {
+			push @out, $txt2umode[$$net]{$m}->($net, $nick, '+'.$m);
+		} else {
+			$mode .= $txt2umode[$$net]{$m};
+		}
 	}
+	
+	my $vhost = $nick->info('vhost');
+
 	my $srv = $nick->homenet()->id() . '.janus';
 	$srv = $net->cparam('linkname') if $srv eq 'janus.janus';
 
 	my $ip = $nick->info('ip') || '0.0.0.0';
 	$ip = '0.0.0.0' if $ip eq '*';
-	my @out;
-	push @out, $net->cmd2($srv, NICK => $nick->ts(), $nick, $nick->info('host'), $vhost,
+	unshift @out, $net->cmd2($srv, NICK => $nick->ts(), $nick, $nick->info('host'), $vhost,
 		$nick->info('ident'), $mode, $ip, $nick->info('name'));
 	if ($nick->has_mode('oper')) {
 		my $type = $nick->info('opertype') || 'IRC Operator';
@@ -303,63 +293,6 @@ sub process_capabs {
 # 	3 ... = arguments to the irc line; last element has the leading ':' stripped
 # Return:
 #  list of hashrefs containing the Action(s) represented (can be empty)
-
-sub nickact {
-	#(SET|CHG)(HOST|IDENT|NAME)
-	my $net = shift;
-	my($type, $act) = (lc($_[1]) =~ /(SET|CHG)(HOST|IDENT|NAME)/i);
-	$act =~ s/host/vhost/i;
-	
-	my($src,$dst);
-	if ($type eq 'set') {
-		$src = $dst = $net->mynick($_[0]);
-	} else {
-		$src = $net->item($_[0]);
-		$dst = $net->nick($_[2]);
-	}
-
-	if ($dst->homenet()->id() eq $net->id()) {
-		my %a = (
-			type => 'NICKINFO',
-			src => $src,
-			dst => $dst,
-			item => lc $act,
-			value => $_[-1],
-		);
-		if ($act eq 'vhost' && !($dst->has_mode('vhost') || $dst->has_mode('vhost_x'))) {
-			return (\%a, +{
-				type => 'UMODE',
-				dst => $dst,
-				mode => ['+vhost', '+vhost_x'],
-			});
-		} else {
-			return \%a;
-		}
-	} else {
-		my $old = $dst->info($act);
-		$act =~ s/vhost/host/;
-		$net->send($net->cmd2($dst, 'SET'.uc($act), $old));
-		return ();
-	}
-}
-
-sub nick_msg {
-	my $net = shift;
-	my $src = $net->item($_[0]);
-	my $msgtype = $_[1];
-	my $msg = [ @_[3..$#_] ];
-	my $dst = $net->nick($_[2]) or return ();
-	return {
-		type => 'MSG',
-		src => $src,
-		dst => $dst,
-		msg => $msg,
-		msgtype => $msgtype,
-	};
-}
-
-sub nc_msg {
-}
 
 sub _parse_umode {
 	my($net, $nick, $mode) = @_;
@@ -681,14 +614,28 @@ sub cmd2 {
 		umode => {
 			r => 'registered',
 			R => 'deaf_regpriv'
-		}
+		},
+		umode_hook => {
+			registered => \&ignore,
+		},
 	},
 	'm_services_account.so' => {
 		cmode => {
 			R => 'r_reginvite',
 			M => 'r_regmoderated'
 		},
-		umode => { R => 'deaf_regpriv' }
+		umode => { R => 'deaf_regpriv' },
+		metadata => {
+			accountname => sub {
+				my $net = shift;
+				my $nick = $net->mynick($_[2]) or return ();
+				return +{
+					type => 'UMODE',
+					dst => $nick,
+					mode => [ $_[4] eq '' ? '-registered' : '+registered' ],
+				};
+			},
+		},
 	},
 	'm_sethost.so' => {
 		cmds => {
@@ -752,21 +699,6 @@ sub cmd2 {
 	'm_silence_ext.so' => { },
 	'm_spanningtree.so' => { },
 	'm_spy.so' => { },
-	'm_ssl_dummy.so' => {
-		metadata => {
-			ssl => sub {
-				my $net = shift;
-				my $nick = $net->mynick($_[2]) or return ();
-				warn "Unknown SSL value $_[4]" unless $_[4] eq 'ON';
-				return +{
-					type => 'UMODE',
-					dst => $nick,
-					mode => [ '+ssl' ],
-				};
-			},
-		},
-		cmode => { z => 'r_sslonly' }
-	},
 	'm_ssl_gnutls.so' => { },
 	'm_ssl_openssl.so' => { },
 	'm_sslmodes.so' => {
@@ -780,6 +712,17 @@ sub cmd2 {
 					dst => $nick,
 					mode => [ '+ssl' ],
 				};
+			},
+		},
+		umode_hook => {
+			ssl => sub {
+				my($net, $nick, $pm) = @_;
+				if ($pm eq '+ssl') {
+					return $net->ncmd(METADATA => $nick, ssl => 'ON');
+				} else {
+					warn 'Inspircd is incapable of unsetting SSL';
+					return ();
+				}
 			},
 		},
 		cmode => { z => 'r_sslonly' },
@@ -815,7 +758,7 @@ sub cmd2 {
 	},
 	'm_taxonomy.so' => { },
 	'm_testcommand.so' => { },
-#	'm_timedbans.so' => { }, # TODO (can cause desync)
+	'm_timedbans.so' => { }, # the list is kept locally, we don't need to care
 	'm_tline.so' => { },
 	'm_uhnames.so' => { },
 	'm_uninvite.so' => {
@@ -1381,7 +1324,25 @@ CORE => {
 	}, NICK => sub {
 		my($net,$act) = @_;
 		my $id = $net->id();
-		$net->cmd2($act->{from}{$id}, NICK => $act->{to}{$id});		
+		$net->cmd2($act->{from}{$id}, NICK => $act->{to}{$id});
+	}, UMODE => sub {
+		my($net,$act) = @_;
+		my $pm = '';
+		my $mode = '';
+		my @out;
+		for my $ltxt (@{$act->{mode}}) {
+			my($d,$txt) = $ltxt =~ /^([-+])(.+)/;
+			my $um = $txt2umode[$$net]{$txt};
+			if (ref $um) {
+				push @out, $um->($net, $act->{dst}, $ltxt);
+			} else {
+				$mode .= $d if $pm ne $d;
+				$mode .= $um;
+				$pm = $d;
+			}
+		}
+		push @out, $net->cmd2($act->{dst}, MODE => $act->{dst}, $mode) if $mode;
+		@out;
 	}, QUIT => sub {
 		my($net,$act) = @_;
 		my $dst = $act->{dst};
@@ -1489,5 +1450,7 @@ CORE => {
 }
 
 });
+
+$moddef{'m_ssl_dummy.so'} = $moddef{'m_sslmodes.so'};
 
 1;
