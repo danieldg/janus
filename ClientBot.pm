@@ -43,7 +43,7 @@ sub nick_sweep {
 			my @nets = $nick->netlist();
 			next NICK if $normal && @nets > 1;
 			my $kicks = $kicks[$$net]{$nick->lid()};
-			if (ref $kicks && %$kicks) {
+			if ($normal && ref $kicks && %$kicks) {
 				# rejoin the nick to timed out channels
 				for my $cname (keys %$kicks) {
 					next if $kicks->{$cname} > $time;
