@@ -487,18 +487,25 @@ sub delink {
 	cmd => 'help',
 	help => 'the text you are reading now',
 	code => sub {
-		my(@cmds,@helps);
+		my($nick,$arg) = @_;
+		if ($arg) {
+			my $hcode = $commands{$arg}{helpcode};
+			return $hcode->($nick) if ref $hcode;
+		}
+		my @cmds;
+		my $synlen = 0;
 		for my $cmd (sort keys %commands) {
 			my $h = $commands{$cmd}{help};
 			next unless $h;
 			push @cmds, $cmd;
-			if (ref $h) {
-				push @helps, @$h;
-			} else {
-				push @helps, " $cmd - $h";
-			}
+			my $syn = $commands{$cmd}{syntax} || uc "\002$cmd\002";
+			$commands{$cmd}{syntax} = $syn;
+			$synlen = length $syn if length $syn > $synlen;
 		}
-		&Janus::jmsg($_[0], 'Available commands: '.join(' ', @cmds), @helps);
+		&Janus::jmsg($nick, 'Available commands: ');
+		&Janus::jmsg($nick, map {
+			sprintf '%-'.$synlen.'s %s', $commands{$_}{syntax}, $commands{$_}{help};
+		} @cmds);
 	},
 });
 
