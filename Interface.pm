@@ -379,6 +379,31 @@ if ($Janus::interface) {
 		&Janus::reload('Interface');
 	},
 }, {
+	cmd => 'save',
+	help => "save the current linked channels for this network",
+	code => sub {
+		my($nick,$all) = @_; # TODO make command "save all", maybe w/ password
+		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
+		my $hnet = $nick->homenet();
+		my @file;
+		for my $chan ($hnet->all_chans()) {
+			my @nets = $chan->nets();
+			next if @nets == 1;
+			for my $net (sort @nets) {
+				next if $net->id() eq $hnet->id();
+				push @file, join ' ', $chan->str($hnet), $net->id(), $chan->str($net);
+			}
+		}
+		$hnet->id() =~ /^([0-9a-zA-Z]+)$/ or return warn;
+		open my $f, '>', "links.$1.conf" or do {
+			&Janus::err_jmsg($nick, "Could not open links file for net $1 for writing: $!");
+			return;
+		};
+		print $f join "\n", @file, '';
+		close $f or warn $!;
+		&Janus::jmsg($nick, 'Link file saved');
+	},
+}, {
 	cmd => 'reload',
 	help => "reload \$module - load or reload a module, live. \002EXPERIMENTAL\002. ".
 		'Reloading core modules may introduce bugs because of persistance of old code by the perl interpreter',
