@@ -211,19 +211,29 @@ if ($Janus::interface) {
 	}
 }, {
 	cmd => 'link',
-	help => 'link $localchan $network $remotechan - links a channel with a remote network',
+	help => 'Links a channel with a remote network.',
+	details => [ 
+		"Syntax: \002LINK\002 channel network [remotechan]",
+		"This command requires confirmation from the remote network before the link",
+		"will be activated",
+	],
 	code => sub {
-		my $nick = shift;
+		my($nick,$args) = @_;
 		
 		if ($nick->homenet()->param('oper_only_link') && !$nick->has_mode('oper')) {
 			&Janus::jmsg($nick, "You must be an IRC operator to use this command");
 			return;
 		}
 
-		my($cname1, $nname2, $cname2) = /(#\S+)\s+(\S+)\s*(#\S+)?/ or do {
-			&Janus::jmsg($nick, 'Usage: link $localchan $network $remotechan');
+		my($cname1, $nname2, $cname2);
+		if ($args =~ /(#\S+)\s+(\S+)\s*(#\S+)/) {
+			($cname1, $nname2, $cname2) = ($1,$2,$3);
+		} elsif ($args =~ /(#\S+)\s+(\S+)/) {
+			($cname1, $nname2, $cname2) = ($1,$2,$1);
+		} else {
+			&Janus::jmsg($nick, 'Usage: LINK localchan network [remotechan]');
 			return;
-		};
+		}
 
 		my $net1 = $nick->homenet();
 		my $net2 = $Janus::nets{lc $nname2} or do {
@@ -245,7 +255,7 @@ if ($Janus::interface) {
 			dst => $net2,
 			net => $net1,
 			slink => $cname1,
-			dlink => ($cname2 || 'any'),
+			dlink => $cname2,
 			sendto => [ $net2 ],
 			override => $nick->has_mode('oper'),
 		});
@@ -405,8 +415,12 @@ if ($Janus::interface) {
 	},
 }, {
 	cmd => 'reload',
-	help => "reload \$module - load or reload a module, live. \002EXPERIMENTAL\002. ".
-		'Reloading core modules may introduce bugs because of persistance of old code by the perl interpreter',
+	help => "load or reload a module, live. \002EXPERIMENTAL\002.",
+	details => [
+		"Syntax: \002RELOAD\002 module",
+		"\002WARNING\002: Reloading core modules may introduce bugs because of persistance",
+		"of old code by the perl interpreter, and because Object::InsideOut methods may expire"
+	],
 	code => sub {
 		my($nick,$name) = @_;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');

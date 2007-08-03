@@ -489,23 +489,28 @@ sub delink {
 	code => sub {
 		my($nick,$arg) = @_;
 		if ($arg) {
-			my $hcode = $commands{$arg}{helpcode};
-			return $hcode->($nick) if ref $hcode;
+			my $det = $commands{$arg}{details};
+			if (ref $det) {
+				&Janus::jmsg($nick, @$det);
+			} elsif ($commands{$arg}{help}) {
+				&Janus::jmsg($nick, "$arg - $commands{$arg}{help}");
+			} else {
+				&Janus::jmsg($nick, 'No help for that command');
+			}
+		} else {
+			my @cmds;
+			my $synlen = 0;
+			for my $cmd (sort keys %commands) {
+				my $h = $commands{$cmd}{help};
+				next unless $h;
+				push @cmds, $cmd;
+				$synlen = length $cmd if length $cmd > $synlen;
+			}
+			&Janus::jmsg($nick, 'Available commands: ');
+			&Janus::jmsg($nick, map {
+				sprintf " \002\%-${synlen}s\002  \%s", uc $_, $commands{$_}{help};
+			} @cmds);
 		}
-		my @cmds;
-		my $synlen = 0;
-		for my $cmd (sort keys %commands) {
-			my $h = $commands{$cmd}{help};
-			next unless $h;
-			push @cmds, $cmd;
-			my $syn = $commands{$cmd}{syntax} || uc "\002$cmd\002";
-			$commands{$cmd}{syntax} = $syn;
-			$synlen = length $syn if length $syn > $synlen;
-		}
-		&Janus::jmsg($nick, 'Available commands: ');
-		&Janus::jmsg($nick, map {
-			sprintf '%-'.$synlen.'s %s', $commands{$_}{syntax}, $commands{$_}{help};
-		} @cmds);
 	},
 });
 
