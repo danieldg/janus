@@ -247,6 +247,7 @@ sub nick_collide {
 # Request a nick on a remote network (CONNECT/JOIN must be sent AFTER this)
 sub request_nick {
 	my($net, $nick, $reqnick, $tagged) = @_;
+	$reqnick =~ s/[^0-9a-zA-Z\[\]\\^\-_`{|}]/_/g;
 	my $maxlen = $net->nicklen();
 	my $given = substr $reqnick, 0, $maxlen;
 

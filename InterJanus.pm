@@ -305,6 +305,7 @@ my %v_type; %v_type = (
 		s/^<n// or warn;
 		$ij->_kv_pairs($h);
 		s/^>// or warn;
+		return undef unless ref $h->{net} && $h->{net}->isa('Network');
 		# TODO verify that homenet is not forged
 		$Janus::gnicks{$h->{gid}} || Nick->new(%$h);
 	},

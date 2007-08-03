@@ -378,6 +378,13 @@ sub part {
 		$topic[$$chan] = $act->{topic};
 		$topicts[$$chan] = $act->{topicts} || time;
 		$topicset[$$chan] = $act->{topicset} || $act->{src}->homenick();
+	}, LSYNC => validate => sub {
+		my $act = shift;
+		eval {
+			return 0 unless $act->{dst}->isa('Network');
+			return 0 unless $act->{chan}->isa('Channel');
+			1;
+		} ? undef : 1;
 	}, LSYNC => act => sub {
 		my $act = shift;
 		return if $act->{dst}->jlink();
