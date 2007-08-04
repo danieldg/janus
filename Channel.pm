@@ -484,6 +484,7 @@ sub part {
 			dst => $chan,
 			chan1 => $chan1,
 			chan2 => $chan2,
+			linkfile => $act->{linkfile},
 		});
 	}, LINK => act => sub {
 		my $act = shift;

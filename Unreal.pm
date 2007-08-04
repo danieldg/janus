@@ -767,8 +767,8 @@ sub srvname {
 			return {
 				type => 'QUIT',
 				dst => $nick,
-				msg => $msg,
-				killer => $src,
+				msg => $_[3],
+				killer => $net,
 			};
 		} elsif (lc $nick->homenick() eq lc $_[2]) {
 			# This is an untagged nick. We assume that the reason this
@@ -1415,12 +1415,14 @@ sub cmd2 {
 	}, LINK => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst}->str($net);
+		return () if $act->{linkfile};
 		[ FLOAT_ALL => $net->cmd1(GLOBOPS => "Channel $chan linked") ];
 	}, LSYNC => sub {
 		();
 	}, LINKREQ => sub {
 		my($net,$act) = @_;
 		my $src = $act->{net};
+		return () if $act->{linkfile};
 		[ FLOAT_ALL => $net->cmd1(GLOBOPS => $src->netname()." would like to link $act->{slink} to $act->{dlink}") ];
 	}, DELINK => sub {
 		my($net,$act) = @_;

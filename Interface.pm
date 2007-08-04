@@ -159,6 +159,7 @@ if ($Janus::interface) {
 					dst => $snet,
 					chan => $dnet->chan($act->{dlink},1),
 					linkto => $act->{slink},
+					linkfile => $act->{linkfile},
 				});
 				# do not add it to request list now
 				return;
