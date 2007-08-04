@@ -50,6 +50,10 @@ if ($Janus::interface) {
 		},
 		mode => { oper => 1, service => 1, bot => 1 },
 	);
+	&Janus::insert_full(+{
+		type => 'NEWNICK',
+		dst => $Janus::interface,
+	});
 }
 
 &Janus::hook_add(
