@@ -270,10 +270,6 @@ sub item {
 		my $net = $act->{net};
 		$synced[$$net] = 1;
 		undef;
-	}, QUIT => cleanup => sub {
-		my $act = shift;
-		my $nick = $act->{dst};
-		delete $Janus::nicks{$nick->str(undef)};
 	},
 );
 

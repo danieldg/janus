@@ -189,22 +189,6 @@ sub _part {
 	delete $chans[$$nick]->{lc $name};
 }
 
-sub _netpart {
-	my($nick, $net) = @_;	
-	my $id = $net->id();
-
-	delete $nets[$$nick]->{$id};
-	return if $net->jlink();
-	# this could be the last local network the nick was on
-	# if so, we need to remove it from Janus::gnicks
-	my $jl = $nick->jlink();
-	return unless $jl;
-	for my $net (values %{$nets[$$nick]}) {
-		my $njl = $net->jlink();
-		return unless $njl && $njl eq $jl;
-	}
-}
-
 =item $nick->lid()
 
 Locally unique ID for this nick (unique for the lifetime of the nick only)

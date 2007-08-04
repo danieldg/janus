@@ -330,7 +330,7 @@ sub dump_sendq {
 					$i->[3] =~ s/(^|\s)[\*\@\$\%\+]+/$1/g;
 				}
 			} else {
-				$sjmerge{$i->[2]}{ts} = $i->[1];
+				$sjmerge{$c}{ts} = $i->[1];
 			}
 			$sjmerge{$c}{j} .= $i->[3].' ';
 		} elsif (/^FLOAT_/) {
@@ -754,24 +754,9 @@ sub srvname {
 		if ($nick->homenet()->id() eq $net->id()) {
 			# If the nick is local, do nothing. A properly formatted QUIT 
 			# will be sent soon for this nick from its home server.
+			# (technically, this is a bug in unreal. Oh well.)
 			return ();
-		} elsif (lc $nick->homenick() eq lc $_[2]) {
-			# This is an untagged nick. We assume that the reason this
-			# nick was killed was something like a GHOST command and set up
-			# a reconnection with tag
-			$net->release_nick(lc $_[2]);
-			return +{
-				type => 'RECONNECT',
-				dst => $nick,
-				net => $net,
-				killed => 1,
-				nojlink => 1,
-			};
 		} else {
-			# This was a tagged nick. If we reintroduce this nick, there is a
-			# danger of running into a fight with services - for example,
-			# OperServ session limit kills will continue. So we interpret this
-			# just as a normal kill.
 			return +{
 				type => 'QUIT',
 				killer => $net->item($_[0]),
