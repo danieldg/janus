@@ -43,12 +43,11 @@ __CODE__
 		# hide the channel burst from janus's event hooks
 		for my $chan ($net->all_chans()) {
 			for my $nick ($chan->all_nicks()) {
-				print join ';', %{$chan->get_nmode($nick)},"\n";
 				$net->send({
 					type => 'JOIN',
 					src => $nick,
 					dst => $chan,
-					mode => $chan->get_nmode($nick),
+					mode => [ $chan->get_nmode($nick) ],
 				});
 			}
 			my($modes, $args) = $chan->mode_delta();

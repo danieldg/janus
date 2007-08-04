@@ -55,7 +55,7 @@ sub has_nmode {
 
 sub get_nmode {
 	my($chan, $nick) = @_;
-	$nmode[$$chan]{$nick->lid()};
+	keys %{$nmode[$$chan]{$nick->lid()};
 }
 
 sub to_ij {
