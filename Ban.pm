@@ -84,13 +84,14 @@ my %timespec = (
 
 &Janus::command_add({
 	cmd => 'ban',
-	help => [
+	help => 'Manages Janus bans (bans remote users)',
+	details => [
 		'Bans are matched against nick!ident@host%netid:name on any remote joins to a shared channel',
 		'Expiration can be of the form 1y1w3d4h5m6s, or just # of seconds, or 0 for a permanent ban',
-		' ban list - list all active janus bans',
-		' ban add $expr $expire $reason - add a ban',
-		' ban kadd $expr $expire $reason - add a ban, and kill all users matching it',
-		' ban del $expr|$index - remove a ban by expression or index in the ban list',
+		' ban list                        List all active janus bans',
+		' ban add $expr $expire $reason   Add a ban',
+		' ban kadd $expr $expire $reason  Add a ban, and kill all users matching it',
+		' ban del $expr|$index            Remove a ban by expression or index in the ban list',
 	], code => sub {
 		my $nick = shift;
 		my($cmd, @arg) = split /\s+/, shift;
