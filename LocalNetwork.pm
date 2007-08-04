@@ -234,11 +234,9 @@ sub nick_collide {
 			warn "Nick collision on home network!";
 		} else {
 			&Janus::insert_full(+{
-				type => 'RECONNECT',
+				type => 'QUIT',
 				dst => $new,
-				net => $net,
-				killed => 1,
-				nojlink => 1,
+				killer => $net,
 			});
 		}
 	}
