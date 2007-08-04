@@ -17,7 +17,6 @@ Primary event multiplexer and module loader/unloader
 our $interface;
 
 our %nets;
-our %gnicks;
 our %nicks;
 
 our $last_check = time;

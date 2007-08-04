@@ -45,7 +45,6 @@ sub _init :Init {
 	my $net = $ifo->{net};
 	my $gid = $ifo->{gid} || $net->id() . ':' . $$nick;
 	$gid[$$nick] = $gid;
-	$Janus::gnicks{$gid} = $nick;
 	$homenet[$$nick] = $net;
 	$homenick[$$nick] = $ifo->{nick};
 	my $homeid = $net->id();
@@ -204,7 +203,6 @@ sub _netpart {
 		my $njl = $net->jlink();
 		return unless $njl && $njl eq $jl;
 	}
-	delete $Janus::gnicks{$nick->gid()};
 }
 
 =item $nick->lid()
@@ -262,6 +260,7 @@ sub str {
 
 		my $from = $nick[$$nick];
 		my $to = $new;
+		$Janus::nicks{lc $to} = delete $Janus::nicks{lc $from};
 		$nick[$$nick] = $to;
 
 		$ts[$$nick] = $act->{nickts} if $act->{nickts};
@@ -299,7 +298,11 @@ sub str {
 			my $chan = $chans[$$nick]->{$id};
 			$chan->part($nick);
 		}
-		delete $Janus::gnicks{$nick->gid()};
+		delete $Janus::nicks{lc $nick[$$nick]};
+	}, NEWNICK => act => sub {
+		my $act = $_[0];
+		my $nick = $act->{dst};
+		$Janus::nicks{lc $nick[$$nick]} = $nick;
 	}, JOIN => act => sub {
 		my $act = shift;
 		my $nick = $act->{src};

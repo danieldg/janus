@@ -30,7 +30,7 @@ __CODE__
 		my $act = shift;
 		my $net = $act->{net};
 		my @conns;
-		for my $nick (values %Janus::gnicks) {
+		for my $nick (values %Janus::nicks) {
 			next if $nick->is_on($net);
 			push @conns, {
 				type => 'CONNECT',
@@ -70,7 +70,7 @@ __CODE__
 	}, NETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
-		for my $nick (values %Janus::gnicks) {
+		for my $nick (values %Janus::nicks) {
 			next if $nick->homenet()->id() eq $net->id();
 			$nick->_netpart($act->{net});
 		}

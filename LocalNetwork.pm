@@ -224,7 +224,6 @@ sub nick_collide {
 	
 	my @rv = ($tsctl > 0);
 	if ($tsctl >= 0) {
-		# old nick lost, reconnect it
 		if ($old->homenet()->id() eq $net->id()) {
 			warn "Nick collision on home network!";
 		} else {
