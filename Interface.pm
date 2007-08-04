@@ -2,8 +2,8 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Interface;
-BEGIN { 
-	&Janus::load('Network'); 
+BEGIN {
+	&Janus::load('Network');
 	&Janus::load('Nick');
 }
 use Object::InsideOut qw(Network);
@@ -204,8 +204,12 @@ if ($Janus::interface) {
 	},
 }, {
 	cmd => 'reload',
-	help => "reload \$module - load or reload a module, live. \002EXPERIMENTAL\002. ".
-		'Reloading core modules may introduce bugs because of persistance of old code by the perl interpreter',
+	help => "load or reload a module, live. \002EXPERIMENTAL\002.",
+	details => [
+		"Syntax: \002RELOAD\002 module",
+		"\002WARNING\002: Reloading core modules may introduce bugs because of persistance",
+		"of old code by the perl interpreter, and because Object::InsideOut methods may expire"
+	],
 	code => sub {
 		my($nick,$name) = @_;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');

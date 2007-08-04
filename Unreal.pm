@@ -752,10 +752,12 @@ sub srvname {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
 		if ($nick->homenet()->id() eq $net->id()) {
-			# If the nick is local, do nothing. A properly formatted QUIT 
-			# will be sent soon for this nick from its home server.
-			# (technically, this is a bug in unreal. Oh well.)
-			return ();
+			return {
+				type => 'QUIT',
+				dst => $nick,
+				msg => $_[3],
+				killer => $net,
+			};
 		} else {
 			return +{
 				type => 'QUIT',
@@ -1390,12 +1392,14 @@ sub cmd2 {
 	}, LINK => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst}->str($net);
+		return () if $act->{linkfile};
 		[ FLOAT_ALL => $net->cmd1(GLOBOPS => "Channel $chan linked") ];
 	}, LSYNC => sub {
 		();
 	}, LINKREQ => sub {
 		my($net,$act) = @_;
 		my $src = $act->{net};
+		return () if $act->{linkfile};
 		[ FLOAT_ALL => $net->cmd1(GLOBOPS => $src->netname()." would like to link $act->{slink} to $act->{dlink}") ];
 	}, DELINK => sub {
 		my($net,$act) = @_;
