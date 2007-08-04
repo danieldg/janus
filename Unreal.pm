@@ -764,9 +764,12 @@ sub srvname {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
 		if ($nick->homenet()->id() eq $net->id()) {
-			# If the nick is local, do nothing. A properly formatted QUIT 
-			# will be sent soon for this nick from its home server.
-			return ();
+			return {
+				type => 'QUIT',
+				dst => $nick,
+				msg => $msg,
+				killer => $src,
+			};
 		} elsif (lc $nick->homenick() eq lc $_[2]) {
 			# This is an untagged nick. We assume that the reason this
 			# nick was killed was something like a GHOST command and set up
