@@ -21,9 +21,9 @@ Object representing a set of linked channels
 __PERSIST__
 persist @ts       :Field :Get(ts);
 persist @keyname  :Field :Arg(keyname) :Get(keyname);
-persist @topic    :Field :Arg(topic);
-persist @topicts  :Field :Arg(topicts);
-persist @topicset :Field :Arg(topicset);
+persist @topic    :Field :Arg(topic) :Get(topic);
+persist @topicts  :Field :Arg(topicts) :Get(topicts);
+persist @topicset :Field :Arg(topicset) :Get(topicset);
 persist @mode     :Field;
 
 persist @names    :Field;
@@ -53,6 +53,11 @@ Returns true if the nick has the given mode in the channel (n_* modes)
 sub has_nmode {
 	my($chan, $mode, $nick) = @_;
 	$nmode[$$chan]{$nick->lid()}{$mode};
+}
+
+sub get_nmode {
+	my($chan, $nick) = @_;
+	$nmode[$$chan]{$nick->lid()};
 }
 
 sub to_ij {

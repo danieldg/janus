@@ -322,15 +322,15 @@ sub dump_sendq {
 		$mode = $cmode;
 		if (/JOIN/) {
 			my $c = $i->[2];
-			if ($sjmerge{$c}{ts}) {
-				if ($sjmerge{$c}{ts} > $i->[1]) {
+			if ($sjmerge{$c}{ts} && $sjmerge{$c}{ts} ne $i->[1]) {
+				if ($net->sjbint($sjmerge{$c}{ts}) > $net->sjbint($i->[1])) {
 					$sjmerge{$c}{j} =~ s/(^|\s)[\*\@\$\%\+]+/$1/g;
 					$sjmerge{$c}{ts} = $i->[1];
-				} elsif ($sjmerge{$c}{ts} < $i->[1]) {
+				} else {
 					$i->[3] =~ s/(^|\s)[\*\@\$\%\+]+/$1/g;
 				}
 			} else {
-				$sjmerge{$i->[2]}{ts} = $i->[1];
+				$sjmerge{$c}{ts} = $i->[1];
 			}
 			$sjmerge{$c}{j} .= $i->[3].' ';
 		} elsif (/^FLOAT_/) {
@@ -1010,7 +1010,10 @@ sub srvname {
 		};
 		$srvname[$$net]{$snum} = $name if $snum;
 
-		();
+		$_[0] ? () : {
+			type => 'BURST',
+			net => $net,
+		};
 	}, SQUIT => sub {
 		my $net = shift;
 		my $netid = $net->id();

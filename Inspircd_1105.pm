@@ -1043,7 +1043,10 @@ CORE => {
 			$servers[$$net]{lc $_[2]} = lc $_[0];
 		}
 		$serverdsc[$$net]{lc $_[2]} = $_[-1];
-		();
+		+{
+			type => 'BURST',
+			net => $net,
+		};
 	}, SQUIT => sub {
 		my $net = shift;
 		my $netid = $net->id();
@@ -1171,12 +1174,15 @@ CORE => {
 	MODULES => \&ignore,
 	ENDBURST => sub {
 		my $net = shift;
-		$net->send('ENDBURST');
-		return +{
+		return (+{
 			type => 'LINKED',
 			net => $net,
 			sendto => [ values %Janus::nets ],
-		};
+		}, +{
+			type => 'RAW',
+			dst => $net,
+			msg => 'ENDBURST',
+		});
 	},
 
 	PRIVMSG => sub {
@@ -1390,8 +1396,9 @@ CORE => {
 		return $net->cmd2($src, FMODE => $dst, $dst->ts(), @interp);
 	}, TOPIC => sub {
 		my($net,$act) = @_;
-		# TODO there is also FTOPIC, but we should only use it when needed as it has bugs
-		# (cannot clear topic)
+		if ($act->{in_burst}) {
+			return $net->ncmd(FTOPIC => $act->{dst}, $act->{topicts}, $act->{topicset}, $act->{topic});
+		}
 		return $net->cmd2($act->{src}, TOPIC => $act->{dst}, $act->{topic});
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
@@ -1455,7 +1462,10 @@ CORE => {
 		my($net,$act) = @_;
 		my $src = $act->{net};
 		$net->ncmd(OPERNOTICE => $src->netname()." would like to link $act->{slink} to $act->{dlink}");
-	},
+	}, RAW => sub {
+		my($net,$act) = @_;
+		$act->{msg};	
+	}
 }
 
 });
