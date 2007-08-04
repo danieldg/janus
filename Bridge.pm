@@ -16,13 +16,66 @@ __CODE__
 		my $nick = $act->{dst};
 		for my $net (values %Janus::nets) {
 			next if $nick->homenet()->id() eq $net->id();
+			next if $nick->is_on($net);
 			&Janus::append({
 				type => 'CONNECT',
 				dst => $nick,
 				net => $net,
 			});
 		}
-	},			
+	}, RAW => act => sub {
+		my $act = shift;
+		delete $act->{except};
+	}, BURST => act => sub {
+		my $act = shift;
+		my $net = $act->{net};
+		my @conns;
+		for my $nick (values %Janus::gnicks) {
+			next if $nick->is_on($net);
+			push @conns, {
+				type => 'CONNECT',
+				dst => $nick,
+				net => $net,
+			};
+		}
+		&Janus::insert_full(@conns);
+
+		# hide the channel burst from janus's event hooks
+		for my $chan ($net->all_chans()) {
+			for my $nick ($chan->all_nicks()) {
+				print join ';', %{$chan->get_nmode($nick)},"\n";
+				$net->send({
+					type => 'JOIN',
+					src => $nick,
+					dst => $chan,
+					mode => $chan->get_nmode($nick),
+				});
+			}
+			my($modes, $args) = $chan->mode_delta();
+			$modes = [ map y/-+/+-/, @$modes ];
+			$net->send({
+				type => 'MODE',
+				dst => $chan,
+				mode => $modes,
+				args => $args,
+			}) if @$modes;
+			$net->send({
+				type => 'TOPIC',
+				dst => $chan,
+				topic => $chan->topic(),
+				topicts => $chan->topicts(),
+				topicset => $chan->topicset(),
+				in_burst => 1,
+			}) if defined $chan->topic();
+		}
+	}, NETSPLIT => act => sub {
+		my $act = shift;
+		my $net = $act->{net};
+		for my $nick (values %Janus::gnicks) {
+			next if $nick->homenet()->id() eq $net->id();
+			$nick->_netpart($act->{net});
+		}
+	}, 
 );
 
 1;

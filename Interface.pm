@@ -53,20 +53,7 @@ if ($Janus::interface) {
 }
 
 &Janus::hook_add(
-	LINKED => act => sub {
-		my $act = shift;
-		my $net = $act->{net};
-		return if $net->jlink();
-		&Janus::append(+{
-			type => 'CONNECT',
-			dst => $Janus::interface,
-			net => $net,
-		});
-	}, NETSPLIT => act => sub {
-		my $act = shift;
-		# TODO is this needed on all nicks?
-		$Janus::interface->_netpart($act->{net});
-	}, MSG => parse => sub {
+	MSG => parse => sub {
 		my $act = shift;
 		my $src = $act->{src};
 		my $dst = $act->{dst};
