@@ -7,6 +7,10 @@ use strict;
 use warnings;
 &Janus::load('Nick');
 
+our($VERSION) = '$Rev$' =~ /(\d+)/;
+
+__CODE__
+
 my %fromirc;
 my %toirc;
 

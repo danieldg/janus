@@ -8,6 +8,8 @@ use Persist;
 use Object::InsideOut;
 use Socket6;
 
+our($VERSION) = '$Rev$' =~ /(\d+)/;
+
 __PERSIST__
 persist @buffer   :Field;
 persist @delegate :Field;

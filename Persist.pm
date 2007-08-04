@@ -3,6 +3,8 @@ use strict;
 use warnings;
 use Filter::Util::Call;
 
+our($VERSION) = '$Rev$' =~ /(\d+)/;
+
 sub import {
 	my $pkg = caller;
 	my $state = eval "\$${pkg}::PERSIST_STATE;";

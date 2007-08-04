@@ -9,7 +9,16 @@ use IO::Select;
 use IO::Socket::SSL;
 use POSIX 'setsid';
 
+our($VERSION) = '$Rev$' =~ /(\d+)/;
+
 my $args = @ARGV && $ARGV[0] =~ /^-/ ? shift : '';
+
+$| = 1;
+
+&Janus::load('Bridge') or die;
+&Janus::load('Interface') or die;
+&Janus::load('Conffile', shift || 'janus.conf') or die;
+
 unless ($args =~ /d/) {
 	my $log = 'log/'.time;
 	umask 022;
@@ -21,12 +30,6 @@ unless ($args =~ /d/) {
 	exit if $pid;
 	setsid;
 }
-
-$| = 1;
-
-&Janus::load('Bridge') or die;
-&Janus::load('Interface') or die;
-&Janus::load('Conffile', shift || 'janus.conf') or die;
 
 sub readable {
 	my $l = shift;

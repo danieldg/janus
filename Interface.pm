@@ -10,6 +10,8 @@ use Object::InsideOut qw(Network);
 use Persist;
 use strict;
 use warnings;
+our($VERSION) = '$Rev$' =~ /(\d+)/;
+
 __CODE__
 
 my $inick = $Conffile::netconf{janus}{janus} || 'janus';
@@ -120,6 +122,23 @@ if ($Janus::interface) {
 		);
 	}
 }, {
+	cmd => 'modules',
+	help => 'Version information on all modules loaded by janus',
+	code => sub {
+		my $nick = shift;
+		opendir my $dir, '.' or return warn $!;
+		&Janus::jmsg($nick, 'Janus socket core:'.$main::VERSION);
+		for my $itm (sort readdir $dir) {
+			next unless $itm =~ /^([0-9_A-Za-z]+)\.pm$/;
+			my $mod = $1;
+			no strict 'refs';
+			my $v = ${$mod.'::VERSION'};
+			next unless $v; # not loaded
+			&Janus::jmsg($nick, "$mod:$v");
+		}
+		closedir $dir;
+	}
+}, {
 	cmd => 'rehash',
 	help => 'reload the config and attempt to reconnect to split servers',
 	code => sub {
@@ -218,7 +237,7 @@ if ($Janus::interface) {
 	code => sub {
 		my($nick,$name) = @_;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
-		return &Janus::jmsg($nick, "Invalid module name") unless $name =~ /^([0-9A-Za-z]+)$/;
+		return &Janus::jmsg($nick, "Invalid module name") unless $name =~ /^([0-9_A-Za-z]+)$/;
 		my $n = $1;
 		if (&Janus::reload($n)) {
 			&Janus::err_jmsg($nick, "Module reloaded");
