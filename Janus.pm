@@ -6,6 +6,8 @@ use strict;
 use warnings;
 use Carp 'cluck';
 
+our $VERSION = '$Rev$' =~ /(\d+)/;
+
 =head1 Janus
 
 Primary event multiplexer and module loader/unloader

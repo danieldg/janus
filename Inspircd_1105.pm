@@ -9,6 +9,8 @@ use strict;
 use warnings;
 &Janus::load('Nick');
 
+our $VERSION = '$Rev$' =~ /(\d+)/;
+
 __PERSIST__
 persist @sendq     :Field;
 persist @servers   :Field;

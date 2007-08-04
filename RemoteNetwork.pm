@@ -8,6 +8,8 @@ use Persist;
 use strict;
 use warnings;
 
+our $VERSION = '$Rev$' =~ /(\d+)/;
+
 __CODE__
 
 sub all_nicks { 

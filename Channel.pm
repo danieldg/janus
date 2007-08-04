@@ -8,6 +8,8 @@ use strict;
 use warnings;
 &Janus::load('Nick');
 
+our $VERSION = '$Rev$' =~ /(\d+)/;
+
 =head1 Channel
 
 Object representing a set of linked channels

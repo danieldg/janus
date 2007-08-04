@@ -9,6 +9,8 @@ use warnings;
 &Janus::load('Nick');
 &Janus::load('RemoteNetwork');
 
+our $VERSION = '$Rev$' =~ /(\d+)/;
+
 __PERSIST__
 persist @sendq :Field;
 persist @id    :Field :Arg(id);

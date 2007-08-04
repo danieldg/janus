@@ -8,6 +8,8 @@ use Persist;
 use Object::InsideOut;
 use Scalar::Util 'weaken';
 
+our $VERSION = '$Rev$' =~ /(\d+)/;
+
 =head1 Nick
 
 Object representing a nick that exists across several networks

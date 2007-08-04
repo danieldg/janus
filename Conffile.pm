@@ -5,6 +5,8 @@ package Conffile;
 use strict;
 use warnings;
 
+our $VERSION = '$Rev$' =~ /(\d+)/;
+
 our $conffile = $_[0];
 
 our %netconf;

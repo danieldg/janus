@@ -10,6 +10,8 @@ use Object::InsideOut qw(Network);
 use Persist;
 use strict;
 use warnings;
+our $VERSION = '$Rev$' =~ /(\d+)/;
+
 __CODE__
 
 my $inick = $Conffile::netconf{janus}{janus} || 'janus';
@@ -187,6 +189,23 @@ if ($Janus::interface) {
 			'If you make any modifications to this software, you must change these URLs',
 			'to one which allows downloading the version of the code you are running.'
 		);
+	}
+}, {
+	cmd => 'modules',
+	help => 'information about the modules loaded by janus',
+	code => sub {
+		my $nick = shift;
+		opendir my $dir, '.' or return warn $!;
+		&Janus::jmsg($nick, 'Janus socket core:'.$main::VERSION);
+		for my $itm (readdir $dir) {
+			next unless $itm =~ /^([0-9A-Za-z]+)\.pm$/;
+			my $mod = $1;
+			no strict 'refs';
+			my $v = ${$mod.'::VERSION'};
+			next unless $v; # not loaded
+			&Janus::jmsg($nick, "$mod:$v");
+		}
+		closedir $dir;
 	}
 }, {
 	cmd => 'list',

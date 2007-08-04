@@ -7,6 +7,8 @@ use Object::InsideOut;
 use strict;
 use warnings;
 
+our $VERSION = '$Rev$' =~ /(\d+)/;
+
 __PERSIST__
 persist @jlink   :Field :Arg(jlink) :Get(jlink);
 persist @id      :Field :Arg(id) :Get(id);
