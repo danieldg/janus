@@ -835,11 +835,16 @@ CORE => {
 		};
 	}, OPERTYPE => sub {
 		my $net = shift;
+		my $nick = $net->mynick($_[0]) or return ();
 		my $otype = $_[2];
 		$otype =~ s/_/ /g;
 		return +{
+			type => 'UMODE',
+			dst => $nick,
+			mode => [ '+oper' ],
+		},+{
 			type => 'NICKINFO',
-			dst => $net->mynick($_[0]),
+			dst => $nick,
 			item => 'opertype',
 			value => $otype,
 		};

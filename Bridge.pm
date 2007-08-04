@@ -47,7 +47,7 @@ __CODE__
 					type => 'JOIN',
 					src => $nick,
 					dst => $chan,
-					mode => [ $chan->get_nmode($nick) ],
+					mode => $chan->get_nmode($nick),
 				});
 			}
 			my($modes, $args) = $chan->mode_delta();
