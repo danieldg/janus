@@ -23,7 +23,7 @@ persist @gid      :Field :Get(gid);
 persist @homenet  :Field :Get(homenet);
 persist @homenick :Field :Get(homenick);
 persist @nets     :Field;
-persist @nicks    :Field;
+persist @nick     :Field;
 persist @chans    :Field;
 persist @mode     :Field;
 persist @info     :Field;
@@ -50,7 +50,7 @@ sub _init :Init {
 	$homenick[$$nick] = $ifo->{nick};
 	my $homeid = $net->id();
 	$nets[$$nick] = { $homeid => $net };
-	$nicks[$$nick] = { $homeid => $ifo->{nick} };
+	$nick[$$nick] = $ifo->{nick};
 	$ts[$$nick] = $ifo->{ts} || time;
 	$info[$$nick] = $ifo->{info} || {};
 	$mode[$$nick] = $ifo->{mode} || {};
@@ -196,8 +196,6 @@ sub _netpart {
 
 	delete $nets[$$nick]->{$id};
 	return if $net->jlink();
-	my $rnick = delete $nicks[$$nick]{$id};
-	$net->release_nick($rnick);
 	# this could be the last local network the nick was on
 	# if so, we need to remove it from Janus::gnicks
 	my $jl = $nick->jlink();
@@ -228,7 +226,7 @@ Get the nick's name on the given network
 
 sub str {
 	my($nick,$net) = @_;
-	$nicks[$$nick]{$net->id()};
+	$nick[$$nick];
 }
 
 =back
@@ -246,25 +244,6 @@ sub str {
 		}
 		$nets[$$nick]{$id} = $net;
 		return if $net->jlink();
-
-		my $rnick = $net->request_nick($nick, $homenick[$$nick], 0);
-		$nicks[$$nick]->{$id} = $rnick;
-	}, RECONNECT => act => sub {
-		my $act = shift;
-		my $nick = $act->{dst};
-		my $net = $act->{net};
-		my $id = $net->id();
-		
-		delete $act->{except};
-
-		my $from = $act->{from} = $nicks[$$nick]{$id};
-		my $to = $act->{to} = $net->request_nick($nick, $homenick[$$nick], 1);
-		$net->release_nick($from);
-		$nicks[$$nick]{$id} = $to;
-		
-		if ($act->{killed}) {
-			$act->{reconnect_chans} = [ values %{$chans[$$nick]} ];
-		}
 	}, NICK => check => sub {
 		my $act = shift;
 		my $old = lc $act->{dst}->homenick();
@@ -281,14 +260,14 @@ sub str {
 		my $old = $homenick[$$nick];
 		my $new = $act->{nick};
 
+		my $from = $nick[$$nick];
+		my $to = $new;
+		$nick[$$nick] = $to;
+
 		$ts[$$nick] = $act->{nickts} if $act->{nickts};
 		for my $id (keys %{$nets[$$nick]}) {
 			my $net = $nets[$$nick]->{$id};
 			next if $net->jlink();
-			my $from = $nicks[$$nick]->{$id};
-			my $to = $net->request_nick($nick, $new);
-			$net->release_nick($from);
-			$nicks[$$nick]->{$id} = $to;
 	
 			$act->{from}->{$id} = $from;
 			$act->{to}->{$id} = $to;
@@ -319,12 +298,6 @@ sub str {
 		for my $id (keys %{$chans[$$nick]}) {
 			my $chan = $chans[$$nick]->{$id};
 			$chan->part($nick);
-		}
-		for my $id (keys %{$nets[$$nick]}) {
-			my $net = $nets[$$nick]->{$id};
-			next if $net->jlink();
-			my $name = $nicks[$$nick]->{$id};
-			$net->release_nick($name);
 		}
 		delete $Janus::gnicks{$nick->gid()};
 	}, JOIN => act => sub {

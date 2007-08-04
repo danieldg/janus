@@ -18,6 +18,7 @@ our $interface;
 
 our %nets;
 our %gnicks;
+our %nicks;
 
 our $last_check = time;
 
