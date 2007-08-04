@@ -467,6 +467,7 @@ sub delink {
 		my $act = shift;
 		eval {
 			return 0 unless $act->{net}->isa('Network');
+			return 0 unless $act->{net}->id();
 			1;
 		} ? undef : 1;
 	}, NETLINK => act => sub {
@@ -487,18 +488,30 @@ sub delink {
 	cmd => 'help',
 	help => 'the text you are reading now',
 	code => sub {
-		my(@cmds,@helps);
-		for my $cmd (sort keys %commands) {
-			my $h = $commands{$cmd}{help};
-			next unless $h;
-			push @cmds, $cmd;
-			if (ref $h) {
-				push @helps, @$h;
+		my($nick,$arg) = @_;
+		if ($arg) {
+			my $det = $commands{$arg}{details};
+			if (ref $det) {
+				&Janus::jmsg($nick, @$det);
+			} elsif ($commands{$arg}{help}) {
+				&Janus::jmsg($nick, "$arg - $commands{$arg}{help}");
 			} else {
-				push @helps, " $cmd - $h";
+				&Janus::jmsg($nick, 'No help for that command');
 			}
+		} else {
+			my @cmds;
+			my $synlen = 0;
+			for my $cmd (sort keys %commands) {
+				my $h = $commands{$cmd}{help};
+				next unless $h;
+				push @cmds, $cmd;
+				$synlen = length $cmd if length $cmd > $synlen;
+			}
+			&Janus::jmsg($nick, 'Available commands: ');
+			&Janus::jmsg($nick, map {
+				sprintf " \002\%-${synlen}s\002  \%s", uc $_, $commands{$_}{help};
+			} @cmds);
 		}
-		&Janus::jmsg($_[0], 'Available commands: '.join(' ', @cmds), @helps);
 	},
 });
 

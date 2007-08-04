@@ -266,7 +266,7 @@ sub parse {
 	}
 	my $cmd = $args[1];
 	$cmd = $args[1] = $token2cmd{$cmd} if exists $token2cmd{$cmd};
-	unless ($auth[$$net] || $cmd eq 'PASS' || $cmd eq 'SERVER' || $cmd eq 'PROTOCTL') {
+	unless ($auth[$$net] || $cmd eq 'PASS' || $cmd eq 'SERVER' || $cmd eq 'PROTOCTL' || $cmd eq 'ERROR') {
 		return () if $cmd eq 'NOTICE'; # NOTICE AUTH ... annoying
 		$net->send('ERROR :Not authorized');
 		return +{

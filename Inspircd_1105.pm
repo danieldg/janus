@@ -701,9 +701,10 @@ sub cmd2 {
 	'm_silence_ext.so' => { },
 	'm_spanningtree.so' => { },
 	'm_spy.so' => { },
-	'm_ssl_gnutls.so' => { },
-	'm_ssl_openssl.so' => { },
 	'm_sslmodes.so' => {
+		cmode => { z => 'r_sslonly' },
+	},
+	'm_ssl_dummy.so' => {
 		metadata => {
 			ssl => sub {
 				my $net = shift;
@@ -727,7 +728,6 @@ sub cmd2 {
 				}
 			},
 		},
-		cmode => { z => 'r_sslonly' },
 	},
 	'm_stripcolor.so' => {
 		umode => { S => 'colorstrip' },
@@ -763,9 +763,7 @@ sub cmd2 {
 	'm_timedbans.so' => { }, # the list is kept locally, we don't need to care
 	'm_tline.so' => { },
 	'm_uhnames.so' => { },
-	'm_uninvite.so' => {
-		cmds => { UNINVITE => \&ignore },
-	},
+	'm_uninvite.so' => { },
 	'm_userip.so' => { },
 	'm_vhost.so' => { }, # routed as normal FHOST
 	'm_watch.so' => { },
@@ -1453,6 +1451,7 @@ CORE => {
 
 });
 
-$moddef{'m_ssl_dummy.so'} = $moddef{'m_sslmodes.so'};
+$moddef{'m_ssl_gnutls.so'} = $moddef{'m_ssl_dummy.so'};
+$moddef{'m_ssl_openssl.so'} = $moddef{'m_ssl_dummy.so'};
 
 1;
