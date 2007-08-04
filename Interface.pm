@@ -72,25 +72,6 @@ if ($Janus::interface) {
 		my $dst = $act->{dst};
 		my $type = $act->{msgtype};
 		
-		if ($type eq '312') {
-			# server whois reply message
-			if ($src->isa('Network')) {
-				&Janus::append(+{
-					type => 'MSG',
-					msgtype => 640,
-					src => $src,
-					dst => $dst,
-					msg => [
-						$act->{msg}->[0],
-						"is connected through a Janus link. Home network: ".$src->netname(),
-					],
-				});
-			} else {
-				warn "Source of /whois reply is not a server";
-			}
-			return undef;
-		}
-
 		return undef unless $src->isa('Nick') && $dst->isa('Nick');
 		if ($dst->info('_is_janus')) {
 			return 1 unless $act->{msgtype} eq 'PRIVMSG' && $src;
