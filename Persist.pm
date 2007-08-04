@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Filter::Util::Call;
 
-our $VERSION = '$Rev$' =~ /(\d+)/;
+our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 sub import {
 	my $pkg = caller;

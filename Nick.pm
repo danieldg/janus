@@ -8,7 +8,7 @@ use Persist;
 use Object::InsideOut;
 use Scalar::Util 'weaken';
 
-our $VERSION = '$Rev$' =~ /(\d+)/;
+our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 =head1 Nick
 

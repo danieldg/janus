@@ -7,7 +7,7 @@ use Object::InsideOut;
 use strict;
 use warnings;
 
-our $VERSION = '$Rev$' =~ /(\d+)/;
+our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 __PERSIST__
 persist @jlink   :Field :Arg(jlink) :Get(jlink);

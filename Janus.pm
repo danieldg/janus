@@ -6,7 +6,7 @@ use strict;
 use warnings;
 use Carp 'cluck';
 
-our $VERSION = '$Rev$' =~ /(\d+)/;
+our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 =head1 Janus
 

@@ -9,7 +9,7 @@ use Object::InsideOut;
 use Socket6;
 &Janus::load('InterJanus');
 
-our $VERSION = '$Rev$' =~ /(\d+)/;
+our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 __PERSIST__
 persist @buffer   :Field;

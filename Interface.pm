@@ -10,7 +10,7 @@ use Object::InsideOut qw(Network);
 use Persist;
 use strict;
 use warnings;
-our $VERSION = '$Rev$' =~ /(\d+)/;
+our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 __CODE__
 

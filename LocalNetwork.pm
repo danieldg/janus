@@ -10,7 +10,7 @@ use strict;
 use warnings;
 &Janus::load('Channel');
 
-our $VERSION = '$Rev$' =~ /(\d+)/;
+our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 __PERSIST__
 persist @cparms :Field; # currently active parameters
