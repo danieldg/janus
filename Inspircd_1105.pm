@@ -221,18 +221,16 @@ sub _connect_ifo {
 		}
 	}
 	
-	my $vhost = $nick->info('vhost');
-
 	my $srv = $nick->homenet()->id() . '.janus';
 	$srv = $net->cparam('linkname') if $srv eq 'janus.janus';
 
 	my $ip = $nick->info('ip') || '0.0.0.0';
 	$ip = '0.0.0.0' if $ip eq '*';
-	unshift @out, $net->cmd2($srv, NICK => $nick->ts(), $nick, $nick->info('host'), $vhost,
+	unshift @out, $net->cmd2($srv, NICK => $nick->ts(), $nick, $nick->info('host'), $nick->info('vhost'),
 		$nick->info('ident'), $mode, $ip, $nick->info('name'));
 	if ($nick->has_mode('oper')) {
 		my $type = $nick->info('opertype') || 'IRC Operator';
-		my $len = $net->nicklen() - 9;
+		my $len = $net->nicklen();
 		$type = substr $type, 0, $len;
 		$type =~ s/ /_/g;
 		push @out, $net->cmd2($nick, OPERTYPE => $type);
@@ -419,7 +417,7 @@ sub cmd2 {
 					type => 'NICKINFO',
 					src => $net->item($_[0]),
 					dst => $dst,
-					item => 'host',
+					item => 'vhost',
 					value => $_[3],
 				};
 			}
@@ -647,7 +645,7 @@ sub cmd2 {
 					type => 'NICKINFO',
 					src => $nick,
 					dst => $nick,
-					item => 'host',
+					item => 'vhost',
 					value => $_[2],
 				};
 			}
@@ -828,11 +826,16 @@ CORE => {
 		} @m };
 
 		my $nick = Nick->new(%nick);
-		$net->nick_collide($_[3], $nick);
-		return +{
-			type => 'NEWNICK',
-			dst => $nick,
-		};
+		my($good, @out) = $net->nick_collide($_[3], $nick);
+		if ($good) {
+			push @out, +{
+				type => 'NEWNICK',
+				dst => $nick,
+			};
+		} else {
+			$net->send($net->cmd1(KILL => $_[3], 'hub.janus (Nick collision)'));
+		}
+		@out;
 	}, OPERTYPE => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
@@ -865,7 +868,7 @@ CORE => {
 		return +{
 			type => 'NICKINFO',
 			dst => $nick,
-			item => 'host',
+			item => 'vhost',
 			value => $_[2],
 		};
 	}, FNAME => sub {
@@ -1397,7 +1400,7 @@ CORE => {
 		return $net->cmd2($act->{src}, TOPIC => $act->{dst}, $act->{topic});
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
-		if ($act->{item} eq 'host') {
+		if ($act->{item} eq 'vhost') {
 			return $net->cmd2($act->{dst}, FHOST => $act->{value});
 		} elsif ($act->{item} eq 'name') {
 			return $net->cmd2($act->{dst}, FNAME => $act->{value});
@@ -1405,7 +1408,7 @@ CORE => {
 			return $net->cmd2($act->{dst}, AWAY => defined $act->{value} ? $act->{value} : ());
 		} elsif ($act->{item} eq 'opertype') {
 			return () unless $act->{value};
-			my $len = $net->nicklen() - 9;
+			my $len = $net->nicklen();
 			my $type = substr $act->{value}, 0, $len;
 			$type =~ s/ /_/g;
 			return $net->cmd2($act->{dst}, OPERTYPE => $type);

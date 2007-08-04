@@ -217,29 +217,27 @@ sub nick_collide {
 	my $old = delete $nicks[$$net]->{lc $name};
 	unless ($old) {
 		$nicks[$$net]->{lc $name} = $new;
-		return;
+		return 1;
 	}
 	my $tsctl = $old->ts() <=> $new->ts();
 
 	$nicks[$$net]->{lc $name} = $new if $tsctl > 0;
 	$nicks[$$net]->{lc $name} = $old if $tsctl < 0;
-
-	if ($tsctl <= 0) {
-		# new nick lost
-		$net->send($net->cmd1(KILL => $name, "hub.janus (Nick Collision)")); # FIXME this is unreal-specific
-	}
+	
+	my @rv = ($tsctl > 0);
 	if ($tsctl >= 0) {
 		# old nick lost, reconnect it
 		if ($old->homenet()->id() eq $net->id()) {
 			warn "Nick collision on home network!";
 		} else {
-			&Janus::insert_full(+{
+			push @rv, +{
 				type => 'QUIT',
 				dst => $new,
 				killer => $net,
-			});
+			};
 		}
 	}
+	@rv;
 }
 
 # Request a nick on a remote network (CONNECT/JOIN must be sent AFTER this)

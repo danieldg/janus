@@ -716,11 +716,16 @@ sub srvname {
 		$oplvl & (1 << $_) ? $nick{info}{opertype} = $opertypes[$_] : 0 for 0..$#opertypes;
 
 		my $nick = Nick->new(%nick);
-		$net->nick_collide($_[2], $nick);
-		return +{
-			type => 'NEWNICK',
-			dst => $nick,
-		};
+		my($good, @out) = $net->nick_collide($_[2], $nick);
+		if ($good) {
+			push @out, +{
+				type => 'NEWNICK',
+				dst => $nick,
+			};
+		} else {
+			$net->send($net->cmd1(KILL => $_[2], 'hub.janus (Nick collision)'));
+		}
+		@out;
 	}, QUIT => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
