@@ -179,7 +179,7 @@ if ($Janus::interface) {
 );
 &Janus::command_add({
 	cmd => 'info',
-	help => 'provides information about janus, including a link to the complete source code',
+	help => 'Provides information about janus',
 	code => sub {
 		my $nick = shift;
 		&Janus::jmsg($nick, 
@@ -189,8 +189,7 @@ if ($Janus::interface) {
 			'channels across any linked network.',
 			'-------------------------',
 			'The source code can be found at http://danieldegraaf.afraid.org/janus/trunk/',
-			'This file was checked out from the $URL$ $Rev$;',
-			'the rest of the project may be at a later revision within this respository.',
+			'This file was checked out from $URL$',
 			'If you make any modifications to this software, you must change these URLs',
 			'to one which allows downloading the version of the code you are running.'
 		);
@@ -214,7 +213,7 @@ if ($Janus::interface) {
 	}
 }, {
 	cmd => 'list',
-	help => 'shows a list of the linked networks and shared channels',
+	help => 'Shows a list of the linked networks and shared channels',
 	code => sub {
 		my $nick = shift;
 		&Janus::jmsg($nick, 'Linked networks: '.join ' ', sort keys %Janus::nets);
@@ -287,7 +286,10 @@ if ($Janus::interface) {
 	}
 }, {
 	cmd => 'delink',
-	help => 'delink $chan - delinks a channel from all other networks',
+	help => 'Delinks a channel from all other networks',
+	details => [
+		"Syntax: \002DELINK\002 #channel",
+	],
 	code => sub {
 		my($nick, $cname) = @_;
 		my $snet = $nick->homenet();
@@ -313,7 +315,7 @@ if ($Janus::interface) {
 	},
 }, {
 	cmd => 'rehash',
-	help => 'reload the config and attempt to reconnect to split servers',
+	help => 'Reload the config and attempt to reconnect to split servers',
 	code => sub {
 		my($nick,$pass) = @_;
 		unless ($nick->has_mode('oper') || $pass eq $Conffile::netconf{janus}{pass}) {
@@ -328,7 +330,10 @@ if ($Janus::interface) {
 	},
 }, {
 	cmd => 'die',
-	help => "kill the janus server; does \002NOT\002 restart it",
+	help => "Kill the janus server; does \002NOT\002 restart it",
+	details => [
+		"Syntax: \002DIE\002 diepass",
+	],
 	code => sub {
 		my($nick,$pass) = @_;
 		unless ($nick->has_mode('oper') && $pass && $pass eq $Conffile::netconf{janus}{diepass}) {
@@ -339,7 +344,10 @@ if ($Janus::interface) {
 	},
 }, {
 	cmd => 'restart',
-	help => "restart the janus server",
+	help => "Restart the janus server",
+	details => [
+		"Syntax: \002RESTART\002 diepass",
+	],
 	code => sub {
 		my($nick,$pass) = @_;
 		unless ($nick->has_mode('oper') && $pass && $pass eq $Conffile::netconf{janus}{diepass}) {
@@ -374,7 +382,12 @@ if ($Janus::interface) {
 	},
 }, {
 	cmd => 'autoconnect',
-	help => 'autoconnect $net 1|0 - enable or disable autoconnect on a network',
+	help => 'Enable or disable autoconnect on a network',
+	details => [
+		"Syntax: \002AUTOCONNECT\002 network [0|1]",
+		"Enables or disables the automatic reconnection that janus makes to a network.",
+		"A rehash will reread the value for the network from the janus configuration",
+	],
 	code => sub {
 		my($nick, $args) = @_;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
@@ -388,7 +401,11 @@ if ($Janus::interface) {
 	},
 }, {
 	cmd => 'netsplit',
-	help => 'netsplit $net - cause a network split and automatic rehash',
+	help => 'Split a network and reconnect to it',
+	details => [
+		"Syntax: \002NETSPLIT\002 network",
+		"Disconnects the given network from janus and then rehashes to (possibly) reconnect",
+	],
 	code => sub {
 		my $nick = shift;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
@@ -405,7 +422,7 @@ if ($Janus::interface) {
 	},
 }, {
 	cmd => 'renick',
-	help => 'renick $nick - change the janus nick',
+	# hidden command, no help
 	code => sub {
 		my($nick,$name) = @_;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
@@ -414,9 +431,9 @@ if ($Janus::interface) {
 	},
 }, {
 	cmd => 'save',
-	help => "save the current linked channels for this network",
+	help => "Save the current linked channels for this network",
 	code => sub {
-		my($nick,$all) = @_; # TODO make command "save all", maybe w/ password
+		my($nick) = @_;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my $hnet = $nick->homenet();
 		my @file;
@@ -439,7 +456,7 @@ if ($Janus::interface) {
 	},
 }, {
 	cmd => 'reload',
-	help => "load or reload a module, live. \002EXPERIMENTAL\002.",
+	help => "Load or reload a module, live. \002EXPERIMENTAL\002.",
 	details => [
 		"Syntax: \002RELOAD\002 module",
 		"\002WARNING\002: Reloading core modules may introduce bugs because of persistance",
@@ -458,7 +475,11 @@ if ($Janus::interface) {
 	},
 }, {
 	cmd => 'chatops',
-	help => 'chatops $msg - send a messge to opers on all other networks (if enabled, this is done by /chatops)',
+	help => 'Send a messge to opers on all other networks',
+	details => [
+		"Syntax: \002CHATOPS\002 message",
+		'The command /chatops, if available, can also be relayed',
+	],
 	code => sub {
 		my($nick,$msg) = @_;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
@@ -471,7 +492,10 @@ if ($Janus::interface) {
 	},
 }, {
 	cmd => 'chatto',
-	help => 'chatto $netid $msg - send a message to all opers on a specific network',
+	help => 'Send a message to all opers on a specific network',
+	details => [
+		"Syntax: \002CHATTO\002 network message",
+	],
 	code => sub {
 		my($nick,$msg) = @_;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
