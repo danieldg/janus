@@ -69,8 +69,6 @@ if ($Janus::interface) {
 	}, NETSPLIT => act => sub {
 		my $act = shift;
 		$Janus::interface->_netpart($act->{net});
-	}, MSG => validate => sub {
-		my $act = shift;
 	}, MSG => parse => sub {
 		my $act = shift;
 		my $src = $act->{src};
@@ -103,7 +101,7 @@ if ($Janus::interface) {
 		}
 		return 1 if $type eq '310'; # available for help
 
-		return undef $src->isa('Nick') && $dst->isa('Nick');
+		return undef unless $src->isa('Nick') && $dst->isa('Nick');
 		if ($dst->info('_is_janus')) {
 			return 1 unless $act->{msgtype} eq 'PRIVMSG' && $src;
 			local $_ = $act->{msg};
