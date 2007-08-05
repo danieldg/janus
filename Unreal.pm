@@ -497,7 +497,7 @@ sub nick_msg {
 sub nc_msg {
 	my $net = shift;
 	return () if $_[2] eq 'AUTH' && $_[0] =~ /\./;
-	my $src = $net->item($_[0]);
+	my $src = $net->item($_[0]) or return ();
 	my $msgtype = $_[1];
 	if ($_[2] =~ /^\$/) {
 		# server broadcast message. No action; these are confined to source net

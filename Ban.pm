@@ -66,11 +66,19 @@ sub delete {
 }
 
 sub match {
-	my($ban, $nick) = @_;
-	my $mask = ref $nick ? 
-		$nick->homenick().'!'.$nick->info('ident').'@'.$nick->info('host').'%'.$nick->homenet()->id().':'.$nick->info('name') :
-		$nick;
-	$mask =~ /$regex[$$ban]/;
+	my($ban,@v) = @_;
+	if (@v == 1 && ref $v[0]) {
+		my $nick = shift @v;
+		my $head = $nick->homenick().'!'.$nick->info('ident').'@';
+		my $tail = '%'.$nick->homenet()->id().':'.$nick->info('name');
+		push @v, $head . $nick->info('host') . $tail;
+		push @v, $head . $nick->info('vhost') . $tail;
+		push @v, $head . $nick->info('ip') . $tail;
+	}
+	for my $mask (@v) {
+		return 1 if $mask =~ /$regex[$$ban]/;
+	}
+	return 0;
 }
 
 my %timespec = (
@@ -166,10 +174,8 @@ my %timespec = (
 		my $net = $act->{net};
 		return undef if $net->jlink() || $act->{reconnect};
 
-		my $mask = $nick->homenick().'!'.$nick->info('ident').'@'.$nick->info('host').'%'.$nick->homenet()->id().':'.$nick->info('name');
-		print "Ban check: $mask on ".$net->id();
 		for my $ban (banlist($net)) {
-			next unless $ban->match($mask);
+			next unless $ban->match($nick);
 
 			&Janus::append(+{
 				type => 'KILL',
