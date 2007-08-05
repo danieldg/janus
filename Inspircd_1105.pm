@@ -504,11 +504,11 @@ sub cmd2 {
 	'm_foobar.so' => { },
 	'm_globalload.so' => { 
 		cmds => { 
-			GLOADMODULE => {
+			GLOADMODULE => sub {
 				my $net = shift;
 				$net->module_add($_[2]);
 			},
-			GUNLOADMODULE => {
+			GUNLOADMODULE => sub {
 				my $net = shift;
 				$net->module_remove($_[2]);
 			},
@@ -804,7 +804,7 @@ sub cmd2 {
 	},
 	'm_taxonomy.so' => { },
 	'm_testcommand.so' => { },
-	'm_timedbans.so' => { cmds => { TBAN => \&ignore } }, # TODO check for desyncs this causes
+	'm_timedbans.so' => { cmds => { TBAN => \&ignore } },
 	'm_tline.so' => { },
 	'm_uhnames.so' => { },
 	'm_uninvite.so' => { },
