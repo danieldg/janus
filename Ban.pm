@@ -10,7 +10,7 @@ use warnings;
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 __PERSIST__
-persist %netbans;
+persist %netbans; # TODO consider saving these
 persist @regex  :Field;
 persist @expr   :Field :Arg(expr)   :Get(expr);
 persist @net    :Field :Arg(net)    :Get(net);
@@ -88,10 +88,10 @@ my %timespec = (
 	details => [
 		'Bans are matched against nick!ident@host%netid:name on any remote joins to a shared channel',
 		'Expiration can be of the form 1y1w3d4h5m6s, or just # of seconds, or 0 for a permanent ban',
-		' ban list                        List all active janus bans',
-		' ban add $expr $expire $reason   Add a ban',
-		' ban kadd $expr $expire $reason  Add a ban, and kill all users matching it',
-		' ban del $expr|$index            Remove a ban by expression or index in the ban list',
+		" \002ban list\002                      List all active janus bans on your network",
+		" \002ban add\002 expr length reason    Add a ban (applied to new users only)",
+		" \002ban kadd\002 expr length reason   Add a ban, and kill all users matching it",
+		" \002ban del\002 [expr|index]          Remove a ban by expression or index in the ban list",
 	], code => sub {
 		my $nick = shift;
 		my($cmd, @arg) = split /\s+/, shift;

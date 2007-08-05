@@ -6,7 +6,6 @@ use strict;
 use warnings;
 use Persist;
 use Object::InsideOut;
-use Socket6;
 &Janus::load('InterJanus');
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
@@ -19,9 +18,9 @@ __CODE__
 
 sub _init :Init {
 	my $net = shift;
-	my($port,$addr) = unpack_sockaddr_in6 $peer[$$net];
-	$addr = inet_ntop AF_INET6, $addr;
+	my($addr,$port) = $Conffile::inet{addr}->($peer[$$net]);
 	print "Pending connection from $addr:$port\n";
+	# TODO authenticate these
 }
 
 sub id {
