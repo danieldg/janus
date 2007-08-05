@@ -67,13 +67,6 @@ __CODE__
 				in_burst => 1,
 			}) if defined $chan->topic();
 		}
-	}, NETSPLIT => act => sub {
-		my $act = shift;
-		my $net = $act->{net};
-		for my $nick (values %Janus::nicks) {
-			next if $nick->homenet()->id() eq $net->id();
-			$nick->_netpart($act->{net});
-		}
 	}, 
 );
 
