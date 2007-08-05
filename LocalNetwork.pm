@@ -247,29 +247,29 @@ sub nick_collide {
 # Request a nick on a remote network (CONNECT/JOIN must be sent AFTER this)
 sub request_nick {
 	my($net, $nick, $reqnick, $tagged) = @_;
-	$reqnick =~ s/[^0-9a-zA-Z\[\]\\^\-_`{|}]/_/g;
-	my $maxlen = $net->nicklen();
-	my $given = substr $reqnick, 0, $maxlen;
-
-	$tagged = 1 if exists $nicks[$$net]->{lc $given};
-
+	my $given;
 	if ($nick->homenet()->id() eq $net->id()) {
-		warn "Unhandled nick change collision on home network" if $tagged;
-		$tagged = 0;
+		$given = $reqnick;
 	} else {
+		$reqnick =~ s/[^0-9a-zA-Z\[\]\\^\-_`{|}]/_/g;
+		my $maxlen = $net->nicklen();
+		$given = substr $reqnick, 0, $maxlen;
+
+		$tagged = 1 if exists $nicks[$$net]->{lc $given};
+
 		my $tagre = $net->param('force_tag');
 		$tagged = 1 if $tagre && $given =~ /$tagre/;
-	}
-	
-	if ($tagged) {
-		my $tagsep = $net->param('tag_prefix');
-		$tagsep = '/' unless defined $tagsep;
-		my $tag = $tagsep . $nick->homenet()->id();
-		my $i = 0;
-		$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
-		while (exists $nicks[$$net]->{lc $given}) {
-			my $itag = $tagsep.(++$i).$tag; # it will find a free nick eventually...
-			$given = substr($reqnick, 0, $maxlen - length $itag) . $itag;
+		
+		if ($tagged) {
+			my $tagsep = $net->param('tag_prefix');
+			$tagsep = '/' unless defined $tagsep;
+			my $tag = $tagsep . $nick->homenet()->id();
+			my $i = 0;
+			$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
+			while (exists $nicks[$$net]->{lc $given}) {
+				my $itag = $tagsep.(++$i).$tag; # it will find a free nick eventually...
+				$given = substr($reqnick, 0, $maxlen - length $itag) . $itag;
+			}
 		}
 	}
 	$nicks[$$net]->{lc $given} = $nick;
