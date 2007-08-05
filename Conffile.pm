@@ -187,6 +187,12 @@ if ($netconf{janus}{ipv6}) {
 			}
 			$sock;
 		} ],
+		addr => eval q[ sub {
+			my $str = shift;
+			my($port,$addr) = unpack_sockaddr_in6 $str;
+			$addr = inet_ntop AF_INET6, $addr;
+			return ($addr,$port);
+		} ],
 	);
 } else {
 	eval q[
@@ -221,6 +227,12 @@ if ($netconf{janus}{ipv6}) {
 				$sock->connect_SSL();
 			}
 			$sock;
+		} ],
+		addr => eval q[ sub {
+			my $str = shift;
+			my($port,$addr) = unpack_sockaddr_in $str;
+			$addr = inet_ntoa $addr;
+			return ($addr,$port);
 		} ],
 	);
 }
