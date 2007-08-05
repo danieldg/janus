@@ -42,8 +42,7 @@ sub _init :Init {
 sub ignore { () }
 
 my %moddef;
-# no support for removing modules at the moment. I'm not sure exactly how to get notified of that either;
-# there's lots of potential for race conditions if I do something like "remove all and re-add"
+
 sub module_add {
 	my($net,$name) = @_;
 	my $mod = $moddef{$name} or do {
@@ -91,6 +90,15 @@ sub module_add {
 			$meta[$$net]{$i} = $mod->{acts}{$i};
 		}
 	}
+}
+
+sub module_remove {
+	my($net,$name) = @_;
+	my $mod = delete $modules[$$net]{$name} or do {
+		$net->send($net->cmd2($Janus::interface, OPERNOTICE => "Could not unload moule $name: not loaded"));
+		return;
+	};
+	$net->send($net->cmd2($Janus::interface, OPERNOTICE => "Module removal not implemented yet!")); # TODO
 }
 
 sub cmode2txt {
@@ -374,7 +382,7 @@ sub cmd2 {
 	'm_banexception.so' => {
 		cmode => { e => 'l_except' },
 	},
-	'm_banredirect.so' => { },
+	'm_banredirect.so' => { }, # this just adds syntax to channel bans
 	'm_blockamsg.so' => { },
 	'm_blockcaps.so' => {
 		cmode => { P => 'r_blockcaps' }
@@ -385,7 +393,7 @@ sub cmd2 {
 	'm_botmode.so' => {
 		umode => { B => 'bot' },
 	},
-	'm_cban.so' => { },
+	'm_cban.so' => { cmds => { CBAN => \&ignore } }, # janus needs localjoin to link, so we don't care
 	'm_censor.so' => {
 		cmode => { G => 'r_badword' },
 		umode => { G => 'badword' },
@@ -405,9 +413,6 @@ sub cmd2 {
 		},
 	},
 	'm_check.so' => { },
-	'm_inviteexception.so' => {
-		cmode => { I => 'l_invex' }
-	},
 	
 	'm_chghost.so' => {
 		cmds => {
@@ -473,17 +478,43 @@ sub cmd2 {
 	'm_conn_waitpong.so' => { },
 	'm_connflood.so' => { },
 	'm_cycle.so' => { },
-	'm_dccallow.so' => { },
+	'm_dccallow.so' => { cmds => { DCCALLOW => \&ignore } },
 	'm_deaf.so' => {
 		umode => { d => 'deaf_chan' }
 	},
 	'm_denychans.so' => { },
-	'm_devoice.so' => { },
+	'm_devoice.so' => {
+		cmds => {
+			DEVOICE => sub {
+				my $net = shift;
+				my $nick = $net->mynick($_[0]) or return ();
+				return +{
+					type => 'MODE',
+					src => $net,
+					dst => $net->chan($_[2]),
+					modes => [ '-n_voice' ],
+					args => [ $nick ],
+				};
+			},
+		},
+	},
 	'm_dnsbl.so' => { },
-	'm_filter.so' => { },
+	'm_filter.so' => { cmds => { FILTER => \&ignore } },
 	'm_filter_pcre.so' => { },
 	'm_foobar.so' => { },
-	'm_globalload.so' => { },
+	'm_globalload.so' => { 
+		cmds => { 
+			GLOADMODULE => {
+				my $net = shift;
+				$net->module_add($_[2]);
+			},
+			GUNLOADMODULE => {
+				my $net = shift;
+				$net->module_remove($_[2]);
+			},
+			GRELOADMODULE => \&ignore,
+		},
+	},
 	'm_globops.so' => {
 		cmds => { GLOBOPS => \&ignore },
 	},
@@ -503,6 +534,9 @@ sub cmd2 {
 		# sadly, you are NOT invisible to remote users :P
 		umode => { Q => 'hiddenabusiveoper' }
 	},
+	'm_inviteexception.so' => {
+		cmode => { I => 'l_invex' }
+	},
 	'm_joinflood.so' => {
 		cmode => { j => 's_joinlimit' }
 	},
@@ -520,7 +554,7 @@ sub cmd2 {
 		cmode => { f => 's_flood' }
 	},
 	'm_namesx.so' => { },
-	'm_nicklock.so' => { },
+#	'm_nicklock.so' => { }, # TODO go back and unlock the nick
 	'm_noctcp.so' => {
 		cmode => { C => 'r_ctcpblock' }
 	},
@@ -695,8 +729,8 @@ sub cmd2 {
 	'm_showwhois.so' => {
 		umode => { W => 'whois_notice' }
 	},
-	'm_silence.so' => { },
-	'm_silence_ext.so' => { },
+	'm_silence.so' => { cmds => { SILENCE => \&ignore } },
+	'm_silence_ext.so' => { cmds => { SILENCE => \&ignore } },
 	'm_spanningtree.so' => { },
 	'm_spy.so' => { },
 	'm_sslmodes.so' => {
@@ -746,6 +780,18 @@ sub cmd2 {
 				};
 			},
 		},
+		cmds => {
+			SWHOIS => sub {
+				my $net = shift;
+				return +{
+					type => 'NICKINFO',
+					src => $net->item($_[0]),
+					dst => $_[2],
+					item => 'swhois',
+					value => $_[3],
+				};
+			},
+		},
 		acts => {
 			NICKINFO => sub {
 				my($net,$act) = @_;
@@ -758,7 +804,7 @@ sub cmd2 {
 	},
 	'm_taxonomy.so' => { },
 	'm_testcommand.so' => { },
-	'm_timedbans.so' => { }, # the list is kept locally, we don't need to care
+	'm_timedbans.so' => { cmds => { TBAN => \&ignore } }, # TODO check for desyncs this causes
 	'm_tline.so' => { },
 	'm_uhnames.so' => { },
 	'm_uninvite.so' => { },
