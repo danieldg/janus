@@ -945,8 +945,8 @@ sub srvname {
 		};
 	}, MODE => sub {
 		my $net = shift;
-		my $src = $net->item($_[0]);
-		my $chan = $net->item($_[2]);
+		my $src = $net->item($_[0]) or return ();
+		my $chan = $net->item($_[2]) or return ();
 		if ($chan->isa('Nick')) {
 			# umode change
 			return () unless $chan->homenet()->id() eq $net->id();
