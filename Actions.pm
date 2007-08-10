@@ -23,7 +23,13 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 =item NETLINK Sent when a connection to/from janus is initalized 
 
+=item BURST Sent when a connection is ready to start syncing data
+
+=item LINKED Sent when a connection is fully linked
+
 =item NETSPLIT Disconnects a network from janus
+
+=item RAW Internal network action; do not intercept or inspect
 
 =back
 
@@ -119,6 +125,9 @@ my %spec = (
 		net => 'Network',
 	},
 	LINKED => {
+		net => 'Network',
+	},
+	BURST => {
 		net => 'Network',
 	},
 	NETSPLIT => {
@@ -224,39 +233,41 @@ my %spec = (
 my %ignore;
 $ignore{$_} = 1 for qw/type src dst except sendto/;
 
-&Janus::hook_add(map {
-	my $itm = $_;
+&Janus::hook_add(ALL => validate => sub {
+	my $act = shift;
+	my $itm = $act->{type};
 	my $check = $spec{$itm};
-	$itm, validate => sub {
-		my $act = shift;
-		KEY: for my $k (keys %$check) {
-			$@ = "Fail: Key $k in $itm";
-			$_ = $$check{$k};
-			my $v = $act->{$k};
-			if (s/^\?//) {
-				return 0 unless defined $v;
-			} else {
-				return 1 unless defined $v;
-			}
-			my $r = 0;
-			for (split /\s+/) {
-				next KEY if eval {
-					/\$/ ? (defined $v && '' eq ref $v) :
-					/\@/ ? (ref $v && 'ARRAY' eq ref $v) :
-					/\%/ ? (ref $v && 'HASH' eq ref $v) :
-					(ref $v && $v->isa($_));
-				};
-			}
-			$@ = "Invalid value $v for key '$k' in action $itm";
-			return 1 unless $r;
+	unless ($check) {
+		return undef if $itm eq 'RAW';
+		print "Unknown action type $itm\n";
+		return undef;
+	}
+	KEY: for my $k (keys %$check) {
+		$@ = "Fail: Key $k in $itm";
+		$_ = $$check{$k};
+		my $v = $act->{$k};
+		if (s/^\?//) {
+			return 0 unless defined $v;
+		} else {
+			return 1 unless defined $v;
 		}
-		for my $k (keys %$act) {
-			next if exists $check->{$k};
-			next if $ignore{$k};
-			print "Warning: unknown key $k in action $itm\n";
+		my $r = 0;
+		for (split /\s+/) {
+			next KEY if eval {
+				/\$/ ? (defined $v && '' eq ref $v) :
+				/\@/ ? (ref $v && 'ARRAY' eq ref $v) :
+				/\%/ ? (ref $v && 'HASH' eq ref $v) :
+				(ref $v && $v->isa($_));
+			};
 		}
-		undef;
-	};
-} keys %spec);
+		$@ = "Invalid value $v for key '$k' in action $itm";
+		return 1 unless $r;
+	}
+	for my $k (keys %$act) {
+		next if $ignore{$k} or exists $check->{$k};
+		print "Warning: unknown key $k in action $itm\n";
+	}
+	undef;
+});
 
 1;

@@ -370,7 +370,7 @@ sub in_socket {
 	for my $act (@act) {
 		$act->{except} = $src unless $act->{except};
 		unshift @qstack, [];
-		if (_mod_hook($act->{type}, validate => $act)) {
+		if (_mod_hook('ALL', validate => $act)) {
 			my $err = $@ || 'unknown error';
 			$err =~ s/\n//;
 			print "Validate hook stole $act->{type} [$err]\n";

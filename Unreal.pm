@@ -1021,6 +1021,7 @@ sub srvname {
 		$_[0] ? () : {
 			type => 'BURST',
 			net => $net,
+			sendto => [],
 		};
 	}, SQUIT => sub {
 		my $net = shift;

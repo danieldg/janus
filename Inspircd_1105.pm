@@ -1095,6 +1095,7 @@ CORE => {
 		+{
 			type => 'BURST',
 			net => $net,
+			sendto => [],
 		};
 	}, SQUIT => sub {
 		my $net = shift;
