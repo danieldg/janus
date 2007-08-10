@@ -25,7 +25,7 @@ sub service {
 		my $act = shift;
 		my $src = $act->{src};
 		my $dst = $act->{dst};
-		return undef unless $srv->isa('Nick') && $dst->isa('Nick');
+		return undef unless $src->isa('Nick') && $dst->isa('Nick');
 		return 1 if service($src);
 		return 1 if service($dst);
 		undef;

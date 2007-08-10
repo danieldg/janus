@@ -60,7 +60,7 @@ sub filter {
 	for my $i (1 .. $self->{qlevel}) { s/(['\\])/\\$1/g }
 	return $status unless $self->{init};
 
-	if (/^persist ([\%\@\$])([^ =]+)(.*?);\s*(#|$)/) {
+	if (/^persist ([\%\@\$])([^ =;]+)(.*?);\s*(#|$)/) {
 		my ($t,$var,$args) = ($1,$2,$3);
 		if ($self->{state}->{$t.$var}) {
 			$_ = "my $t$var; alias $t$var = $t\{\$PERSIST_STATE->{'$t$var'}};\n";

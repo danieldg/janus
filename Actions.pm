@@ -221,12 +221,15 @@ my %spec = (
 	},
 );
 
+my %ignore;
+$ignore{$_} = 1 for qw/type src dst except sendto/;
+
 &Janus::hook_add(map {
 	my $itm = $_;
 	my $check = $spec{$itm};
 	$itm, validate => sub {
 		my $act = shift;
-		for my $k (keys %$check) {
+		KEY: for my $k (keys %$check) {
 			$@ = "Fail: Key $k in $itm";
 			$_ = $$check{$k};
 			my $v = $act->{$k};
@@ -235,17 +238,22 @@ my %spec = (
 			} else {
 				return 1 unless defined $v;
 			}
-			my $err
 			my $r = 0;
 			for (split /\s+/) {
-				$r = 1 if eval {
-					/\$/ ? (defined $v && !defined ref $v) :
+				next KEY if eval {
+					/\$/ ? (defined $v && '' eq ref $v) :
 					/\@/ ? (ref $v && 'ARRAY' eq ref $v) :
 					/\%/ ? (ref $v && 'HASH' eq ref $v) :
 					(ref $v && $v->isa($_));
 				};
 			}
+			$@ = "Invalid value $v for key '$k' in action $itm";
 			return 1 unless $r;
+		}
+		for my $k (keys %$act) {
+			next if exists $check->{$k};
+			next if $ignore{$k};
+			print "Warning: unknown key $k in action $itm\n";
 		}
 		undef;
 	};
