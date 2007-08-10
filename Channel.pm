@@ -306,15 +306,7 @@ sub part {
 }
 
 &Janus::hook_add(
- 	JOIN => validate => sub {
-		my $act = $_[0];
-		my $valid = eval {
-			return 0 unless $act->{src}->isa('Nick');
-			return 0 unless $act->{dst}->isa('Channel');
-			1;
-		};
-		$valid ? undef : 1;
-	}, JOIN => act => sub {
+	JOIN => act => sub {
 		my $act = $_[0];
 		my $nick = $act->{src};
 		my $chan = $act->{dst};
@@ -385,13 +377,6 @@ sub part {
 		$topic[$$chan] = $act->{topic};
 		$topicts[$$chan] = $act->{topicts} || time;
 		$topicset[$$chan] = $act->{topicset} || $act->{src}->homenick();
-	}, LSYNC => validate => sub {
-		my $act = shift;
-		eval {
-			return 0 unless $act->{dst}->isa('Network');
-			return 0 unless $act->{chan}->isa('Channel');
-			1;
-		} ? undef : 1;
 	}, LSYNC => act => sub {
 		my $act = shift;
 		return if $act->{dst}->jlink();

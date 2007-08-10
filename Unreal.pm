@@ -1362,7 +1362,7 @@ sub cmd2 {
 	}, WHOIS => sub {
 		my($net,$act) = @_;
 		my $dst = $act->{dst};
-		$net->cmd2($act->{src}, WHOIS => $dst->info('home_server'), $dst);
+		$net->cmd2($act->{src}, WHOIS => $dst, $dst);
 	}, CHATOPS => sub {
 		my($net,$act) = @_;
 		return () unless $act->{src}->is_on($net);
@@ -1434,7 +1434,7 @@ sub cmd2 {
 		} else {
 			my $name = $act->{dst}->str($net);
 			$net->cmd1(GLOBOPS => "Network ".$act->{net}->netname()." dropped channel $name");
-		}			
+		}
 	}, KILL => sub {
 		my($net,$act) = @_;
 		my $killfrom = $act->{net};
