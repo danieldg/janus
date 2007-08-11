@@ -289,21 +289,31 @@ if ($Janus::interface) {
 	cmd => 'delink',
 	help => 'Delinks a channel from all other networks',
 	details => [
-		"Syntax: \002DELINK\002 #channel",
+		"Syntax: \002DELINK\002 #channel [network]",
 	],
 	code => sub {
-		my($nick, $cname) = @_;
+		my($nick, $args) = @_;
 		my $snet = $nick->homenet();
 		if ($snet->param('oper_only_link') && !$nick->has_mode('oper')) {
 			&Janus::jmsg($nick, "You must be an IRC operator to use this command");
 			return;
 		}
+		$args && $args =~ /^(#\S*)(?:\s*(\S+))/ or do {
+			&Janus::jmsg($nick, "Syntax: DELINK #channel [network]");
+			return;
+		};
+		my($cname,$nname) = ($1,$2);
 		my $chan = $snet->chan($cname) or do {
 			&Janus::jmsg($nick, "Cannot find channel $cname");
 			return;
 		};
 		unless ($nick->has_mode('oper') || $chan->has_nmode(n_owner => $nick)) {
 			&Janus::jmsg($nick, "You must be a channel owner to use this command");
+			return;
+		}
+		$snet = &Janus::nets{$nname} if $nname;
+		unless ($snet) {
+			&Janus::jmsg($nick, 'Could not find that network');
 			return;
 		}
 			

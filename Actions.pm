@@ -162,7 +162,7 @@ my %spec = (
 	PART => {
 		src => 'Nick',
 		dst => 'Channel',
-		msg => '$',
+		msg => '?$',
 	},
 	KICK => {
 		src => 'Nick Network',
