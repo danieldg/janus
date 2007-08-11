@@ -311,7 +311,7 @@ if ($Janus::interface) {
 			&Janus::jmsg($nick, "You must be a channel owner to use this command");
 			return;
 		}
-		$snet = &Janus::nets{$nname} if $nname;
+		$snet = $Janus::nets{$nname} if $nname;
 		unless ($snet) {
 			&Janus::jmsg($nick, 'Could not find that network');
 			return;
