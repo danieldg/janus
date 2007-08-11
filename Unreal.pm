@@ -715,7 +715,6 @@ sub srvname {
 		for my $m (keys %opermodes) {
 			$oplvl |= $opermodes{$m} if $nick{mode}{$m};
 		}
-		print "Oper level $oplvl\n";
 		$oplvl & (1 << $_) ? $nick{info}{opertype} = $opertypes[$_] : 0 for 0..$#opertypes;
 
 		my $nick = Nick->new(%nick);

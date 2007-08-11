@@ -431,7 +431,8 @@ sub kicked {
 	372 => \&ignore,
 	375 => \&ignore,
 	376 => \&ignore,
-
+	
+	301 => \&ignore, # away
 	332 => \&ignore, # topic
 	333 => \&ignore, # topic setter & ts
 
@@ -462,7 +463,7 @@ sub kicked {
 		my $net = shift;
 		my $tried = $_[3];
 		my $n = '';
-		$n = $1 + 1 if $tried =~ s/_(\d*)$//;
+		$n = ($1 || 0) + 1 if $tried =~ s/_(\d*)$//;
 		$tried .= '_'.$n;
 		$net->send("NICK $tried");
 		$self[$$net] = $tried;

@@ -392,7 +392,10 @@ if ($Janus::interface) {
 	code => sub {
 		my($nick, $args) = @_;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
-		my($id, $onoff) = ($args =~ /(\S+) (\d)/) or warn;
+		my($id, $onoff) = ($args =~ /(\S+) (\d)/) or do {
+			&Janus::jmsg($nick, "Syntax: \002AUTOCONNECT\002 network [0|1]");
+			return;
+		};
 		my $nconf = $Conffile::netconf{$id} or do {
 			&Janus::jmsg($nick, 'Cannot find network');
 			return;
