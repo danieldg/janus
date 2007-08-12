@@ -17,7 +17,11 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 #   '!'                verifies that it is undef
 #   ''                 allows anything
 
-=h2 Internal Janus events
+=head1 Actions
+
+Basic descriptions and checking of all internal janus actions
+
+=head2 Internal Janus events
 
 =over
 
@@ -33,7 +37,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 =back
 
-=h2 Nick-Network motion events
+=head2 Nick-Network motion events
 
 =over
 
@@ -47,7 +51,9 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 =back
 
-=h2 Nick-Channel motion events
+=head2 Nick-Channel motion events
+
+=over
 
 =item JOIN Nick joins a channel, possibly coming in with some modes (op)
 
@@ -57,17 +63,24 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 =back
 
-=h2 Channel state changes
+=head2 Channel state changes
+
+=over
 
 =item MODE Basic mode change
 
 =over 
 
 =item n nick access level
+
 =item l list (bans)
+
 =item v value (key)
+
 =item s value-on-set (limit)
+
 =item r regular (moderate)
+
 =item t tristate (private/secret; this is planned, not implemented)
 
 =back
@@ -78,7 +91,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 =back
 
-=h2 Nick state changes
+=head2 Nick state changes
 
 =over
 
@@ -90,7 +103,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 =back
 
-=h2 Communication
+=head2 Communication
 
 =over
 
@@ -102,7 +115,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 =back
 
-=h2 Janus commands
+=head2 Janus commands
 
 =over
 

@@ -517,6 +517,10 @@ sub cmd2 {
 	},
 	'm_globops.so' => {
 		cmds => { GLOBOPS => \&ignore },
+		acts => { CHATOPS => sub {
+			my($net,$act) = @_;
+			$net->ncmd($act->{src}, GLOBOPS => $act->{msg});
+		} }
 	},
 	'm_helpop.so' => {
 		umode => { h => 'helpop' },
@@ -1515,7 +1519,11 @@ CORE => {
 	}, RAW => sub {
 		my($net,$act) = @_;
 		$act->{msg};	
-	}
+	}, CHATOPS => sub {
+		my($net,$act) = @_;
+		return () if $modules[$$net]{'m_globops.so'};
+		$net->ncmd(OPERNOTICE => $net->str($act->{src}).': '.$act->{msg});
+	},
 }
 
 });
