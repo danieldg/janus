@@ -1014,7 +1014,7 @@ CORE => {
 	}, MODE => sub {
 		my $net = shift;
 		my $src = $net->item($_[0]);
-		my $dst = $net->item($_[2]);
+		my $dst = $net->item($_[2]) or return ();
 		if ($dst->isa('Nick')) {
 			$net->_parse_umode($dst, $_[3]);
 		} else {

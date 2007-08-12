@@ -186,7 +186,6 @@ my %timespec = (
 			});
 			return 1;
 		}
-		print " -> none found\n";
 		undef;
 	}, BANLINE => check => sub {
 		my $act = shift;

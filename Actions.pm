@@ -193,6 +193,7 @@ my %spec = (
 	NICK => {
 		dst => 'Nick',
 		nick => '$',
+		nickts => '?$',
 	},
 	UMODE => {
 		dst => 'Nick',
