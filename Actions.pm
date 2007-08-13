@@ -145,7 +145,7 @@ my %spec = (
 	},
 	NETSPLIT => {
 		net => 'Network',
-		msg => '',
+		msg => '$',
 	},
 
 	NEWNICK => {

@@ -18,6 +18,7 @@ sub service {
 	return 0 if $srv =~ /^services\.qliner/;
 	return 1 if $srv =~ /^stats\./;
 	return 1 if $srv =~ /^service.*\..*\./;
+	return 1 if $srv =~ /^defender.*\..*\./;
 }
 
 &Janus::hook_add(

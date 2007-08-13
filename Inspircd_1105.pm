@@ -98,7 +98,40 @@ sub module_remove {
 		$net->send($net->cmd2($Janus::interface, OPERNOTICE => "Could not unload moule $name: not loaded"));
 		return;
 	};
-	$net->send($net->cmd2($Janus::interface, OPERNOTICE => "Module removal not implemented yet!")); # TODO
+	if ($mod->{cmode}) {
+		for my $cm (keys %{$mod->{cmode}}) {
+			my $txt = $mod->{cmode}{$cm};
+			delete $cmode2txt[$$net]{$cm};
+			delete $txt2cmode[$$net]{$txt};
+		}
+	}
+	if ($mod->{umode}) {
+		for my $um (keys %{$mod->{umode}}) {
+			my $txt = $mod->{umode}{$um};
+			delete $umode2txt[$$net]{$um};
+			delete $txt2umode[$$net]{$txt};
+		}
+	}
+	if ($mod->{umode_hook}) {
+		for my $txt (keys %{$mod->{umode}}) {
+			delete $txt2umode[$$net]{$txt};
+		}
+	}
+	if ($mod->{cmds}) {
+		for my $cmd (keys %{$mod->{cmds}}) {
+			delete $fromirc[$$net]{$cmd};
+		}
+	}
+	if ($mod->{acts}) {
+		for my $t (keys %{$mod->{acts}}) {
+			delete $act_hooks[$$net]{$t}{$name};
+		}
+	}
+	if ($mod->{metadata}) {
+		for my $i (keys %{$mod->{metadata}}) {
+			delete $meta[$$net]{$i};
+		}
+	}
 }
 
 sub cmode2txt {
