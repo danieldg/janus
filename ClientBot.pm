@@ -279,6 +279,14 @@ sub kicked {
 			dst => $chan,
 			msg => 'Janus relay bot kicked: '.$msg,
 		};
+		my @chans = $nick->all_chans();
+		if (!@chans || (@chans == 1 && lc $chans[0]->str($net) eq lc $cname)) {
+			push @out, +{
+				type => 'QUIT',
+				dst => $nick,
+				msg => 'Janus relay bot cannot see this nick',
+			};
+		}
 	}
 	# try to rejoin - TODO enqueue the channel and delink it if this doesn't succeed in a little bit
 	$net->send("JOIN $cname");
@@ -342,13 +350,23 @@ sub kicked {
 		my $chan = $net->chan($_[2]) or return ();
 		my $victim = $net->nick($_[3]) or return ();
 		delete $kicks[$$net]{$victim->lid()}{$_[2]};
-		return +{
+		my @out;
+		push @out, +{
 			type => 'KICK',
 			src => $src,
 			dst => $chan,
 			kickee => $victim,
 			msg => $_[4],
 		};
+		my @chans = $victim->all_chans();
+		if (!@chans || (@chans == 1 && lc $chans[0]->str($net) eq lc $_[2])) {
+			push @out, +{
+				type => 'QUIT',
+				dst => $victim,
+				msg => 'Kicked: '.($_[3] || ''),
+			};
+		}
+		@out;
 	},
 	QUIT => sub {
 		my $net = shift;
@@ -395,6 +413,7 @@ sub kicked {
 	376 => \&ignore,
 	
 	301 => \&ignore, # away
+	331 => \&ignore, # no topic
 	332 => \&ignore, # topic
 	333 => \&ignore, # topic setter & ts
 
