@@ -715,7 +715,6 @@ sub srvname {
 		for my $m (keys %opermodes) {
 			$oplvl |= $opermodes{$m} if $nick{mode}{$m};
 		}
-		print "Oper level $oplvl\n";
 		$oplvl & (1 << $_) ? $nick{info}{opertype} = $opertypes[$_] : 0 for 0..$#opertypes;
 
 		my $nick = Nick->new(%nick);
@@ -764,9 +763,12 @@ sub srvname {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
 		if ($nick->homenet()->id() eq $net->id()) {
-			# If the nick is local, do nothing. A properly formatted QUIT 
-			# will be sent soon for this nick from its home server.
-			return ();
+			return {
+				type => 'QUIT',
+				dst => $nick,
+				msg => $_[3],
+				killer => $net,
+			};
 		} elsif (lc $nick->homenick() eq lc $_[2]) {
 			# This is an untagged nick. We assume that the reason this
 			# nick was killed was something like a GHOST command and set up
@@ -942,8 +944,8 @@ sub srvname {
 		};
 	}, MODE => sub {
 		my $net = shift;
-		my $src = $net->item($_[0]);
-		my $chan = $net->item($_[2]);
+		my $src = $net->item($_[0]) or return ();
+		my $chan = $net->item($_[2]) or return ();
 		if ($chan->isa('Nick')) {
 			# umode change
 			return () unless $chan->homenet()->id() eq $net->id();
@@ -1018,6 +1020,7 @@ sub srvname {
 		$_[0] ? () : {
 			type => 'BURST',
 			net => $net,
+			sendto => [],
 		};
 	}, SQUIT => sub {
 		my $net = shift;
@@ -1360,7 +1363,7 @@ sub cmd2 {
 	}, WHOIS => sub {
 		my($net,$act) = @_;
 		my $dst = $act->{dst};
-		$net->cmd2($act->{src}, WHOIS => $dst->info('home_server'), $dst);
+		$net->cmd2($act->{src}, WHOIS => $dst, $dst);
 	}, CHATOPS => sub {
 		my($net,$act) = @_;
 		return () unless $act->{src}->is_on($net);
@@ -1413,12 +1416,14 @@ sub cmd2 {
 	}, LINK => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst}->str($net);
+		return () if $act->{linkfile};
 		[ FLOAT_ALL => $net->cmd1(GLOBOPS => "Channel $chan linked") ];
 	}, LSYNC => sub {
 		();
 	}, LINKREQ => sub {
 		my($net,$act) = @_;
 		my $src = $act->{net};
+		return () if $act->{linkfile};
 		[ FLOAT_ALL => $net->cmd1(GLOBOPS => $src->netname()." would like to link $act->{slink} to $act->{dlink}") ];
 	}, DELINK => sub {
 		my($net,$act) = @_;
@@ -1430,7 +1435,7 @@ sub cmd2 {
 		} else {
 			my $name = $act->{dst}->str($net);
 			$net->cmd1(GLOBOPS => "Network ".$act->{net}->netname()." dropped channel $name");
-		}			
+		}
 	}, KILL => sub {
 		my($net,$act) = @_;
 		my $killfrom = $act->{net};
