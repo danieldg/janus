@@ -134,6 +134,17 @@ sub umodes {
 	return sort keys %{$mode[$$nick]};
 }
 
+=item $nick->all_chans()
+
+returns the list of all channels the nick is on
+
+=cut
+
+sub all_chans {
+	my $nick = $_[0];
+	return values %{$chans[$$nick]};
+}
+
 =item $nick->jlink()
 
 returns the InterJanus link if this nick is remote, or undef if it is local

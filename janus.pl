@@ -17,6 +17,7 @@ $| = 1;
 
 &Janus::load('Bridge') or die;
 &Janus::load('Interface') or die;
+&Janus::load('Actions') or die;
 &Janus::load('Conffile', shift || 'janus.conf') or die;
 
 unless ($args =~ /d/) {

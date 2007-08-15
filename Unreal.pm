@@ -494,7 +494,7 @@ sub nick_msg {
 sub nc_msg {
 	my $net = shift;
 	return () if $_[2] eq 'AUTH' && $_[0] =~ /\./;
-	my $src = $net->item($_[0]);
+	my $src = $net->item($_[0]) or return ();
 	my $msgtype = $_[1];
 	if ($_[2] =~ /^\$/) {
 		# server broadcast message. No action; these are confined to source net
@@ -712,7 +712,6 @@ sub srvname {
 		for my $m (keys %opermodes) {
 			$oplvl |= $opermodes{$m} if $nick{mode}{$m};
 		}
-		print "Oper level $oplvl\n";
 		$oplvl & (1 << $_) ? $nick{info}{opertype} = $opertypes[$_] : 0 for 0..$#opertypes;
 
 		my $nick = Nick->new(%nick);
@@ -917,8 +916,8 @@ sub srvname {
 		};
 	}, MODE => sub {
 		my $net = shift;
-		my $src = $net->item($_[0]);
-		my $chan = $net->item($_[2]);
+		my $src = $net->item($_[0]) or return ();
+		my $chan = $net->item($_[2]) or return ();
 		if ($chan->isa('Nick')) {
 			# umode change
 			return () unless $chan->homenet()->id() eq $net->id();
@@ -993,6 +992,7 @@ sub srvname {
 		$_[0] ? () : {
 			type => 'BURST',
 			net => $net,
+			sendto => [],
 		};
 	}, SQUIT => sub {
 		my $net = shift;
@@ -1334,7 +1334,7 @@ sub cmd2 {
 	}, WHOIS => sub {
 		my($net,$act) = @_;
 		my $dst = $act->{dst};
-		$net->cmd2($act->{src}, WHOIS => $dst->info('home_server'), $dst);
+		$net->cmd2($act->{src}, WHOIS => $dst, $dst);
 	}, CHATOPS => sub {
 		my($net,$act) = @_;
 		return () unless $act->{src}->is_on($net);
@@ -1411,7 +1411,7 @@ sub cmd2 {
 		} else {
 			my $name = $act->{dst}->str($net);
 			$net->cmd1(GLOBOPS => "Network ".$act->{net}->netname()." dropped channel $name");
-		}			
+		}
 	}, KILL => sub {
 		my($net,$act) = @_;
 		my $killfrom = $act->{net};

@@ -98,7 +98,40 @@ sub module_remove {
 		$net->send($net->cmd2($Janus::interface, OPERNOTICE => "Could not unload moule $name: not loaded"));
 		return;
 	};
-	$net->send($net->cmd2($Janus::interface, OPERNOTICE => "Module removal not implemented yet!")); # TODO
+	if ($mod->{cmode}) {
+		for my $cm (keys %{$mod->{cmode}}) {
+			my $txt = $mod->{cmode}{$cm};
+			delete $cmode2txt[$$net]{$cm};
+			delete $txt2cmode[$$net]{$txt};
+		}
+	}
+	if ($mod->{umode}) {
+		for my $um (keys %{$mod->{umode}}) {
+			my $txt = $mod->{umode}{$um};
+			delete $umode2txt[$$net]{$um};
+			delete $txt2umode[$$net]{$txt};
+		}
+	}
+	if ($mod->{umode_hook}) {
+		for my $txt (keys %{$mod->{umode}}) {
+			delete $txt2umode[$$net]{$txt};
+		}
+	}
+	if ($mod->{cmds}) {
+		for my $cmd (keys %{$mod->{cmds}}) {
+			delete $fromirc[$$net]{$cmd};
+		}
+	}
+	if ($mod->{acts}) {
+		for my $t (keys %{$mod->{acts}}) {
+			delete $act_hooks[$$net]{$t}{$name};
+		}
+	}
+	if ($mod->{metadata}) {
+		for my $i (keys %{$mod->{metadata}}) {
+			delete $meta[$$net]{$i};
+		}
+	}
 }
 
 sub cmode2txt {
@@ -516,6 +549,10 @@ sub cmd2 {
 	},
 	'm_globops.so' => {
 		cmds => { GLOBOPS => \&ignore },
+		acts => { CHATOPS => sub {
+			my($net,$act) = @_;
+			$net->ncmd($act->{src}, GLOBOPS => $act->{msg});
+		} }
 	},
 	'm_helpop.so' => {
 		umode => { h => 'helpop' },
@@ -553,7 +590,32 @@ sub cmd2 {
 		cmode => { f => 's_flood' }
 	},
 	'm_namesx.so' => { },
-#	'm_nicklock.so' => { }, # TODO go back and unlock the nick
+	'm_nicklock.so' => {
+		cmds => {
+			NICKLOCK => sub {
+				my $net = shift;
+				my $nick = $net->nick($_[2]);
+				if ($nick->homenet()->id() eq $net->id()) {
+					return () if $_[2] eq $_[3];
+					# accept it as a nick change
+					return +{
+						type => 'NICK',
+						src => $nick,
+						dst => $nick,
+						nick => $_[3],
+						nickts => time,
+					};
+				}
+				# we need to unlock and change nicks back
+				my @out;
+				push @out, $net->cmd2($Janus::interface, NICKUNLOCK => $_[3]);
+				push @out, $net->cmd2($_[3], NICK => $_[2]) unless $_[2] eq $_[3];
+				$net->send(@out);
+				();
+			},
+			NICKUNLOCK => \&ignore,
+		},
+	},
 	'm_noctcp.so' => {
 		cmode => { C => 'r_ctcpblock' }
 	},
@@ -1004,7 +1066,7 @@ CORE => {
 	}, MODE => sub {
 		my $net = shift;
 		my $src = $net->item($_[0]);
-		my $dst = $net->item($_[2]);
+		my $dst = $net->item($_[2]) or return ();
 		if ($dst->isa('Nick')) {
 			$net->_parse_umode($dst, $_[3]);
 		} else {
@@ -1085,6 +1147,7 @@ CORE => {
 		+{
 			type => 'BURST',
 			net => $net,
+			sendto => [],
 		};
 	}, SQUIT => sub {
 		my $net = shift;
@@ -1508,7 +1571,11 @@ CORE => {
 	}, RAW => sub {
 		my($net,$act) = @_;
 		$act->{msg};	
-	}
+	}, CHATOPS => sub {
+		my($net,$act) = @_;
+		return () if $modules[$$net]{'m_globops.so'};
+		$net->ncmd(OPERNOTICE => $net->str($act->{src}).': '.$act->{msg});
+	},
 }
 
 });

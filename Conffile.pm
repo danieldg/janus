@@ -2,6 +2,7 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Conffile;
+use IO::Handle;
 use strict;
 use warnings;
 
