@@ -47,6 +47,8 @@ Basic descriptions and checking of all internal janus actions
 
 =item RECONNECT Janus nick reintroduced to a remote net
 
+=item KILL Oper (or services) removes a remote nick from their network
+
 =item QUIT Janus nick leaves home net, possibly involuntarily
 
 =back
@@ -159,6 +161,11 @@ my %spec = (
 		dst => 'Nick',
 		net => 'Network',
 		killed => '$', # 1 = reintroduce, 0 = renick
+	},
+	KILL => {
+		dst => 'Nick',
+		msg => '?$',
+		net => 'Network',
 	},
 	QUIT => {
 		dst => 'Nick',

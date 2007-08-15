@@ -66,6 +66,14 @@ if ($Janus::interface) {
 			dst => $Janus::interface,
 			net => $net,
 		});
+	}, KILL => act => sub {
+		my $act = shift;
+		return unless $act->{dst} eq $Janus::interface;
+		&Janus::append(+{
+			type => 'CONNECT',
+			dst => $act->{dst},
+			net => $act->{net},
+		});
 	}, NETSPLIT => act => sub {
 		my $act = shift;
 		$Janus::interface->_netpart($act->{net});
@@ -124,15 +132,6 @@ if ($Janus::interface) {
 			return 1;
 		}
 		undef;
-	}, LINKREQ => validate => sub {
-		my $act = shift;
-		my $valid = eval {
-			return 0 unless $act->{net}->isa('Network');
-			return 0 unless $act->{dst}->isa('Network');
-			return 0 unless $act->{dlink} =~ /^#/;
-			1;
-		};
-		$valid ? undef : 1;		
 	}, LINKREQ => act => sub {
 		my $act = shift;
 		my $snet = $act->{net};
