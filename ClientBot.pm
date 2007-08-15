@@ -14,75 +14,18 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 __PERSIST__
 persist @sendq     :Field;
-persist @nicks     :Field;
 persist @self      :Field;
 persist @kicks     :Field;
-# $kicks[$$net]{$lid}{$channel} = time after which the nick will rejoin
+# $kicks[$$net]{$lid}{$channel} = 1 for a rejoin enabled
 
 __CODE__
 
 my %fromirc;
 my %toirc;
 
-sub nick_sweep {
-	my $p = shift;
-	my $time = time;
-	my $net = $p->{net};
-	unless ($net) {
-		delete $p->{repeat};
-		return;
-	}
-	my $id = $net->id();
-	my $normal = 1;
-	unless ($Janus::nets{$id} && $Janus::nets{$id} eq $net) {
-		delete $p->{repeat};
-		$normal = 0;
-	}
-	my @out;
-	NICK: for my $nn (keys %{$nicks[$$net]}) {
-		my $nick = $nicks[$$net]{$nn};
-		if (defined $nick) {
-			my @nets = $nick->netlist();
-			next NICK if $normal && @nets > 1;
-			my $kicks = $kicks[$$net]{$nick->lid()};
-			if ($normal && ref $kicks && %$kicks) {
-				# rejoin the nick to timed out channels
-				for my $cname (keys %$kicks) {
-					next if $kicks->{$cname} > $time;
-					push @out, +{
-						type => 'JOIN',
-						src => $nick,
-						dst => $net->chan($cname),
-					};
-					delete $kicks->{$cname};
-				}
-			} else {
-				delete $nicks[$$net]{$nn};
-				delete $kicks[$$net]{$nick->lid()};
-				push @out, +{
-					type => 'QUIT',
-					dst => $nick,
-					msg => 'JanusTimeout: Not in any shared channels',
-				};
-			}
-		} else {
-			delete $nicks[$$net]{$nn};
-		}
-	}
-	&Janus::insert_full(@out) if @out;
-}
-
 sub _init :Init {
 	my $net = shift;
 	$sendq[$$net] = [];
-
-	my $sweeper = {
-		repeat => 25,
-		net => $net,
-		code => \&nick_sweep,
-	};
-	weaken($sweeper->{net});
-	&Janus::schedule($sweeper);
 }
 
 sub debug {
@@ -102,17 +45,18 @@ sub intro :Cumulative {
 
 sub cli_hostintro {
 	my($net, $nname, $ident, $host, $gecos) = @_;
-	my $nick = $nicks[$$net]{$nname};
-	unless ($nick) {
-		$nick = $net->item($nname);
+	my @out;
+	my $nick = $net->item($nname);
+	unless ($nick && $nick->homenet()->id() eq $net->id()) {
 		if ($nick) {
-			$net->release_nick(lc $nname);
+			# someone already exists, but remote. They get booted off their current nick
+			# we have to deal with this before the new nick is created
 			&Janus::insert_full(+{
 				type => 'RECONNECT',
 				dst => $nick,
 				net => $net,
 				killed => 0,
-				nojlink => 1,
+				sendto => [ $net ],
 			});
 		}
 		$nick = Nick->new(
@@ -129,11 +73,12 @@ sub cli_hostintro {
 				invisible => 1,
 			},
 		);
+		push @out, +{
+			type => 'NEWNICK',
+			dst => $nick,
+		};
 		$net->nick_collide($nname, $nick);
-		$nicks[$$net]{$nname} = $nick;
-		weaken($nicks[$$net]{$nname});
 	}
-	my @out;
 	if ($nick->info('host') ne $host) {
 		push @out, +{
 			type => 'NICKINFO',
@@ -204,9 +149,6 @@ sub send {
 	}
 }
 
-sub cmd1 { warn; () }
-sub cmd2 { warn; () }
-
 sub dump_sendq {
 	my $net = shift;
 	local $_;
@@ -267,11 +209,23 @@ sub nicklen { 40 }
 		my $nick = $act->{kickee};
 		return () unless $nick->homenet()->id() eq $net->id();
 		my $src = $act->{src};
+		my $chan = $act->{dst};
 		$src = ref $src && $src->isa('Nick') ? '<'.$src->str($net).'>' : '[?]';
-		my $chan = $act->{dst}->str($net);
+		my $cn = $chan->str($net);
 		my $nn = $nick->str($net);
-		$kicks[$$net]{$nick->lid()}{$chan} = time + 15;
-		"KICK $chan $nn :$src $act->{msg}";
+		&Janus::schedule(+{
+			delay => 15,
+			code => sub {
+				return unless $kicks[$$net]{$nick->lid()}{$cn};
+				&Janus::insert_full(+{
+					type => 'JOIN',
+					src => $nick,
+					dst => $chan,
+				});
+			}
+		});
+		$kicks[$$net]{$nick->lid()}{$cn} = 1;
+		"KICK $cn $nn :$src $act->{msg}";
 	},
 	PING => sub {
 		"PING :poing";
@@ -347,8 +301,6 @@ sub kicked {
 	NICK => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[0]) or return ();
-		$nicks[$$net]{$_[2]} = delete $nicks[$$net]{$_[0]};
-		weaken($nicks[$$net]{$_[2]});
 		return +{
 			type => 'NICK',
 			src => $nick,
@@ -362,14 +314,24 @@ sub kicked {
 			# SAPART gives an auto-rejoin just to spite the people who think it's better than kick
 			return $net->kicked($_[2], $_[3]);
 		}
-		my $src = $net->nick($_[0]) or return ();
-		delete $kicks[$$net]{$src->lid()}{$_[2]};
-		return +{
+		my $nick = $net->nick($_[0]) or return ();
+		my $chan = $net->chan($_[2]) or return ();
+		delete $kicks[$$net]{$nick->lid()}{$_[2]};
+		my @out = +{
 			type => 'PART',
-			src => $src,
-			dst => $net->chan($_[2], 1),
+			src => $nick,
+			dst => $chan,
 			msg => $_[3],
 		};
+		my @chans = $nick->all_chans();
+		if (!@chans || (@chans == 1 && lc $chans[0]->str($net) eq lc $_[2])) {
+			push @out, +{
+				type => 'QUIT',
+				dst => $nick,
+				msg => 'Part: '.($_[3] || ''),
+			};
+		}
+		@out;
 	},
 	KICK => sub {
 		my $net = shift;
@@ -478,7 +440,17 @@ sub kicked {
 			net => $net,
 		};
 	},	
-	482 => \&ignore, # kick failed (not enough information to determine which one
+	482 => sub { # kick failed (not enough information to determine which one)
+		my $net = shift;
+		my $chan = $net->chan($_[3]) or return ();
+		return +{
+			type => 'MSG',
+			src => $Janus::interface,
+			dst => $chan,
+			msgtype => 'NOTICE',
+			msg => 'Could not relay kick: '.$_[4],
+		};
+	}
 );
 
 1;

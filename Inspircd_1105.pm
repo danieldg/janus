@@ -591,7 +591,7 @@ sub cmd2 {
 		cmode => { f => 's_flood' }
 	},
 	'm_namesx.so' => { },
-#	'm_nicklock.so' => { }, # TODO go back and unlock the nick
+	'm_nicklock.so' => { }, # TODO go back and unlock the nick
 	'm_noctcp.so' => {
 		cmode => { C => 'r_ctcpblock' }
 	},
