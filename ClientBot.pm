@@ -309,12 +309,30 @@ sub kicked {
 	NICK => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[0]) or return ();
-		return +{
+		my $replace = $net->item($_[2]);
+		my @out;
+		if ($replace && $replace->homenet()->id() eq $net->id()) {
+			push @out, +{
+				type => 'QUIT',
+				dst => $replace,
+				msg => 'De-sync collision from nick change',
+			};
+		} elsif ($replace) {
+			push @out, +{
+				type => 'RECONNECT',
+				dst => $replace,
+				net => $net,
+				killed => 0,
+				sendto => [ $net ],
+			};
+		}
+		push @out, +{
 			type => 'NICK',
 			src => $nick,
 			dst => $nick,
 			nick => $_[2],
 		};
+		@out;
 	},
 	PART => sub {
 		my $net = shift;
