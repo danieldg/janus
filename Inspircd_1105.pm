@@ -591,7 +591,32 @@ sub cmd2 {
 		cmode => { f => 's_flood' }
 	},
 	'm_namesx.so' => { },
-	'm_nicklock.so' => { }, # TODO go back and unlock the nick
+	'm_nicklock.so' => {
+		cmds => {
+			NICKLOCK => sub {
+				my $net = shift;
+				my $nick = $net->nick($_[2]);
+				if ($nick->homenet()->id() eq $net->id()) {
+					return () if $_[2] eq $_[3];
+					# accept it as a nick change
+					return +{
+						type => 'NICK',
+						src => $nick,
+						dst => $nick,
+						nick => $_[3],
+						nickts => time,
+					};
+				}
+				# we need to unlock and change nicks back
+				my @out;
+				push @out, $net->cmd2($Janus::interface, NICKUNLOCK => $_[3]);
+				push @out, $net->cmd2($_[3], NICK => $_[2]) unless $_[2] eq $_[3];
+				$net->send(@out);
+				();
+			},
+			NICKUNLOCK => \&ignore,
+		},
+	},
 	'm_noctcp.so' => {
 		cmode => { C => 'r_ctcpblock' }
 	},
