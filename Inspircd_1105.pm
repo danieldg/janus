@@ -158,8 +158,9 @@ sub str {
 	$net->id().'.janus';
 }
 
-sub intro :Cumulative {
+sub intro {
 	my($net,$param) = @_;
+	$net->SUPER::intro($param);
 	my @out;
 	push @out, ['INIT', 'CAPAB START'];
 	# we cannot continue until we get the remote CAPAB list so we can

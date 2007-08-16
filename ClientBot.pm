@@ -34,8 +34,9 @@ sub debug {
 
 sub ignore { () }
 
-sub intro :Cumulative {
+sub intro {
 	my($net,$param) = @_;
+	$net->SUPER::intro($param);
 	$net->send(
 		'USER mirror gamma * :Janus IRC Client',
 		"NICK $param->{nick}",
