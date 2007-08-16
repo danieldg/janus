@@ -225,10 +225,9 @@ sub dump_sendq {
 			if (ref $i) {
 				$q .= join "\n", @$i[1..$#$i],'';
 			} else {
-				$q .= $i."\n";
+				$q .= $i."\n" if $i;
 			}
 		}
-		$q =~ s/\n+/\r\n/g;
 		$sendq[$$net] = [];
 	} else {
 		my @delayed;
@@ -239,10 +238,10 @@ sub dump_sendq {
 				push @delayed, $i;
 			}
 		}
-		$q =~ s/\n+/\r\n/g;
 		$sendq[$$net] = \@delayed;
 		$auth[$$net] = 3 if $auth[$$net] == 2;
 	}
+	$q =~ s/\n+/\r\n/g;
 	debug '    OUT@'.$net->id().' '.$_ for split /\r\n/, $q;
 	$q;
 }
