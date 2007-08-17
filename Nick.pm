@@ -5,7 +5,6 @@ package Nick;
 use strict;
 use warnings;
 use Persist;
-use Object::InsideOut;
 use Scalar::Util 'weaken';
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
@@ -18,18 +17,15 @@ Object representing a nick that exists across several networks
 
 =cut
 
-__PERSIST__
-persist @gid      :Field :Get(gid);
-persist @homenet  :Field :Get(homenet);
-persist @homenick :Field :Get(homenick);
-persist @nets     :Field;
-persist @nicks    :Field;
-persist @chans    :Field;
-persist @mode     :Field;
-persist @info     :Field;
-persist @ts       :Field :Get(ts);
-
-__CODE__
+my @gid      :Persist :Get(gid);
+my @homenet  :Persist :Get(homenet);
+my @homenick :Persist :Get(homenick);
+my @nets     :Persist;
+my @nicks    :Persist;
+my @chans    :Persist;
+my @mode     :Persist;
+my @info     :Persist;
+my @ts       :Persist :Get(ts);
 
 my %initargs :InitArgs = (
 	gid => '',
@@ -40,7 +36,7 @@ my %initargs :InitArgs = (
 	mode => '',
 );
 
-sub _init :Init {
+sub _init {
 	my($nick, $ifo) = @_;
 	my $net = $ifo->{net};
 	my $gid = $ifo->{gid} || $net->id() . ':' . $$nick;
@@ -71,7 +67,7 @@ sub to_ij {
 	$out . $ij->ijstr($info[$$nick]);
 }
 
-sub _destroy :Destroy {
+sub _destroy {
 	my $n = $_[0];
 	print "   NICK:$$n $n $homenick[$$n] deallocated\n";
 }
