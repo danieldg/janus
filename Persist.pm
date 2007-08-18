@@ -7,11 +7,13 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 our %vars;
 
+my %reuse;
+my %max_gid;
+
 sub Persist : ATTR(ARRAY,BEGIN) {
 	my($pk, $sym, $var, $attr, $dat, $phase) = @_;
 	my $src = $vars{$pk}{$dat} || [];
 	$vars{$pk}{$dat} = $src;
-	print "Persist: $pk-$dat\n";
 	tie @$var, 'Persist::Field', $src;
 }
 
@@ -25,20 +27,54 @@ sub import {
 	}
 }
 
+sub gid_find {
+	my %tops = ( $_[0] => 1 );
+	my %isas = ( $_[0] => 1 );
+	my $again = 1;
+	while ($again) {
+		$again = 0;
+		for my $pkg (keys %tops) {
+			my %isa = map { $_ => 1 } do {
+				no strict 'refs';
+				@{$pkg.'::ISA'};
+			};
+			if ($isa{__PACKAGE__ . ''}) {
+				unless (1 == keys %isa) {
+					$again = 1;
+					delete $tops{$pkg};
+					$isas{$_}++, $tops{$_}++ for keys %isa;
+				}
+			} else {
+				delete $tops{$pkg};
+				delete $isas{$pkg};
+				$isas{$_}++, $tops{$_}++ for keys %isa;
+			}
+		}
+	}
+	delete $isas{$_} for keys %tops;
+	delete $tops{__PACKAGE__ . ''};
+	warn "Multiple top-level inheritance doesn't work: ".join ' ', keys %tops if 1 < scalar keys %tops;
+	keys(%tops), keys(%isas);
+}
+
 sub new {
-	my $pk = shift;
-	my $n = $
-	bless $$n, $pk;
+	my($pk) = gid_find $_[0];
+	my $n = $reuse{$pk} && @{$reuse{$pk}} ?
+		(shift @{$reuse{$pk}}) :
+		(++$max_gid{$pk});
+	bless \$n, $pk;
 }
 
 sub DESTROY {
 	my $self = shift;
-	my $pk = ref $self;
 	return unless $$self;
-	for my $aref (values %{$vars{$pk}}) {
-		delete $aref->[$$self];
+	my @pkgs = gid_find ref $self;
+	for my $pkg (@pkgs) {
+		for my $aref (values %{$vars{$pkg}}) {
+			delete $aref->[$$self];
+		}
 	}
+	push @{$reuse{$pkgs[0]}}, $$self;
 }
-
 
 1;
