@@ -131,9 +131,6 @@ Basic descriptions and checking of all internal janus actions
 
 =cut
 
-__PERSIST__
-__CODE__
-
 my %spec = (
 
 	NETLINK => {

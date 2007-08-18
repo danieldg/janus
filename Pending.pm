@@ -5,18 +5,15 @@ package Pending;
 use strict;
 use warnings;
 use Persist;
-use Object::InsideOut;
 &Janus::load('InterJanus');
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-__PERSIST__
-persist @buffer   :Field;
-persist @delegate :Field;
-persist @peer     :Field :Arg(peer);
-__CODE__
+my @buffer   :Persist('buffer');
+my @delegate :Persist('delegate');
+my @peer     :Persist('peer')    :Arg('peer');
 
-sub _init :Init {
+sub _init {
 	my $net = shift;
 	my($addr,$port) = $Conffile::inet{addr}->($peer[$$net]);
 	print "Pending connection from $addr:$port\n";

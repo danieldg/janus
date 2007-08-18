@@ -7,8 +7,9 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 our %vars;
 
-my %reuse;
-my %max_gid;
+our %init_args;
+our %reuse;
+our %max_gid;
 
 sub Persist : ATTR(ARRAY,BEGIN) {
 	my($pk, $sym, $var, $attr, $dat, $phase) = @_;
@@ -23,7 +24,7 @@ sub import {
 	my $pkg = caller;
 	{
 		no strict 'refs';
-		push @{$pkg.'::ISA'}, $self;
+		push @{$pkg.'::ISA'}, $self, @_;
 	}
 }
 
@@ -58,11 +59,25 @@ sub gid_find {
 }
 
 sub new {
-	my($pk) = gid_find $_[0];
+	my $target = shift;
+	my %args = @_;
+
+	my @pkgs = gid_find $target;
+	my $pk = $pkgs[0];
+
 	my $n = $reuse{$pk} && @{$reuse{$pk}} ?
 		(shift @{$reuse{$pk}}) :
 		(++$max_gid{$pk});
-	bless \$n, $pk;
+	my $s = bless \$n, $target;
+	
+	for my $pkg (@pkgs) {
+		next unless $init_args{$pkg};
+		for my $arg (keys %{$init_args{$pkg}}) {
+			$init_args{$pkg}{$arg}[$n] = $args{$arg};
+		}
+	}
+	$s->_init(\%args) if $s->can('_init');
+	$s;
 }
 
 sub DESTROY {
@@ -75,6 +90,20 @@ sub DESTROY {
 		}
 	}
 	push @{$reuse{$pkgs[0]}}, $$self;
+}
+
+sub Get : ATTR(ARRAY) {
+#	my($pk, $sym, $var, $attr, $dat, $phase) = @_;
+	my $var = $_[3];
+	no strict 'refs';
+	*{"$_[0]::$_[4]"} = sub {
+		$var->[${$_[0]}];
+	}
+}
+
+sub Arg : ATTR(ARRAY) {
+	my($pk, $sym, $var, $attr, $dat, $phase) = @_;
+	$init_args{$pk}{$dat} = $var;
 }
 
 1;

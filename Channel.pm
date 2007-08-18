@@ -2,11 +2,12 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Channel;
-use Object::InsideOut;
 use Persist;
 use strict;
 use warnings;
-&Janus::load('Nick');
+BEGIN {
+	&Janus::load('Nick');
+}
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
@@ -18,21 +19,18 @@ Object representing a set of linked channels
 
 =cut
 
-__PERSIST__
-persist @ts       :Field :Get(ts);
-persist @keyname  :Field :Arg(keyname) :Get(keyname);
-persist @topic    :Field :Arg(topic) :Get(topic);
-persist @topicts  :Field :Arg(topicts) :Get(topicts);
-persist @topicset :Field :Arg(topicset) :Get(topicset);
-persist @mode     :Field;
+my @ts       :Persist(ts)                      :Get(ts);
+my @keyname  :Persist(keyname)  :Arg(keyname)  :Get(keyname);
+my @topic    :Persist(topic)    :Arg(topic)    :Get(topic);
+my @topicts  :Persist(topicts)  :Arg(topicts)  :Get(topicts);
+my @topicset :Persist(topicset) :Arg(topicset) :Get(topicset);
+my @mode     :Persist(mode);
 
-persist @names    :Field;
-persist @nets     :Field;
+my @names    :Persist(names);
+my @nets     :Persist(nets);
 
-persist @nicks    :Field;
-persist @nmode    :Field;
-
-__CODE__
+my @nicks    :Persist(nicks);
+my @nmode    :Persist(nmode);
 
 =item $chan->nets()
 
@@ -74,15 +72,7 @@ sub to_ij {
 	$out;
 }
 
-my %initargs :InitArgs = (
-	names => '',
-	net => '',
-	name => '',
-	ts => '',
-	mode => '',
-);
-
-sub _init :Init {
+sub _init {
 	my($c, $ifo) = @_;
 	$topicts[$$c] = 0 unless $topicts[$$c];
 	$mode[$$c] = $ifo->{mode} || {};
@@ -106,7 +96,7 @@ sub _init :Init {
 	}
 }
 
-sub _destroy :Destroy {
+sub _destroy {
 	my $c = $_[0];
 	my $n = join ',', map { $_.$names[$$c]{$_} } keys %{$names[$$c]};
 	print "   CHAN: $n deallocated\n";

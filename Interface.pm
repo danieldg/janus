@@ -6,13 +6,10 @@ BEGIN {
 	&Janus::load('Network');
 	&Janus::load('Nick');
 }
-use Object::InsideOut qw(Network);
-use Persist;
+use Persist 'Network';
 use strict;
 use warnings;
 our($VERSION) = '$Rev$' =~ /(\d+)/;
-
-__CODE__
 
 my $inick = $Conffile::netconf{janus}{janus} || 'janus';
 

@@ -17,17 +17,17 @@ Object representing a nick that exists across several networks
 
 =cut
 
-my @gid      :Persist :Get(gid);
-my @homenet  :Persist :Get(homenet);
-my @homenick :Persist :Get(homenick);
-my @nets     :Persist;
-my @nicks    :Persist;
-my @chans    :Persist;
-my @mode     :Persist;
-my @info     :Persist;
-my @ts       :Persist :Get(ts);
+my @gid      :Persist(gid) :Get(gid);
+my @homenet  :Persist(homenet) :Get(homenet);
+my @homenick :Persist(homenick) :Get(homenick);
+my @nets     :Persist(nets);
+my @nicks    :Persist(nicks);
+my @chans    :Persist(chans);
+my @mode     :Persist(mode);
+my @info     :Persist(info);
+my @ts       :Persist(ts) :Get(ts);
 
-my %initargs :InitArgs = (
+my %initargs = (
 	gid => '',
 	net => '',
 	nick => '',

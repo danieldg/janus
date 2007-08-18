@@ -2,26 +2,25 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package LocalNetwork;
-BEGIN { &Janus::load('Network'); }
-use Persist;
-use Object::InsideOut qw(Network);
+BEGIN {
+	&Janus::load('Network');
+	&Janus::load('Channel');
+}
+use Persist 'Network';
 use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
-&Janus::load('Channel');
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-__PERSIST__
-persist @cparms :Field; # currently active parameters
-persist @lreq   :Field;
-persist @synced :Field :Get(is_synced);
-persist @ponged :Field;
-persist @nicks  :Field;
-persist @chans  :Field;
-__CODE__
+my @cparms :Persist(cparms); # currently active parameters
+my @lreq   :Persist(lreq);
+my @synced :Persist(synced) :Get(is_synced);
+my @ponged :Persist(ponged);
+my @nicks  :Persist(nicks);
+my @chans  :Persist(chans);
 
-sub _init :Init {
+sub _init {
 	my $net = shift;
 	$nicks[$$net] = {};
 	$chans[$$net] = {};
