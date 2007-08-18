@@ -2,8 +2,6 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Actions;
-use Object::InsideOut;
-use Persist;
 use strict;
 use warnings;
 

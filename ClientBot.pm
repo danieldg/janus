@@ -2,13 +2,14 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package ClientBot;
-BEGIN { &Janus::load('LocalNetwork'); }
-use Persist;
-use Object::InsideOut 'LocalNetwork';
+BEGIN {
+	&Janus::load('LocalNetwork');
+	&Janus::load('Nick');
+}
+use Persist 'LocalNetwork';
 use Scalar::Util 'weaken';
 use strict;
 use warnings;
-&Janus::load('Nick');
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 

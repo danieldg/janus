@@ -92,7 +92,7 @@ sub connect_net {
 	my $nconf = $netconf{$id};
 	return if !$nconf || exists $Janus::netqueues{$id};
 	if ($id =~ /^LISTEN:/) {
-		my $sock = $inet{listn}->($nconf->{port});
+		my $sock = $inet{listn}->($nconf);
 		if ($sock) {
 			$Janus::netqueues{$id} = [$sock, undef, undef, undef, 1, 0];
 		} else {
@@ -106,7 +106,7 @@ sub connect_net {
 		} else {
 			print "Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}\n";
 
-			my $sock = $inet{conn}->($nconf->{linkaddr}, $nconf->{linkport}, $nconf->{linktype} =~ /^ssl/);
+			my $sock = $inet{conn}->($nconf);
 
 			$net->intro($nconf);
 
@@ -162,11 +162,11 @@ if ($netconf{janus}{ipv6}) {
 	] or die "Could not load IPv6 socket code: $@";
 	%Conffile::inet = (
 		listn => eval q[ sub {
-			my $port = shift;
+			my $nconf = shift;
 			my $sock = IO::Socket::INET6->new(
 				Listen => 5, 
 				Proto => 'tcp', 
-				LocalPort => $port, 
+				LocalPort => $nconf->{port}, 
 				Blocking => 0,
 			);
 			if ($sock) {
@@ -176,13 +176,17 @@ if ($netconf{janus}{ipv6}) {
 			$sock;
 		} ], 
 		conn => eval q[ sub {
-			my($ip,$port,$ssl) = @_;
-			my $addr = sockaddr_in6($port, inet_pton(AF_INET6, $ip));
-			my $sock = IO::Socket::INET6->new(Proto => 'tcp', Blocking => 0);
+			my $nconf = shift;
+			my $addr = sockaddr_in6($nconf->{linkport}, inet_pton(AF_INET6, $nconf->{linkaddr}));
+			my $sock = IO::Socket::INET6->new(
+				Proto => 'tcp',
+				LocalAddr => ($nconf->{linkbind} || '0.0.0.0'), 
+				Blocking => 0,
+			);
 			fcntl $sock, F_SETFL, O_NONBLOCK;
 			connect $sock, $addr;
 
-			if ($ssl) {
+			if ($nconf->{linktype} =~ /^ssl/) {
 				IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
 				$sock->connect_SSL();
 			}
@@ -205,11 +209,11 @@ if ($netconf{janus}{ipv6}) {
 	] or die "Could not load IPv4 socket code: $@";
 	%Conffile::inet = (
 		listn => eval q[ sub {
-			my $port = shift;
+			my $nconf = shift;
 			my $sock = IO::Socket::INET->new(
 				Listen => 5, 
 				Proto => 'tcp', 
-				LocalPort => $port, 
+				LocalPort => $nconf->{port}, 
 				Blocking => 0,
 			);
 			fcntl $sock, F_SETFL, O_NONBLOCK;
@@ -217,13 +221,17 @@ if ($netconf{janus}{ipv6}) {
 			$sock;
 		} ], 
 		conn => eval q[ sub {
-			my($ip,$port,$ssl) = @_;
-			my $addr = sockaddr_in($port, inet_aton($ip));
-			my $sock = IO::Socket::INET->new(Proto => 'tcp', Blocking => 0);
+			my $nconf = shift;
+			my $addr = sockaddr_in($nconf->{linkport}, inet_aton($nconf->{linkaddr}));
+			my $sock = IO::Socket::INET->new(
+				Proto => 'tcp', 
+				LocalAddr => ($nconf->{linkbind} || '0.0.0.0'), 
+				Blocking => 0,
+			);
 			fcntl $sock, F_SETFL, O_NONBLOCK;
 			connect $sock, $addr;
 
-			if ($ssl) {
+			if ($nconf->{linktype} =~ /^ssl/) {
 				IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
 				$sock->connect_SSL();
 			}
