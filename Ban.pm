@@ -3,22 +3,18 @@
 # http://www.affero.org/oagpl.html
 package Ban;
 use Persist;
-use Object::InsideOut;
 use strict;
 use warnings;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-__PERSIST__
-persist %netbans; # TODO consider saving these
-persist @regex  :Field;
-persist @expr   :Field :Arg(expr)   :Get(expr);
-persist @net    :Field :Arg(net)    :Get(net);
-persist @setter :Field :Arg(setter) :Get(setter);
-persist @expire :Field :Arg(expire) :Get(expire);
-persist @reason :Field :Arg(reason) :Get(reason);
-
-__CODE__
+our %netbans; # TODO consider saving these
+my @regex  :Persist(regex);
+my @expr   :Persist(expr)   :Arg(expr)   :Get(expr);
+my @net    :Persist(net)    :Arg(net)    :Get(net);
+my @setter :Persist(setter) :Arg(setter) :Get(setter);
+my @expire :Persist(expire) :Arg(expire) :Get(expire);
+my @reason :Persist(reason) :Arg(reason) :Get(reason);
 
 sub add {
 	my $ban = Ban->new(@_);
@@ -34,7 +30,7 @@ sub find {
 	undef;
 }
 
-sub _init :Init {
+sub _init {
 	my $ban = shift;
 	local $_ = $ban->expr();
 	unless (s/^~//) { # all expressions starting with a ~ are raw perl regexes

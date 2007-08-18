@@ -2,14 +2,10 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Silence;
-use Persist;
 use strict;
 use warnings;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
-
-__PERSIST__
-__CODE__
 
 sub service {
 	my $n = shift;

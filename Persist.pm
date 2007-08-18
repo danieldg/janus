@@ -83,6 +83,7 @@ sub new {
 sub DESTROY {
 	my $self = shift;
 	return unless $$self;
+	$self->_destroy() if $self->can('_destroy');
 	my @pkgs = gid_find ref $self;
 	for my $pkg (@pkgs) {
 		for my $aref (values %{$vars{$pkg}}) {
@@ -94,7 +95,7 @@ sub DESTROY {
 
 sub Get : ATTR(ARRAY) {
 #	my($pk, $sym, $var, $attr, $dat, $phase) = @_;
-	my $var = $_[3];
+	my $var = $_[2];
 	no strict 'refs';
 	*{"$_[0]::$_[4]"} = sub {
 		$var->[${$_[0]}];

@@ -12,13 +12,10 @@ use warnings;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-__PERSIST__
-persist @sendq     :Field;
-persist @self      :Field;
-persist @kicks     :Field;
+my @sendq     :Persist(sendq);
+my @self      :Persist(mynick);
+my @kicks     :Persist(kicks);
 # $kicks[$$net]{$lid}{$channel} = 1 for a rejoin enabled
-
-__CODE__
 
 my %fromirc;
 my %toirc;
