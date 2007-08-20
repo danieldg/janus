@@ -203,6 +203,7 @@ my %spec = (
 		topicset => '$',
 		topicts => '$',
 		topic => '$',
+		in_link => '?$',
 	},
 
 	NICK => {
@@ -252,6 +253,7 @@ my %default = (
 	dst => '?Nick Channel Network',
 	except => '?Network InterJanus',
 	sendto => '?@',
+	nojlink => '?$',
 );
 
 for my $type (keys %spec) {
@@ -275,9 +277,12 @@ for my $type (keys %spec) {
 		$_ = $$check{$k};
 		my $v = $act->{$k};
 		if (s/^\?//) {
-			return 0 unless defined $v;
+			next KEY unless defined $v;
 		} else {
 			return 1 unless defined $v;
+		}
+		if (s/^~//) {
+			return 1 unless eval;
 		}
 		my $r = 0;
 		for (split /\s+/) {
@@ -285,7 +290,7 @@ for my $type (keys %spec) {
 				/\$/ ? (defined $v && '' eq ref $v) :
 				/\@/ ? (ref $v && 'ARRAY' eq ref $v) :
 				/\%/ ? (ref $v && 'HASH' eq ref $v) :
-				(ref $v && $v->isa($_));
+				$v->isa($_);
 			};
 		}
 		$@ = "Invalid value $v for key '$k' in action $itm";
