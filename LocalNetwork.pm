@@ -68,7 +68,7 @@ sub pongcheck {
 	}
 }
 
-sub intro :Cumulative {
+sub intro {
 	my $net = shift;
 	$cparms[$$net] = { %{$Conffile::netconf{$net->id()}} };
 	$net->_set_numeric($cparms[$$net]->{numeric});

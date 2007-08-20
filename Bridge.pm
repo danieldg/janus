@@ -6,10 +6,6 @@ use Persist;
 use strict;
 use warnings;
 
-__PERSIST__
-
-__CODE__
-
 &Janus::hook_add(
 	NEWNICK => act => sub {
 		my $act = shift;

@@ -240,8 +240,9 @@ sub str {
 	$net->id().'.janus';
 }
 
-sub intro :Cumulative {
+sub intro {
 	my($net,$param) = @_;
+	$net->SUPER::intro($param);
 	$net->send(
 		'PASS :'.$param->{linkpass},
 		'PROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS UMODE2 TKLEXT SJB64',
