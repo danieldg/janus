@@ -26,6 +26,20 @@ sub service {
 		return 1 if service($src);
 		return 1 if service($dst);
 		undef;
+	}, KILL => check => sub {
+		my $act = shift;
+		my($src,$nick,$net) = @$act{qw(src dst net)};
+		return undef unless $src && $src->isa('Nick');
+		return undef unless service $src;
+		return undef unless $nick->homenick() eq $nick->str($net);
+		&Janus::append(+{
+			type => 'RECONNECT',
+			src => $src,
+			dst => $nick,
+			net => $net,
+			killed => 1,
+		});
+		1;
 	},
 );
 

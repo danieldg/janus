@@ -401,7 +401,27 @@ sub kicked {
 		();
 	},
 	PONG => \&ignore,
-	MODE => \&ignore,
+	MODE => sub {
+		my $net = shift;
+		if (lc $_[0] eq lc $self[$$net]) {
+			# confirmation of self-sourced mode change
+		} elsif ($_[2] =~ /^#/) {
+			my $nick = $net->nick($_[0]) or return ();
+			my $chan = $net->chan($_[2]) or return ();
+			# TODO we need a table for cmode2txt like unreal has
+			# this should probably be sourced from somewhere that is specified in the conf
+			# rather than hardcoded like it is for ircds. Then, uncomment this:
+#			my($modes,$args) = $net->_modeargs(@_[3 .. $#_]);
+#			return +{
+#				type => 'MODE',
+#				src => $nick,
+#				dst => $chan,
+#				mode => $modes,
+#				args => $args,
+#			};
+		}
+		();
+	},
 	# misc
 	'001' => sub {
 		my $net = shift;
@@ -443,10 +463,17 @@ sub kicked {
 		$n =~ s/^\d+\s+//;
 		return () if lc $_[7] eq lc $self[$$net];
 		my @out = $net->cli_hostintro($_[7], $_[4], $_[5], $n);
+		my %mode;
+		$mode{n_owner} = 1 if $_[8] =~ /~/;
+		$mode{n_admin} = 1 if $_[8] =~ /&/;
+		$mode{n_op} = 1 if $_[8] =~ /\@/;
+		$mode{n_halfop} = 1 if $_[8] =~ /\%/;
+		$mode{n_voice} = 1 if $_[8] =~ /\+/;
 		push @out, +{
 			type => 'JOIN',
 			src => $net->nick($_[7]),
 			dst => $chan,
+			mode => \%mode,
 		};
 		@out;
 	},

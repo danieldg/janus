@@ -180,7 +180,7 @@ if ($netconf{janus}{ipv6}) {
 			my $addr = sockaddr_in6($nconf->{linkport}, inet_pton(AF_INET6, $nconf->{linkaddr}));
 			my $sock = IO::Socket::INET6->new(
 				Proto => 'tcp',
-				LocalAddr => ($nconf->{linkbind} || '0.0.0.0'), 
+				($nconf->{linkbind} ? (LocalAddr => $nconf->{linkbind}) : ()), 
 				Blocking => 0,
 			);
 			fcntl $sock, F_SETFL, O_NONBLOCK;
