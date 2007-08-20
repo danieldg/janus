@@ -5,11 +5,12 @@ package InterJanus;
 use Persist;
 use strict;
 use warnings;
-&Janus::load('Nick');
+BEGIN {
+	&Janus::load('Nick');
+}
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-__CODE__
 
 my %fromirc;
 my %toirc;

@@ -1,74 +1,110 @@
 package Persist;
 use strict;
 use warnings;
-use Filter::Util::Call;
-
+use Attribute::Handlers;
+use Persist::Field;
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-sub import {
-	my $pkg = caller;
-	my $state = eval "\$${pkg}::PERSIST_STATE;";
-	my $first = !defined $state;
-	eval "\$${pkg}::PERSIST_STATE = {}" if $first;
-	my $filter = bless {
-		pkg => $pkg,
-		init => 0,
-		runonce => 0,
-		qlevel => 0,
-		first => $first,
-		state => $state,
-	};
-	filter_add($filter);
+our %vars;
+
+our %init_args;
+our %reuse;
+our %max_gid;
+
+sub Persist : ATTR(ARRAY,BEGIN) {
+	my($pk, $sym, $var, $attr, $dat, $phase) = @_;
+	my $src = $vars{$pk}{$dat} || [];
+	$vars{$pk}{$dat} = $src;
+	tie @$var, 'Persist::Field', $src;
 }
 
-sub filter {
-	my $self = $_[0];
-	my $status = filter_read();
-	unless ($status > 0) {
-		if ($self->{qlevel}) {
-			$_ = '';
-			for my $i (1 .. $self->{qlevel}) {
-				s/(['\\])/\\$1/g;
-				$_ .= "' or die \$\@;";
+sub import {
+	my $self = shift;
+	return unless $self eq __PACKAGE__;
+	my $pkg = caller;
+	{
+		no strict 'refs';
+		push @{$pkg.'::ISA'}, $self, @_;
+	}
+}
+
+sub gid_find {
+	my %tops = ( $_[0] => 1 );
+	my %isas = ( $_[0] => 1 );
+	my $again = 1;
+	while ($again) {
+		$again = 0;
+		for my $pkg (keys %tops) {
+			my %isa = map { $_ => 1 } do {
+				no strict 'refs';
+				@{$pkg.'::ISA'};
+			};
+			if ($isa{__PACKAGE__ . ''}) {
+				unless (1 == keys %isa) {
+					$again = 1;
+					delete $tops{$pkg};
+					$isas{$_}++, $tops{$_}++ for keys %isa;
+				}
+			} else {
+				delete $tops{$pkg};
+				delete $isas{$pkg};
+				$isas{$_}++, $tops{$_}++ for keys %isa;
 			}
-			$self->{qlevel} = 0;
-			return 1;
-		}
-		return $status;
-	}
-	if (/^__PERSIST__$/) {
-		$self->{init}++;
-		$_ = ($self->{first} ? '' : 'use Data::Alias;'). "our \$PERSIST_STATE;\n";
-	} elsif (s/^\s*__RUNFIRST__//) {
-		s/^/#/ unless $self->{first};
-	} elsif (s/^\s*__RUNFIRST_START__//) {
-		$self->{comment} = !$self->{first};
-	} elsif (s/^\s*__RUNELSE__//) {
-		s/^/#/ if $self->{first};
-	} elsif (s/^\s*__RUNELSE_START__//) {
-		$self->{comment} = $self->{first};
-	} elsif (s/^\s*__RUN(FIRST|ELSE)_END__//) {
-		$self->{comment} = 0;
-	} elsif (/^__CODE__$/) {
-		$self->{qlevel}++;
-		$_ = q{eval '#line '.__LINE__.' "'.__FILE__."\"\n".'};
-		$_ .= $self->{first} ? "\n" : "no warnings qw(redefine);\n";
-		return $status;
-	}
-
-	s/^/#/ if $self->{comment};
-	for my $i (1 .. $self->{qlevel}) { s/(['\\])/\\$1/g }
-	return $status unless $self->{init};
-
-	if (/^persist ([\%\@\$])([^ =;]+)(.*?);\s*(#|$)/) {
-		my ($t,$var,$args) = ($1,$2,$3);
-		if ($self->{state}->{$t.$var}) {
-			$_ = "my $t$var; alias $t$var = $t\{\$PERSIST_STATE->{'$t$var'}};\n";
-		} else {
-			$_ = "my $t$var$args; \$PERSIST_STATE->{'$t$var'} = \\$t$var;\n";
 		}
 	}
-	$status;
+	delete $isas{$_} for keys %tops;
+	delete $tops{__PACKAGE__ . ''};
+	warn "Multiple top-level inheritance doesn't work: ".join ' ', keys %tops if 1 < scalar keys %tops;
+	keys(%tops), keys(%isas);
+}
+
+sub new {
+	my $target = shift;
+	my %args = @_;
+
+	my @pkgs = gid_find $target;
+	my $pk = $pkgs[0];
+
+	my $n = $reuse{$pk} && @{$reuse{$pk}} ?
+		(shift @{$reuse{$pk}}) :
+		(++$max_gid{$pk});
+	my $s = bless \$n, $target;
+	
+	for my $pkg (@pkgs) {
+		next unless $init_args{$pkg};
+		for my $arg (keys %{$init_args{$pkg}}) {
+			$init_args{$pkg}{$arg}[$n] = $args{$arg};
+		}
+	}
+	$s->_init(\%args) if $s->can('_init');
+	$s;
+}
+
+sub DESTROY {
+	my $self = shift;
+	return unless $$self;
+	$self->_destroy() if $self->can('_destroy');
+	my @pkgs = gid_find ref $self;
+	for my $pkg (@pkgs) {
+		for my $aref (values %{$vars{$pkg}}) {
+			delete $aref->[$$self];
+		}
+	}
+	push @{$reuse{$pkgs[0]}}, $$self;
+}
+
+sub Get : ATTR(ARRAY) {
+#	my($pk, $sym, $var, $attr, $dat, $phase) = @_;
+	my $var = $_[2];
+	no strict 'refs';
+	*{"$_[0]::$_[4]"} = sub {
+		$var->[${$_[0]}];
+	}
+}
+
+sub Arg : ATTR(ARRAY) {
+	my($pk, $sym, $var, $attr, $dat, $phase) = @_;
+	$init_args{$pk}{$dat} = $var;
 }
 
 1;

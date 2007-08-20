@@ -2,11 +2,12 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Channel;
-use Object::InsideOut;
 use Persist;
 use strict;
 use warnings;
-&Janus::load('Nick');
+BEGIN {
+	&Janus::load('Nick');
+}
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
@@ -18,19 +19,14 @@ Object representing a set of linked channels
 
 =cut
 
-__PERSIST__
-persist @ts       :Field :Get(ts);
-persist @topic    :Field :Arg(topic) :Get(topic);
-persist @topicts  :Field :Arg(topicts) :Get(topicts);
-persist @topicset :Field :Arg(topicset) :Get(topicset);
-persist @mode     :Field;
-
-persist @name     :Field :Get(keyname);
-
-persist @nicks    :Field;
-persist @nmode    :Field;
-
-__CODE__
+my @ts       :Persist(ts)                     :Get(ts);
+my @name     :Persist(keyname)                :Get(keyname);
+my @topic    :Persist(topic)   :Arg(topic)    :Get(topic);
+my @topicts  :Persist(topicts) :Arg(topicts)  :Get(topicts);
+my @topicset :Persist(topicts) :Arg(topicset) :Get(topicset);
+my @mode     :Persist(mode);
+my @nicks    :Persist(nicks);
+my @nmode    :Persist(nmode);
 
 =item $chan->nets()
 
@@ -71,14 +67,7 @@ sub to_ij {
 	$out;
 }
 
-my %initargs :InitArgs = (
-	net => '',
-	name => '',
-	ts => '',
-	mode => '',
-);
-
-sub _init :Init {
+sub _init {
 	my($c, $ifo) = @_;
 	$topicts[$$c] = 0 unless $topicts[$$c];
 	$mode[$$c] = $ifo->{mode} || {};
@@ -87,7 +76,7 @@ sub _init :Init {
 	$name[$$c] = $ifo->{name};
 }
 
-sub _destroy :Destroy {
+sub _destroy {
 	my $c = $_[0];
 	my $n = $name[$$c];
 	print "   CHAN: $n deallocated\n";

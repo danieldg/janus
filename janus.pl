@@ -32,6 +32,7 @@ unless ($args =~ /d/) {
 	setsid;
 }
 
+$SIG{PIPE} = 'IGNORE';
 sub readable {
 	my $l = shift;
 	my ($sock, $recvq, $sendq) = @$l;

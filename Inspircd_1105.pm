@@ -2,37 +2,36 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Inspircd_1105;
-BEGIN { &Janus::load('LocalNetwork'); }
-use Persist;
-use Object::InsideOut 'LocalNetwork';
+BEGIN {
+	&Janus::load('LocalNetwork');
+	&Janus::load('Nick');
+}
+use Persist 'LocalNetwork';
 use strict;
 use warnings;
-&Janus::load('Nick');
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-__PERSIST__
-persist @sendq     :Field;
-persist @servers   :Field;
-persist @serverdsc :Field;
+my @sendq     :Persist(sendq);
+my @servers   :Persist(servers);
+my @serverdsc :Persist(serverdsc);
 
-persist @modules   :Field; # {module} => definition - List of active modules
-persist @meta      :Field; # key => sub{} for METADATA command
-persist @fromirc   :Field; # command => sub{} for IRC commands
-persist @act_hooks :Field; # type => module => sub{} for Janus Action => output
+my @modules   :Persist(modules); # {module} => definition - List of active modules
+my @meta      :Persist(meta); # key => sub{} for METADATA command
+my @fromirc   :Persist(fromirc); # command => sub{} for IRC commands
+my @act_hooks :Persist(act_hooks); # type => module => sub{} for Janus Action => output
 
-persist @auth      :Field; # 0/undef = unauth connection; 1 = authed, in burst; 2 = after burst
-persist @capabs    :Field;
+my @auth      :Persist(auth); # 0/undef = unauth connection; 1 = authed, in burst; 2 = after burst
+my @capabs    :Persist(capabs);
 
-persist @txt2cmode :Field; # quick lookup hashes for translation in/out of janus
-persist @cmode2txt :Field;
-persist @txt2umode :Field;
-persist @umode2txt :Field;
-persist @txt2pfx   :Field;
-persist @pfx2txt   :Field;
-__CODE__
+my @txt2cmode :Persist(txt2cmode); # quick lookup hashes for translation in/out of janus
+my @cmode2txt :Persist(cmode2txt);
+my @txt2umode :Persist(txt2umode);
+my @umode2txt :Persist(umode2txt);
+my @txt2pfx   :Persist(txt2pfx);
+my @pfx2txt   :Persist(pfx2txt);
 
-sub _init :Init {
+sub _init {
 	my $net = shift;
 	$sendq[$$net] = [];
 	$net->module_add('CORE');

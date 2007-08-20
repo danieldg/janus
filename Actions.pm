@@ -2,8 +2,6 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Actions;
-use Object::InsideOut;
-use Persist;
 use strict;
 use warnings;
 
@@ -131,9 +129,6 @@ Basic descriptions and checking of all internal janus actions
 
 =cut
 
-__PERSIST__
-__CODE__
-
 my %spec = (
 
 	NETLINK => {
@@ -251,8 +246,20 @@ my %spec = (
 	},
 );
 
-my %ignore;
-$ignore{$_} = 1 for qw/type src dst except sendto/;
+my %default = (
+	type => '$',
+	src => '?Nick Network',
+	dst => '?Nick Channel Network',
+	except => '?Network InterJanus',
+	sendto => '?@',
+);
+
+for my $type (keys %spec) {
+	for my $i (keys %default) {
+		next if exists $spec{$type}{$i};
+		$spec{$type}{$i} = $default{$i};
+	}
+}
 
 &Janus::hook_add(ALL => validate => sub {
 	my $act = shift;
@@ -285,7 +292,7 @@ $ignore{$_} = 1 for qw/type src dst except sendto/;
 		return 1 unless $r;
 	}
 	for my $k (keys %$act) {
-		next if $ignore{$k} or exists $check->{$k};
+		next if exists $check->{$k};
 		print "Warning: unknown key $k in action $itm\n";
 	}
 	undef;
