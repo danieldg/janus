@@ -256,7 +256,7 @@ my %default = (
 	src => '?Nick Network',
 	dst => '?Nick Channel Network',
 	except => '?Network InterJanus',
-	sendto => '@',
+	sendto => '?@',
 );
 
 for my $type (keys %spec) {
