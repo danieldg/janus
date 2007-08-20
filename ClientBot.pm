@@ -21,7 +21,7 @@ my @kicks     :Persist(kicks);
 my %fromirc;
 my %toirc;
 
-sub _init :Init {
+sub _init {
 	my $net = shift;
 	$sendq[$$net] = [];
 }

@@ -440,7 +440,7 @@ sub part {
 					}
 					$mode[$$chan]{$txt} = [ keys %m ];
 				} else {
-					if (exists $mode[$$chan1]) {
+					if (exists $mode[$$chan1]{$txt}) {
 						$mode[$$chan]{$txt} = $mode[$$chan1]{$txt};
 					} else {
 						$mode[$$chan]{$txt} = $mode[$$chan2]{$txt};
