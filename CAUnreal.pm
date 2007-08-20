@@ -2,24 +2,22 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package CAUnreal;
-BEGIN { &Janus::load('LocalNetwork'); }
-use Persist;
-use Object::InsideOut 'LocalNetwork';
+BEGIN {
+	&Janus::load('LocalNetwork');
+	&Janus::load('Nick');
+}
+use Persist 'LocalNetwork';
 use strict;
 use warnings;
-&Janus::load('Nick');
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-__PERSIST__
-persist @sendq   :Field;
-persist @srvname :Field;
-persist @servers :Field;
-persist @auth    :Field;
-
-__CODE__
-
-sub _init :Init {
+my @sendq   :Persist(sendq);
+my @srvname :Persist(srvname);
+my @servers :Persist(servers);
+my @auth    :Persist(auth);
+ 
+sub _init {
 	my $net = shift;
 	$sendq[$$net] = [];
 }

@@ -2,8 +2,6 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Actions;
-use Object::InsideOut;
-use Persist;
 use strict;
 use warnings;
 
@@ -130,9 +128,6 @@ Basic descriptions and checking of all internal janus actions
 =back
 
 =cut
-
-__PERSIST__
-__CODE__
 
 my %spec = (
 

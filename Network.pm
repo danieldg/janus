@@ -3,18 +3,27 @@
 # http://www.affero.org/oagpl.html
 package Network;
 use Persist;
-use Object::InsideOut;
 use strict;
 use warnings;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-__PERSIST__
-persist @jlink   :Field :Arg(jlink) :Get(jlink);
-persist @id      :Field :Arg(id) :Get(id);
-persist @netname :Field :Arg(netname) :Get(netname) :Set(_set_netname);
-persist @numeric :Field :Arg(numeric) :Get(numeric) :Set(_set_numeric);
-__CODE__
+my @jlink   :Persist(jlink)   :Get(jlink);
+my @id      :Persist(id)      :Get(id)      :Arg(id);
+my @netname :Persist(netname) :Get(netname);
+my @numeric :Persist(numeric) :Get(numeric) :Arg(numeric);
+
+sub _set_id {
+	$id[${$_[0]}] = $_[1];
+}
+
+sub _set_numeric {
+	$numeric[${$_[0]}] = $_[1];
+}
+
+sub _set_netname {
+	$netname[${$_[0]}] = $_[1];
+}
 
 sub to_ij {
 	my($net,$ij) = @_;
@@ -25,7 +34,7 @@ sub to_ij {
 	$out;
 }
 
-sub _destroy :Destroy {
+sub _destroy {
 	print "DBG: $_[0] $netname[${$_[0]}] deallocated\n";
 }
 

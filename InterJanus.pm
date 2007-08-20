@@ -2,21 +2,18 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package InterJanus;
-use Object::InsideOut;
 use Persist;
 use strict;
 use warnings;
-&Janus::load('Nick');
-&Janus::load('RemoteNetwork');
+BEGIN {
+	&Janus::load('Nick');
+	&Janus::load('RemoteNetwork');
+}
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-__PERSIST__
-persist @sendq :Field;
-persist @id    :Field :Arg(id);
-persist @auth  :Field;
-
-__CODE__
+my @sendq :Persist('sendq');
+my @auth  :Persist('auth');
 
 my %fromirc;
 my %toirc;
@@ -29,11 +26,6 @@ my $INST_DBG = do {
 sub str {
 	warn;
 	"";
-}
-
-sub id {
-	my $ij = shift;
-	$id[$$ij];
 }
 
 sub intro {
@@ -217,11 +209,12 @@ sub parse {
 		return $act;
 	} elsif ($act->{type} eq 'InterJanus') {
 		print "Unsupported InterJanus version $act->{version}\n" if $act->{version} ne '1';
-		my $id = $id[$$ij];
+		my $id = $ij->id();
 		if ($id && $act->{id} ne $id) {
 			print "Unexpected ID reply $act->{id} from IJ $id\n"
 		} else {
-			$id = $id[$$ij] = $act->{id};
+			$id = $act->{id};
+			$ij->_set_id($id);
 		}
 		my $nconf = $Conffile::netconf{$id};
 		if (!$nconf) {

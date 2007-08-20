@@ -6,13 +6,10 @@ BEGIN {
 	&Janus::load('Network');
 	&Janus::load('Nick');
 }
-use Object::InsideOut qw(Network);
-use Persist;
+use Persist 'Network';
 use strict;
 use warnings;
 our($VERSION) = '$Rev$' =~ /(\d+)/;
-
-__CODE__
 
 my $inick = $Conffile::netconf{janus}{janus} || 'janus';
 
@@ -473,7 +470,7 @@ if ($Janus::interface) {
 	details => [
 		"Syntax: \002RELOAD\002 module",
 		"\002WARNING\002: Reloading core modules may introduce bugs because of persistance",
-		"of old code by the perl interpreter, and because Object::InsideOut methods may expire"
+		"of old code by the perl interpreter"
 	],
 	code => sub {
 		my($nick,$name) = @_;
