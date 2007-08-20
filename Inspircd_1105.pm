@@ -595,23 +595,42 @@ sub cmd2 {
 			NICKLOCK => sub {
 				my $net = shift;
 				my $nick = $net->nick($_[2]);
+				my $bounce_victim = $net->nick($_[3]);
+				my @out;
+				if ($bounce_victim) {
+					if ($bounce_victim->homenet()->id() eq $net->id()) {
+						push @out, +{
+							type => 'QUIT',
+							dst => $bounce_victim,
+							killer => $net->item($_[0]),
+						};
+					} else {
+						push @out, +{
+							type => 'KILL',
+							src => $net->item($_[0]),
+							dst => $bounce_victim,
+							msg => 'Nick collision (from nicklock)',
+						};
+					}
+				}						
 				if ($nick->homenet()->id() eq $net->id()) {
-					return () if $_[2] eq $_[3];
 					# accept it as a nick change
-					return +{
+					push @out, +{
 						type => 'NICK',
 						src => $nick,
 						dst => $nick,
 						nick => $_[3],
 						nickts => time,
-					};
+					} unless $_[2] eq $_[3];
+				} else {
+					# we need to unlock and change nicks back, since it doesn't make sense
+					# to lock a remote janus nick
+					my @reply;
+					push @reply, $net->cmd2($Janus::interface, NICKUNLOCK => $_[3]);
+					push @reply, $net->cmd2($_[3], NICK => $_[2]) unless $_[2] eq $_[3];
+					$net->send(@reply);
 				}
-				# we need to unlock and change nicks back
-				my @out;
-				push @out, $net->cmd2($Janus::interface, NICKUNLOCK => $_[3]);
-				push @out, $net->cmd2($_[3], NICK => $_[2]) unless $_[2] eq $_[3];
-				$net->send(@out);
-				();
+				@out;
 			},
 			NICKUNLOCK => \&ignore,
 		},
