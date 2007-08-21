@@ -244,7 +244,7 @@ sub intro {
 	my($net,$param) = @_;
 	$net->SUPER::intro($param);
 	$net->send(
-		'PASS :'.$param->{linkpass},
+		'PASS :'.$param->{sendpass},
 		'PROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS UMODE2 TKLEXT SJB64',
 		"SERVER $param->{linkname} 1 :U2309-hX6eE-$param->{numeric} Janus Network Link",
 	);
@@ -1061,7 +1061,7 @@ sub srvname {
 	PONG => \&ignore,
 	PASS => sub {
 		my $net = shift;
-		if ($_[2] eq $net->param('yourpass')) {
+		if ($_[2] eq $net->cparam('recvpass')) {
 			$auth[$$net] = 1;
 		} else {
 			$net->send('ERROR :Bad password');

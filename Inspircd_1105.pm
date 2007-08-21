@@ -1142,7 +1142,7 @@ CORE => {
 	SERVER => sub {
 		my $net = shift;
 		unless ($auth[$$net]) {
-			if ($_[3] eq $net->param('yourpass')) {
+			if ($_[3] eq $net->cparam('recvpass')) {
 				$auth[$$net] = 1;
 				$net->send(['INIT', 'BURST '.time, $net->ncmd(VERSION => 'Janus')]);
 			} else {
@@ -1225,7 +1225,7 @@ CORE => {
 			push @out, 'CAPAB MODULES '.$1 while $mods =~ s/(.{1,495})(,|$)//;
 			push @out, 'CAPAB CAPABILITIES :'.$1 while $capabs =~ s/(.{1,450})( |$)//;
 			push @out, 'CAPAB END';
-			push @out, $net->cmd1(SERVER => $net->param('linkname'), $net->param('mypass'), 0, 'Janus Network Link');
+			push @out, $net->cmd1(SERVER => $net->cparam('linkname'), $net->cparam('sendpass'), 0, 'Janus Network Link');
 			$net->send(\@out);
 			$net->process_capabs();
 		} # ignore START and any others

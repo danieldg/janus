@@ -49,7 +49,6 @@ link::linktype [ssl|plain]
 link::netname Some Name
 	Human-readable network name
 
-(TODO: this isn't valid yet)
 link::sendpass password
 link::recvpass password
 	Network-specific passwords to authenticate server-server links
