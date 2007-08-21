@@ -3,6 +3,8 @@ use strict;
 use warnings;
 use Carp;
 
+our($VERSION) = '$Rev$' =~ /(\d+)/;
+
 sub TIEARRAY {
 	my $class = shift;
 	my $self = shift || [];

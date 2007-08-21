@@ -36,7 +36,7 @@ sub read_conf {
 			print "Error in line $. of config file\n";
 			next;
 		};
-		my $type = lc $1;
+		my $type = $1;
 
 		if ($type eq 'link') {
 			if (defined $current) {
@@ -61,13 +61,13 @@ sub read_conf {
 			};
 			$current = { port => $1 };
 			$newconf{'LISTEN:'.$1} = $current;
-		} elsif ($type eq 'set') {
+		} elsif ($type eq 'set' || $type eq 'modules') {
 			if (defined $current) {
 				&Janus::err_jmsg($nick, "Missing closing brace at line $. of config file, aborting");
 				return;
 			}
 			$current = {};
-			$newconf{janus} = $current;
+			$newconf{$type eq 'set' ? 'janus' : $type} = $current;
 		} elsif ($type eq '}') {
 			unless (defined $current) {
 				&Janus::err_jmsg($nick, "Extra closing brace at line $. of config file");
@@ -85,6 +85,13 @@ sub read_conf {
 	}
 	close $conf;
 	%netconf = %newconf;
+	if ($newconf{modules}) {
+		for my $mod (keys %{$newconf{modules}}) {
+			unless (&Janus::load($mod)) {
+				&Janus::err_jmsg($nick, "Could not load module $mod: $@");
+			}
+		}
+	}
 }
 
 sub connect_net {

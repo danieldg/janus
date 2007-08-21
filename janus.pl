@@ -27,8 +27,8 @@ unless ($args =~ /d/) {
 $| = 1;
 $SIG{PIPE} = 'IGNORE';
 
-&Janus::load($_) or die for qw(Interface Ban Actions);
 &Janus::load('Conffile', shift || 'janus.conf') or die;
+&Janus::load($_) or die for qw(Interface Actions Commands::Core);
 
 sub readable {
 	my $l = shift;

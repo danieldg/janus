@@ -134,7 +134,9 @@ sub load {
 
 	$modules{$module} = 1;
 
-	if (do "$module.pm") {
+	my $fn = $module.'.pm';
+	$fn =~ s#::#/#g;
+	if (do $fn) {
 		$modules{$module} = 2;
 	} else {
 		warn "Cannot load module $module: $@";
