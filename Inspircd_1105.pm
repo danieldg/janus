@@ -1413,6 +1413,7 @@ CORE => {
 		my $new = $act->{net};
 		my $id = $new->id();
 		return () if $net->id() eq $id;
+		return () if $net->isa('Interface');
 		return (
 			$net->ncmd(SERVER => "$id.janus", '*', 1, $new->netname()),
 			$net->ncmd(OPERNOTICE => "Janus network $id (".$new->netname().") is now linked"),

@@ -1261,6 +1261,7 @@ sub cmd2 {
 			}
 			return @out;
 		} else {
+			return () if $net->isa('Interface');
 			return $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->numeric(), $new->netname());
 		}
 	}, LINKED => sub {
