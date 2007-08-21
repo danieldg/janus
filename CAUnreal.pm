@@ -313,7 +313,7 @@ sub dump_sendq {
 			for my $c (keys %sjmerge) {
 				$_ = $sjmerge{$c}{j}; chomp;
 				# IRC limits to 512 char lines; we output a line like: ~ !123456 #<32> :<510-45>
-				$q .= $net->cmd1(SJOIN => $sjmerge{$c}{ts}, $c, $1)."\r\n" while s/^(.{,465}) //;
+				$q .= $net->cmd1(SJOIN => $sjmerge{$c}{ts}, $c, $1)."\r\n" while s/^(.{400,465}) //;
 				$q .= $net->cmd1(SJOIN => $sjmerge{$c}{ts}, $c, $_)."\r\n";
 			}
 			%sjmerge = ();
