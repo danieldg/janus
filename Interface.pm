@@ -196,17 +196,24 @@ if ($Janus::interface) {
 	help => 'Version information on all modules loaded by janus',
 	code => sub {
 		my $nick = shift;
-		opendir my $dir, '.' or return warn $!;
-		&Janus::jmsg($nick, 'Janus socket core:'.$main::VERSION);
-		for my $itm (sort readdir $dir) {
-			next unless $itm =~ /^([0-9_A-Za-z]+)\.pm$/;
-			my $mod = $1;
+		my @mods = sort('main', keys %main::INC);
+		my($m1, $m2) = (10,3); #min lengths
+		my @mvs;
+		for (@mods) {
+			s/\.pmc?$//;
+			s#/#::#g;
 			no strict 'refs';
-			my $v = ${$mod.'::VERSION'};
-			next unless $v; # not loaded
-			&Janus::jmsg($nick, "$mod:$v");
+			my $v = ${$_.'::VERSION'} || '';
+			next unless $v;
+			$m1 = length $_ if $m1 < length $_;
+			$m2 = length $v if $m2 < length $v;
+			push @mvs, $_, $v;
 		}
-		closedir $dir;
+		my $ex = ' %-'.$m1.'s %'.$m2.'s';
+		while (@mvs) {
+			my @out = splice @mvs,0,6;
+			&Janus::jmsg($nick, sprintf $ex x (@out/2), @out);
+		}
 	}
 }, {
 	cmd => 'list',
