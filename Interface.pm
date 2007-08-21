@@ -25,7 +25,6 @@ if ($Janus::interface) {
 			nickts => 100000000,
 		});
 	}
-	Interface->new(id => '__reloader__');
 } else {
 	my $int = Interface->new(
 		id => 'janus',

@@ -47,7 +47,7 @@ sub pongcheck {
 		weaken($p->{net});
 		$net = $p->{net}; #possibly skip
 	}
-	unless ($net) {
+	unless ($net && defined $net->id()) {
 		delete $p->{repeat};
 		&Conffile::connect_net(undef, $p->{netid});
 		return;

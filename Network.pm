@@ -8,7 +8,7 @@ use warnings;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-my @jlink   :Persist(jlink)   :Get(jlink);
+my @jlink   :Persist(jlink)   :Get(jlink)   :Arg(jlink);
 my @id      :Persist(id)      :Get(id)      :Arg(id);
 my @netname :Persist(netname) :Get(netname);
 my @numeric :Persist(numeric) :Get(numeric) :Arg(numeric);
