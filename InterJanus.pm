@@ -13,6 +13,7 @@ BEGIN {
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 my @sendq :Persist('sendq');
+my @id    :Persist('id')    :Arg(id) :Get(id);
 my @auth  :Persist('auth');
 
 my %fromirc;
@@ -213,8 +214,7 @@ sub parse {
 		if ($id && $act->{id} ne $id) {
 			print "Unexpected ID reply $act->{id} from IJ $id\n"
 		} else {
-			$id = $act->{id};
-			$ij->_set_id($id);
+			$id[$$ij] = $id = $act->{id};
 		}
 		my $nconf = $Conffile::netconf{$id};
 		if (!$nconf) {
