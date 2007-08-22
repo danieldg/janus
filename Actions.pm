@@ -242,6 +242,7 @@ my %spec = (
 		slink => '$',
 		dlink => '$',
 		linkfile => '?$',
+		override => '?$',
 	},
 	LSYNC => {
 		dst => 'Network',
@@ -250,11 +251,13 @@ my %spec = (
 		linkfile => '?$',
 	},
 	LINK => {
-		chan1 => 'Channel',
-		chan2 => 'Channel',
+		chan1 => '?Channel',
+		chan2 => '?Channel',
 		linkfile => '?$',
 	},
 	DELINK => {
+		net => 'Network',
+		'split' => '?Channel',
 	},
 );
 
