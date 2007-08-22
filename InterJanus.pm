@@ -160,13 +160,13 @@ sub debug_send {
 	my $ij = $INST_DBG;
 	for my $act (@_) {
 		my $type = $act->{type};
-		print "    ACTION ";
+		print "\e[0;33m    ACTION ";
 		if (exists $to_ij{$type}) {
 			print $to_ij{$type}->($ij, $act);
 		} else {
 			print ssend($ij, $act);
 		}
-		print "\n";
+		print "\e[0m\n";
 	}
 }
 

@@ -27,7 +27,7 @@ sub _init {
 }
 
 sub debug {
-	print @_, "\n";
+	print @_, "\e[0m\n";
 }
 
 sub ignore { () }
@@ -112,7 +112,7 @@ sub cli_hostintro {
 sub parse {
 	my ($net, $line) = @_;
 	my @out;
-	debug '     IN@'.$net->id().' '. $line;
+	debug "\e[0;32m     IN@".$net->id().' '. $line;
 	$net->pong();
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
@@ -154,7 +154,7 @@ sub dump_sendq {
 	my $q = join "\n", @{$sendq[$$net]}, '';
 	$q =~ s/\n+/\r\n/g;
 	$sendq[$$net] = [];
-	debug '    OUT@'.$net->id().' '.$_ for split /\r\n/, $q;
+	debug "\e[0;34m    OUT@".$net->id().' '.$_ for split /\r\n/, $q;
 	$q;
 }
 

@@ -187,7 +187,6 @@ my %spec = (
 	},
 
 	MODE => {
-		src => 'Nick Network',
 		dst => 'Channel',
 		mode => '@',
 		args => '@',
@@ -238,10 +237,22 @@ my %spec = (
 	},
 
 	LINKREQ => {
+		dst => 'Network',
+		net => 'Network',
+		slink => '$',
+		dlink => '$',
+		linkfile => '?$',
 	},
 	LSYNC => {
+		dst => 'Network',
+		chan => 'Channel',
+		linkto => '$',
+		linkfile => '?$',
 	},
 	LINK => {
+		chan1 => 'Channel',
+		chan2 => 'Channel',
+		linkfile => '?$',
 	},
 	DELINK => {
 	},
@@ -253,6 +264,7 @@ my %default = (
 	dst => '?Nick Channel Network',
 	except => '?Network InterJanus',
 	sendto => '?@',
+	nojlink => '?$',
 );
 
 for my $type (keys %spec) {
@@ -276,7 +288,7 @@ for my $type (keys %spec) {
 		$_ = $$check{$k};
 		my $v = $act->{$k};
 		if (s/^\?//) {
-			return 0 unless defined $v;
+			next KEY unless defined $v;
 		} else {
 			return 1 unless defined $v;
 		}

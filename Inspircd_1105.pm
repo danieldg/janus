@@ -149,7 +149,7 @@ sub nicklen {
 }
 
 sub debug {
-	print @_, "\n";
+	print @_, "\e[0m\n";
 }
 
 sub str {
@@ -178,7 +178,7 @@ sub intro {
 # parse one line of input
 sub parse {
 	my ($net, $line) = @_;
-	debug '     IN@'.$net->id().' '. $line;
+	debug "\e[0;32m     IN@".$net->id().' '. $line;
 	$net->pong();
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
@@ -242,7 +242,7 @@ sub dump_sendq {
 		$auth[$$net] = 3 if $auth[$$net] == 2;
 	}
 	$q =~ s/\n+/\r\n/g;
-	debug '    OUT@'.$net->id().' '.$_ for split /\r\n/, $q;
+	debug "\e[0;34m   OUT@".$net->id().' '.$_ for split /\r\n/, $q;
 	$q;
 }
 
@@ -1500,7 +1500,7 @@ CORE => {
 		$net->cmd2($act->{src}, KICK => $act->{dst}, $act->{kickee}, $act->{msg});
 	}, MODE => sub {
 		my($net,$act) = @_;
-		my $src = $act->{src};
+		my $src = $act->{src} || $net;
 		my $dst = $act->{dst};
 		my @interp = $net->_mode_interp($act->{mode}, $act->{args});
 		return () unless @interp;

@@ -232,7 +232,7 @@ my $textip_table = join '', 'A'..'Z','a'..'z', 0 .. 9, '+/';
 sub nicklen { 30 }
 
 sub debug {
-	print @_, "\n";
+	print @_, "\e[0m\n";
 }
 
 sub str {
@@ -253,7 +253,7 @@ sub intro {
 # parse one line of input
 sub parse {
 	my ($net, $line) = @_;
-	debug '     IN@'.$net->id().' '. $line;
+	debug "\e[0;32m     IN@".$net->id().' '. $line;
 	$net->pong();
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
@@ -341,7 +341,7 @@ sub dump_sendq {
 		}
 	}
 	$sendq[$$net] = [];
-	debug '    OUT@'.$net->id().' '.$_ for split /[\r\n]+/, $q;
+	debug "\e[0;34m    OUT@".$net->id().' '.$_ for split /[\r\n]+/, $q;
 	$q;
 }
 

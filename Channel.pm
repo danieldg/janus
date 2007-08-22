@@ -227,7 +227,6 @@ sub _link_into {
 			src => $nick,
 			dst => $chan,
 			mode => $nmode[$$src]{$nid},
-			rejoin => 1,
 			sendto => $sendnets,
 		}) unless $nick->jlink();
 	}

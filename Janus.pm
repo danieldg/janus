@@ -46,11 +46,13 @@ my %tqueue;
 The given coderef will be called with a single argument, the action hashref
 
 Hooks, in order of execution:
-  validate - make sure arguments are the proper type etc - only for events originating from afar
   parse - possible reparse point (/msg janus *) - only for local origin
   jparse - possible reparse point - only for interjanus origin
 
-  check - reject unauthorized and/or impossible commands (see also validate)
+  validate - make sure arguments are the proper type etc, to avoid crashes
+    type for the validate hook is 'ALL' rather than the given type
+
+  check - reject unauthorized and/or impossible commands
   act - Main state processing
   send (not a hook) - event is sent to local and remote networks
   cleanup - Reference deletion
@@ -246,6 +248,12 @@ sub _runq {
 
 sub _run {
 	my $act = $_[0];
+	if (_mod_hook('ALL', validate => $act)) {
+		my $err = $@ || 'unknown error';
+		$err =~ s/\n//;
+		print "Validate hook stole $act->{type} [$err]\n";
+		return;
+	}
 	if (_mod_hook($act->{type}, check => $act)) {
 		print "Check hook stole $act->{type}\n";
 		return;
@@ -372,20 +380,8 @@ sub in_socket {
 	for my $act (@act) {
 		$act->{except} = $src unless $act->{except};
 		unshift @qstack, [];
-		if (_mod_hook('ALL', validate => $act)) {
-			my $err = $@ || 'unknown error';
-			$err =~ s/\n//;
-			print "Validate hook stole $act->{type} [$err]\n";
-			next;
-		}
-		if ($parse_hook) {
-			unless (_mod_hook($act->{type}, parse => $act)) {
-				_run($act);
-			}
-		} else {
-			unless (_mod_hook($act->{type}, jparse => $act)) {
-				_run($act);
-			}
+		unless (_mod_hook($act->{type}, ($parse_hook ? 'parse' : 'jparse'), $act)) {
+			_run($act);
 		}
 		_runq(shift @qstack);
 	}
@@ -466,14 +462,7 @@ sub delink {
 =cut
 
 &Janus::hook_add(
-	NETLINK => validate => sub {
-		my $act = shift;
-		eval {
-			return 0 unless $act->{net}->isa('Network');
-			return 0 unless $act->{net}->id();
-			1;
-		} ? undef : 1;
-	}, NETLINK => act => sub {
+	NETLINK => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		my $id = $net->id();

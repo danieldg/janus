@@ -10,7 +10,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 my @jlink   :Persist(jlink)   :Get(jlink)   :Arg(jlink);
 my @id      :Persist(id)      :Get(id)      :Arg(id);
-my @netname :Persist(netname) :Get(netname);
+my @netname :Persist(netname) :Get(netname) :Arg(netname);
 my @numeric :Persist(numeric) :Get(numeric) :Arg(numeric);
 
 sub _set_id {
