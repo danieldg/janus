@@ -3,6 +3,7 @@
 # http://www.affero.org/oagpl.html
 package InterJanus;
 use Persist;
+use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
 BEGIN {
@@ -15,6 +16,38 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 my @sendq :Persist('sendq');
 my @id    :Persist('id')    :Arg(id) :Get(id);
 my @auth  :Persist('auth');
+my @pong  :Persist('ponged');
+
+sub pongcheck {
+	my $p = shift;
+	my $ij = $p->{ij};
+	if ($ij && !isweak($p->{ij})) {
+		warn "Reference is strong! Weakening";
+		weaken($p->{ij});
+	}
+	unless ($ij && defined $ij->id()) {
+		delete $p->{repeat};
+		&Conffile::connect_net(undef, $p->{id});
+		return;
+	}
+	unless ($Janus::nets{$ij->id()} eq $ij) {
+		delete $p->{repeat};
+		warn "Network $ij not deallocated quickly enough!";
+		return;
+	}
+	my $last = $pong[$$ij];
+	if ($last + 90 <= time) {
+		print "PING TIMEOUT!\n";
+		&Janus::delink($ij, 'Ping timeout');
+		&Conffile::connect_net(undef, $p->{id});
+		delete $p->{ij};
+		delete $p->{repeat};
+	} elsif ($last + 29 <= time) {
+		$ij->ij_send(+{
+			type => 'PING',
+		});
+	}
+}
 
 my %fromirc;
 my %toirc;
@@ -32,6 +65,15 @@ sub str {
 sub intro {
 	my($ij,$nconf) = @_;
 	$sendq[$$ij] = '';
+	$pong[$$ij] = time;
+	my $pinger = {
+		repeat => 30,
+		ij => $ij,
+		id => $nconf->{id},
+		code => \&pongcheck,
+	};
+	weaken($pinger->{ij});
+	&Janus::schedule($pinger);
 	$ij->ij_send(+{
 		type => 'InterJanus',
 		version => 1,
@@ -182,7 +224,7 @@ sub ij_send {
 		}
 	}
 	@out = grep $_, @out; #remove blank lines
-	print "    OUT#$$ij  $_\n" for @out;
+	print "    OUT\@$id[$$ij]  $_\n" for @out;
 	$sendq[$$ij] .= join '', map "$_\n", @out;
 }
 
@@ -195,8 +237,9 @@ sub dump_sendq {
 
 sub parse {
 	my $ij = shift;
+	$pong[$$ij] = time;
 	local $_ = $_[0];
-	print "     IN#$$ij  $_\n";
+	print "     IN\@$id[$$ij]  $_\n";
 
 	s/^\s*<(\S+)// or do {
 		warn "bad line: $_";

@@ -180,7 +180,6 @@ my %spec = (
 		msg => '?$',
 	},
 	KICK => {
-		src => 'Nick Network',
 		dst => 'Channel',
 		kickee => 'Nick',
 		msg => '$',
@@ -257,7 +256,11 @@ my %spec = (
 	},
 	DELINK => {
 		net => 'Network',
+		netsplit_quit => '?$',
 		'split' => '?Channel',
+	},
+
+	REHASH => {
 	},
 );
 
