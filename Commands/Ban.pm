@@ -17,7 +17,7 @@ my @expire :Persist(expire) :Arg(expire) :Get(expire);
 my @reason :Persist(reason) :Arg(reason) :Get(reason);
 
 sub add {
-	my $ban = Ban->new(@_);
+	my $ban = Commands::Ban->new(@_);
 	push @{$netbans{$ban->net()->id()}}, $ban;
 	$ban;
 }
