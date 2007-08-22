@@ -365,7 +365,14 @@ sub part {
 		my $chan = $act->{dst};
 		$topic[$$chan] = $act->{topic};
 		$topicts[$$chan] = $act->{topicts} || time;
-		$topicset[$$chan] = $act->{topicset} || ($act->{src} ? $act->{src}->homenick() : 'janus');
+		$topicset[$$chan] = $act->{topicset};
+		unless ($topicset[$$chan]) {
+			if ($act->{src} && $act->{src}->isa('Nick')) {
+				$topicset[$$chan] = $act->{src}->homenick();
+			} else {
+				$topicset[$$chan] = 'janus';
+			}
+		}
 	}, LSYNC => act => sub {
 		my $act = shift;
 		return if $act->{dst}->jlink();

@@ -197,7 +197,6 @@ my %spec = (
 		oldts => '$',
 	},
 	TOPIC => {
-		src => '?Nick',
 		dst => 'Channel',
 		topicset => '$',
 		topicts => '$',
