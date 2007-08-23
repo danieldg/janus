@@ -592,7 +592,7 @@ sub cmd2 {
 	},
 	'm_namesx.so' => { },
 	'm_nickflood.so' => {
-		cmode => { F => 's_flood3.2' },
+		cmode => { F => 's_nickflood' },
 	},
 	'm_nicklock.so' => {
 		cmds => {
