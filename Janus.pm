@@ -465,12 +465,7 @@ sub delink {
 =cut
 
 &Janus::hook_add(
-	InterJanus => act => sub {
-		my $act = shift;
-		my $ij = $act->{net};
-		my $id = $ij->id();
-		$ijnets{$id} = $ij;
-	}, NETLINK => act => sub {
+	NETLINK => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		my $id = $net->id();

@@ -260,9 +260,14 @@ my %spec = (
 	},
 
 	InterJanus => {
+		pass => '$',
+		version => '$',
+		id => '$',
+		net => 'InterJanus',
 	},
-	REHASH => {
-	},
+	PING => {},
+	PONG => {},
+	REHASH => {},
 );
 
 my %default = (

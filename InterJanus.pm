@@ -43,9 +43,7 @@ sub pongcheck {
 		delete $p->{ij};
 		delete $p->{repeat};
 	} elsif ($last + 29 <= time) {
-		$ij->ij_send(+{
-			type => 'PING',
-		});
+		$ij->ij_send({ type => 'PING', sendto => [] });
 	}
 }
 
@@ -65,6 +63,7 @@ sub str {
 sub intro {
 	my($ij,$nconf) = @_;
 	$sendq[$$ij] = '';
+
 	$pong[$$ij] = time;
 	my $pinger = {
 		repeat => 30,
@@ -74,6 +73,9 @@ sub intro {
 	};
 	weaken($pinger->{ij});
 	&Janus::schedule($pinger);
+
+	$Janus::ijnets{$id[$$ij]} = $ij;
+
 	$ij->ij_send(+{
 		type => 'InterJanus',
 		version => 1,
@@ -196,6 +198,8 @@ my %to_ij = (
 	DELINK => \&ssend,
 	LINKED => \&ssend,
 	NETSPLIT => \&ssend,
+	PING => \&ssend,
+	PONG => \&ssend,
 );
 
 sub debug_send {
@@ -249,7 +253,9 @@ sub parse {
 	$ij->_kv_pairs($act);
 	warn "bad line: $_[0]" unless /^\s*>\s*$/;
 	$act->{except} = $ij;
-	if ($auth[$$ij]) {
+	if ($act->{type} eq 'PING') {
+		$ij->ij_send({ type => 'PONG', sendto => [] });
+	} elsif ($auth[$$ij]) {
 		return $act;
 	} elsif ($act->{type} eq 'InterJanus') {
 		print "Unsupported InterJanus version $act->{version}\n" if $act->{version} ne '1';
@@ -272,10 +278,8 @@ sub parse {
 		}
 		delete $Janus::ijnets{$id};
 		delete $Janus::netqueues{$id};
-		return ();
-	} else {
-		return ();
 	}
+	return ();
 }
 
 my %v_type; %v_type = (
