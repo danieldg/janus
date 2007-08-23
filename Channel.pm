@@ -58,6 +58,11 @@ sub get_nmode {
 	$nmode[$$chan]{$nick->lid()};
 }
 
+sub get_mode {
+	my($chan, $itm) = @_;
+	$mode[$$chan]{$itm};
+}
+
 sub to_ij {
 	my($chan,$ij) = @_;
 	my $out = '';

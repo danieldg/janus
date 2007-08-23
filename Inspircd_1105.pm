@@ -505,6 +505,7 @@ sub cmd2 {
 		umode => { x => 'vhost_x' }
 	},
 	'm_clones.so' => { },
+	'm_close.so' => { },
 	'm_conn_join.so' => { },
 	'm_conn_umodes.so' => { },
 	'm_conn_waitpong.so' => { },
@@ -590,6 +591,9 @@ sub cmd2 {
 		cmode => { f => 's_flood' }
 	},
 	'm_namesx.so' => { },
+	'm_nickflood.so' => {
+		cmode => { F => 's_flood3.2' },
+	},
 	'm_nicklock.so' => {
 		cmds => {
 			NICKLOCK => sub {
