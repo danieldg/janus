@@ -961,23 +961,22 @@ sub srvname {
 				wipe => 0,
 			} if $1 && $1 < $chan->ts();
 		}
-		if ($_[3] =~ /^&/) {
+		my $mode = $_[3];
+		if ($mode =~ s/^&//) {
 			# mode bounce: assume we are correct, and inform the server
 			# that they are mistaken about whatever they think we have wrong. 
-			my $mode = $_[3];
-			$mode =~ s/&//;
+			# This is not very safe, but there's not much way around it
 			$mode =~ y/+-/-+/;
 			$net->send($net->cmd1(MODE => $_[2], $mode, @_[4 .. $#_]));
-		} else {
-			my($modes,$args) = $net->_modeargs(@_[3 .. $#_]);
-			push @out, {
-				type => 'MODE',
-				src => $src,
-				dst => $chan,
-				mode => $modes,
-				args => $args,
-			};
 		}
+		my($modes,$args) = $net->_modeargs($mode, @_[4 .. $#_]);
+		push @out, {
+			type => 'MODE',
+			src => $src,
+			dst => $chan,
+			mode => $modes,
+			args => $args,
+		};
 		@out;
 	}, TOPIC => sub {
 		my $net = shift;

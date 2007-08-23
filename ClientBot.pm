@@ -42,6 +42,24 @@ sub intro {
 	$self[$$net] = $param->{nick};
 }
 
+my %cmode2txt = (qw/
+	o n_op
+	h n_halfop
+	v n_voice
+
+	b l_ban
+	i r_invite
+	m r_moderated
+	n r_mustjoin
+	p r_private
+	s r_secret
+	t r_topic
+/);
+
+sub cmode2txt {
+	$cmode2txt{$_[1]};
+}
+
 sub cli_hostintro {
 	my($net, $nname, $ident, $host, $gecos) = @_;
 	my @out;
@@ -411,14 +429,14 @@ sub kicked {
 			# TODO we need a table for cmode2txt like unreal has
 			# this should probably be sourced from somewhere that is specified in the conf
 			# rather than hardcoded like it is for ircds. Then, uncomment this:
-#			my($modes,$args) = $net->_modeargs(@_[3 .. $#_]);
-#			return +{
-#				type => 'MODE',
-#				src => $nick,
-#				dst => $chan,
-#				mode => $modes,
-#				args => $args,
-#			};
+			my($modes,$args) = $net->_modeargs(@_[3 .. $#_]);
+			return +{
+				type => 'MODE',
+				src => $nick,
+				dst => $chan,
+				mode => $modes,
+				args => $args,
+			};
 		}
 		();
 	},
