@@ -14,6 +14,7 @@ Primary event multiplexer and module loader/unloader
 
 =cut
 
+# PUBLIC VARS
 our $interface;
 
 our %nets;
@@ -21,16 +22,17 @@ our %ijnets;
 our %gnicks;
 our %gchans;
 
+# PRIVATE VARS - TODO possibly enforce this private-ness?
 our $last_check = time;
 
 # (net | port number) => [ sock, recvq, sendq, (Net | undef if listening), trying_read, trying_write ]
 our %netqueues;
 
 # module => state (0 = unloaded, 1 = loading, 2 = loaded)
-my %modules = (Janus => 1);
+our %modules = (Janus => 1);
 # module => { varname => ref }
-my %hooks;
-my %commands = (
+our %hooks;
+our %commands = (
 	unk => +{
 		class => 'Janus',
 		code => sub {
@@ -39,8 +41,8 @@ my %commands = (
 	},
 );
 
-my @qstack;
-my %tqueue;
+our @qstack;
+our %tqueue;
 
 =head2 Action Hooks
 
@@ -512,6 +514,7 @@ sub delink {
 
 $modules{Janus} = 2;
 
-&Janus::load('InterJanus');
-&Janus::load('Pending');
+&Janus::load('InterJanus'); # for debug_send
+&Janus::load('Pending');    # for in_newsock
+
 1;
