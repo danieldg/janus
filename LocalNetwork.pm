@@ -166,7 +166,7 @@ sub _mode_interp {
 			$mode .= $net->txt2cmode($txt);
 			$pm = $ipm;
 		} else {
-			warn "Unsupported channel mode '$txt' for network";
+			# TODO investigate alternate tristate modes
 		}
 	}
 	$mode, @args;

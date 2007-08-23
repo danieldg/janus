@@ -361,6 +361,10 @@ sub part {
 			} elsif ($t eq 'r') {
 				$mode[$$chan]{$i} = 1;
 				delete $mode[$$chan]{$i} if $pm eq '-';
+			} elsif ($t eq 't') {
+				$i =~ s/t(\d)/t/ or warn "Invalid tristate mode string $i";
+				$mode[$$chan]{$i} = $1;
+				delete $mode[$$chan]{$i} if $pm eq '-';
 			} else {
 				warn "Unknown mode '$itxt'";
 			}
