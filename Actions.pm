@@ -259,6 +259,8 @@ my %spec = (
 		'split' => '?Channel',
 	},
 
+	InterJanus => {
+	},
 	REHASH => {
 	},
 );

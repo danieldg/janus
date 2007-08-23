@@ -17,6 +17,7 @@ Primary event multiplexer and module loader/unloader
 our $interface;
 
 our %nets;
+our %ijnets;
 our %gnicks;
 our %gchans;
 
@@ -198,7 +199,7 @@ sub _send {
 	if (exists $act->{sendto} && ref $act->{sendto}) {
 		@to = @{$act->{sendto}};
 	} elsif ($act->{type} =~ /^NET(LINK|SPLIT)/) {
-		@to = values %nets;
+		@to = (values(%nets), values %ijnets);
 		for my $q (values %netqueues) {
 			my $net = $$q[3];
 			next unless defined $net;
@@ -438,10 +439,12 @@ sub delink {
 		delete $nets{$id};
 		delete $netqueues{$id};
 	} elsif ($net->isa('InterJanus')) {
-		my $q = delete $netqueues{$net->id()};
+		my $id = $net->id();
+		delete $ijnets{$id};
+		my $q = delete $netqueues{$id};
 		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
 		for my $snet (values %nets) {
-			next unless $snet->jlink() && $net->id() eq $snet->jlink()->id();
+			next unless $snet->jlink() && $id eq $snet->jlink()->id();
 			&Janus::insert_full(+{
 				type => 'NETSPLIT',
 				net => $snet,
@@ -462,7 +465,12 @@ sub delink {
 =cut
 
 &Janus::hook_add(
-	NETLINK => act => sub {
+	InterJanus => act => sub {
+		my $act = shift;
+		my $ij = $act->{net};
+		my $id = $ij->id();
+		$ijnets{$id} = $ij;
+	}, NETLINK => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		my $id = $net->id();

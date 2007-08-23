@@ -25,12 +25,12 @@ sub pongcheck {
 		warn "Reference is strong! Weakening";
 		weaken($p->{ij});
 	}
-	unless ($ij && defined $ij->id()) {
+	unless ($ij && defined $id[$$ij]) {
 		delete $p->{repeat};
 		&Conffile::connect_net(undef, $p->{id});
 		return;
 	}
-	unless ($Janus::nets{$ij->id()} eq $ij) {
+	unless ($Janus::ijnets{$id[$$ij]} eq $ij) {
 		delete $p->{repeat};
 		warn "Network $ij not deallocated quickly enough!";
 		return;
@@ -253,12 +253,12 @@ sub parse {
 		return $act;
 	} elsif ($act->{type} eq 'InterJanus') {
 		print "Unsupported InterJanus version $act->{version}\n" if $act->{version} ne '1';
-		my $id = $ij->id();
-		if ($id && $act->{id} ne $id) {
-			print "Unexpected ID reply $act->{id} from IJ $id\n"
+		if ($id[$$ij] && $act->{id} ne $id[$$ij]) {
+			print "Unexpected ID reply $act->{id} from IJ $id[$$ij]\n"
 		} else {
-			$id[$$ij] = $id = $act->{id};
+			$id[$$ij] = $act->{id};
 		}
+		my $id = $id[$$ij];
 		my $nconf = $Conffile::netconf{$id};
 		if (!$nconf) {
 			print "Unknown InterJanus server $id\n";
@@ -266,8 +266,11 @@ sub parse {
 			print "Failed authorization\n";
 		} else {
 			$auth[$$ij] = 1;
+			$act->{net} = $ij;
+			$act->{sendto} = [];
 			return $act;
 		}
+		delete $Janus::ijnets{$id};
 		delete $Janus::netqueues{$id};
 		return ();
 	} else {
