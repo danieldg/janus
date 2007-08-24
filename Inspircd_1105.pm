@@ -553,7 +553,7 @@ sub cmd2 {
 		cmds => { GLOBOPS => \&ignore },
 		acts => { CHATOPS => sub {
 			my($net,$act) = @_;
-			$net->ncmd($act->{src}, GLOBOPS => $act->{msg});
+			$net->cmd1($act->{src}, GLOBOPS => $act->{msg});
 		} }
 	},
 	'm_helpop.so' => {
