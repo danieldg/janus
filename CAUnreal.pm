@@ -1026,6 +1026,22 @@ sub srvname {
 		my $srv = $net->srvname($_[2]);
 		my $splitfrom = $servers[$$net]{lc $srv}{parent};
 		
+		if (!$splitfrom && $srv =~ /^(.*)\.janus/) {
+			my $ns = $Janus::nets{$1} or return ();
+			$net->send($net->cmd2($net->cparam('linkname'), SERVER => $srv, 2, $ns->numeric(), $ns->netname()));
+			my @out;
+			for my $nick ($net->all_nicks()) {
+				next unless $nick->homenet()->id() eq $ns->id();
+				push @out, +{
+					type => 'RECONNECT',
+					dst => $nick,
+					net => $net,
+					killed => 1,
+				};
+			}
+			return @out;
+		}
+
 		my %sgone = (lc $srv => 1);
 		my $k = 0;
 		while ($k != scalar keys %sgone) {
