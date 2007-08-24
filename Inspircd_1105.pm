@@ -1509,7 +1509,7 @@ CORE => {
 		my $dst = $act->{dst};
 		my @interp = $net->_mode_interp($act->{mode}, $act->{args});
 		return () unless @interp;
-		return () if @interp == 1 && $interp[0] =~ /^[+-]+$/;
+		return () if @interp == 1 && (!$interp[0] || $interp[0] =~ /^[+-]+$/);
 		return $net->cmd2($src, FMODE => $dst, $dst->ts(), @interp);
 	}, TOPIC => sub {
 		my($net,$act) = @_;
