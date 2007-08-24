@@ -104,7 +104,7 @@ sub _init {
 sub _destroy {
 	my $c = $_[0];
 	my $n = join ',', map { $_.$names[$$c]{$_} } keys %{$names[$$c]};
-	print "   CHAN: $n deallocated\n";
+	print "   CHAN:$$c $n deallocated\n";
 }
 
 sub _mergenet {
@@ -183,7 +183,7 @@ sub mode_delta {
 sub _link_into {
 	my($src,$chan) = @_;
 	my %dstnets = %{$nets[$$chan]};
-	print "Link into:";
+	print "Link into ($$src -> $$chan):";
 	for my $id (keys %{$nets[$$src]}) {
 		print " $id";
 		my $net = $nets[$$src]{$id};
