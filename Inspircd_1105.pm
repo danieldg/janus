@@ -1142,7 +1142,8 @@ CORE => {
 			kickee => $nick,
 			msg => $_[4],
 		};
-	}, 
+	},
+	INVITE => \&ignore,
 
 	SERVER => sub {
 		my $net = shift;
@@ -1595,5 +1596,15 @@ CORE => {
 
 $moddef{'m_ssl_gnutls.so'} = $moddef{'m_ssl_dummy.so'};
 $moddef{'m_ssl_openssl.so'} = $moddef{'m_ssl_dummy.so'};
+
+for my $net (values %Janus::nets) {
+	next unless $net->isa(__PACKAGE__);
+	my @mods = keys %{$modules[$$net]};
+	print "Reloading module definitions for $net\n";
+	for my $mod (@mods) {
+		$net->module_remove($mod);
+		$net->module_add($mod);
+	}
+}
 
 1;
