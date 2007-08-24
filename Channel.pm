@@ -195,7 +195,8 @@ sub _link_into {
 		$net->replace_chan($name, $chan);
 	}
 	print "\n";
-	my $sendnets = [ values %dstnets ];
+	my $modenets = [ values %{$nets[$$chan]} ];
+	my $joinnets = [ values %dstnets ];
 
 	my ($mode, $marg) = $src->mode_delta($chan);
 	&Janus::append(+{
@@ -203,7 +204,7 @@ sub _link_into {
 		dst => $chan,
 		mode => $mode,
 		args => $marg,
-		sendto => $sendnets,
+		sendto => $modenets,
 		nojlink => 1,
 	}) if @$mode;
 
@@ -214,7 +215,8 @@ sub _link_into {
 			topic => $topic[$$chan],
 			topicts => $topicts[$$chan],
 			topicset => $topicset[$$chan],
-			sendto => $sendnets,
+			sendto => $modenets,
+			in_link => 1,
 			nojlink => 1,
 		});
 	}
@@ -232,7 +234,7 @@ sub _link_into {
 			src => $nick,
 			dst => $chan,
 			mode => $nmode[$$src]{$nid},
-			sendto => $sendnets,
+			sendto => $joinnets,
 		}) unless $nick->jlink();
 	}
 }

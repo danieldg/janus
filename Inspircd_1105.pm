@@ -1512,10 +1512,12 @@ CORE => {
 		return $net->cmd2($src, FMODE => $dst, $dst->ts(), @interp);
 	}, TOPIC => sub {
 		my($net,$act) = @_;
-		if ($act->{in_burst}) {
+		if ($act->{in_link}) {
 			return $net->ncmd(FTOPIC => $act->{dst}, $act->{topicts}, $act->{topicset}, $act->{topic});
 		}
-		return $net->cmd2($act->{src}, TOPIC => $act->{dst}, $act->{topic});
+		my $src = $act->{src};
+		$src = $Janus::interface unless $src && $src->isa('Nick') && $src->is_on($net);
+		return $net->cmd2($src, TOPIC => $act->{dst}, $act->{topic});
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
 		if ($act->{item} eq 'vhost') {
