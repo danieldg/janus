@@ -510,6 +510,7 @@ sub cmd2 {
 	'm_conn_umodes.so' => { },
 	'm_conn_waitpong.so' => { },
 	'm_connflood.so' => { },
+	'm_customtitle.so' => { },
 	'm_cycle.so' => { },
 	'm_dccallow.so' => { cmds => { DCCALLOW => \&ignore } },
 	'm_deaf.so' => {
@@ -533,7 +534,7 @@ sub cmd2 {
 	},
 	'm_dnsbl.so' => { },
 	'm_filter.so' => { cmds => { FILTER => \&ignore } },
-	'm_filter_pcre.so' => { },
+	'm_filter_pcre.so' => { cmds => { FILTER => \&ignore } },
 	'm_foobar.so' => { },
 	'm_globalload.so' => { 
 		cmds => { 

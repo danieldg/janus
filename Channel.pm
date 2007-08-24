@@ -149,7 +149,7 @@ sub mode_delta {
 			}
 		} elsif ($txt =~ /^[vs]/) {
 			if (exists $add{$txt}) {
-				if ($mode[$$chan]{$txt} eq $add{$txt}) {
+				if ($mode[$$chan]{$txt} && $mode[$$chan]{$txt} eq $add{$txt}) {
 					# hey, isn't that nice
 				} else {
 					push @modes, '+'.$txt;
@@ -195,7 +195,7 @@ sub _link_into {
 		$net->replace_chan($name, $chan);
 	}
 	print "\n";
-	my $modenets = [ values %{$nets[$$chan]} ];
+	my $modenets = [ values %{$nets[$$src]} ];
 	my $joinnets = [ values %dstnets ];
 
 	my ($mode, $marg) = $src->mode_delta($chan);
