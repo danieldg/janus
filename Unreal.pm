@@ -420,7 +420,7 @@ sub _connect_ifo {
 	}
 	my @out;
 	push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $nick->info('host'),
-		$srv, 0, $mode, $vhost, $nick->info('name'));
+		$srv, 0, $mode, $vhost, $ip, $nick->info('name'));
 	my $whois = $nick->info('swhois');
 	push @out, $net->cmd1(SWHOIS => $nick, $whois) if defined $whois && $whois ne '';
 	my $away = $nick->info('away');
