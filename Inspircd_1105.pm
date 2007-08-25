@@ -1567,10 +1567,18 @@ CORE => {
 		}
 		if (($type eq 'PRIVMSG' || $type eq 'NOTICE') && $act->{src}->isa('Nick') && $act->{src}->is_on($net)) {
 			return $net->cmd2($act->{src}, $type, $dst, $act->{msg});
-		} else {
-			return () unless $act->{dst}->isa('Nick');
+		} elsif ($act->{dst}->isa('Nick')) {
+			# sent to a single user - it's easier to just PUSH the result
 			my $msg = $net->cmd2($act->{src}, $type, $dst, ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg});
 			return $net->ncmd(PUSH => $act->{dst}, $msg);
+		} elsif ($type eq 'PRIVMSG' || $type eq 'NOTICE') {
+			# main case: people speaking in -n channels; a bunch of race conditions also come here
+			# TODO this should be improved by m_janus.so if it gets written
+			my $msg = $act->{msg};
+			my $src = $act->{src};
+			$src = $src->homenick() if $src && $src->isa('Nick');
+			$msg = $msg =~ /^\001ACTION (.*?)\001?$/ ? '* '.$net->_out($src).' '.$msg : '<'.$net->_out($src).'> '.$msg;
+			$net->cmd2($Janus::interface, $type, $act->{dst}, $msg);
 		}
 	}, WHOIS => sub {
 		my($net,$act) = @_;
