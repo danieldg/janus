@@ -1246,20 +1246,20 @@ CORE => {
 			mask => $_[3],
 			setter => $_[4],
 			settime => $_[5],
-			expire => ($_[5] + $_[6]),
+			expire => ($_[6] ? ($_[5] + $_[6]) : 0),
 			reason => $_[7],
 		};
 	},	
 	GLINE => sub {
 		my $net = shift;
-		my $type = substr $_[2],0,1;
+		my $type = substr $_[1],0,1;
 		if (@_ == 3) {
 			return +{
 				type => 'XLINE',
 				dst => $net,
 				ltype => $type,
 				mask => $_[2],
-				set => $_[0],
+				setter => $_[0],
 				expire => 1,
 			};
 		} else {
@@ -1268,9 +1268,9 @@ CORE => {
 				dst => $net,
 				ltype => $type,
 				mask => $_[2],
-				set => $_[0],
+				setter => $_[0],
 				settime => time,
-				expire => (time + $_[3]),
+				expire => ($_[3] ? time + $_[3] : 0),
 				reason => $_[4],
 			};
 		}
@@ -1634,12 +1634,12 @@ CORE => {
 		my $expire = $act->{expire};
 		my $type = $act->{ltype};
 		return () unless $type =~ /^[GQZE]$/;
-		if ($expire && $expire > time) {
-			my $set = $act->{settime} || time;
-			my $dur = $expire - $set;
-			$net->ncmd(ADDLINE => $type, $act->{mask}, ($act->{setter} || 'hub.janus'), $set, $dur, $act->{reason});
-		} else {
+		if ($expire && $expire < time) {
 			$net->cmd2($Janus::interface, $type.'LINE', $act->{mask});
+		} else {
+			my $set = $act->{settime} || time;
+			my $dur = $expire ? $expire - $set : 0;
+			$net->ncmd(ADDLINE => $type, $act->{mask}, ($act->{setter} || 'hub.janus'), $set, $dur, $act->{reason});
 		}
 	},
 }

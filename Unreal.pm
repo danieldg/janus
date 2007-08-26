@@ -1448,10 +1448,10 @@ sub cmd2 {
 		return () unless $type =~ /^[GQZ]$/;
 		my($id,$h) = $type eq 'G' ? $act->{mask} =~ /(.*?)\@(.*)/ : ('*',$act->{mask});
 		return () unless defined $h;
-		if ($expire && $expire > time) {
-			$net->cmd1(TKL => '+', $type, $id, $h, ($act->{setter} || 'hub.janus'), $act->{expire}, $act->{settime}+0, $act->{reason});
-		} else {
+		if ($expire && $expire < time) {
 			$net->cmd1(TKL => '-', $type, $id, $h, ($act->{setter} || 'hub.janus'));
+		} else {
+			$net->cmd1(TKL => '+', $type, $id, $h, ($act->{setter} || 'hub.janus'), $act->{expire}, $act->{settime}+0, $act->{reason});
 		}
 	},
 );
