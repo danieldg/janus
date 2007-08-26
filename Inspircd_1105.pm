@@ -1629,6 +1629,18 @@ CORE => {
 		my($net,$act) = @_;
 		return () if $modules[$$net]{'m_globops.so'};
 		$net->ncmd(OPERNOTICE => $net->str($act->{src}).': '.$act->{msg});
+	}, XLINE => sub {
+		my($net,$act) = @_;
+		my $expire = $act->{expire};
+		my $type = $act->{ltype};
+		return () unless $type =~ /^[GQZE]$/;
+		if ($expire && $expire > time) {
+			my $set = $act->{settime} || time;
+			my $dur = $expire - $set;
+			$net->ncmd(ADDLINE => $type, $act->{mask}, ($act->{setter} || 'hub.janus'), $set, $dur, $act->{reason});
+		} else {
+			$net->cmd2($Janus::interface, $type.'LINE', $act->{mask});
+		}
 	},
 }
 
