@@ -14,21 +14,23 @@ Primary event multiplexer and module loader/unloader
 
 =cut
 
+# PUBLIC VARS
 our $interface;
 
 our %nets;
 our %nicks;
 
+# PRIVATE VARS - TODO possibly enforce this private-ness?
 our $last_check = time;
 
 # (net | port number) => [ sock, recvq, sendq, (Net | undef if listening), trying_read, trying_write ]
 our %netqueues;
 
 # module => state (0 = unloaded, 1 = loading, 2 = loaded)
-my %modules = (Janus => 1);
+our %modules = (Janus => 1);
 # module => { varname => ref }
-my %hooks;
-my %commands = (
+our %hooks;
+our %commands = (
 	unk => +{
 		class => 'Janus',
 		code => sub {
@@ -37,19 +39,21 @@ my %commands = (
 	},
 );
 
-my @qstack;
-my %tqueue;
+our @qstack;
+our %tqueue;
 
 =head2 Action Hooks
 
 The given coderef will be called with a single argument, the action hashref
 
 Hooks, in order of execution:
-  validate - make sure arguments are the proper type etc - only for events originating from afar
   parse - possible reparse point (/msg janus *) - only for local origin
   jparse - possible reparse point - only for interjanus origin
 
-  check - reject unauthorized and/or impossible commands (see also validate)
+  validate - make sure arguments are the proper type etc, to avoid crashes
+    type for the validate hook is 'ALL' rather than the given type
+
+  check - reject unauthorized and/or impossible commands
   act - Main state processing
   send (not a hook) - event is sent to local and remote networks
   cleanup - Reference deletion
@@ -133,7 +137,9 @@ sub load {
 
 	$modules{$module} = 1;
 
-	if (do "$module.pm") {
+	my $fn = $module.'.pm';
+	$fn =~ s#::#/#g;
+	if (do $fn) {
 		$modules{$module} = 2;
 	} else {
 		warn "Cannot load module $module: $@";
@@ -193,7 +199,7 @@ sub _send {
 	if (exists $act->{sendto} && ref $act->{sendto}) {
 		@to = @{$act->{sendto}};
 	} elsif ($act->{type} =~ /^NET(LINK|SPLIT)/) {
-		@to = values %nets;
+		@to = (values(%nets), values %ijnets);
 		for my $q (values %netqueues) {
 			my $net = $$q[3];
 			next unless defined $net;
@@ -243,6 +249,12 @@ sub _runq {
 
 sub _run {
 	my $act = $_[0];
+	if (_mod_hook('ALL', validate => $act)) {
+		my $err = $@ || 'unknown error';
+		$err =~ s/\n//;
+		print "Validate hook stole $act->{type} [$err]\n";
+		return;
+	}
 	if (_mod_hook($act->{type}, check => $act)) {
 		print "Check hook stole $act->{type}\n";
 		return;
@@ -369,20 +381,8 @@ sub in_socket {
 	for my $act (@act) {
 		$act->{except} = $src unless $act->{except};
 		unshift @qstack, [];
-		if (_mod_hook('ALL', validate => $act)) {
-			my $err = $@ || 'unknown error';
-			$err =~ s/\n//;
-			print "Validate hook stole $act->{type} [$err]\n";
-			next;
-		}
-		if ($parse_hook) {
-			unless (_mod_hook($act->{type}, parse => $act)) {
-				_run($act);
-			}
-		} else {
-			unless (_mod_hook($act->{type}, jparse => $act)) {
-				_run($act);
-			}
+		unless (_mod_hook($act->{type}, ($parse_hook ? 'parse' : 'jparse'), $act)) {
+			_run($act);
 		}
 		_runq(shift @qstack);
 	}
@@ -439,10 +439,12 @@ sub delink {
 		delete $nets{$id};
 		delete $netqueues{$id};
 	} elsif ($net->isa('InterJanus')) {
-		my $q = delete $netqueues{$net->id()};
+		my $id = $net->id();
+		delete $ijnets{$id};
+		my $q = delete $netqueues{$id};
 		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
 		for my $snet (values %nets) {
-			next unless $snet->jlink() && $net->id() eq $snet->jlink()->id();
+			next unless $snet->jlink() && $id eq $snet->jlink()->id();
 			&Janus::insert_full(+{
 				type => 'NETSPLIT',
 				net => $snet,
@@ -463,14 +465,7 @@ sub delink {
 =cut
 
 &Janus::hook_add(
-	NETLINK => validate => sub {
-		my $act = shift;
-		eval {
-			return 0 unless $act->{net}->isa('Network');
-			return 0 unless $act->{net}->id();
-			1;
-		} ? undef : 1;
-	}, NETLINK => act => sub {
+	NETLINK => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		my $id = $net->id();
@@ -517,6 +512,7 @@ sub delink {
 
 $modules{Janus} = 2;
 
-&Janus::load('InterJanus');
-&Janus::load('Pending');
+&Janus::load('InterJanus'); # for debug_send
+&Janus::load('Pending');    # for in_newsock
+
 1;

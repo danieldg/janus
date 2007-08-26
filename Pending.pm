@@ -53,6 +53,8 @@ sub parse {
 				&Janus::in_socket($rnet, $l);
 			}
 		}
+		if (@out && $out[0]{type} eq 'InterJanus') {
+		return @out;
 	}
 	();
 }

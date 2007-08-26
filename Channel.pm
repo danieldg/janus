@@ -54,6 +54,11 @@ sub get_nmode {
 	$nmode[$$chan]{$nick->lid()};
 }
 
+sub get_mode {
+	my($chan, $itm) = @_;
+	$mode[$$chan]{$itm};
+}
+
 sub to_ij {
 	my($chan,$ij) = @_;
 	my $out = '';
@@ -79,7 +84,7 @@ sub _init {
 sub _destroy {
 	my $c = $_[0];
 	my $n = $name[$$c];
-	print "   CHAN: $n deallocated\n";
+	print "   CHAN:$$c $n deallocated\n";
 }
 
 sub _modecpy {
@@ -116,7 +121,7 @@ sub mode_delta {
 			}
 		} elsif ($txt =~ /^[vs]/) {
 			if (exists $add{$txt}) {
-				if ($mode[$$chan]{$txt} eq $add{$txt}) {
+				if ($mode[$$chan]{$txt} && $mode[$$chan]{$txt} eq $add{$txt}) {
 					# hey, isn't that nice
 				} else {
 					push @modes, '+'.$txt;
@@ -147,6 +152,8 @@ sub mode_delta {
 	(\@modes, \@args);
 }
 
+	my $joinnets = [ values %dstnets ];
+			in_link => 1,
 =item $chan->all_nicks()
 
 return a list of all nicks on the channel
@@ -264,6 +271,10 @@ sub part {
 			} elsif ($t eq 'r') {
 				$mode[$$chan]{$i} = 1;
 				delete $mode[$$chan]{$i} if $pm eq '-';
+			} elsif ($t eq 't') {
+				$i =~ s/t(\d)/t/ or warn "Invalid tristate mode string $i";
+				$mode[$$chan]{$i} = $1;
+				delete $mode[$$chan]{$i} if $pm eq '-';
 			} else {
 				warn "Unknown mode '$itxt'";
 			}
@@ -273,7 +284,14 @@ sub part {
 		my $chan = $act->{dst};
 		$topic[$$chan] = $act->{topic};
 		$topicts[$$chan] = $act->{topicts} || time;
-		$topicset[$$chan] = $act->{topicset} || $act->{src}->homenick();
+		$topicset[$$chan] = $act->{topicset};
+		unless ($topicset[$$chan]) {
+			if ($act->{src} && $act->{src}->isa('Nick')) {
+				$topicset[$$chan] = $act->{src}->homenick();
+			} else {
+				$topicset[$$chan] = 'janus';
+			}
+		}
 	}
 );
 

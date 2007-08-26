@@ -3,6 +3,7 @@
 # http://www.affero.org/oagpl.html
 package InterJanus;
 use Persist;
+use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
 BEGIN {
@@ -11,6 +12,37 @@ BEGIN {
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
+my @id    :Persist('id')    :Arg(id) :Get(id);
+my @pong  :Persist('ponged');
+
+sub pongcheck {
+	my $p = shift;
+	my $ij = $p->{ij};
+	if ($ij && !isweak($p->{ij})) {
+		warn "Reference is strong! Weakening";
+		weaken($p->{ij});
+	}
+	unless ($ij && defined $id[$$ij]) {
+		delete $p->{repeat};
+		&Conffile::connect_net(undef, $p->{id});
+		return;
+	}
+	unless ($Janus::ijnets{$id[$$ij]} eq $ij) {
+		delete $p->{repeat};
+		warn "Network $ij not deallocated quickly enough!";
+		return;
+	}
+	my $last = $pong[$$ij];
+	if ($last + 90 <= time) {
+		print "PING TIMEOUT!\n";
+		&Janus::delink($ij, 'Ping timeout');
+		&Conffile::connect_net(undef, $p->{id});
+		delete $p->{ij};
+		delete $p->{repeat};
+	} elsif ($last + 29 <= time) {
+		$ij->ij_send({ type => 'PING', sendto => [] });
+	}
+}
 
 my %fromirc;
 my %toirc;
@@ -24,6 +56,19 @@ sub str {
 	warn;
 	"";
 }
+
+
+	$pong[$$ij] = time;
+	my $pinger = {
+		repeat => 30,
+		ij => $ij,
+		id => $nconf->{id},
+		code => \&pongcheck,
+	};
+	weaken($pinger->{ij});
+	&Janus::schedule($pinger);
+
+	$Janus::ijnets{$id[$$ij]} = $ij;
 
 sub jlink {
 	$_[0];
@@ -58,7 +103,7 @@ sub ijstr {
 	} elsif ($itm->isa('Nick')) {
 		return 'n:'.$itm->gid();
 	} elsif ($itm->isa('Channel')) {
-		return 'c:'.$itm->keyname();
+		return ($$ij ? 'c:' : "c:$$itm:").$itm->keyname();
 	} elsif ($itm->isa('Network')) {
 		return 's:'.$itm->id();
 	} elsif ($itm->isa('InterJanus')) {
@@ -115,20 +160,30 @@ my %to_ij = (
 	}, NICK => sub {
 		send_hdr(@_,qw/dst nick/) . '>';
 	},
+	PING => \&ssend,
+	PONG => \&ssend,
 );
 
 sub debug_send {
 	my $ij = $INST_DBG;
 	for my $act (@_) {
 		my $type = $act->{type};
-		print "    ACTION ";
+		print "\e[0;33m    ACTION ";
 		if (exists $to_ij{$type}) {
 			print $to_ij{$type}->($ij, $act);
 		} else {
 			print ssend($ij, $act);
 		}
-		print "\n";
+		print "\e[0m\n";
 	}
 }
 
+	$pong[$$ij] = time;
+		$ij->ij_send({ type => 'PONG', sendto => [] });
+	} elsif ($auth[$$ij]) {
+		my $id = $id[$$ij];
+			$act->{net} = $ij;
+			$act->{sendto} = [];
+		delete $Janus::ijnets{$id};
+	return ();
 1;

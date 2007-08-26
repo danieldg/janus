@@ -44,7 +44,7 @@ sub pongcheck {
 		weaken($p->{net});
 		$net = $p->{net}; #possibly skip
 	}
-	unless ($net) {
+	unless ($net && defined $net->id()) {
 		delete $p->{repeat};
 		&Conffile::connect_net(undef, $p->{netid});
 		return;
@@ -92,12 +92,13 @@ sub chan {
 	my($net, $name, $new) = @_;
 	unless (exists $chans{lc $name}) {
 		return undef unless $new;
-		print "Creating channel $name\n" if $new;
-		$chans{lc $name} = Channel->new(
+		my $chan = Channel->new(
 			net => $net, 
 			name => $name,
 			ts => $new,
 		);
+		print "Creating channel $name - luid=$$chan\n";
+		$chans[$$net]{lc $name} = $chan;
 	}
 	$chans{lc $name};
 }
@@ -162,7 +163,7 @@ sub _mode_interp {
 			$mode .= $net->txt2cmode($txt);
 			$pm = $ipm;
 		} else {
-			warn "Unsupported channel mode '$txt' for network";
+			# TODO investigate alternate tristate modes
 		}
 	}
 	$mode, @args;

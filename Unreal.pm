@@ -232,7 +232,7 @@ my $textip_table = join '', 'A'..'Z','a'..'z', 0 .. 9, '+/';
 sub nicklen { 30 }
 
 sub debug {
-	print @_, "\n";
+	print @_, "\e[0m\n";
 }
 
 sub str {
@@ -244,7 +244,7 @@ sub intro {
 	my($net,$param) = @_;
 	$net->SUPER::intro($param);
 	$net->send(
-		'PASS :'.$param->{linkpass},
+		'PASS :'.$param->{sendpass},
 		'PROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS UMODE2 TKLEXT SJB64',
 		"SERVER $param->{linkname} 1 :U2309-hX6eE-$param->{numeric} Janus Network Link",
 	);
@@ -253,7 +253,7 @@ sub intro {
 # parse one line of input
 sub parse {
 	my ($net, $line) = @_;
-	debug '     IN@'.$net->id().' '. $line;
+	debug "\e[0;32m     IN@".$net->id().' '. $line;
 	$net->pong();
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
@@ -313,7 +313,7 @@ sub dump_sendq {
 			for my $c (keys %sjmerge) {
 				$_ = $sjmerge{$c}{j}; chomp;
 				# IRC limits to 512 char lines; we output a line like: ~ !123456 #<32> :<510-45>
-				$q .= $net->cmd1(SJOIN => $sjmerge{$c}{ts}, $c, $1)."\r\n" while s/^(.{,465}) //;
+				$q .= $net->cmd1(SJOIN => $sjmerge{$c}{ts}, $c, $1)."\r\n" while s/^(.{400,465}) //;
 				$q .= $net->cmd1(SJOIN => $sjmerge{$c}{ts}, $c, $_)."\r\n";
 			}
 			%sjmerge = ();
@@ -341,7 +341,7 @@ sub dump_sendq {
 		}
 	}
 	$sendq[$$net] = [];
-	debug '    OUT@'.$net->id().' '.$_ for split /[\r\n]+/, $q;
+	debug "\e[0;34m    OUT@".$net->id().' '.$_ for split /[\r\n]+/, $q;
 	$q;
 }
 
@@ -417,7 +417,7 @@ sub _connect_ifo {
 	}
 	my @out;
 	push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $nick->info('host'),
-		$srv, 0, $mode, $vhost, $nick->info('name'));
+		$srv, 0, $mode, $vhost, $ip, $nick->info('name'));
 	my $whois = $nick->info('swhois');
 	push @out, $net->cmd1(SWHOIS => $nick, $whois) if defined $whois && $whois ne '';
 	my $away = $nick->info('away');
@@ -480,6 +480,10 @@ sub nick_msg {
 	my $net = shift;
 	my $src = $net->item($_[0]);
 	my $msg = [ @_[3..$#_] ];
+	my $about = $net->item($_[3]);
+	if (ref $about && $about->isa('Nick')) {
+		$msg->[0] = $about;
+	}
 	my $dst = $net->nick($_[2]) or return ();
 	return {
 		type => 'MSG',
@@ -933,23 +937,22 @@ sub srvname {
 				wipe => 0,
 			} if $1 && $1 < $chan->ts();
 		}
-		if ($_[3] =~ /^&/) {
+		my $mode = $_[3];
+		if ($mode =~ s/^&//) {
 			# mode bounce: assume we are correct, and inform the server
 			# that they are mistaken about whatever they think we have wrong. 
-			my $mode = $_[3];
-			$mode =~ s/&//;
+			# This is not very safe, but there's not much way around it
 			$mode =~ y/+-/-+/;
 			$net->send($net->cmd1(MODE => $_[2], $mode, @_[4 .. $#_]));
-		} else {
-			my($modes,$args) = $net->_modeargs(@_[3 .. $#_]);
-			push @out, {
-				type => 'MODE',
-				src => $src,
-				dst => $chan,
-				mode => $modes,
-				args => $args,
-			};
 		}
+		my($modes,$args) = $net->_modeargs($mode, @_[4 .. $#_]);
+		push @out, {
+			type => 'MODE',
+			src => $src,
+			dst => $chan,
+			mode => $modes,
+			args => $args,
+		};
 		@out;
 	}, TOPIC => sub {
 		my $net = shift;
@@ -999,6 +1002,22 @@ sub srvname {
 		my $srv = $net->srvname($_[2]);
 		my $splitfrom = $servers[$$net]{lc $srv}{parent};
 		
+		if (!$splitfrom && $srv =~ /^(.*)\.janus/) {
+			my $ns = $Janus::nets{$1} or return ();
+			$net->send($net->cmd2($net->cparam('linkname'), SERVER => $srv, 2, $ns->numeric(), $ns->netname()));
+			my @out;
+			for my $nick ($net->all_nicks()) {
+				next unless $nick->homenet()->id() eq $ns->id();
+				push @out, +{
+					type => 'RECONNECT',
+					dst => $nick,
+					net => $net,
+					killed => 1,
+				};
+			}
+			return @out;
+		}
+
 		my %sgone = (lc $srv => 1);
 		my $k = 0;
 		while ($k != scalar keys %sgone) {
@@ -1033,7 +1052,7 @@ sub srvname {
 	PONG => \&ignore,
 	PASS => sub {
 		my $net = shift;
-		if ($_[2] eq $net->param('yourpass')) {
+		if ($_[2] eq $net->cparam('recvpass')) {
 			$auth[$$net] = 1;
 		} else {
 			$net->send('ERROR :Bad password');
@@ -1233,6 +1252,7 @@ sub cmd2 {
 			}
 			return @out;
 		} else {
+			return () if $net->isa('Interface');
 			return $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->numeric(), $new->netname());
 		}
 	}, LINKED => sub {
