@@ -148,6 +148,15 @@ sub nicklen {
 	($capabs[$$net]{NICKMAX} || 32) - 1;
 }
 
+my %ywdhms = (qw/
+	y 32850000
+	w 604800
+	d 86400
+	h 3600
+	m 60
+	s 1
+/);
+
 sub debug {
 	print @_, "\e[0m\n";
 }
@@ -1263,6 +1272,11 @@ CORE => {
 				expire => 1,
 			};
 		} else {
+			my $dur = 0;
+			while ($_[3] =~ s/^(\d+)([ywdhms])//) {
+				$dur += $1 * $ywdhms{$2};
+			}
+			$dur += $_[3] if $_[3];
 			return +{
 				type => 'XLINE',
 				dst => $net,
@@ -1270,7 +1284,7 @@ CORE => {
 				mask => $_[2],
 				setter => $_[0],
 				settime => time,
-				expire => ($_[3] ? time + $_[3] : 0),
+				expire => ($dur ? time + $dur : 0),
 				reason => $_[4],
 			};
 		}
