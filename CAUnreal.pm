@@ -483,6 +483,10 @@ sub nick_msg {
 	my $net = shift;
 	my $src = $net->item($_[0]);
 	my $msg = [ @_[3..$#_] ];
+	my $about = $net->item($_[3]);
+	if (ref $about && $about->isa('Nick')) {
+		$msg->[0] = $about;
+	}
 	my $dst = $net->nick($_[2]) or return ();
 	return {
 		type => 'MSG',

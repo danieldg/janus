@@ -242,7 +242,7 @@ sub dump_sendq {
 		$auth[$$net] = 3 if $auth[$$net] == 2;
 	}
 	$q =~ s/\n+/\r\n/g;
-	debug "\e[0;34m   OUT@".$net->id().' '.$_ for split /\r\n/, $q;
+	debug "\e[0;34m    OUT@".$net->id().' '.$_ for split /\r\n/, $q;
 	$q;
 }
 
