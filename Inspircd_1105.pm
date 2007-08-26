@@ -1237,11 +1237,48 @@ CORE => {
 	},
 	PONG => \&ignore, # already got ->ponged() above
 	VERSION => \&ignore,
-	ADDLINE => \&ignore, # TODO convert to BANLINE action
-	GLINE => \&ignore,
-	ELINE => \&ignore,
-	ZLINE => \&ignore,
-	QLINE => \&ignore,
+	ADDLINE => sub {
+		my $net = shift;
+		return +{
+			type => 'XLINE',
+			dst => $net,
+			ltype => $_[2],
+			mask => $_[3],
+			setter => $_[4],
+			settime => $_[5],
+			expire => ($_[5] + $_[6]),
+			reason => $_[7],
+		};
+	},	
+	GLINE => sub {
+		my $net = shift;
+		my $type = substr $_[2],0,1;
+		if (@_ == 3) {
+			return +{
+				type => 'XLINE',
+				dst => $net,
+				ltype => $type,
+				mask => $_[2],
+				set => $_[0],
+				expire => 1,
+			};
+		} else {
+			return +{
+				type => 'XLINE',
+				dst => $net,
+				ltype => $type,
+				mask => $_[2],
+				set => $_[0],
+				settime => time,
+				expire => (time + $_[3]),
+				reason => $_[4],
+			};
+		}
+	},
+	ELINE => 'GLINE',
+	ZLINE => 'GLINE',
+	QLINE => 'GLINE',
+
 	SVSJOIN => sub {
 		my $net = shift;
 		my $src = $net->mynick($_[2]) or return ();

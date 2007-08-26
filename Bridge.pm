@@ -2,7 +2,6 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Bridge;
-use Persist;
 use strict;
 use warnings;
 
@@ -22,6 +21,10 @@ use warnings;
 	}, RAW => act => sub {
 		my $act = shift;
 		delete $act->{except};
+	}, XLINE => parse => sub {
+		my $act = shift;
+		$act->{sendto} = [ values %Janus::nets ];
+		0;
 	}, BURST => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
