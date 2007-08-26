@@ -269,6 +269,16 @@ my %spec = (
 	PING => {},
 	PONG => {},
 	REHASH => {},
+
+	XLINE => {
+		dst => 'Network',
+		ltype => '$',
+		mask => '$',
+		setter => '?$',
+		expire => '$', # = 0 for permanent, = 1 for unset, = time else
+		settime => '?$', # only valid if setting
+		reason => '?$',  # only valid if setting
+	},
 );
 
 my %default = (

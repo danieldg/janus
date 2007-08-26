@@ -1147,26 +1147,28 @@ sub srvname {
 		my $net = shift;
 		my $iexpr;
 		my $act = {
-			type => 'BANLINE',
-			src => $_[0],
+			type => 'XLINE',
 			dst => $net,
-			action => $_[2],
+			ltype => $_[3],
 			setter => $_[6],
 		};
 		if ($_[2] eq '+') {
 			$act->{expire} = $_[7];
-			# 8 = set time
+			$act->{settime} = $_[8];
 			$act->{reason} = $_[9];
+		} else {
+			$act->{expire} = 1;
 		}
 		if ($_[3] eq 'G') {
-			$act->{ident} = $_[4] unless $_[4] eq '*';
-			$act->{host} = $_[5] unless $_[5] eq '*';
-		} elsif ($_[3] eq 'Q') {
-			$act->{nick} = $_[5];
-		} elsif ($_[3] eq 'Z') {
-			$act->{ip} = $_[5];
+			$act->{mask} = $_[4].'@'.$_[5];
+		} elsif ($_[3] eq 'Q' || $_[3] eq 'Z') {
+			$act->{mask} = $_[5];
 		} else {
-			# shun or spamfilter - confine these to local network
+			# shun is the same syntax as gline
+			# spamfilter:
+			# BD + F targets action source 0 settimestamp tklduration tklreason :regex
+			# BD - F targets action source 0 settimestap :regex
+			# we do not currently parse these
 			return ();
 		}
 		$act;
