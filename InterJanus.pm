@@ -58,18 +58,6 @@ sub str {
 }
 
 
-	$pong[$$ij] = time;
-	my $pinger = {
-		repeat => 30,
-		ij => $ij,
-		id => $nconf->{id},
-		code => \&pongcheck,
-	};
-	weaken($pinger->{ij});
-	&Janus::schedule($pinger);
-
-	$Janus::ijnets{$id[$$ij]} = $ij;
-
 sub jlink {
 	$_[0];
 }
@@ -178,12 +166,4 @@ sub debug_send {
 	}
 }
 
-	$pong[$$ij] = time;
-		$ij->ij_send({ type => 'PONG', sendto => [] });
-	} elsif ($auth[$$ij]) {
-		my $id = $id[$$ij];
-			$act->{net} = $ij;
-			$act->{sendto} = [];
-		delete $Janus::ijnets{$id};
-	return ();
 1;

@@ -98,7 +98,7 @@ sub chan {
 			ts => $new,
 		);
 		print "Creating channel $name - luid=$$chan\n";
-		$chans[$$net]{lc $name} = $chan;
+		$chans{lc $name} = $chan;
 	}
 	$chans{lc $name};
 }
@@ -155,7 +155,7 @@ sub _mode_interp {
 	my @argin = @$args;
 	my @args;
 	for my $mtxt (@$mods) {
-		my($ipm,$txt) = ($mtxt =~ /^([-+])(.*)/) or warn $mtxt;
+		my($ipm,$txt) = ($mtxt =~ /^([-+])(.*)/) or do { warn $mtxt; next };
 		my $itm = ($txt =~ /^[nlv]/ || $mtxt =~ /^\+s/) ? shift @argin : undef;
 		if (defined $net->txt2cmode($txt)) {
 			push @args, ref $itm ? $itm->str($net) : $itm if defined $itm;

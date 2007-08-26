@@ -59,9 +59,6 @@ if ($Janus::interface) {
 		my $dst = $act->{dst};
 		my $type = $act->{msgtype};
 		return 1 unless ref $src && ref $dst;
-
-			if ($src->isa('Network') && ref $nick && $nick->isa('Nick')) {
-						'; Home nick: '.$nick->homenick(),
 		return undef unless $src->isa('Nick') && $dst->isa('Nick');
 		if ($dst->info('_is_janus')) {
 			return 1 unless $act->{msgtype} eq 'PRIVMSG' && $src;

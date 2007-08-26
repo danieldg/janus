@@ -49,7 +49,7 @@ sub str {
 		my $net = $act->{net};
 		my $tid = $net->id();
 		my @clean;
-		for my $nick ($net->all_nicks()) {
+		for my $nick (values %Janus::nicks) {
 			next if $nick->homenet()->id() ne $tid;
 			push @clean, +{
 				type => 'QUIT',
@@ -64,19 +64,6 @@ sub str {
 		print "Nick deallocation start\n";
 		@clean = ();
 		print "Nick deallocation end\n";
-		for my $chan ($net->all_chans()) {
-			push @clean, +{
-				type => 'DELINK',
-				dst => $chan,
-				net => $net,
-				netsplit_quit => 1,
-				except => $net,
-			};
-		}
-		&Janus::insert_full(@clean);
-		print "Channel deallocation start\n";
-		@clean = ();
-		print "Channel deallocation end\n";
 	},
 );
 

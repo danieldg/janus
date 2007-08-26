@@ -152,8 +152,6 @@ sub mode_delta {
 	(\@modes, \@args);
 }
 
-	my $joinnets = [ values %dstnets ];
-			in_link => 1,
 =item $chan->all_nicks()
 
 return a list of all nicks on the channel

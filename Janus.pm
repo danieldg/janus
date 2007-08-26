@@ -199,12 +199,7 @@ sub _send {
 	if (exists $act->{sendto} && ref $act->{sendto}) {
 		@to = @{$act->{sendto}};
 	} elsif ($act->{type} =~ /^NET(LINK|SPLIT)/) {
-		@to = (values(%nets), values %ijnets);
-		for my $q (values %netqueues) {
-			my $net = $$q[3];
-			next unless defined $net;
-			push @to, $net if $net->isa('InterJanus');
-		}
+		@to = values %nets;
 	} elsif (!ref $act->{dst}) {
 		warn "Action $act of type $act->{type} does not have a destination or sendto list";
 		return;
@@ -438,19 +433,6 @@ sub delink {
 		my $id = $net->id();
 		delete $nets{$id};
 		delete $netqueues{$id};
-	} elsif ($net->isa('InterJanus')) {
-		my $id = $net->id();
-		delete $ijnets{$id};
-		my $q = delete $netqueues{$id};
-		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
-		for my $snet (values %nets) {
-			next unless $snet->jlink() && $id eq $snet->jlink()->id();
-			&Janus::insert_full(+{
-				type => 'NETSPLIT',
-				net => $snet,
-				msg => $msg,
-			});
-		}
 	} else {
 		&Janus::insert_full(+{
 			type => 'NETSPLIT',
