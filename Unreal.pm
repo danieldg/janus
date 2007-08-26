@@ -1107,7 +1107,6 @@ sub srvname {
 
 	CHATOPS => sub {
 		my $net = shift;
-		return () unless $net->param('send_chatops');
 		return +{
 			type => 'CHATOPS',
 			src => $net->item($_[0]),
