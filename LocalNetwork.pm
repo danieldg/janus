@@ -95,12 +95,13 @@ sub chan {
 	my($net, $name, $new) = @_;
 	unless (exists $chans[$$net]{lc $name}) {
 		return undef unless $new;
-		print "Creating channel $name\n" if $new;
-		$chans[$$net]{lc $name} = Channel->new(
+		my $chan = Channel->new(
 			net => $net, 
 			name => $name,
 			ts => $new,
 		);
+		print "Creating channel $name - luid=$$chan\n";
+		$chans[$$net]{lc $name} = $chan;
 	}
 	$chans[$$net]{lc $name};
 }

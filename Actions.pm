@@ -201,6 +201,7 @@ my %spec = (
 		topicset => '$',
 		topicts => '$',
 		topic => '$',
+		in_link => '?$',
 	},
 
 	NICK => {
@@ -268,6 +269,16 @@ my %spec = (
 	PING => {},
 	PONG => {},
 	REHASH => {},
+
+	XLINE => {
+		dst => 'Network',
+		ltype => '$',
+		mask => '$',
+		setter => '?$',
+		expire => '$', # = 0 for permanent, = 1 for unset, = time else
+		settime => '?$', # only valid if setting
+		reason => '?$',  # only valid if setting
+	},
 );
 
 my %default = (
@@ -304,13 +315,16 @@ for my $type (keys %spec) {
 		} else {
 			return 1 unless defined $v;
 		}
+		if (s/^~//) {
+			return 1 unless eval;
+		}
 		my $r = 0;
 		for (split /\s+/) {
 			next KEY if eval {
 				/\$/ ? (defined $v && '' eq ref $v) :
 				/\@/ ? (ref $v && 'ARRAY' eq ref $v) :
 				/\%/ ? (ref $v && 'HASH' eq ref $v) :
-				(ref $v && $v->isa($_));
+				$v->isa($_);
 			};
 		}
 		$@ = "Invalid value $v for key '$k' in action $itm";

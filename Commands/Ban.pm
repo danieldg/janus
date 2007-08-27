@@ -183,19 +183,17 @@ my %timespec = (
 			return 1;
 		}
 		undef;
-	}, BANLINE => check => sub {
+	}, XLINE => check => sub {
 		my $act = shift;
 		my $net = $act->{dst};
 		return 1 unless $net->param('translate_bans');
 		return undef;
-	}, BANLINE => act => sub {
+	}, XLINE => act => sub {
 		my $act = shift;
+		warn "TODO!";
+		return;
 		my $net = $act->{dst};
-		my $nick = $act->{nick} || '*';
-		my $ident = $act->{ident} || '*';
-		my $host = $act->{host} || '*';
-		my $expr = "$nick!$ident\@$host\%*";
-		return if $expr eq '*!*@*%*';
+		my $expr = 'NOMATCH'; # "$nick!$ident\@$host\%*";
 		if ($act->{action} eq '+') {
 			&Commands::Ban::add(
 				net => $net,

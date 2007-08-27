@@ -242,7 +242,7 @@ sub dump_sendq {
 		$auth[$$net] = 3 if $auth[$$net] == 2;
 	}
 	$q =~ s/\n+/\r\n/g;
-	debug "\e[0;34m   OUT@".$net->id().' '.$_ for split /\r\n/, $q;
+	debug "\e[0;34m    OUT@".$net->id().' '.$_ for split /\r\n/, $q;
 	$q;
 }
 
@@ -510,6 +510,7 @@ sub cmd2 {
 	'm_conn_umodes.so' => { },
 	'm_conn_waitpong.so' => { },
 	'm_connflood.so' => { },
+	'm_customtitle.so' => { },
 	'm_cycle.so' => { },
 	'm_dccallow.so' => { cmds => { DCCALLOW => \&ignore } },
 	'm_deaf.so' => {
@@ -533,7 +534,7 @@ sub cmd2 {
 	},
 	'm_dnsbl.so' => { },
 	'm_filter.so' => { cmds => { FILTER => \&ignore } },
-	'm_filter_pcre.so' => { },
+	'm_filter_pcre.so' => { cmds => { FILTER => \&ignore } },
 	'm_foobar.so' => { },
 	'm_globalload.so' => { 
 		cmds => { 
@@ -552,7 +553,7 @@ sub cmd2 {
 		cmds => { GLOBOPS => \&ignore },
 		acts => { CHATOPS => sub {
 			my($net,$act) = @_;
-			$net->ncmd($act->{src}, GLOBOPS => $act->{msg});
+			$net->cmd1($act->{src}, GLOBOPS => $act->{msg});
 		} }
 	},
 	'm_helpop.so' => {
@@ -1141,7 +1142,8 @@ CORE => {
 			kickee => $nick,
 			msg => $_[4],
 		};
-	}, 
+	},
+	INVITE => \&ignore,
 
 	SERVER => sub {
 		my $net = shift;
@@ -1244,11 +1246,48 @@ CORE => {
 	},
 	PONG => \&ignore, # already got ->ponged() above
 	VERSION => \&ignore,
-	ADDLINE => \&ignore, # TODO convert to BANLINE action
-	GLINE => \&ignore,
-	ELINE => \&ignore,
-	ZLINE => \&ignore,
-	QLINE => \&ignore,
+	ADDLINE => sub {
+		my $net = shift;
+		return +{
+			type => 'XLINE',
+			dst => $net,
+			ltype => $_[2],
+			mask => $_[3],
+			setter => $_[4],
+			settime => $_[5],
+			expire => ($_[6] ? ($_[5] + $_[6]) : 0),
+			reason => $_[7],
+		};
+	},	
+	GLINE => sub {
+		my $net = shift;
+		my $type = substr $_[1],0,1;
+		if (@_ == 3) {
+			return +{
+				type => 'XLINE',
+				dst => $net,
+				ltype => $type,
+				mask => $_[2],
+				setter => $_[0],
+				expire => 1,
+			};
+		} else {
+			return +{
+				type => 'XLINE',
+				dst => $net,
+				ltype => $type,
+				mask => $_[2],
+				setter => $_[0],
+				settime => time,
+				expire => ($_[3] ? time + $_[3] : 0),
+				reason => $_[4],
+			};
+		}
+	},
+	ELINE => 'GLINE',
+	ZLINE => 'GLINE',
+	QLINE => 'GLINE',
+
 	SVSJOIN => sub {
 		my $net = shift;
 		my $src = $net->mynick($_[2]) or return ();
@@ -1508,14 +1547,16 @@ CORE => {
 		my $dst = $act->{dst};
 		my @interp = $net->_mode_interp($act->{mode}, $act->{args});
 		return () unless @interp;
-		return () if @interp == 1 && $interp[0] =~ /^[+-]+$/;
+		return () if @interp == 1 && (!$interp[0] || $interp[0] =~ /^[+-]+$/);
 		return $net->cmd2($src, FMODE => $dst, $dst->ts(), @interp);
 	}, TOPIC => sub {
 		my($net,$act) = @_;
-		if ($act->{in_burst}) {
+		if ($act->{in_link}) {
 			return $net->ncmd(FTOPIC => $act->{dst}, $act->{topicts}, $act->{topicset}, $act->{topic});
 		}
-		return $net->cmd2($act->{src}, TOPIC => $act->{dst}, $act->{topic});
+		my $src = $act->{src};
+		$src = $Janus::interface unless $src && $src->isa('Nick') && $src->is_on($net);
+		return $net->cmd2($src, TOPIC => $act->{dst}, $act->{topic});
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
 		if ($act->{item} eq 'vhost') {
@@ -1563,10 +1604,18 @@ CORE => {
 		}
 		if (($type eq 'PRIVMSG' || $type eq 'NOTICE') && $act->{src}->isa('Nick') && $act->{src}->is_on($net)) {
 			return $net->cmd2($act->{src}, $type, $dst, $act->{msg});
-		} else {
-			return () unless $act->{dst}->isa('Nick');
+		} elsif ($act->{dst}->isa('Nick')) {
+			# sent to a single user - it's easier to just PUSH the result
 			my $msg = $net->cmd2($act->{src}, $type, $dst, ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg});
 			return $net->ncmd(PUSH => $act->{dst}, $msg);
+		} elsif ($type eq 'PRIVMSG' || $type eq 'NOTICE') {
+			# main case: people speaking in -n channels; a bunch of race conditions also come here
+			# TODO this should be improved by m_janus.so if it gets written
+			my $msg = $act->{msg};
+			my $src = $act->{src};
+			$src = $src->homenick() if $src && $src->isa('Nick');
+			$msg = $msg =~ /^\001ACTION (.*?)\001?$/ ? '* '.$net->_out($src).' '.$msg : '<'.$net->_out($src).'> '.$msg;
+			$net->cmd2($Janus::interface, $type, $act->{dst}, $msg);
 		}
 	}, WHOIS => sub {
 		my($net,$act) = @_;
@@ -1592,5 +1641,15 @@ CORE => {
 
 $moddef{'m_ssl_gnutls.so'} = $moddef{'m_ssl_dummy.so'};
 $moddef{'m_ssl_openssl.so'} = $moddef{'m_ssl_dummy.so'};
+
+for my $net (values %Janus::nets) {
+	next unless $net->isa(__PACKAGE__);
+	my @mods = keys %{$modules[$$net]};
+	print "Reloading module definitions for $net\n";
+	for my $mod (@mods) {
+		$net->module_remove($mod);
+		$net->module_add($mod);
+	}
+}
 
 1;

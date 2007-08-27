@@ -123,7 +123,7 @@ sub ijstr {
 	} elsif ($itm->isa('Nick')) {
 		return 'n:'.$itm->gid();
 	} elsif ($itm->isa('Channel')) {
-		return 'c:'.$itm->keyname();
+		return ($$ij ? 'c:' : "c:$$itm:").$itm->keyname();
 	} elsif ($itm->isa('Network')) {
 		return 's:'.$itm->id();
 	} elsif ($itm->isa('InterJanus')) {

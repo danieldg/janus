@@ -104,7 +104,7 @@ sub _init {
 sub _destroy {
 	my $c = $_[0];
 	my $n = join ',', map { $_.$names[$$c]{$_} } keys %{$names[$$c]};
-	print "   CHAN: $n deallocated\n";
+	print "   CHAN:$$c $n deallocated\n";
 }
 
 sub _mergenet {
@@ -129,7 +129,7 @@ sub _modecpy {
 sub _link_into {
 	my($src,$chan) = @_;
 	my %dstnets = %{$nets[$$chan]};
-	print "Link into:";
+	print "Link into ($$src -> $$chan):";
 	for my $id (keys %{$nets[$$src]}) {
 		print " $id";
 		my $net = $nets[$$src]{$id};
@@ -141,7 +141,8 @@ sub _link_into {
 		$net->replace_chan($name, $chan);
 	}
 	print "\n";
-	my $sendnets = [ values %dstnets ];
+	my $modenets = [ values %{$nets[$$src]} ];
+	my $joinnets = [ values %dstnets ];
 
 	my ($mode, $marg) = $src->mode_delta($chan);
 	&Janus::append(+{
@@ -149,7 +150,7 @@ sub _link_into {
 		dst => $chan,
 		mode => $mode,
 		args => $marg,
-		sendto => $sendnets,
+		sendto => $modenets,
 		nojlink => 1,
 	}) if @$mode;
 
@@ -160,7 +161,8 @@ sub _link_into {
 			topic => $topic[$$chan],
 			topicts => $topicts[$$chan],
 			topicset => $topicset[$$chan],
-			sendto => $sendnets,
+			sendto => $modenets,
+			in_link => 1,
 			nojlink => 1,
 		});
 	}
@@ -178,7 +180,7 @@ sub _link_into {
 			src => $nick,
 			dst => $chan,
 			mode => $nmode[$$src]{$nid},
-			sendto => $sendnets,
+			sendto => $joinnets,
 		}) unless $nick->jlink();
 	}
 }
@@ -293,7 +295,8 @@ sub part {
 				delete $nmode[$$chan]{$nick->lid()}{$i} if $pm eq '-';
 			} elsif ($t eq 'l') {
 				if ($pm eq '+') {
-					push @{$mode[$$chan]{$i}}, shift @args;
+					my $b = shift @args;
+					@{$mode[$$chan]{$i}} = ($b, grep { $_ ne $b } @{$mode[$$chan]{$i}});
 				} else {
 					my $b = shift @args;
 					@{$mode[$$chan]{$i}} = grep { $_ ne $b } @{$mode[$$chan]{$i}};

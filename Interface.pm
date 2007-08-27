@@ -82,19 +82,21 @@ if ($Janus::interface) {
 
 		if ($type eq '312') {
 			# server whois reply message
-			if ($src->isa('Network')) {
+			my $nick = $act->{msg}->[0];
+			if ($src->isa('Network') && ref $nick && $nick->isa('Nick')) {
 				&Janus::append(+{
 					type => 'MSG',
 					msgtype => 640,
 					src => $src,
 					dst => $dst,
 					msg => [
-						$act->{msg}->[0],
-						"is connected through a Janus link. Home network: ".$src->netname(),
+						$nick,
+						'is connected through a Janus link. Home network: '.$src->netname().
+						'; Home nick: '.$nick->homenick(),
 					],
 				});
 			} else {
-				warn "Source of /whois reply is not a server";
+				warn "Incorrect /whois reply: $src $nick";
 			}
 			return undef;
 		} elsif ($type eq '313') {
