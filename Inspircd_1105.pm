@@ -478,9 +478,7 @@ sub cmd2 {
 			NICKINFO => sub {
 				my($net,$act) = @_;
 				if ($act->{item} eq 'ident') {
-					# prefer setident's action
-					return () if $modules[$$net]{'m_setident.so'};
-					return $net->cmd2($act->{dst}, CHGIDENT => $act->{dst}, $act->{value});
+					return $net->cmd2(&Janus::interface, CHGIDENT => $act->{dst}, $act->{value});
 				}
 				();
 			},
@@ -765,14 +763,6 @@ sub cmd2 {
 					value => $_[2],
 				};
 			}
-		}, acts => {
-			NICKINFO => sub {
-				my($net,$act) = @_;
-				if ($act->{item} eq 'ident') {
-					return $net->cmd2($act->{dst}, SETIDENT => $act->{value});
-				}
-				();
-			},
 		},
 	},
 	'm_setname.so' => {
