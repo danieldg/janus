@@ -8,44 +8,147 @@ use warnings;
 
 our($VERSION) = '$Rev: 329 $' =~ /(\d+)/;
 
-&Janus::hook_add(
-	MODE => check => sub {
-		my $act = shift;
-		local $_;
-		my $chan = $act->{dst};
-		my @mode = @{$act->{mode}};
-		my @nargs;
-		my @args = @{$act->{args}};
-		for my $itxt (@{$act->{mode}}) {
-			my $pm = substr $itxt, 0, 1;
-			my $t = substr $itxt, 1, 1;
-			my $i = substr $itxt, 1;
-			if ($t eq 'n') {
-				push @nargs, shift @args;
-			} elsif ($t eq 'l') {
-				push @nargs, shift @args;
-			} elsif ($t eq 'v') {
-				my $val = shift @args;
-				push @nargs, $val;
-				$itxt =~ s/v/s/;
-				push @mode, $itxt;
-				push @args, $val if $pm eq '+';
-			} elsif ($t eq 's') {
-				my $val = ($pm eq '+') ? shift @args : $chan->get_mode($i);
-				$itxt =~ s/s/v/;
-				push @mode, $itxt;
-				push @args, $val;
-			} elsif ($t eq 'r') {
-			} elsif ($t eq 't') {
+sub from_irc {
+	my($net,$chan,$str) = (shift,shift,shift);
+	my(@modes,@args,@dirs);
+	local $_;
+	my $pm = '+';
+	for (split //, $str) {
+		if (/[-+]/) {
+			$pm = $_;
+			next;
+		}
+		my $txt = $net->cmode2txt($_) || '?';
+		my $arg = $pm eq '+';
+		my $type = substr $txt,0,1;
+		if ($type eq 'n') {
+			$arg = $net->nick(shift);
+		} elsif ($type eq 'l') {
+			$arg = shift;
+		} elsif ($type eq 'v') {
+			$arg = shift;
+		} elsif ($type eq 's') {
+			# "s" modes are emulated as "v" modes in janus
+			$txt =~ s/s/v/;
+			if ($pm eq '+') {
+				$arg = shift;
 			} else {
-				warn "Unknown mode '$itxt'";
+				$arg = $chan->get_mode($txt);
+			}
+		} elsif ($type eq 't') {
+			if ($txt =~ s/^t(\d)/t/) {
+				$arg = $1;
+			} else {
+				warn "Invalid mode text $txt for mode $_ in network $net";
+				next;
+			}
+		} elsif ($type eq 'r') {
+		} else {
+			warn "Invalid mode text $txt for mode $_ in network $net";
+			next;
+		}
+		push @modes, $type;
+		push @args, $arg;
+		push @dirs, $pm;
+	}
+	(\@modes, \@args, \@dirs);
+}
+
+sub to_irc {
+	my($net, $mods, $args, $dirs) = @_;
+	my @modin = @$mods;
+	my @argin = @$args;
+	my @dirin = @$dirs;
+	my $pm = '';
+	my $mode;
+	my @args;
+	while (@modin) {
+		my($txt,$arg,$dir) = (shift @modin, shift @argin, shift @dir);
+		my $out = $txt =~ /^[lv]/;
+		my $char = $net->txt2cmode($txt);
+		if (!defined $char && $txt =~ /^s(.*)/) {
+			my $alt = 'v'.$1;
+			$char = $net->txt2cmode($alt);
+			$out = 0 if defined $char;
+		}
+		
+		if ($txt =~ /^t(.*)/) {
+			my $m = $1;
+			my $alt = 't'.$arg.$m;
+			$char = $net->txt2cmode($alt);
+			unless (defined $char) {
+				# we don't have support for one half of the tristate; try the other half
+				$alt = 't'.(2-$arg).$m;
+				$char = $net->txt2cmode($alt);
+			}
+		}			
+
+		if (defined $char) {
+			$mode .= $dir if $dir ne $pm;
+			$mode .= $net->txt2cmode($txt);
+			$pm = $dir;
+			push @args, $arg if $out;
+		}
+	}
+	$mode, @args;
+}
+
+sub delta {
+	my($chan1, $chan2) = @_;
+	my %current = $chan1 ? %{$chan1->all_modes()} : ();
+	my %add = $chan2 ? %{$chan2->all_modes()} : ();
+	my(@modes, @args, @dirs);
+	for my $txt (keys %current) {
+		if ($txt =~ /^l/) {
+			my %torm = map { $_ => 1 } @{$current{$txt}};
+			if (exists $add{$txt}) {
+				for my $i (@{$add{$txt}}) {
+					if (exists $torm{$i}) {
+						delete $torm{$i};
+					} else {
+						push @modes, $txt;
+						push @dirs, '+';
+						push @args, $i;
+					}
+				}
+			}
+			for my $i (keys %torm) {
+				push @modes, $txt;
+				push @dirs, '-';
+				push @args, $i;
+			}
+		} else {
+			if (exists $add{$txt}) {
+				if ($current{$txt} eq $add{$txt}) {
+					# hey, isn't that nice
+				} else {
+					push @modes, $txt;
+					push @dirs, '+';
+					push @args, $add{$txt};
+				}
+			} else {
+				push @modes, $txt;
+				push @dirs, '-';
+				push @args, $current{$txt};
 			}
 		}
-		push @nargs, @args;
-		$act->{mode} = \@mode;
-		$act->{args} = \@nargs;
-		0;
-	},
-);
+		delete $add{$txt};
+	}
+	for my $txt (keys %add) {
+		if ($txt =~ /^l/) {
+			for my $i (@{$add{$txt}}) {
+				push @modes, $txt;
+				push @dirs, '+';
+				push @args, $i;
+			}
+		} else {
+			push @modes, $txt;
+			push @dirs, '+';
+			push @args, $add{$txt};
+		}
+	}
+	(\@modes, \@args, \@dirs);
+}
+
 
 1;

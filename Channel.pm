@@ -24,7 +24,7 @@ my @keyname  :Persist(keyname)  :Arg(keyname)  :Get(keyname);
 my @topic    :Persist(topic)    :Arg(topic)    :Get(topic);
 my @topicts  :Persist(topicts)  :Arg(topicts)  :Get(topicts);
 my @topicset :Persist(topicset) :Arg(topicset) :Get(topicset);
-my @mode     :Persist(mode);
+my @mode     :Persist(mode)                    :Get(all_modes);
 
 my @names    :Persist(names);
 my @nets     :Persist(nets);
@@ -124,60 +124,6 @@ sub _modecpy {
 			$mode[$$chan]{$txt} = $mode[$$src]{$txt};
 		}
 	}
-}
-
-sub mode_delta {
-	my($chan, $dst) = @_;
-	my %add = $dst ? %{$mode[$$dst]} : ();
-	my(@modes, @args);
-	for my $txt (keys %{$mode[$$chan]}) {
-		if ($txt =~ /^l/) {
-			my %torm = map { $_ => 1} @{$mode[$$chan]{$txt}};
-			if (exists $add{$txt}) {
-				for my $i (@{$add{$txt}}) {
-					if (exists $torm{$i}) {
-						delete $torm{$i};
-					} else {
-						push @modes, '+'.$txt;
-						push @args, $i;
-					}
-				}
-			}
-			for my $i (keys %torm) {
-				push @modes, '-'.$txt;
-				push @args, $i;
-			}
-		} elsif ($txt =~ /^[vs]/) {
-			if (exists $add{$txt}) {
-				if ($mode[$$chan]{$txt} eq $add{$txt}) {
-					# hey, isn't that nice
-				} else {
-					push @modes, '+'.$txt;
-					push @args, $add{$txt};
-				}
-			} else {
-				push @modes, '-'.$txt;
-				push @args, $mode[$$chan]{$txt} unless $txt =~ /^s/;
-			}
-		} else {
-			push @modes, '-'.$txt unless exists $add{$txt};
-		}
-		delete $add{$txt};
-	}
-	for my $txt (keys %add) {
-		if ($txt =~ /^l/) {
-			for my $i (@{$add{$txt}}) {
-				push @modes, '+'.$txt;
-				push @args, $i;
-			}
-		} elsif ($txt =~ /^[vs]/) {
-			push @modes, '+'.$txt;
-			push @args, $add{$txt};
-		} else {
-			push @modes, '+'.$txt;
-		}
-	}
-	(\@modes, \@args);
 }
 
 sub _link_into {
