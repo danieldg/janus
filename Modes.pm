@@ -36,7 +36,7 @@ sub from_irc {
 				$arg = $chan->get_mode($txt);
 			}
 		} elsif ($type eq 't') {
-			if ($txt =~ s/^t(\d)/t/) {
+			if ($txt =~ s/^t(\d)/r/) {
 				$arg = $1;
 			} else {
 				warn "Invalid mode text $txt for mode $_ in network $net";
@@ -47,7 +47,7 @@ sub from_irc {
 			warn "Invalid mode text $txt for mode $_ in network $net";
 			next;
 		}
-		push @modes, $type;
+		push @modes, $txt;
 		push @args, $arg;
 		push @dirs, $pm;
 	}
@@ -63,21 +63,22 @@ sub to_irc {
 	my $mode;
 	my @args;
 	while (@modin) {
-		my($txt,$arg,$dir) = (shift @modin, shift @argin, shift @dir);
+		my($txt,$arg,$dir) = (shift @modin, shift @argin, shift @dirin);
 		my $out = $txt =~ /^[lv]/;
 		my $char = $net->txt2cmode($txt);
-		if (!defined $char && $txt =~ /^s(.*)/) {
-			my $alt = 'v'.$1;
+		if (!defined $char && $txt =~ /^v(.*)/) {
+			my $alt = 's'.$1;
 			$char = $net->txt2cmode($alt);
 			$out = 0 if defined $char;
 		}
 		
-		if ($txt =~ /^t(.*)/) {
+		if (!defined $char && $txt =~ /^r(.*)/) {
+			# tristate mode?
 			my $m = $1;
 			my $alt = 't'.$arg.$m;
 			$char = $net->txt2cmode($alt);
 			unless (defined $char) {
-				# we don't have support for one half of the tristate; try the other half
+				# try the other half of the tristate
 				$alt = 't'.(2-$arg).$m;
 				$char = $net->txt2cmode($alt);
 			}

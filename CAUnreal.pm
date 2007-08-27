@@ -5,6 +5,7 @@ package CAUnreal;
 BEGIN {
 	&Janus::load('LocalNetwork');
 	&Janus::load('Nick');
+	&Janus::load('Modes');
 }
 use Persist 'LocalNetwork';
 use strict;
@@ -16,7 +17,7 @@ my @sendq   :Persist(sendq);
 my @srvname :Persist(srvname);
 my @servers :Persist(servers);
 my @auth    :Persist(auth);
- 
+
 sub _init {
 	my $net = shift;
 	$sendq[$$net] = [];
@@ -917,13 +918,14 @@ sub srvname {
 			}
 		}
 		$cmode =~ tr/&"'/beI/;
-		my($modes,$args) = $net->_modeargs($cmode, @_[5 .. $#_]);
+		my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, $cmode, @_[5 .. $#_]);
 		push @acts, +{
 			type => 'MODE',
 			src => $net,
 			dst => $chan,
 			mode => $modes,
 			args => $args, 
+			dirs => $dirs,
 		} if $applied && @$modes;
 		return @acts;
 	}, PART => sub {
@@ -973,13 +975,14 @@ sub srvname {
 			$mode =~ y/+-/-+/;
 			$net->send($net->cmd1(MODE => $_[2], $mode, @_[4 .. $#_]));
 		}
-		my($modes,$args) = $net->_modeargs($mode, @_[4 .. $#_]);
+		my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, $mode, @_[4 .. $#_]);
 		push @out, {
 			type => 'MODE',
 			src => $src,
 			dst => $chan,
 			mode => $modes,
 			args => $args,
+			dirs => $dirs,
 		};
 		@out;
 	}, TOPIC => sub {
@@ -1348,7 +1351,7 @@ sub cmd2 {
 	}, MODE => sub {
 		my($net,$act) = @_;
 		my $src = $act->{src};
-		my @interp = $net->_mode_interp($act->{mode}, $act->{args});
+		my @interp = &Modes::to_irc($net, @$act{qw(mode args dirs)});
 		return () unless @interp;
 		return () if @interp == 1 && (!$interp[0] || $interp[0] =~ /^[+-]+$/);
 		if (ref $src && $src->isa('Nick') && $src->is_on($net)) {
@@ -1361,7 +1364,7 @@ sub cmd2 {
 		my $chan = $act->{dst};
 		if ($act->{wipe}) {
 			if ($act->{ts} == $act->{oldts}) {
-				my @interp = $net->_mode_interp($chan->mode_delta());
+				my @interp = &Modes::to_irc(&Modes::delta($chan, undef));
 				return $net->cmd1(MODE => $chan, @interp, 0);
 			} else {
 				return $net->cmd1(SJOIN => $net->sjb64($act->{ts}), $chan, '+', '');

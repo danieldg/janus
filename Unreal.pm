@@ -5,6 +5,7 @@ package Unreal;
 BEGIN {
 	&Janus::load('LocalNetwork');
 	&Janus::load('Nick');
+	&Janus::load('Modes');
 }
 use Persist 'LocalNetwork';
 use strict;
@@ -1349,7 +1350,7 @@ sub cmd2 {
 	}, MODE => sub {
 		my($net,$act) = @_;
 		my $src = $act->{src};
-		my @interp = &Modes::to_irc(@$act{qw(mode args dirs)});
+		my @interp = &Modes::to_irc($net, @$act{qw(mode args dirs)});
 		return () unless @interp;
 		return () if @interp == 1 && (!$interp[0] || $interp[0] =~ /^[+-]+$/);
 		if (ref $src && $src->isa('Nick') && $src->is_on($net)) {

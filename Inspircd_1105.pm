@@ -5,6 +5,7 @@ package Inspircd_1105;
 BEGIN {
 	&Janus::load('LocalNetwork');
 	&Janus::load('Nick');
+	&Janus::load('Modes');
 }
 use Persist 'LocalNetwork';
 use strict;
@@ -1069,13 +1070,14 @@ CORE => {
 		my $chan = $net->chan($_[2]);
 		my $ts = $_[3];
 		return () if $ts > $chan->ts();
-		my($modes,$args) = $net->_modeargs(@_[4 .. $#_]);
+		my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, @_[4 .. $#_]);
 		return +{
 			type => 'MODE',
 			src => $src,
 			dst => $chan,
 			mode => $modes,
 			args => $args,
+			dirs => $dirs,
 		};
 	}, MODE => sub {
 		my $net = shift;
@@ -1084,13 +1086,14 @@ CORE => {
 		if ($dst->isa('Nick')) {
 			$net->_parse_umode($dst, $_[3]);
 		} else {
-			my($modes,$args) = $net->_modeargs(@_[3 .. $#_]);
+			my($modes,$args,$dirs) = &Modes::from_irc($net, $dst, @_[3 .. $#_]);
 			return +{
 				type => 'MODE',
 				src => $src,
 				dst => $dst,
 				mode => $modes,
 				args => $args,
+				dirs => $dirs,
 			};
 		}
 	}, REMSTATUS => sub {
@@ -1545,7 +1548,7 @@ CORE => {
 		my($net,$act) = @_;
 		my $src = $act->{src} || $net;
 		my $dst = $act->{dst};
-		my @interp = $net->_mode_interp($act->{mode}, $act->{args});
+		my @interp = &Modes::to_irc($net, $act->{mode}, $act->{args}, $act->{dirs});
 		return () unless @interp;
 		return () if @interp == 1 && (!$interp[0] || $interp[0] =~ /^[+-]+$/);
 		return $net->cmd2($src, FMODE => $dst, $dst->ts(), @interp);

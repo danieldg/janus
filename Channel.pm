@@ -144,7 +144,7 @@ sub _link_into {
 	my $modenets = [ values %{$nets[$$src]} ];
 	my $joinnets = [ values %dstnets ];
 
-	my ($mode, $marg) = $src->mode_delta($chan);
+	my ($mode, $marg) = &Modes::delta($src, $chan);
 	&Janus::append(+{
 		type => 'MODE',
 		dst => $chan,
@@ -284,38 +284,33 @@ sub part {
 		my $act = $_[0];
 		local $_;
 		my $chan = $act->{dst};
+		my @dirs = @{$act->{dirs}};
 		my @args = @{$act->{args}};
-		for my $itxt (@{$act->{mode}}) {
-			my $pm = substr $itxt, 0, 1;
-			my $t = substr $itxt, 1, 1;
-			my $i = substr $itxt, 1;
+		for my $i (@{$act->{mode}}) {
+			my $pm = shift @dirs;
+			my $arg = shift @args;
+			my $t = substr $i, 0, 1;
 			if ($t eq 'n') {
-				my $nick = shift @args or next;
-				$nmode[$$chan]{$nick->lid()}{$i} = 1 if $pm eq '+';
-				delete $nmode[$$chan]{$nick->lid()}{$i} if $pm eq '-';
+				unless (ref $arg && $arg->isa('Nick')) {
+					warn "$i without nick arg!";
+					next;
+				}
+				$nmode[$$chan]{$arg->lid()}{$i} = 1 if $pm eq '+';
+				delete $nmode[$$chan]{$arg->lid()}{$i} if $pm eq '-';
 			} elsif ($t eq 'l') {
 				if ($pm eq '+') {
-					my $b = shift @args;
-					@{$mode[$$chan]{$i}} = ($b, grep { $_ ne $b } @{$mode[$$chan]{$i}});
+					@{$mode[$$chan]{$i}} = ($arg, grep { $_ ne $arg } @{$mode[$$chan]{$i}});
 				} else {
-					my $b = shift @args;
-					@{$mode[$$chan]{$i}} = grep { $_ ne $b } @{$mode[$$chan]{$i}};
+					@{$mode[$$chan]{$i}} = grep { $_ ne $arg } @{$mode[$$chan]{$i}};
 				}
 			} elsif ($t eq 'v') {
-				$mode[$$chan]{$i} = shift @args;
-				delete $mode[$$chan]{$i} if $pm eq '-';
-			} elsif ($t eq 's') {
-				$mode[$$chan]{$i} = shift @args if $pm eq '+';
+				$mode[$$chan]{$i} = $arg if $pm eq '+';
 				delete $mode[$$chan]{$i} if $pm eq '-';
 			} elsif ($t eq 'r') {
-				$mode[$$chan]{$i} = 1;
-				delete $mode[$$chan]{$i} if $pm eq '-';
-			} elsif ($t eq 't') {
-				$i =~ s/t(\d)/t/ or warn "Invalid tristate mode string $i";
-				$mode[$$chan]{$i} = $1;
+				$mode[$$chan]{$i} = $arg;
 				delete $mode[$$chan]{$i} if $pm eq '-';
 			} else {
-				warn "Unknown mode '$itxt'";
+				warn "Unknown mode '$i'";
 			}
 		}
 	}, TOPIC => act => sub {
