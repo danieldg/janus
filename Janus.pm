@@ -25,21 +25,23 @@ our %gchans;
 # PRIVATE VARS - TODO possibly enforce this private-ness?
 our $last_check = time;
 
+# TODO this should really be maintained by main with an interface of some kind to add/remove
+# entries
 # (net | port number) => [ sock, recvq, sendq, (Net | undef if listening), trying_read, trying_write ]
 our %netqueues;
 
 # module => state (0 = unloaded, 1 = loading, 2 = loaded)
-our %modules = (Janus => 1);
-# module => { varname => ref }
+our %modules;
+$modules{Janus} = 1;
+
 our %hooks;
-our %commands = (
-	unk => +{
-		class => 'Janus',
-		code => sub {
-			&Janus::jmsg($_[0], 'Unknown command. Use "help" to see available commands');
-		},
+our %commands;
+$commands{unk} = +{
+	class => 'Janus',
+	code => sub {
+		&Janus::jmsg($_[0], 'Unknown command. Use "help" to see available commands');
 	},
-);
+};
 
 our @qstack;
 our %tqueue;
@@ -97,7 +99,7 @@ Command hashref contains:
 =cut
 
 sub command_add {
-	my $class = caller;
+	my $class = caller || 'Janus';
 	cluck "command_add called outside module load" unless $modules{$class} == 1;
 	for my $h (@_) {
 		my $cmd = $h->{cmd};
