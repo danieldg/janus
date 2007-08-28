@@ -478,7 +478,7 @@ sub cmd2 {
 			NICKINFO => sub {
 				my($net,$act) = @_;
 				if ($act->{item} eq 'ident') {
-					return $net->cmd2(&Janus::interface, CHGIDENT => $act->{dst}, $act->{value});
+					return $net->cmd2($Janus::interface, CHGIDENT => $act->{dst}, $act->{value});
 				}
 				();
 			},
