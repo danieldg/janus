@@ -255,7 +255,8 @@ sub part {
 				delete $nmode[$$chan]{$nick->lid()}{$i} if $pm eq '-';
 			} elsif ($t eq 'l') {
 				if ($pm eq '+') {
-					push @{$mode[$$chan]{$i}}, shift @args;
+					my $b = shift @args;
+					@{$mode[$$chan]{$i}} = ($b, grep { $_ ne $b } @{$mode[$$chan]{$i}});
 				} else {
 					my $b = shift @args;
 					@{$mode[$$chan]{$i}} = grep { $_ ne $b } @{$mode[$$chan]{$i}};
