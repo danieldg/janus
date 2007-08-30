@@ -425,7 +425,7 @@ sub kicked {
 		if (lc $_[0] eq lc $self[$$net]) {
 			# confirmation of self-sourced mode change
 		} elsif ($_[2] =~ /^#/) {
-			my $nick = $net->nick($_[0]) or return ();
+			my $nick = $net->item($_[0]) or return ();
 			my $chan = $net->chan($_[2]) or return ();
 			my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, @_[3 .. $#_]);
 			return +{

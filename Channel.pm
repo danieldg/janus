@@ -7,6 +7,7 @@ use strict;
 use warnings;
 BEGIN {
 	&Janus::load('Nick');
+	&Janus::load('Modes');
 }
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
