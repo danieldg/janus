@@ -272,7 +272,7 @@ sub item {
 				};
 			}
 			&Janus::insert_full(@clean);
-			warn "nicks still remain after netsplit kills" if %{$nicks[$$net]};
+			warn "nicks still remain after netsplit kills: ".join ',', keys %{$nicks[$$net]} if %{$nicks[$$net]};
 			$nicks[$$net] = undef;
 		}
 		if (%{$chans[$$net]}) {
@@ -287,7 +287,7 @@ sub item {
 				};
 			}
 			&Janus::insert_full(@clean);
-			warn "channels still remain after double delinks" if %{$chans[$$net]};
+			warn "channels still remain after double delinks: ".join ',', keys %{$chans[$$net]} if %{$chans[$$net]};
 			$chans[$$net] = undef;
 		}
 	},
