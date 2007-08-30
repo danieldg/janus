@@ -6,8 +6,9 @@ BEGIN {
 	&Janus::load('LocalNetwork');
 	&Janus::load('Nick');
 	&Janus::load('Modes');
+	&Janus::load('Server::BaseNick');
 }
-use Persist 'LocalNetwork';
+use Persist 'Server::BaseNick';
 use strict;
 use warnings;
 
@@ -21,6 +22,7 @@ my @auth    :Persist(auth);
 sub _init {
 	my $net = shift;
 	$sendq[$$net] = [];
+	$net->SUPER::_init();
 }
 
 my %fromirc;

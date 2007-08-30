@@ -3,12 +3,12 @@
 # http://www.affero.org/oagpl.html
 package Server::Inspircd_1105;
 BEGIN {
-	&Janus::load('LocalNetwork');
 	&Janus::load('Nick');
 	&Janus::load('Modes');
+	&Janus::load('Server::BaseNick');
 	&Janus::load('Server::InspMods');
 }
-use Persist 'LocalNetwork';
+use Persist 'Server::BaseNick';
 use strict;
 use warnings;
 
@@ -38,6 +38,7 @@ sub _init {
 	$sendq[$$net] = [];
 	$net->module_add('CORE');
 	$auth[$$net] = 0;
+	$net->SUPER::_init();
 }
 
 sub ignore { () }
