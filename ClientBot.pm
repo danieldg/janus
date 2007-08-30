@@ -5,6 +5,7 @@ package ClientBot;
 BEGIN {
 	&Janus::load('LocalNetwork');
 	&Janus::load('Nick');
+	&Janus::load('Modes');
 }
 use Persist 'LocalNetwork';
 use Scalar::Util 'weaken';
@@ -51,8 +52,8 @@ my %cmode2txt = (qw/
 	i r_invite
 	m r_moderated
 	n r_mustjoin
-	p r_private
-	s r_secret
+	p t1_chanhide
+	s t2_chanhide
 	t r_topic
 /);
 
@@ -426,16 +427,14 @@ sub kicked {
 		} elsif ($_[2] =~ /^#/) {
 			my $nick = $net->nick($_[0]) or return ();
 			my $chan = $net->chan($_[2]) or return ();
-			# TODO we need a table for cmode2txt like unreal has
-			# this should probably be sourced from somewhere that is specified in the conf
-			# rather than hardcoded like it is for ircds. Then, uncomment this:
-			my($modes,$args) = $net->_modeargs(@_[3 .. $#_]);
+			my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, @_[3 .. $#_]);
 			return +{
 				type => 'MODE',
 				src => $nick,
 				dst => $chan,
 				mode => $modes,
 				args => $args,
+				dirs => $dirs,
 			};
 		}
 		();

@@ -121,58 +121,6 @@ sub all_chans {
 	values %{$chans[$$net]};
 }
 
-sub _modeargs {
-	my $net = shift;
-	my $mode = shift;
-	my @modes;
-	my @args;
-	local $_;
-	my $pm = '+';
-	for (split //, $mode) {
-		if (/[-+]/) {
-			$pm = $_;
-			next;
-		}
-		my $txt = $net->cmode2txt($_) || 'UNK';
-		my $type = substr $txt,0,1;
-		if ($type eq 'n') {
-			push @args, $net->nick(shift);
-		} elsif ($type eq 'l') {
-			push @args, shift;
-		} elsif ($type eq 'v') {
-			push @args, shift;
-		} elsif ($type eq 's') {
-			push @args, shift if $pm eq '+';
-		} elsif ($type ne 'r') {
-			warn "Unknown mode '$_' ($txt)";
-			next;
-		}
-		push @modes, $pm.$txt;
-	}
-	(\@modes, \@args);
-}
-
-sub _mode_interp {
-	my($net, $mods, $args) = @_;
-	my $pm = '';
-	my $mode;
-	my @argin = @$args;
-	my @args;
-	for my $mtxt (@$mods) {
-		my($ipm,$txt) = ($mtxt =~ /^([-+])(.*)/) or warn $mtxt;
-		my $itm = ($txt =~ /^[nlv]/ || $mtxt =~ /^\+s/) ? shift @argin : undef;
-		if (defined $net->txt2cmode($txt)) {
-			push @args, ref $itm ? $itm->str($net) : $itm if defined $itm;
-			$mode .= $ipm if $ipm ne $pm;
-			$mode .= $net->txt2cmode($txt);
-			$pm = $ipm;
-		} else {
-			# TODO investigate alternate tristate modes
-		}
-	}
-	$mode, @args;
-}
-
 sub add_req {
 	my($net, $lchan, $onet, $ochan) = @_;
 	$lreq[$$net]{$lchan}{$onet->id()} = $ochan;
