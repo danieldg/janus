@@ -186,7 +186,7 @@ my %cmode2txt = (qw/
 	q n_owner
 
 	b l_ban
-	c r_colorblock
+	c t2_colorblock
 	e l_except
 	f v_flood
 	i r_invite
@@ -194,9 +194,9 @@ my %cmode2txt = (qw/
 	l s_limit
 	m r_moderated
 	n r_mustjoin
-	p r_private
+	p t1_chanhide
 	r r_register
-	s r_secret
+	s t2_chanhide
 	t r_topic
 	u r_auditorium
 	z r_sslonly
@@ -210,7 +210,7 @@ my %cmode2txt = (qw/
 	O r_oper
 	Q r_nokick
 	R r_reginvite
-	S r_colorstrip
+	S t1_colorblock
 	T r_opernetadm
 	V r_noinvite
 	X r_nooperover

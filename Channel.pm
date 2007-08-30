@@ -307,8 +307,9 @@ sub part {
 				$mode[$$chan]{$i} = $arg if $pm eq '+';
 				delete $mode[$$chan]{$i} if $pm eq '-';
 			} elsif ($t eq 'r') {
-				$mode[$$chan]{$i} = $arg;
-				delete $mode[$$chan]{$i} if $pm eq '-';
+				$mode[$$chan]{$i} |= $arg;
+				$mode[$$chan]{$i} &= ~$arg if $pm eq '-';
+				delete $mode[$$chan]{$i} unless $mode[$$chan]{$i};
 			} else {
 				warn "Unknown mode '$i'";
 			}

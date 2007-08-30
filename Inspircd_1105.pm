@@ -421,7 +421,7 @@ sub cmd2 {
 		cmode => { P => 'r_blockcaps' }
 	},
 	'm_blockcolor.so' => {
-		cmode => { c => 'r_colorblock' },
+		cmode => { c => 't2_colorblock' },
 	},
 	'm_botmode.so' => {
 		umode => { B => 'bot' },
@@ -830,7 +830,7 @@ sub cmd2 {
 	},
 	'm_stripcolor.so' => {
 		umode => { S => 'colorstrip' },
-		cmode => { S => 'r_colorstrip' }
+		cmode => { S => 't1_colorblock' }
 	},
 	'm_svshold.so' => { },
 	'm_swhois.so' => {
@@ -888,8 +888,8 @@ CORE => {
 		'm' => 'r_moderated',
 		n => 'r_mustjoin',
 		o => 'n_op',
-		p => 'r_private',
-		's' => 'r_secret',
+		p =>   't1_chanhide',
+		's' => 't2_chanhide',
 		t => 'r_topic',
 		v => 'n_voice',
   },

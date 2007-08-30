@@ -36,7 +36,7 @@ sub from_irc {
 				$arg = $chan->get_mode($txt);
 			}
 		} elsif ($type eq 't') {
-			if ($txt =~ s/^t(\d)/r/) {
+			if ($txt =~ s/^t(\d+)/r/) {
 				$arg = $1;
 			} else {
 				warn "Invalid mode text $txt for mode $_ in network $net";
@@ -64,7 +64,7 @@ sub to_irc {
 	my @args;
 	while (@modin) {
 		my($txt,$arg,$dir) = (shift @modin, shift @argin, shift @dirin);
-		my $out = $txt =~ /^[lv]/;
+		my $out = $txt =~ /^[nlv]/;
 		my $char = $net->txt2cmode($txt);
 		if (!defined $char && $txt =~ /^v(.*)/) {
 			my $alt = 's'.$1;
@@ -75,18 +75,23 @@ sub to_irc {
 		if (!defined $char && $txt =~ /^r(.*)/) {
 			# tristate mode?
 			my $m = $1;
+			if ($arg > 2) {
+				warn "Capping tristate mode $txt=$arg down to 2";
+				$arg = 2;
+			}
 			my $alt = 't'.$arg.$m;
 			$char = $net->txt2cmode($alt);
-			unless (defined $char) {
-				# try the other half of the tristate
+			if ($dir eq '-' || !defined $char) {
+				# also add the other half of the tristate
 				$alt = 't'.(2-$arg).$m;
-				$char = $net->txt2cmode($alt);
+				my $add = $net->txt2cmode($alt);
+				$char .= $add if defined $add;
 			}
 		}			
 
 		if (defined $char) {
 			$mode .= $dir if $dir ne $pm;
-			$mode .= $net->txt2cmode($txt);
+			$mode .= $char;
 			$pm = $dir;
 			push @args, $arg if $out;
 		}

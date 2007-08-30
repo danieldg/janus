@@ -52,8 +52,8 @@ my %cmode2txt = (qw/
 	i r_invite
 	m r_moderated
 	n r_mustjoin
-	p r_private
-	s r_secret
+	p t1_chanhide
+	s t2_chanhide
 	t r_topic
 /);
 
