@@ -256,11 +256,13 @@ sub _run {
 	if (_mod_hook('ALL', validate => $act)) {
 		my $err = $@ || 'unknown error';
 		$err =~ s/\n//;
-		print "Validate hook stole $act->{type} [$err]\n";
+		print "Validate hook [$err] on";
+		&InterJanus::debug_send($act);
 		return;
 	}
 	if (_mod_hook($act->{type}, check => $act)) {
-		print "Check hook stole $act->{type}\n";
+		print "Check hook stole";
+		&InterJanus::debug_send($act);
 		return;
 	}
 	_hook($act->{type}, act => $act);

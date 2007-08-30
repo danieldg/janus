@@ -145,12 +145,13 @@ sub _link_into {
 	my $modenets = [ values %{$nets[$$src]} ];
 	my $joinnets = [ values %dstnets ];
 
-	my ($mode, $marg) = &Modes::delta($src, $chan);
+	my ($mode, $marg, $dirs) = &Modes::delta($src, $chan);
 	&Janus::append(+{
 		type => 'MODE',
 		dst => $chan,
 		mode => $mode,
 		args => $marg,
+		dirs => $dirs,
 		sendto => $modenets,
 		nojlink => 1,
 	}) if @$mode;
