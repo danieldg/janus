@@ -107,7 +107,7 @@ sub connect_net {
 		}
 	} elsif ($nconf->{autoconnect}) {
 		my $type = $nconf->{type};
-		my $net = eval "use $type; return ${type}->new(id => \$id)";
+		my $net = eval "use Server::$type; return Server::${type}->new(id => \$id)";
 		unless ($net) {
 			&Janus::err_jmsg($nick, "Error creating $type network $id: $@");
 		} else {

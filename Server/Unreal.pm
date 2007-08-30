@@ -1,7 +1,7 @@
 # Copyright (C) 2007 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
-package CAUnreal;
+package Server::Unreal;
 BEGIN {
 	&Janus::load('LocalNetwork');
 	&Janus::load('Nick');
@@ -152,8 +152,7 @@ my %umode2txt = (qw/
 	B bot
 	i invisible
 	G badword
-	p no_privmsg
-	P hide_chans
+	p hide_chans
 	q no_kick
 	r registered
 	s snomask
@@ -166,6 +165,7 @@ my %umode2txt = (qw/
 
 	d deaf_chan
 	R deaf_regpriv
+	T deaf_ctcp
 /);
 
 my %txt2umode;
@@ -188,8 +188,9 @@ my %cmode2txt = (qw/
 	b l_ban
 	c t2_colorblock
 	e l_except
-	f v_flood
+	f v_flood3.2
 	i r_invite
+	j s_joinlimit
 	k v_key
 	l s_limit
 	m r_moderated
@@ -203,6 +204,7 @@ my %cmode2txt = (qw/
 	A r_operadmin
 	C r_ctcpblock
 	G r_badword
+	I l_invex
 	K r_noknock
 	L v_forward
 	M r_regmoderated
@@ -211,10 +213,8 @@ my %cmode2txt = (qw/
 	Q r_nokick
 	R r_reginvite
 	S t1_colorblock
-	T r_opernetadm
+	T r_noticeblock
 	V r_noinvite
-	X r_nooperover
-	Y r_opersvsadm
 /);
 
 my %txt2cmode;
@@ -421,7 +421,7 @@ sub _connect_ifo {
 	}
 	my @out;
 	push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $nick->info('host'),
-		$srv, 0, $mode, $vhost, $nick->info('name'));
+		$srv, 0, $mode, $vhost, $ip, $nick->info('name'));
 	my $whois = $nick->info('swhois');
 	push @out, $net->cmd1(SWHOIS => $nick, $whois) if defined $whois && $whois ne '';
 	my $away = $nick->info('away');
@@ -1192,7 +1192,6 @@ sub srvname {
 	SVSWATCH => \&ignore,
 	SQLINE => \&ignore,
 	UNSQLINE => \&ignore,
-	SVSREDIR => \&ignore,
 
 	VERSION => sub {
 		my $net = shift;

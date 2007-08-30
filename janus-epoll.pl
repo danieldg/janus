@@ -13,6 +13,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 my $args = @ARGV && $ARGV[0] =~ /^-/ ? shift : '';
 unless ($args =~ /d/) {
+	die "janus-epoll.pl doesn't work yet. Run with -d to test/work on it";
 	my $log = 'log/'.time;
 	umask 022;
 	open STDIN, '/dev/null' or die $!;
