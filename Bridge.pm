@@ -4,6 +4,9 @@
 package Bridge;
 use strict;
 use warnings;
+BEGIN {
+	&Janus::load('Modes');
+}
 
 &Janus::hook_add(
 	NEWNICK => act => sub {
@@ -49,13 +52,13 @@ use warnings;
 					mode => $chan->get_nmode($nick),
 				});
 			}
-			my($modes, $args) = $chan->mode_delta();
-			$modes = [ map y/-+/+-/, @$modes ];
+			my($modes, $args, $dirs) = &Modes::delta(undef, $chan);
 			$net->send({
 				type => 'MODE',
 				dst => $chan,
 				mode => $modes,
 				args => $args,
+				dirs => $dirs,
 			}) if @$modes;
 			$net->send({
 				type => 'TOPIC',
