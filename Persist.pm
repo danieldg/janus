@@ -18,6 +18,15 @@ sub Persist : ATTR(ARRAY,BEGIN) {
 	tie @$var, 'Persist::Field', $src;
 }
 
+sub PersistAs : ATTR(ARRAY,BEGIN) {
+	my($spk, $sym, $var, $attr, $dat, $phase) = @_;
+	my($pk, $name) = @$dat;
+	$name = $spk.'::'.$name;
+	my $src = $vars{$pk}{$name} || [];
+	$vars{$pk}{$name} = $src;
+	tie @$var, 'Persist::Field', $src;
+}
+
 sub list_all_refs {
 	for my $pk (keys %vars) {
 		my %oops;
@@ -39,7 +48,7 @@ sub import {
 	my $pkg = caller;
 	{
 		no strict 'refs';
-		push @{$pkg.'::ISA'}, $self, @_;
+		push @{$pkg.'::ISA'}, @_, $self;
 	}
 }
 
@@ -69,6 +78,7 @@ sub gid_find {
 	}
 	delete $isas{$_} for keys %tops;
 	delete $tops{__PACKAGE__ . ''};
+	warn "Can't find top-level inheritance object" unless %tops;
 	warn "Multiple top-level inheritance doesn't work: ".join ' ', keys %tops if 1 < scalar keys %tops;
 	keys(%tops), keys(%isas);
 }
