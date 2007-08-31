@@ -6,9 +6,11 @@ BEGIN {
 	&Janus::load('Nick');
 	&Janus::load('Modes');
 	&Janus::load('Server::BaseNick');
+	&Janus::load('Server::ModularNetwork');
 	&Janus::load('Server::InspMods');
 }
-use Persist 'Server::BaseNick';
+
+use Persist 'Server::BaseNick', 'Server::ModularNetwork', 'Server::InspMods';
 use strict;
 use warnings;
 
@@ -18,18 +20,9 @@ my @sendq     :Persist(sendq);
 my @servers   :Persist(servers);
 my @serverdsc :Persist(serverdsc);
 
-my @modules   :Persist(modules); # {module} => definition - List of active modules
-my @meta      :Persist(meta); # key => sub{} for METADATA command
-my @fromirc   :Persist(fromirc); # command => sub{} for IRC commands
-my @act_hooks :Persist(act_hooks); # type => module => sub{} for Janus Action => output
-
 my @auth      :Persist(auth); # 0/undef = unauth connection; 1 = authed, in burst; 2 = after burst
 my @capabs    :Persist(capabs);
 
-my @txt2cmode :Persist(txt2cmode); # quick lookup hashes for translation in/out of janus
-my @cmode2txt :Persist(cmode2txt);
-my @txt2umode :Persist(txt2umode);
-my @umode2txt :Persist(umode2txt);
 my @txt2pfx   :Persist(txt2pfx);
 my @pfx2txt   :Persist(pfx2txt);
 
@@ -42,109 +35,6 @@ sub _init {
 }
 
 sub ignore { () }
-
-my %moddef;
-
-sub module_add {
-	my($net,$name) = @_;
-	my $mod = $moddef{$name} or do {
-		$net->send($net->cmd2($Janus::interface, OPERNOTICE => "Unknown module $name, janus may become desynced if it is used"));
-		return;
-	};
-	return if $modules[$$net]{$name};
-	$modules[$$net]{$name} = $mod;
-	if ($mod->{cmode}) {
-		for my $cm (keys %{$mod->{cmode}}) {
-			my $txt = $mod->{cmode}{$cm};
-			warn "Overriding mode $cm = $txt" if $cmode2txt[$$net]{$cm} || $txt2cmode[$$net]{$txt};
-			$cmode2txt[$$net]{$cm} = $txt;
-			$txt2cmode[$$net]{$txt} = $cm;
-		}
-	}
-	if ($mod->{umode}) {
-		for my $um (keys %{$mod->{umode}}) {
-			my $txt = $mod->{umode}{$um};
-			warn "Overriding umode $um = $txt" if $umode2txt[$$net]{$um} || $txt2umode[$$net]{$txt};
-			$umode2txt[$$net]{$um} = $txt;
-			$txt2umode[$$net]{$txt} = $um;
-		}
-	}
-	if ($mod->{umode_hook}) {
-		for my $txt (keys %{$mod->{umode}}) {
-			warn "Overriding umode $txt" if $txt2umode[$$net]{$txt} && !$mod->{umode}{$txt2umode[$$net]{$txt}};
-			$txt2umode[$$net]{$txt} = $mod->{umode_hook}{$txt};
-		}
-	}
-	if ($mod->{cmds}) {
-		for my $cmd (keys %{$mod->{cmds}}) {
-			warn "Overriding command $cmd" if $fromirc[$$net]{$cmd};
-			$fromirc[$$net]{$cmd} = $mod->{cmds}{$cmd};
-		}
-	}
-	if ($mod->{acts}) {
-		for my $t (keys %{$mod->{acts}}) {
-			$act_hooks[$$net]{$t}{$name} = $mod->{acts}{$t};
-		}
-	}
-	if ($mod->{metadata}) {
-		for my $i (keys %{$mod->{metadata}}) {
-			warn "Overriding metadata $i" if $meta[$$net]{$i};
-			$meta[$$net]{$i} = $mod->{acts}{$i};
-		}
-	}
-}
-
-sub module_remove {
-	my($net,$name) = @_;
-	my $mod = delete $modules[$$net]{$name} or do {
-		$net->send($net->cmd2($Janus::interface, OPERNOTICE => "Could not unload moule $name: not loaded"));
-		return;
-	};
-	if ($mod->{cmode}) {
-		for my $cm (keys %{$mod->{cmode}}) {
-			my $txt = $mod->{cmode}{$cm};
-			delete $cmode2txt[$$net]{$cm};
-			delete $txt2cmode[$$net]{$txt};
-		}
-	}
-	if ($mod->{umode}) {
-		for my $um (keys %{$mod->{umode}}) {
-			my $txt = $mod->{umode}{$um};
-			delete $umode2txt[$$net]{$um};
-			delete $txt2umode[$$net]{$txt};
-		}
-	}
-	if ($mod->{umode_hook}) {
-		for my $txt (keys %{$mod->{umode}}) {
-			delete $txt2umode[$$net]{$txt};
-		}
-	}
-	if ($mod->{cmds}) {
-		for my $cmd (keys %{$mod->{cmds}}) {
-			delete $fromirc[$$net]{$cmd};
-		}
-	}
-	if ($mod->{acts}) {
-		for my $t (keys %{$mod->{acts}}) {
-			delete $act_hooks[$$net]{$t}{$name};
-		}
-	}
-	if ($mod->{metadata}) {
-		for my $i (keys %{$mod->{metadata}}) {
-			delete $meta[$$net]{$i};
-		}
-	}
-}
-
-sub cmode2txt {
-	my($net,$cm) = @_;
-	$cmode2txt[$$net]{$cm};
-}
-
-sub txt2cmode {
-	my($net,$tm) = @_;
-	$txt2cmode[$$net]{$tm};
-}
 
 sub nicklen { 
 	my $net = shift;
@@ -194,29 +84,12 @@ sub parse {
 		$net->send(['INIT', 'ERROR :Not authorized yet']);
 		return ();
 	}
-	$cmd = $fromirc[$$net]{$cmd} || $cmd;
-	$cmd = $fromirc[$$net]{$cmd} || $cmd if $cmd && !ref $cmd; # allow one layer of indirection
-	unless ($cmd && ref $cmd) {
-		$net->send($net->cmd2($Janus::interface, OPERNOTICE => "Unknown command $cmd, janus is possibly desynced"));
-		debug "Unknown command '$cmd'";
-		return ();
-	}
-	$cmd->($net,@args);
+	$net->from_irc(@args);
 }
 
 sub send {
 	my $net = shift;
-	for my $act (@_) {
-		if (ref $act && ref $act eq 'HASH') {
-			my $type = $act->{type};
-			next unless $act_hooks[$$net]{$type};
-			for my $hook (values %{$act_hooks[$$net]{$type}}) {
-				push @{$sendq[$$net]}, $hook->($net,$act);
-			}
-		} else {
-			push @{$sendq[$$net]}, $act;
-		}
-	}
+	push @{$sendq[$$net]}, $net->to_irc(@_);
 }
 
 sub dump_sendq {
@@ -245,7 +118,7 @@ sub dump_sendq {
 		$auth[$$net] = 3 if $auth[$$net] == 2;
 	}
 	$q =~ s/\n+/\r\n/g;
-	debug "\e[0;34m    OUT@".$net->id().' '.$_ for split /\r\n/, $q;
+	print "\e[0;34m    OUT@".$net->id().' '.$_."\e[0m\n" for split /\r\n/, $q;
 	$q;
 }
 
@@ -256,11 +129,12 @@ sub _connect_ifo {
 
 	my $mode = '+';
 	for my $m ($nick->umodes()) {
-		next unless exists $txt2umode[$$net]{$m};
-		if (ref $txt2umode[$$net]{$m}) {
-			push @out, $txt2umode[$$net]{$m}->($net, $nick, '+'.$m);
+		my $um = $net->txt2umode($m);
+		next unless defined $um;
+		if (ref $um) {
+			push @out, $um->($net, $nick, '+'.$m);
 		} else {
-			$mode .= $txt2umode[$$net]{$m};
+			$mode .= $um;
 		}
 	}
 	
@@ -289,8 +163,7 @@ sub process_capabs {
 	# NICKMAX=32 - done below in nicklen()
 	# HALFOP=1
 	if ($capabs[$$net]{HALFOP}) {
-		$cmode2txt[$$net]{h} = 'n_halfop';
-		$txt2cmode[$$net]{n_halfop} = 'h';
+		$net->module_add('CAPAB_HALFOP');
 	}
 	# CHANMAX=65 - not applicable, we never send channels we have not heard before
 	# MAXMODES=20 - TODO
@@ -306,7 +179,7 @@ sub process_capabs {
 	local $_ = $capabs[$$net]{PREFIX};
 	my(%p2t,%t2p);
 	while (s/\((.)(.*)\)(.)/($2)/) {
-		my $txt = $cmode2txt[$$net]{$1};
+		my $txt = $net->cmode2txt($1);
 		$t2p{$txt} = $3;
 		$p2t{$3} = $txt;
 	}
@@ -315,7 +188,7 @@ sub process_capabs {
 
 	# CHANMODES=Ibe,k,jl,CKMNOQRTcimnprst
 	my %split2c;
-	$split2c{substr $_,0,1}{$_} = $txt2cmode[$$net]{$_} for keys %{$txt2cmode[$$net]};
+	$split2c{substr $_,0,1}{$_} = $net->txt2cmode($_) for $net->all_cmodes();
 
 	# Without a prefix character, nick modes such as +qa appear in the "l" section
 	exists $t2p{$_} or $split2c{l}{$_} = $split2c{n}{$_} for keys %{$split2c{n}};
@@ -345,7 +218,7 @@ sub _parse_umode {
 		if (/[-+]/) {
 			$pm = $_;
 		} else {
-			my $txt = $umode2txt[$$net]{$_} or do {
+			my $txt = $net->umode2txt($_) or do {
 				warn "Unknown umode '$_'";
 				next;
 			};
@@ -402,6 +275,12 @@ sub cmd2 {
 	$out;
 }
 
+my %moddef;
+$moddef{CAPAB_HALFOP} = {
+	cmode => {
+		h => 'n_halfop',
+	}
+};
 $moddef{CORE} = {
   cmode => {
 		b => 'l_ban',
@@ -454,12 +333,11 @@ $moddef{CORE} = {
 		my @m = split //, $_[7];
 		warn unless '+' eq shift @m;
 		$nick{mode} = +{ map {
-			if (exists $umode2txt[$$net]{$_}) {
-				$umode2txt[$$net]{$_} => 1
-			} else {
+			my $t = $net->umode2txt($_);
+			defined $t ? ($t => 1) : do {
 				warn "Unknown umode '$_'";
 				();
-			}
+			};
 		} @m };
 
 		my $nick = Nick->new(%nick);
@@ -747,7 +625,7 @@ $moddef{CORE} = {
 			}
 		} elsif ($_[2] eq 'END') {
 			# yep, we lie about all this.
-			my $mods = join ',', sort grep $_ ne 'CORE', keys %{$modules[$$net]};
+			my $mods = join ',', sort grep /so$/, $net->all_modules();
 			my $capabs = join ' ', sort map {
 				my($k,$v) = ($_, $capabs[$$net]{$_});
 				$k = undef if $k eq 'CHALLENGE'; # TODO generate our own challenge and use SHA256 passwords
@@ -900,11 +778,9 @@ $moddef{CORE} = {
 	MODENOTICE => \&ignore,
 	SNONOTICE => \&ignore,
 	METADATA => sub {
-		my $net = $_[0];
-		my $key = $_[4];
-		my $mdh = $meta[$$net]{$key};
-		return () unless $mdh;
-		$mdh->(@_);
+		my $net = shift;
+		my $key = $_[3];
+		$net->do_meta($key, @_);
 	},
 	IDLE => sub {
 		my $net = shift;
@@ -1032,7 +908,7 @@ $moddef{CORE} = {
 		my @out;
 		for my $ltxt (@{$act->{mode}}) {
 			my($d,$txt) = $ltxt =~ /^([-+])(.+)/;
-			my $um = $txt2umode[$$net]{$txt};
+			my $um = $net->txt2umode($txt);
 			if (ref $um) {
 				push @out, $um->($net, $act->{dst}, $ltxt);
 			} else {
@@ -1157,21 +1033,16 @@ $moddef{CORE} = {
 		$act->{msg};	
 	}, CHATOPS => sub {
 		my($net,$act) = @_;
-		return () if $modules[$$net]{'m_globops.so'};
+		return () if $net->get_module('m_globops.so');
 		$net->ncmd(OPERNOTICE => $net->str($act->{src}).': '.$act->{msg});
 	},
 }};
 
 $moddef{$_} = $Server::InspMods::modules{$_} for keys %Server::InspMods::modules;
 
-for my $net (values %Janus::nets) {
-	next unless $net->isa(__PACKAGE__);
-	my @mods = keys %{$modules[$$net]};
-	print "Reloading module definitions for $net\n";
-	for my $mod (@mods) {
-		$net->module_remove($mod);
-		$net->module_add($mod);
-	}
+sub find_module {
+	my($net,$name) = @_;
+	$moddef{$name};
 }
 
 1;

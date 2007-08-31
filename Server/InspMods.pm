@@ -4,9 +4,8 @@
 package Server::InspMods;
 BEGIN {
 	&Janus::load('LocalNetwork');
-	&Janus::load('Nick');
-	&Janus::load('Modes');
 }
+use Persist 'LocalNetwork';
 use strict;
 use warnings;
 
