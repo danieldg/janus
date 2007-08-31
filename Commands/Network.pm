@@ -33,7 +33,16 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			&Janus::jmsg($nick, "You must be an IRC operator and specify the 'diepass' password to use this command");
 			return;
 		}
-		exit;
+		for my $net (values %Janus::nets) {
+			next if $net->jlink();
+			&Janus::append(+{
+				type => 'NETSPLIT',
+				net => $net,
+				msg => 'Killed',
+			});
+		}
+		%Janus::netqueues = ();
+		print "Trying to die!\n";
 	},
 }, {
 	cmd => 'restart',

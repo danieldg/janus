@@ -18,6 +18,21 @@ sub Persist : ATTR(ARRAY,BEGIN) {
 	tie @$var, 'Persist::Field', $src;
 }
 
+sub list_all_refs {
+	for my $pk (keys %vars) {
+		my %oops;
+		for my $var (keys %{$vars{$pk}}) {
+			my $arr = $vars{$pk}{$var};
+			for my $i (0..$#$arr) {
+				$oops{$i}++ if exists $arr->[$i];
+			}
+		}
+		if (%oops) {
+			print "Package $pk: ".join(' ', sort keys %oops)."\n";
+		}
+	}
+}
+
 sub import {
 	my $self = shift;
 	return unless $self eq __PACKAGE__;

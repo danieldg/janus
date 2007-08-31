@@ -4,6 +4,7 @@
 # http://www.affero.org/oagpl.html
 use strict;
 BEGIN { push @INC, '.' }
+# use Devel::LeakTrace; # slower than molasses
 use Janus;
 use IO::Select;
 use IO::Socket::SSL;
@@ -130,4 +131,8 @@ while (%Janus::netqueues) {
 		# no point in trying to write if we are already waiting for writes to unblock
 	}
 }
+
+&Janus::delink($Janus::interface->homenet(), 'Goodbye!');
+$Janus::interface = undef;
 print "All networks disconnected. Goodbye!\n";
+&Persist::list_all_refs();
