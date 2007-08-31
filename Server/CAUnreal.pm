@@ -1,12 +1,14 @@
 # Copyright (C) 2007 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
-package Unreal;
+package Server::CAUnreal;
 BEGIN {
 	&Janus::load('LocalNetwork');
 	&Janus::load('Nick');
+	&Janus::load('Modes');
+	&Janus::load('Server::BaseNick');
 }
-use Persist 'LocalNetwork';
+use Persist 'Server::BaseNick';
 use strict;
 use warnings;
 
@@ -20,6 +22,7 @@ my @auth    :Persist(auth);
 sub _init {
 	my $net = shift;
 	$sendq[$$net] = [];
+	$net->SUPER::_init();
 }
 
 my %fromirc;
@@ -151,7 +154,8 @@ my %umode2txt = (qw/
 	B bot
 	i invisible
 	G badword
-	p hide_chans
+	p no_privmsg
+	P hide_chans
 	q no_kick
 	r registered
 	s snomask
@@ -164,7 +168,6 @@ my %umode2txt = (qw/
 
 	d deaf_chan
 	R deaf_regpriv
-	T deaf_ctcp
 /);
 
 my %txt2umode;
@@ -185,25 +188,23 @@ my %cmode2txt = (qw/
 	q n_owner
 
 	b l_ban
-	c r_colorblock
+	c t2_colorblock
 	e l_except
-	f v_flood3.2
+	f v_flood
 	i r_invite
-	j s_joinlimit
 	k v_key
 	l s_limit
 	m r_moderated
 	n r_mustjoin
-	p r_private
+	p t1_chanhide
 	r r_register
-	s r_secret
+	s t2_chanhide
 	t r_topic
 	u r_auditorium
 	z r_sslonly
 	A r_operadmin
 	C r_ctcpblock
 	G r_badword
-	I l_invex
 	K r_noknock
 	L v_forward
 	M r_regmoderated
@@ -211,9 +212,11 @@ my %cmode2txt = (qw/
 	O r_oper
 	Q r_nokick
 	R r_reginvite
-	S r_colorstrip
-	T r_noticeblock
+	S t1_colorblock
+	T r_opernetadm
 	V r_noinvite
+	X r_nooperover
+	Y r_opersvsadm
 /);
 
 my %txt2cmode;
@@ -346,8 +349,11 @@ sub dump_sendq {
 }
 
 my %skip_umode = (
+	# TODO make this configurable
 	vhost => 1,
 	vhost_x => 1,
+	helpop => 1,
+	registered => 1,
 );
 
 sub umode_text {
@@ -417,7 +423,7 @@ sub _connect_ifo {
 	}
 	my @out;
 	push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $nick->info('host'),
-		$srv, 0, $mode, $vhost, $ip, $nick->info('name'));
+		$srv, 0, $mode, $vhost, $nick->info('name'));
 	my $whois = $nick->info('swhois');
 	push @out, $net->cmd1(SWHOIS => $nick, $whois) if defined $whois && $whois ne '';
 	my $away = $nick->info('away');
@@ -744,11 +750,20 @@ sub srvname {
 		my $msg = $_[3];
 		$msg =~ s/^\S+!//;
 
+		if ($dst->homenet()->id() eq $net->id()) {
+			return {
+				type => 'QUIT',
+				dst => $dst,
+				msg => "Killed ($msg)",
+				killer => $src,
+			};
+		}
 		return {
-			type => 'QUIT',
+			type => 'KILL',
+			src => $src,
 			dst => $dst,
-			msg => "Killed ($msg)",
-			killer => $src,
+			net => $net,
+			msg => $msg,
 		};
 	}, SVSKILL => sub {
 		my $net = shift;
@@ -760,10 +775,26 @@ sub srvname {
 				msg => $_[3],
 				killer => $net,
 			};
-		} else {
+		} elsif (lc $nick->homenick() eq lc $_[2]) {
+			# This is an untagged nick. We assume that the reason this
+			# nick was killed was something like a GHOST command and set up
+			# a reconnection with tag
+			$net->release_nick(lc $_[2]);
 			return +{
-				type => 'QUIT',
-				killer => $net->item($_[0]),
+				type => 'RECONNECT',
+				dst => $nick,
+				net => $net,
+				killed => 1,
+				nojlink => 1,
+			};
+		} else {
+			# This was a tagged nick. If we reintroduce this nick, there is a
+			# danger of running into a fight with services - for example,
+			# OperServ session limit kills will continue. So we interpret this
+			# just as a normal kill.
+			return +{
+				type => 'KILL',
+				src => $net->item($_[0]),
 				dst => $nick,
 				net => $net,
 				msg => $_[3],
@@ -889,13 +920,14 @@ sub srvname {
 			}
 		}
 		$cmode =~ tr/&"'/beI/;
-		my($modes,$args) = $net->_modeargs($cmode, @_[5 .. $#_]);
+		my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, $cmode, @_[5 .. $#_]);
 		push @acts, +{
 			type => 'MODE',
 			src => $net,
 			dst => $chan,
 			mode => $modes,
 			args => $args, 
+			dirs => $dirs,
 		} if $applied && @$modes;
 		return @acts;
 	}, PART => sub {
@@ -945,13 +977,14 @@ sub srvname {
 			$mode =~ y/+-/-+/;
 			$net->send($net->cmd1(MODE => $_[2], $mode, @_[4 .. $#_]));
 		}
-		my($modes,$args) = $net->_modeargs($mode, @_[4 .. $#_]);
+		my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, $mode, @_[4 .. $#_]);
 		push @out, {
 			type => 'MODE',
 			src => $src,
 			dst => $chan,
 			mode => $modes,
 			args => $args,
+			dirs => $dirs,
 		};
 		@out;
 	}, TOPIC => sub {
@@ -1107,6 +1140,7 @@ sub srvname {
 
 	CHATOPS => sub {
 		my $net = shift;
+		return () unless $net->param('send_chatops');
 		return +{
 			type => 'CHATOPS',
 			src => $net->item($_[0]),
@@ -1160,6 +1194,7 @@ sub srvname {
 	SVSWATCH => \&ignore,
 	SQLINE => \&ignore,
 	UNSQLINE => \&ignore,
+	SVSREDIR => \&ignore,
 
 	VERSION => sub {
 		my $net = shift;
@@ -1318,7 +1353,7 @@ sub cmd2 {
 	}, MODE => sub {
 		my($net,$act) = @_;
 		my $src = $act->{src};
-		my @interp = $net->_mode_interp($act->{mode}, $act->{args});
+		my @interp = &Modes::to_irc($net, @$act{qw(mode args dirs)});
 		return () unless @interp;
 		return () if @interp == 1 && (!$interp[0] || $interp[0] =~ /^[+-]+$/);
 		if (ref $src && $src->isa('Nick') && $src->is_on($net)) {
@@ -1331,7 +1366,7 @@ sub cmd2 {
 		my $chan = $act->{dst};
 		if ($act->{wipe}) {
 			if ($act->{ts} == $act->{oldts}) {
-				my @interp = $net->_mode_interp($chan->mode_delta());
+				my @interp = &Modes::to_irc(&Modes::delta($chan, undef));
 				return $net->cmd1(MODE => $chan, @interp, 0);
 			} else {
 				return $net->cmd1(SJOIN => $net->sjb64($act->{ts}), $chan, '+', '');
@@ -1388,27 +1423,22 @@ sub cmd2 {
 		for my $ltxt (@{$act->{mode}}) {
 			my($d,$txt) = $ltxt =~ /([-+])(.+)/ or warn $ltxt;
 			next if $skip_umode{$txt};
+			next if $txt eq 'hideoper' && !$net->param('show_roper');
 			if ($pm ne $d) {
 				$pm = $d;
 				$mode .= $pm;
 			}
 			$mode .= $txt2umode{$txt};
 		}
+		$mode =~ s/o/oH/ unless $net->param('show_roper');
 
 		return () unless $mode;
 		$net->cmd2($act->{dst}, UMODE2 => $mode);
 	}, QUIT => sub {
 		my($net,$act) = @_;
-		my $dst = $act->{dst};
 		return () if $act->{netsplit_quit};
-		if ($dst->homenet()->id() eq $net->id()) {
-			my $msg = $act->{msg};
-			$msg =~ s/^Killed \((.*)\)$/$1/;
-			$net->cmd2($act->{killer}, KILL => $dst, $msg);
-		} else {
-			return () unless $dst->is_on($net);
-			$net->cmd2($dst, QUIT => $act->{msg});
-		}
+		return () unless $act->{dst}->is_on($net);
+		$net->cmd2($act->{dst}, QUIT => $act->{msg});
 	}, LINK => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst}->str($net);
@@ -1441,18 +1471,6 @@ sub cmd2 {
 	}, PING => sub {
 		my($net,$act) = @_;
 		$net->cmd1(PING => $net->cparam('linkname'));
-	}, XLINE => sub {
-		my($net,$act) = @_;
-		my $expire = $act->{expire};
-		my $type = $act->{ltype};
-		return () unless $type =~ /^[GQZ]$/;
-		my($id,$h) = $type eq 'G' ? $act->{mask} =~ /(.*?)\@(.*)/ : ('*',$act->{mask});
-		return () unless defined $h;
-		if ($expire && $expire < time) {
-			$net->cmd1(TKL => '-', $type, $id, $h, ($act->{setter} || 'hub.janus'));
-		} else {
-			$net->cmd1(TKL => '+', $type, $id, $h, ($act->{setter} || 'hub.janus'), $act->{expire}, $act->{settime}+0, $act->{reason});
-		}
 	},
 );
 

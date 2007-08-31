@@ -189,6 +189,7 @@ my %spec = (
 		dst => 'Channel',
 		mode => '@',
 		args => '@',
+		dirs => '@',
 	},
 	TIMESYNC => {
 		dst => 'Channel',

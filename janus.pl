@@ -94,7 +94,8 @@ sub writable {
 	}
 }
 
-while (%Janus::netqueues) {
+eval { 
+  while (%Janus::netqueues) {
 	my($r,$w,$e) = IO::Select->select(
 			IO::Select->new(grep { $_->[4] } values %Janus::netqueues),
 			IO::Select->new(grep { $_->[5] } values %Janus::netqueues),
@@ -132,5 +133,18 @@ while (%Janus::netqueues) {
 		writable $l if $sendq && !$$l[5];
 		# no point in trying to write if we are already waiting for writes to unblock
 	}
-}
+  }
+  1;
+} || do {
+	print "Aborting, error=$@\n";
+	for my $net (values %Janus::nets) {
+		$net = $net->jlink() if $net->jlink();
+		&Janus::delink($net, 'aborting');
+	}
+	%Janus::netqueues = ();
+};
+
+&Janus::delink($Janus::interface->homenet(), 'Goodbye!');
+$Janus::interface = undef;
 print "All networks disconnected. Goodbye!\n";
+&Persist::list_all_refs();

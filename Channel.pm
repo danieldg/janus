@@ -7,6 +7,7 @@ use strict;
 use warnings;
 BEGIN {
 	&Janus::load('Nick');
+	&Janus::load('Modes');
 }
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
@@ -24,7 +25,7 @@ my @name     :Persist(keyname)                :Get(keyname);
 my @topic    :Persist(topic)   :Arg(topic)    :Get(topic);
 my @topicts  :Persist(topicts) :Arg(topicts)  :Get(topicts);
 my @topicset :Persist(topicts) :Arg(topicset) :Get(topicset);
-my @mode     :Persist(mode);
+my @mode     :Persist(mode)                    :Get(all_modes);
 my @nicks    :Persist(nicks);
 my @nmode    :Persist(nmode);
 
@@ -96,60 +97,6 @@ sub _modecpy {
 			$mode[$$chan]{$txt} = $mode[$$src]{$txt};
 		}
 	}
-}
-
-sub mode_delta {
-	my($chan, $dst) = @_;
-	my %add = $dst ? %{$mode[$$dst]} : ();
-	my(@modes, @args);
-	for my $txt (keys %{$mode[$$chan]}) {
-		if ($txt =~ /^l/) {
-			my %torm = map { $_ => 1} @{$mode[$$chan]{$txt}};
-			if (exists $add{$txt}) {
-				for my $i (@{$add{$txt}}) {
-					if (exists $torm{$i}) {
-						delete $torm{$i};
-					} else {
-						push @modes, '+'.$txt;
-						push @args, $i;
-					}
-				}
-			}
-			for my $i (keys %torm) {
-				push @modes, '-'.$txt;
-				push @args, $i;
-			}
-		} elsif ($txt =~ /^[vs]/) {
-			if (exists $add{$txt}) {
-				if ($mode[$$chan]{$txt} && $mode[$$chan]{$txt} eq $add{$txt}) {
-					# hey, isn't that nice
-				} else {
-					push @modes, '+'.$txt;
-					push @args, $add{$txt};
-				}
-			} else {
-				push @modes, '-'.$txt;
-				push @args, $mode[$$chan]{$txt} unless $txt =~ /^s/;
-			}
-		} else {
-			push @modes, '-'.$txt unless exists $add{$txt};
-		}
-		delete $add{$txt};
-	}
-	for my $txt (keys %add) {
-		if ($txt =~ /^l/) {
-			for my $i (@{$add{$txt}}) {
-				push @modes, '+'.$txt;
-				push @args, $i;
-			}
-		} elsif ($txt =~ /^[vs]/) {
-			push @modes, '+'.$txt;
-			push @args, $add{$txt};
-		} else {
-			push @modes, '+'.$txt;
-		}
-	}
-	(\@modes, \@args);
 }
 
 =item $chan->all_nicks()
@@ -244,38 +191,34 @@ sub part {
 		my $act = $_[0];
 		local $_;
 		my $chan = $act->{dst};
+		my @dirs = @{$act->{dirs}};
 		my @args = @{$act->{args}};
-		for my $itxt (@{$act->{mode}}) {
-			my $pm = substr $itxt, 0, 1;
-			my $t = substr $itxt, 1, 1;
-			my $i = substr $itxt, 1;
+		for my $i (@{$act->{mode}}) {
+			my $pm = shift @dirs;
+			my $arg = shift @args;
+			my $t = substr $i, 0, 1;
 			if ($t eq 'n') {
-				my $nick = shift @args or next;
-				$nmode[$$chan]{$nick->lid()}{$i} = 1 if $pm eq '+';
-				delete $nmode[$$chan]{$nick->lid()}{$i} if $pm eq '-';
+				unless (ref $arg && $arg->isa('Nick')) {
+					warn "$i without nick arg!";
+					next;
+				}
+				$nmode[$$chan]{$arg->lid()}{$i} = 1 if $pm eq '+';
+				delete $nmode[$$chan]{$arg->lid()}{$i} if $pm eq '-';
 			} elsif ($t eq 'l') {
 				if ($pm eq '+') {
-					my $b = shift @args;
-					@{$mode[$$chan]{$i}} = ($b, grep { $_ ne $b } @{$mode[$$chan]{$i}});
+					@{$mode[$$chan]{$i}} = ($arg, grep { $_ ne $arg } @{$mode[$$chan]{$i}});
 				} else {
-					my $b = shift @args;
-					@{$mode[$$chan]{$i}} = grep { $_ ne $b } @{$mode[$$chan]{$i}};
+					@{$mode[$$chan]{$i}} = grep { $_ ne $arg } @{$mode[$$chan]{$i}};
 				}
 			} elsif ($t eq 'v') {
-				$mode[$$chan]{$i} = shift @args;
-				delete $mode[$$chan]{$i} if $pm eq '-';
-			} elsif ($t eq 's') {
-				$mode[$$chan]{$i} = shift @args if $pm eq '+';
+				$mode[$$chan]{$i} = $arg if $pm eq '+';
 				delete $mode[$$chan]{$i} if $pm eq '-';
 			} elsif ($t eq 'r') {
-				$mode[$$chan]{$i} = 1;
-				delete $mode[$$chan]{$i} if $pm eq '-';
-			} elsif ($t eq 't') {
-				$i =~ s/t(\d)/t/ or warn "Invalid tristate mode string $i";
-				$mode[$$chan]{$i} = $1;
-				delete $mode[$$chan]{$i} if $pm eq '-';
+				$mode[$$chan]{$i} |= $arg;
+				$mode[$$chan]{$i} &= ~$arg if $pm eq '-';
+				delete $mode[$$chan]{$i} unless $mode[$$chan]{$i};
 			} else {
-				warn "Unknown mode '$itxt'";
+				warn "Unknown mode '$i'";
 			}
 		}
 	}, TOPIC => act => sub {
