@@ -14,13 +14,10 @@ our $conffile;
 $conffile = $_[0] unless $reload;
 
 our %netconf;
-our %inet = (
-	# these values are replaced in modload by IPv4 or IPv6 code
-	# for creating IO::Socket objects. The dynamic choice can only
-	# happen once as it defines some symbols in this package
-	listn => sub { die },
-	conn => sub { die },
-);
+our %inet;
+# these values are replaced in modload by IPv4 or IPv6 code
+# for creating IO::Socket objects. The dynamic choice can only
+# happen once as it defines some symbols in this package
 
 sub read_conf {
 	my $nick = shift;
