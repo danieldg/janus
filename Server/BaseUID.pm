@@ -1,7 +1,7 @@
 # Copyright (C) 2007 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
-package Server::BaseNick;
+package Server::BaseUID;
 BEGIN {
 	&Janus::load('LocalNetwork');
 	&Janus::load('Channel');
@@ -13,23 +13,24 @@ use warnings;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-my @nicks  :Persist(nicks);
+my @uids :Persist(uids);
+my @nick2uid :Persist(nickuid);
 
 sub _init {
 	my $net = shift;
-	$nicks[$$net] = {};
+	$uids[$$net] = {};
 	$net->SUPER::_init();
 }
 
 sub mynick {
 	my($net, $name) = @_;
-	my $nick = $nicks[$$net]{lc $name};
+	my $nick = $uids[$$net]{uc $name};
 	unless ($nick) {
-		print "Nick '$name' does not exist; ignoring\n";
+		print "UID '$name' does not exist; ignoring\n";
 		return undef;
 	}
 	if ($nick->homenet()->id() ne $net->id()) {
-		print "Nick '$name' is from network '".$nick->homenet()->id().
+		print "UID '$name' is from network '".$nick->homenet()->id().
 			"' but was sourced from network '".$net->id()."'\n";
 		return undef;
 	}
@@ -38,40 +39,51 @@ sub mynick {
 
 sub nick {
 	my($net, $name) = @_;
-	return $nicks[$$net]{lc $name} if $nicks[$$net]{lc $name};
-	print "Nick '$name' does not exist; ignoring\n" unless $_[2];
+	return $uids[$$net]{uc $name} if $uids[$$net]{uc $name};
+	print "UID '$name' does not exist; ignoring\n" unless $_[2];
 	undef;
 }
 
-sub nick_collide {
-	my($net, $name, $new) = @_;
-	my $old = delete $nicks[$$net]->{lc $name};
-	unless ($old) {
-		$nicks[$$net]->{lc $name} = $new;
-		return 1;
+sub register_nick {
+	my($net, $new) = @_;
+	my $new_uid = $new->info('home_uid');
+	my $name = $new->str($net);
+	my $old_uid = delete $nick2uid[$$net]{lc $name};
+	unless ($old_uid) {
+		$nick2uid[$$net]{lc $name} = $new_uid;
+		return ();
 	}
+	my $old = $uids[$$net]{uc $old_uid} or warn;
 	my $tsctl = $old->ts() <=> $new->ts();
 
-	$nicks[$$net]->{lc $name} = $new if $tsctl > 0;
-	$nicks[$$net]->{lc $name} = $old if $tsctl < 0;
-	
-	my @rv = ($tsctl > 0);
-	if ($tsctl >= 0) {
-		# old nick lost, reconnect it
-		if ($old->homenet()->id() eq $net->id()) {
-			warn "Nick collision on home network!";
-		} else {
-			push @rv, +{
-				type => 'RECONNECT',
-				dst => $new,
-				net => $net,
-				killed => 1,
-				nojlink => 1,
-			};
-		}
+	if ($new->info('ident') eq $old->info('ident') && $new->info('host') eq $old->info('host')) {
+		# this is a ghosting nick, we REVERSE the normal timestamping
+		$tsctl = -$tsctl;
 	}
-	@rv;
+	
+	if ($tsctl >= 0) {
+		# TODO ask inspircd devs what to do if $tsctl == 0
+		$nick2uid[$$net]{lc $name} = $new_uid;
+		$nick2uid[$$net]{lc $old_uid} = $old_uid;
+		return +{
+			type => 'NICK',
+			dst => $old,
+			nick => $old_uid,
+			nickts => 1, # this is a UID-based nick, it ALWAYS wins
+		};
+	} else {
+		$nick2uid[$$net]{lc $new_uid} = $new_uid;
+		$nick2uid[$$net]{lc $name} = $old_uid;
+		return +{
+			type => 'NICK',
+			dst => $new,
+			nick => $new_uid,
+			nickts => 1,
+		};
+	}
 }
+
+## TODO ## this is where I stopped implementation
 
 # Request a nick on a remote network (CONNECT/JOIN must be sent AFTER this)
 sub request_nick {
@@ -81,7 +93,6 @@ sub request_nick {
 		$given = $reqnick;
 	} else {
 		$reqnick =~ s/[^0-9a-zA-Z\[\]\\^\-_`{|}]/_/g;
-		$reqnick = '_'.$reqnick unless $reqnick =~ /^[A-Za-z\[\]\\^\-_`{|}]/;
 		my $maxlen = $net->nicklen();
 		$given = substr $reqnick, 0, $maxlen;
 
