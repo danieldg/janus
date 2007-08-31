@@ -933,7 +933,7 @@ $moddef{CORE} = {
 		}
 		my $mode = '';
 		if ($act->{mode}) {
-			$mode .= $txt2pfx[$$net]{$_} for keys %{$act->{mode}};
+			$mode .= ($txt2pfx[$$net]{$_} || '') for keys %{$act->{mode}};
 		}
 		$net->cmd1(FJOIN => $chan, $chan->ts(), $mode.','.$net->_out($act->{src}));
 	}, PART => sub {

@@ -8,6 +8,20 @@ use warnings;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
+=head1 IRC Mode utilities
+
+Intended to be used by IRC server parsers
+
+=over
+
+=item (modes,args,dirs) Modes::from_irc(net,chan,mode,args...)
+
+Translates an IRC-style mode string into a Janus mode change triplet
+
+net must implement cmode2txt() and nick()
+
+=cut
+
 sub from_irc {
 	my($net,$chan,$str) = (shift,shift,shift);
 	my(@modes,@args,@dirs);
@@ -54,6 +68,14 @@ sub from_irc {
 	(\@modes, \@args, \@dirs);
 }
 
+=item (mode, args...) Modes::to_irc(net, modes, args, dirs)
+
+Translates a Janus triplet into its IRC equivalent
+
+net must implement txt2cmode(), which must return undef for unknown modes
+
+=cut
+
 sub to_irc {
 	my($net, $mods, $args, $dirs) = @_;
 	my @modin = @$mods;
@@ -98,6 +120,13 @@ sub to_irc {
 	}
 	$mode, @args;
 }
+
+=item (modes, args, dirs) Modes::delta(chan1, chan2)
+
+Returns the mode change required to make chan1's modes equal to
+those of chan2
+
+=cut
 
 sub delta {
 	my($chan1, $chan2) = @_;
@@ -156,5 +185,8 @@ sub delta {
 	(\@modes, \@args, \@dirs);
 }
 
+=back
+
+=cut
 
 1;
