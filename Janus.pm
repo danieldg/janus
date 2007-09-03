@@ -158,6 +158,8 @@ sub load {
 	}
 }
 
+our($SHA_UID) = `sha1sum Janus.pm` =~ /^(.{8})/;
+
 sub unload {
 	my $module = $_[0];
 
@@ -525,6 +527,7 @@ sub delink {
 
 $modules{Janus} = 2;
 
+&Janus::load('Persist');    # use the janus load hook for it
 &Janus::load('InterJanus'); # for debug_send
 &Janus::load('Pending');    # for in_newsock
 
