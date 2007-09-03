@@ -9,6 +9,7 @@ use warnings;
 our $VERSION;
 my $reload = $VERSION;
 ($VERSION) = '$Rev$' =~ /(\d+)/;
+$VERSION = 1 unless $VERSION; # make sure reloads act as such
 
 our $conffile;
 $conffile = $_[0] unless $reload;

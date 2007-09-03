@@ -145,6 +145,13 @@ sub load {
 	$fn =~ s#::#/#g;
 	if (do $fn) {
 		$modules{$module} = 2;
+		if (`sha1sum $fn` =~ /^(.{8})/) {
+			no strict 'refs';
+			no warnings 'once';
+			${$module.'::SHA_UID'} = $1;
+		} else {
+			warn "Cannot checksum module $module";
+		}
 	} else {
 		warn "Cannot load module $module: $@";
 		$modules{$module} = 0;
