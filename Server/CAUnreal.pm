@@ -2,12 +2,9 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Server::CAUnreal;
-BEGIN {
-	&Janus::load('LocalNetwork');
-	&Janus::load('Nick');
-	&Janus::load('Modes');
-	&Janus::load('Server::BaseNick');
-}
+use Nick;
+use Modes;
+use Server::BaseNick;
 use Persist 'Server::BaseNick';
 use strict;
 use warnings;

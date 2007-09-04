@@ -6,10 +6,8 @@ use Persist;
 use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
-BEGIN {
-	&Janus::load('Nick');
-	&Janus::load('RemoteNetwork');
-}
+use Nick;
+use RemoteNetwork;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 

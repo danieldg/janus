@@ -22,13 +22,25 @@ our %ijnets;
 our %gnicks;
 our %gchans;
 
-# PRIVATE VARS - TODO possibly enforce this private-ness?
-our $last_check = time;
+=head2 Module loading
 
-# TODO this should really be maintained by main with an interface of some kind to add/remove
-# entries
-# (net | port number) => [ sock, recvq, sendq, (Net | undef if listening), trying_read, trying_write ]
-our %netqueues;
+=over
+
+=item Janus::load($module, @args)
+
+Loads a module from a file, allowing it to register hooks as it loads and
+registering it for unloading
+
+=item Janus::unload($module)
+
+Remove hooks and commands for a module. This is called automatically when your module
+is unladed or reloaded
+
+=item Janus::reload($module, @args)
+
+Same as calling unload and load sequentially
+
+=cut
 
 # module => state (0 = unloaded, 1 = loading, 2 = loaded)
 our %modules;
@@ -36,6 +48,86 @@ $modules{Janus} = 1;
 
 our %hooks;
 our %commands;
+
+sub reload {
+	my $module = $_[0];
+
+	&Janus::unload if $modules{$module};
+	&Janus::load;
+}
+
+sub load {
+	my $module = shift;
+	return 1 if $modules{$module};
+
+	$modules{$module} = 1;
+
+	my $fn = $module.'.pm';
+	$fn =~ s#::#/#g;
+	if (-f $fn && do $fn) {
+		$modules{$module} = 2;
+		if (`sha1sum $fn` =~ /^(.{8})/) {
+			no strict 'refs';
+			no warnings 'once';
+			${$module.'::SHA_UID'} = $1;
+		} else {
+			warn "Cannot checksum module $module";
+		}
+	} else {
+		warn "Cannot load module $module: $@";
+		$modules{$module} = 0;
+	}
+}
+
+sub unload {
+	my $module = $_[0];
+
+	for my $t (keys %hooks) {
+		for my $l (keys %{$hooks{$t}}) {
+			delete $hooks{$t}{$l}{$module};
+		}
+	}
+	for my $cmd (keys %commands) {
+		next unless $commands{$cmd}{class} eq $module;
+		delete $commands{$cmd};
+	}
+
+	$modules{$module} = 0;
+}
+
+BEGIN {
+	unshift @INC, sub {
+		my($self, $name) = @_;
+		open my $rv, '<', $name or return undef;
+		my $module = $name;
+		$module =~ s/.pmc?$//;
+		$module =~ s#/#::#g;
+		if (`sha1sum $name` =~ /^(.{8})/) {
+			no strict 'refs';
+			no warnings 'once';
+			${$module.'::SHA_UID'} = $1;
+		} else {
+			warn "Cannot checksum module $module";
+		}
+		$modules{$module} = 1;
+		&Janus::schedule({ code => sub {
+			$modules{$module} = 2;
+		}});
+		$rv;
+	};
+}
+
+=back
+
+=cut
+
+our $last_check = time;
+
+# TODO this should really be maintained by main with an interface of some kind to add/remove
+# entries
+# (net | port number) => [ sock, recvq, sendq, (Net | undef if listening), trying_read, trying_write ]
+our %netqueues;
+
 $commands{unk} = +{
 	class => 'Janus',
 	code => sub {
@@ -110,70 +202,6 @@ sub command_add {
 		$h->{class} = $class;
 		$commands{$cmd} = $h;
 	}
-}
-
-=item Janus::load($module, @args)
-
-Loads a module from a file, allowing it to register hooks as it loads and
-registering it for unloading
-
-=item Janus::unload($module)
-
-Remove hooks and commands for a module. This is called automatically when your module
-is unladed or reloaded
-
-=item Janus::reload($module, @args)
-
-Same as calling unload and load sequentially
-
-=cut
-
-sub reload {
-	my $module = $_[0];
-
-	&Janus::unload if $modules{$module};
-	&Janus::load;
-}
-
-sub load {
-	my $module = shift;
-	return 1 if $modules{$module};
-
-	$modules{$module} = 1;
-
-	my $fn = $module.'.pm';
-	$fn =~ s#::#/#g;
-	if (do $fn) {
-		$modules{$module} = 2;
-		if (`sha1sum $fn` =~ /^(.{8})/) {
-			no strict 'refs';
-			no warnings 'once';
-			${$module.'::SHA_UID'} = $1;
-		} else {
-			warn "Cannot checksum module $module";
-		}
-	} else {
-		warn "Cannot load module $module: $@";
-		$modules{$module} = 0;
-	}
-}
-
-our($SHA_UID) = `sha1sum Janus.pm` =~ /^(.{8})/;
-
-sub unload {
-	my $module = $_[0];
-
-	for my $t (keys %hooks) {
-		for my $l (keys %{$hooks{$t}}) {
-			delete $hooks{$t}{$l}{$module};
-		}
-	}
-	for my $cmd (keys %commands) {
-		next unless $commands{$cmd}{class} eq $module;
-		delete $commands{$cmd};
-	}
-
-	$modules{$module} = 0;
 }
 
 =back
@@ -527,8 +555,9 @@ sub delink {
 
 $modules{Janus} = 2;
 
-&Janus::load('Persist');    # use the janus load hook for it
-&Janus::load('InterJanus'); # for debug_send
-&Janus::load('Pending');    # for in_newsock
+# we load these modules down here because their loading uses
+# some of the subs defined above
+use InterJanus;
+use Pending;
 
 1;

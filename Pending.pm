@@ -5,7 +5,7 @@ package Pending;
 use strict;
 use warnings;
 use Persist;
-&Janus::load('InterJanus');
+use InterJanus;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 

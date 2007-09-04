@@ -2,7 +2,7 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package RemoteNetwork;
-BEGIN { &Janus::load('Network') }
+use Network;
 use Persist 'Network';
 use strict;
 use warnings;

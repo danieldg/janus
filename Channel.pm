@@ -2,13 +2,11 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Channel;
-use Persist;
 use strict;
 use warnings;
-BEGIN {
-	&Janus::load('Nick');
-	&Janus::load('Modes');
-}
+use Persist;
+use Nick;
+use Modes;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 

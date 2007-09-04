@@ -2,13 +2,11 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Server::Inspircd_1105;
-BEGIN {
-	&Janus::load('Nick');
-	&Janus::load('Modes');
-	&Janus::load('Server::BaseNick');
-	&Janus::load('Server::ModularNetwork');
-	&Janus::load('Server::InspMods');
-}
+use Nick;
+use Modes;
+use Server::BaseNick;
+use Server::ModularNetwork;
+use Server::InspMods;
 
 use Persist 'Server::BaseNick', 'Server::ModularNetwork', 'Server::InspMods';
 use strict;

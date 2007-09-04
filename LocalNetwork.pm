@@ -2,10 +2,8 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package LocalNetwork;
-BEGIN {
-	&Janus::load('Network');
-	&Janus::load('Channel');
-}
+use Network;
+use Channel;
 use Persist 'Network';
 use Scalar::Util qw(isweak weaken);
 use strict;
