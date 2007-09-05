@@ -9,7 +9,7 @@ use IO::Select;
 use IO::Socket::SSL;
 use POSIX 'setsid';
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
+our $VERSION = '(S)v'.join '', '$Rev$' =~ /(\d+)/;
 
 my $args = @ARGV && $ARGV[0] =~ /^-/ ? shift : '';
 unless ($args =~ /d/) {

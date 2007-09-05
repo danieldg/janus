@@ -66,13 +66,7 @@ sub load {
 	$fn =~ s#::#/#g;
 	if (-f $fn && do $fn) {
 		$modules{$module} = 2;
-		if (`sha1sum $fn` =~ /^(.{8})/) {
-			no strict 'refs';
-			no warnings 'once';
-			${$module.'::SHA_UID'} = $1;
-		} else {
-			warn "Cannot checksum module $module";
-		}
+		&Janus::update_versions($module);
 	} else {
 		warn "Cannot load module $module: $@";
 		$modules{$module} = 0;
@@ -95,20 +89,56 @@ sub unload {
 	$modules{$module} = 0;
 }
 
+sub update_versions {
+	my $mod = shift;
+	my $fn = $mod.'.pm';
+	$fn =~ s#::#/#g;
+	return unless -f $fn;
+	my $ver = '?';
+	if (`sha1sum $fn` =~ /^(.{8})/) {
+		$ver = 'x'.$1;
+		no strict 'refs';
+		no warnings 'once';
+		${$mod.'::SHA_UID'} = $1;
+	} else {
+		warn "Cannot checksum module $mod";
+	}
+	my $git = `git rev-parse --verify HEAD 2>/dev/null`;
+	if ($git && !`git diff-index HEAD $fn`) {
+		# this file is not modified from the current head
+		`git rev-parse HEAD` =~ /^(.{8})/;
+		$ver = 'g'.$1;
+		# ok, we have the ugly name... now look for a tag
+		`git name-rev --tags --name-only HEAD` =~ /^(.*?)(?:^0)?$/;
+		my $tag = $1;
+		if ($tag ne 'undefined' && $tag !~ /~/) {
+			# we are actually on this tag
+			$ver = 't'.$tag;
+		}
+	}
+	my $svn = `svn info $fn 2>/dev/null`;
+	if ($svn && !`svn st $fn`) {
+		if ($svn =~ /Last Changed Rev: (\d+)/) {
+			$ver = 'r'.$1;
+		} else {
+			warn "Cannot parse `svn info` output for $mod ($fn)";
+		}
+	}
+	no strict 'refs';
+	no warnings 'once';
+	${$mod.'::VERSION_NAME'} = $ver;
+}
+
+update_versions 'Janus';
+
 BEGIN {
 	unshift @INC, sub {
 		my($self, $name) = @_;
 		open my $rv, '<', $name or return undef;
 		my $module = $name;
-		$module =~ s/.pmc?$//;
+		$module =~ s/.pm$//;
 		$module =~ s#/#::#g;
-		if (`sha1sum $name` =~ /^(.{8})/) {
-			no strict 'refs';
-			no warnings 'once';
-			${$module.'::SHA_UID'} = $1;
-		} else {
-			warn "Cannot checksum module $module";
-		}
+		&Janus::update_versions($module);
 		$modules{$module} = 1;
 		&Janus::schedule({ code => sub {
 			$modules{$module} = 2;

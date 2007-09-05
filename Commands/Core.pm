@@ -35,7 +35,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			s/\.pmc?$//;
 			s#/#::#g;
 			no strict 'refs';
-			my $v = ${$_.'::SHA_UID'} || ${$_.'::VERSION'} || '';
+			my $v = ${$_.'::VERSION_NAME'} || ${$_.'::VERSION'} || '';
 			next unless $v;
 			$m1 = length $_ if $m1 < length $_;
 			$m2 = length $v if $m2 < length $v;
