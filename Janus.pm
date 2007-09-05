@@ -90,38 +90,52 @@ sub unload {
 }
 
 sub update_versions {
-	my $mod = shift;
+	$_[0] =~ /([0-9A-Za-z_:]+)/;
+	my $mod = $1;
 	my $fn = $mod.'.pm';
 	$fn =~ s#::#/#g;
 	return unless -f $fn;
 	my $ver = '?';
-	if (`sha1sum $fn` =~ /^(.{8})/) {
+	my $sha = `sha1sum $fn 2>/dev/null`;
+	if ($sha && $sha =~ /^(.{8})/) {
 		$ver = 'x'.$1;
 		no strict 'refs';
 		no warnings 'once';
 		${$mod.'::SHA_UID'} = $1;
 	} else {
-		warn "Cannot checksum module $mod";
+		$sha = `sha1 $fn 2>/dev/null`;
+		if ($sha =~ / = (.{8})/) {
+			$ver = 'x'.$1;
+			no strict 'refs';
+			no warnings 'once';
+			${$mod.'::SHA_UID'} = $1;
+		} else {
+			warn "Cannot checksum module $mod";
+		}
 	}
 	my $git = `git rev-parse --verify HEAD 2>/dev/null`;
-	if ($git && !`git diff-index HEAD $fn`) {
-		# this file is not modified from the current head
-		`git rev-parse HEAD` =~ /^(.{8})/;
-		$ver = 'g'.$1;
-		# ok, we have the ugly name... now look for a tag
-		`git name-rev --tags --name-only HEAD` =~ /^(.*?)(?:^0)?$/;
-		my $tag = $1;
-		if ($tag ne 'undefined' && $tag !~ /~/) {
-			# we are actually on this tag
-			$ver = 't'.$tag;
+	if ($git) {
+		unless (`git diff-index HEAD $fn`) {
+			# this file is not modified from the current head
+			`git rev-parse HEAD` =~ /^(.{8})/;
+			$ver = 'g'.$1;
+			# ok, we have the ugly name... now look for a tag
+			`git name-rev --tags --name-only HEAD` =~ /^(.*?)(?:^0)?$/;
+			my $tag = $1;
+			if ($tag ne 'undefined' && $tag !~ /~/) {
+				# we are actually on this tag
+				$ver = 't'.$tag;
+			}
 		}
 	}
 	my $svn = `svn info $fn 2>/dev/null`;
-	if ($svn && !`svn st $fn`) {
-		if ($svn =~ /Last Changed Rev: (\d+)/) {
-			$ver = 'r'.$1;
-		} else {
-			warn "Cannot parse `svn info` output for $mod ($fn)";
+	if ($svn) {
+		unless (`svn st $fn`) {
+			if ($svn =~ /Last Changed Rev: (\d+)/) {
+				$ver = 'r'.$1;
+			} else {
+				warn "Cannot parse `svn info` output for $mod ($fn)";
+			}
 		}
 	}
 	no strict 'refs';
