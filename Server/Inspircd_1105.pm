@@ -190,7 +190,7 @@ sub process_capabs {
 	# Without a prefix character, nick modes such as +qa appear in the "l" section
 	exists $t2p{$_} or $split2c{l}{$_} = $split2c{n}{$_} for keys %{$split2c{n}};
 	# tristates show up in the 4th group
-	exists $split2c{r}{$_} = $split2c{t}{$_} for keys %{$split2c{t}};
+	$split2c{r}{$_} = $split2c{t}{$_} for keys %{$split2c{t}};
 
 	my $expect = join ',', map { join '', sort values %{$split2c{$_}} } qw(l v s r);
 

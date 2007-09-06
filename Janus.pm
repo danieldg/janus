@@ -67,7 +67,7 @@ sub load {
 	if (-f $fn && do $fn) {
 		$modules{$module} = 2;
 	} else {
-		warn "Cannot load module $module: $@";
+		warn "Cannot load module $module: $! $@";
 		$modules{$module} = 0;
 	}
 }
