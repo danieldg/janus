@@ -66,7 +66,6 @@ sub load {
 	$fn =~ s#::#/#g;
 	if (-f $fn && do $fn) {
 		$modules{$module} = 2;
-		&Janus::update_versions($module);
 	} else {
 		warn "Cannot load module $module: $@";
 		$modules{$module} = 0;
@@ -145,20 +144,27 @@ sub update_versions {
 
 update_versions 'Janus';
 
+sub Janus::INC {
+	my($self, $name) = @_;
+	open my $rv, '<', $name or return undef;
+	my $module = $name;
+	$module =~ s/.pm$//;
+	$module =~ s#/#::#g;
+	&Janus::update_versions($module);
+	$modules{$module} = 1;
+	&Janus::schedule({ code => sub {
+		$modules{$module} = 2;
+	}});
+	$rv;
+}
+
 BEGIN {
-	unshift @INC, sub {
-		my($self, $name) = @_;
-		open my $rv, '<', $name or return undef;
-		my $module = $name;
-		$module =~ s/.pm$//;
-		$module =~ s#/#::#g;
-		&Janus::update_versions($module);
-		$modules{$module} = 1;
-		&Janus::schedule({ code => sub {
-			$modules{$module} = 2;
-		}});
-		$rv;
-	};
+	our $INC_ITEM;
+	unless ($INC_ITEM) {
+		my $dummy = 1;
+		$INC_ITEM = bless \$dummy;
+		unshift @INC, $INC_ITEM;
+	}
 }
 
 =back

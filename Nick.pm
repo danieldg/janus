@@ -69,7 +69,7 @@ sub to_ij {
 
 sub _destroy {
 	my $n = $_[0];
-	print "   NICK:$$n $n $homenick[$$n] deallocated\n";
+	print "   NICK:$$n $homenick[$$n] deallocated\n";
 }
 
 # send to all but possibly one network for NICKINFO

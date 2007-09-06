@@ -35,7 +35,8 @@ sub to_ij {
 }
 
 sub _destroy {
-	print "DBG: $_[0] $netname[${$_[0]}] deallocated\n";
+	my $net = $_[0];
+	print "   NET:$$net ".ref($net).' '.$netname[$$net]." deallocated\n";
 }
 
 sub str {
