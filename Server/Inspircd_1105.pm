@@ -29,7 +29,6 @@ sub _init {
 	$sendq[$$net] = [];
 	$net->module_add('CORE');
 	$auth[$$net] = 0;
-	$net->SUPER::_init();
 }
 
 sub ignore { () }

@@ -19,7 +19,6 @@ my @auth    :Persist(auth);
 sub _init {
 	my $net = shift;
 	$sendq[$$net] = [];
-	$net->SUPER::_init();
 }
 
 my %fromirc;

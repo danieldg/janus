@@ -15,7 +15,6 @@ my @nicks  :Persist(nicks);
 sub _init {
 	my $net = shift;
 	$nicks[$$net] = {};
-	$net->SUPER::_init();
 }
 
 sub mynick {

@@ -24,7 +24,6 @@ my %toirc;
 sub _init {
 	my $net = shift;
 	$sendq[$$net] = [];
-	$net->SUPER::_init();
 }
 
 sub debug {

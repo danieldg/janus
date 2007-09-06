@@ -37,7 +37,7 @@ sub list_all_refs {
 			}
 		}
 		if (%oops) {
-			print "Package $pk: ".join(' ', sort keys %oops)."\n";
+			print "Package $pk: ".join(' ', sort map $_+0, keys %oops)."\n";
 		}
 	}
 }
@@ -101,7 +101,11 @@ sub new {
 			$init_args{$pkg}{$arg}[$n] = $args{$arg};
 		}
 	}
-	$s->_init(\%args) if $s->can('_init');
+	for my $pkg (@pkgs) {
+		no strict 'refs';
+		my $init = *{$pkg.'::_init'}{CODE};
+		$init->($s, \%args) if $init;
+	}
 	$s;
 }
 

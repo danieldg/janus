@@ -16,7 +16,6 @@ my @nick2uid :Persist(nickuid);
 sub _init {
 	my $net = shift;
 	$uids[$$net] = {};
-	$net->SUPER::_init();
 }
 
 sub mynick {
