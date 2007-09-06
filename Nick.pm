@@ -358,6 +358,9 @@ sub str {
 			my $name = $nicks[$$nick]->{$id};
 			$net->release_nick($name);
 		}
+		delete $chans[$$nick];
+		delete $nets[$$nick];
+		delete $homenet[$$nick];
 		delete $Janus::gnicks{$nick->gid()};
 	}, JOIN => act => sub {
 		my $act = shift;

@@ -29,6 +29,13 @@ sub PersistAs : ATTR(ARRAY,BEGIN) {
 }
 
 sub list_all_refs {
+	local $Data::Dumper::Purity = 0;
+	local $Data::Dumper::Terse = 1;
+	print Data::Dumper::Dumper(dump_all_refs());
+}
+
+sub dump_all_refs {
+	my %out;
 	for my $pk (keys %vars) {
 		my %oops;
 		for my $var (keys %{$vars{$pk}}) {
@@ -39,11 +46,10 @@ sub list_all_refs {
 			}
 		}
 		if (%oops) {
-			local $Data::Dumper::Purity = 0;
-			local $Data::Dumper::Terse = 1;
-			print "Package $pk: ".Data::Dumper::Dumper(\%oops);
+			$out{$pk} = \%oops;
 		}
 	}
+	\%out;
 }
 
 sub import {
