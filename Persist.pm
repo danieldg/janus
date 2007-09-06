@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Attribute::Handlers;
 use Persist::Field;
+use Data::Dumper;
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 our %vars;
@@ -33,11 +34,14 @@ sub list_all_refs {
 		for my $var (keys %{$vars{$pk}}) {
 			my $arr = $vars{$pk}{$var};
 			for my $i (0..$#$arr) {
-				$oops{$i}++ if exists $arr->[$i];
+				next unless exists $arr->[$i];
+				$oops{$i}{$var} = $arr->[$i];
 			}
 		}
 		if (%oops) {
-			print "Package $pk: ".join(' ', sort map $_+0, keys %oops)."\n";
+			local $Data::Dumper::Purity = 0;
+			local $Data::Dumper::Terse = 1;
+			print "Package $pk: ".Data::Dumper::Dumper(\%oops);
 		}
 	}
 }

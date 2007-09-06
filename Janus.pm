@@ -130,7 +130,7 @@ sub update_versions {
 	my $svn = `svn info $fn 2>/dev/null`;
 	if ($svn) {
 		unless (`svn st $fn`) {
-			if ($svn =~ /Last Changed Rev: (\d+)/) {
+			if ($svn =~ /Revision: (\d+)/) {
 				$ver = 'r'.$1;
 			} else {
 				warn "Cannot parse `svn info` output for $mod ($fn)";
