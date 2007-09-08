@@ -5,12 +5,12 @@ set {
 }
 
 link t1 {
-	type Unreal
+	type Unreal3
 	linkaddr ::1
 	linkport 8001
 	linkname hub.janus
-	linkpass pass
-	yourpass pass
+	sendpass pass
+	recvpass pass
 	linktype plain
 	server irc1.testnet
 	numeric 40
@@ -19,14 +19,14 @@ link t1 {
 }
 
 link insp {
-	type Inspircd_1105
+	type Unreal4
 	linkaddr ::1
 	linkport 8002
 	linkname hub.janus
 	linktype plain
 	linkto irc2.testnet
-	mypass pass
-	yourpass password
+	sendpass pass
+	recvpass password
 	numeric 41
 	netname Insp 1
 	autoconnect 1

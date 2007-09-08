@@ -1,7 +1,7 @@
 # Copyright (C) 2007 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
-package Server::Inspircd_1105;
+package Server::Unreal4;
 use Nick;
 use Modes;
 use Server::BaseNick;
