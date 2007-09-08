@@ -31,4 +31,14 @@ sub STORESIZE {
 	$#$s = $l - 1;
 }
 
+sub DELETE {
+	my($s,$i) = @_;
+	delete $s->[$i];
+}
+
+sub EXISTS {
+	my($s,$i) = @_;
+	exists $s->[$i];
+}
+
 1;
