@@ -109,16 +109,17 @@ eval {
 		writable $l;
 	}
 	for my $l (@$r) {
-		if (defined $$l[3]) {
-			# normal network
-			readable $l;
-		} else {
+		my $net = $$l[3];
+		if ($net->isa('Listener')) {
 			# this is a listening socket; accept a new connection
 			my $lsock = $$l[0];
 			my($sock,$peer) = $lsock->accept();
 			if ($sock) {
-				&Janus::in_newsock($sock, $peer);
+				$net->init_pending($sock, $peer);
 			}
+		} else {
+			# normal network
+			readable $l;
 		}
 	}
 

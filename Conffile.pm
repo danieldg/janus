@@ -5,6 +5,7 @@ package Conffile;
 use IO::Handle;
 use strict;
 use warnings;
+use Listener;
 
 our $VERSION;
 my $reload = $VERSION;
@@ -102,7 +103,8 @@ sub connect_net {
 	if ($id =~ /^LISTEN:/) {
 		my $sock = $inet{listn}->($nconf);
 		if ($sock) {
-			$Janus::netqueues{$id} = [$sock, undef, undef, undef, 1, 0];
+			my $list = Listener->new(id => $id, conf => $nconf);
+			$Janus::netqueues{$id} = [$sock, undef, undef, $list, 1, 0];
 		} else {
 			&Janus::err_jmsg($nick, "Could not listen on port $nconf->{port}: $!");
 		}
