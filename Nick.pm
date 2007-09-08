@@ -302,6 +302,12 @@ sub str {
 		my $nick = $act->{kickee};
 		my $chan = $act->{dst};
 		$nick->_part($chan);
+	}, NETSPLIT => cleanup => sub {
+		my $act = shift;
+		my $id = $act->{net}->id();
+		for my $n (values %Janus::nicks) {
+			delete $nets[$$n]{$id};
+		}
 	},
 );
 
