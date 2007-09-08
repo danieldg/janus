@@ -237,6 +237,11 @@ sub part {
 	delete $nicks[$$chan]{$nick->lid()};
 	delete $nmode[$$chan]{$nick->lid()};
 	return if keys %{$nicks[$$chan]};
+	$chan->unhook_destroyed();
+}
+
+sub unhook_destroyed {
+	my $chan = shift;
 	# destroy channel
 	for my $id (keys %{$nets[$$chan]}) {
 		my $net = $nets[$$chan]{$id};

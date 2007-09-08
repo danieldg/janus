@@ -155,6 +155,9 @@ sub del_req {
 				};
 			}
 			&Janus::insert_full(@clean);
+			for my $chan ($net->all_chans()) {
+				$chan->unlink_destroyed();
+			}
 			warn "channels still remain after double delinks: ".join ',', keys %{$chans[$$net]} if %{$chans[$$net]};
 			$chans[$$net] = undef;
 		}
