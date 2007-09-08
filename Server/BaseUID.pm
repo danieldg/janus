@@ -4,18 +4,50 @@
 package Server::BaseUID;
 use LocalNetwork;
 use Persist 'LocalNetwork';
-use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
+use integer;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-my @uids :Persist(uids);
+my @next_uid :Persist(nextuid);
 my @nick2uid :Persist(nickuid);
+my @uids     :Persist(uids);
+my @gid2uid  :Persist(giduid);
+
+my @letters = (0 .. 9, 'A' .. 'Z');
+
+sub net2uid {
+	return '00J' if @_ == 2 && $_[0] eq $_[1];
+	my $srv = $_[-1];
+	return '00J' if $srv->isa('Interface');
+	my $res = ($$srv / 36) . $letters[$$srv % 36] . 'J';
+	warn 'you have too many servers' if length $res > 3;
+	$res;
+}
+
+sub next_uid {
+	my($net, $srv) = @_;
+	my $pfx = net2uid($srv);
+	my $number = $next_uid[$$net]{$pfx}++;
+	my $uid = '';
+	for (1..6) {
+		$uid = $letters[$number % 36].$uid;
+		$number /= 36;
+	}
+	warn if $number;
+	$pfx.$uid;
+}
 
 sub _init {
 	my $net = shift;
 	$uids[$$net] = {};
+	$nick2uid[$$net] = {};
+}
+
+sub nick2uid {
+	my($net, $nick) = @_;
+	$gid2uid[$$net]{$nick->gid()};
 }
 
 sub mynick {
@@ -25,7 +57,7 @@ sub mynick {
 		print "UID '$name' does not exist; ignoring\n";
 		return undef;
 	}
-	if ($nick->homenet()->id() ne $net->id()) {
+	if ($nick->homenet() ne $net) {
 		print "UID '$name' is from network '".$nick->homenet()->id().
 			"' but was sourced from network '".$net->id()."'\n";
 		return undef;
@@ -40,9 +72,12 @@ sub nick {
 	undef;
 }
 
+# use for LOCAL nicks only
 sub register_nick {
-	my($net, $new) = @_;
-	my $new_uid = $new->info('home_uid');
+	my($net, $new, $new_uid) = @_;
+	$uids[$$net]{uc $new_uid} = $new;
+	$gid2uid[$$net]{$new->gid()} = $new_uid;
+	print "Registering $new_uid as $new\n";
 	my $name = $new->str($net);
 	my $old_uid = delete $nick2uid[$$net]{lc $name};
 	unless ($old_uid) {
@@ -57,79 +92,88 @@ sub register_nick {
 		$tsctl = -$tsctl;
 	}
 	
+	my @rv;
 	if ($tsctl >= 0) {
-		# TODO ask inspircd devs what to do if $tsctl == 0
 		$nick2uid[$$net]{lc $name} = $new_uid;
 		$nick2uid[$$net]{lc $old_uid} = $old_uid;
-		return +{
-			type => 'NICK',
-			dst => $old,
-			nick => $old_uid,
-			nickts => 1, # this is a UID-based nick, it ALWAYS wins
-		};
-	} else {
+		if ($old->homenet() eq $net) {
+			push @rv, +{
+				type => 'NICK',
+				dst => $old,
+				nick => $old_uid,
+				nickts => 1, # this is a UID-based nick, it ALWAYS wins.
+			}
+		} else {
+			push @rv, +{
+				type => 'RECONNECT',
+				dst => $old,
+				killed => 0,
+			};
+		}
+	}
+	if ($tsctl <= 0) {
 		$nick2uid[$$net]{lc $new_uid} = $new_uid;
 		$nick2uid[$$net]{lc $name} = $old_uid;
-		return +{
+		push @rv, +{
 			type => 'NICK',
 			dst => $new,
 			nick => $new_uid,
 			nickts => 1,
 		};
 	}
+	delete $nick2uid[$$net]{lc $name} if $tsctl == 0;
+	@rv;
 }
-
-## TODO ## this is where I stopped implementation
 
 # Request a nick on a remote network (CONNECT/JOIN must be sent AFTER this)
 sub request_nick {
 	my($net, $nick, $reqnick, $tagged) = @_;
-	my $given;
-	if ($nick->homenet()->id() eq $net->id()) {
-		$given = $reqnick;
-	} else {
-		$reqnick =~ s/[^0-9a-zA-Z\[\]\\^\-_`{|}]/_/g;
-		my $maxlen = $net->nicklen();
-		$given = substr $reqnick, 0, $maxlen;
+	$reqnick =~ s/[^0-9a-zA-Z\[\]\\^\-_`{|}]/_/g;
+	my $maxlen = $net->nicklen();
+	my $given = substr $reqnick, 0, $maxlen;
 
-		$tagged = 1 if exists $nicks[$$net]->{lc $given};
+	$tagged = 1 if exists $nick2uid[$$net]->{lc $given};
 
-		my $tagre = $net->param('force_tag');
-		$tagged = 1 if $tagre && $given =~ /$tagre/;
+	my $tagre = $net->param('force_tag');
+	$tagged = 1 if $tagre && $given =~ /$tagre/;
 		
-		if ($tagged) {
-			my $tagsep = $net->param('tag_prefix');
-			$tagsep = '/' unless defined $tagsep;
-			my $tag = $tagsep . $nick->homenet()->id();
-			my $i = 0;
-			$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
-			while (exists $nicks[$$net]->{lc $given}) {
-				my $itag = $tagsep.(++$i).$tag; # it will find a free nick eventually...
-				$given = substr($reqnick, 0, $maxlen - length $itag) . $itag;
-			}
+	if ($tagged) {
+		my $tagsep = $net->param('tag_prefix');
+		$tagsep = '/' unless defined $tagsep;
+		my $tag = $tagsep . $nick->homenet()->id();
+		my $i = 0;
+		$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
+		while (exists $nick2uid[$$net]->{lc $given}) {
+			my $itag = $tagsep.(++$i).$tag; # it will find a free nick eventually...
+			$given = substr($reqnick, 0, $maxlen - length $itag) . $itag;
 		}
 	}
-	$nicks[$$net]->{lc $given} = $nick;
+	my $uid = $net->next_uid($nick->homenet());
+	print "Registering $nick as uid $uid and nick $given\n";
+	$uids[$$net]{uc $uid} = $nick;
+	$nick2uid[$$net]{lc $given} = $uid;
+	$gid2uid[$$net]{$nick->gid()} = $uid;
 	return $given;
 }
 
 # Release a nick on a remote network (PART/QUIT must be sent BEFORE this)
 sub release_nick {
 	my($net, $req) = @_;
-	delete $nicks[$$net]->{lc $req};
+	my $uid = delete $nick2uid[$$net]->{lc $req};
+	delete $uids[$$net]->{uc $uid};
 }
 
 sub all_nicks {
 	my $net = shift;
-	values %{$nicks[$$net]};
+	values %{$uids[$$net]};
 }
 
 sub item {
 	my($net, $item) = @_;
 	return undef unless defined $item;
 	return $net->chan($item) if $item =~ /^#/;
-	return $nicks[$$net]{lc $item} if exists $nicks[$$net]{lc $item};
-	return $net if $item =~ /\./;
+	return $uids[$$net]{uc $item} if exists $uids[$$net]{uc $item};
+	return $net if $item =~ /\./ || $item =~ /^[0-9]..$/;
 	return undef;
 }
 
@@ -139,7 +183,7 @@ sub item {
 		my $net = $act->{net};
 		return unless $net->isa(__PACKAGE__);
 		my $tid = $net->id();
-		if (%{$nicks[$$net]}) {
+		if (%{$uids[$$net]}) {
 			my @clean;
 			warn "nicks remain after a netsplit, killing...";
 			for my $nick ($net->all_nicks()) {
@@ -152,8 +196,8 @@ sub item {
 				};
 			}
 			&Janus::insert_full(@clean);
-			warn "nicks still remain after netsplit kills: ".join ',', keys %{$nicks[$$net]} if %{$nicks[$$net]};
-			$nicks[$$net] = undef;
+			warn "nicks still remain after netsplit kills: ".join ',', keys %{$nick2uid[$$net]} if %{$uids[$$net]};
+			delete $uids[$$net];
 		}
 	},
 );
