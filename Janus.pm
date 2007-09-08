@@ -20,13 +20,25 @@ our $interface;
 our %nets;
 our %nicks;
 
-# PRIVATE VARS - TODO possibly enforce this private-ness?
-our $last_check = time;
+=head2 Module loading
 
-# TODO this should really be maintained by main with an interface of some kind to add/remove
-# entries
-# (net | port number) => [ sock, recvq, sendq, (Net | undef if listening), trying_read, trying_write ]
-our %netqueues;
+=over
+
+=item Janus::load($module, @args)
+
+Loads a module from a file, allowing it to register hooks as it loads and
+registering it for unloading
+
+=item Janus::unload($module)
+
+Remove hooks and commands for a module. This is called automatically when your module
+is unladed or reloaded
+
+=item Janus::reload($module, @args)
+
+Same as calling unload and load sequentially
+
+=cut
 
 # module => state (0 = unloaded, 1 = loading, 2 = loaded)
 our %modules;
@@ -34,6 +46,136 @@ $modules{Janus} = 1;
 
 our %hooks;
 our %commands;
+
+sub reload {
+	my $module = $_[0];
+
+	&Janus::unload if $modules{$module};
+	&Janus::load;
+}
+
+sub load {
+	my $module = shift;
+	return 1 if $modules{$module};
+
+	$modules{$module} = 1;
+
+	my $fn = $module.'.pm';
+	$fn =~ s#::#/#g;
+	if (-f $fn && do $fn) {
+		$modules{$module} = 2;
+	} else {
+		warn "Cannot load module $module: $! $@";
+		$modules{$module} = 0;
+	}
+}
+
+sub unload {
+	my $module = $_[0];
+
+	for my $t (keys %hooks) {
+		for my $l (keys %{$hooks{$t}}) {
+			delete $hooks{$t}{$l}{$module};
+		}
+	}
+	for my $cmd (keys %commands) {
+		next unless $commands{$cmd}{class} eq $module;
+		delete $commands{$cmd};
+	}
+
+	$modules{$module} = 0;
+}
+
+sub update_versions {
+	$_[0] =~ /([0-9A-Za-z_:]+)/;
+	my $mod = $1;
+	my $fn = $mod.'.pm';
+	$fn =~ s#::#/#g;
+	return unless -f $fn;
+	my $ver = '?';
+	my $sha = `sha1sum $fn 2>/dev/null`;
+	if ($sha && $sha =~ /^(.{8})/) {
+		$ver = 'x'.$1;
+		no strict 'refs';
+		no warnings 'once';
+		${$mod.'::SHA_UID'} = $1;
+	} else {
+		$sha = `sha1 $fn 2>/dev/null`;
+		if ($sha =~ / = (.{8})/) {
+			$ver = 'x'.$1;
+			no strict 'refs';
+			no warnings 'once';
+			${$mod.'::SHA_UID'} = $1;
+		} else {
+			warn "Cannot checksum module $mod";
+		}
+	}
+	my $git = `git rev-parse --verify HEAD 2>/dev/null`;
+	if ($git) {
+		unless (`git diff-index HEAD $fn`) {
+			# this file is not modified from the current head
+			`git rev-parse HEAD` =~ /^(.{8})/;
+			$ver = 'g'.$1;
+			# ok, we have the ugly name... now look for a tag
+			`git name-rev --tags --name-only HEAD` =~ /^(.*?)(?:^0)?$/;
+			my $tag = $1;
+			if ($tag ne 'undefined' && $tag !~ /~/) {
+				# we are actually on this tag
+				$ver = 't'.$tag;
+			}
+		}
+	}
+	my $svn = `svn info $fn 2>/dev/null`;
+	if ($svn) {
+		unless (`svn st $fn`) {
+			if ($svn =~ /Revision: (\d+)/) {
+				$ver = 'r'.$1;
+			} else {
+				warn "Cannot parse `svn info` output for $mod ($fn)";
+			}
+		}
+	}
+	no strict 'refs';
+	no warnings 'once';
+	${$mod.'::VERSION_NAME'} = $ver;
+}
+
+update_versions 'Janus';
+
+sub Janus::INC {
+	my($self, $name) = @_;
+	open my $rv, '<', $name or return undef;
+	my $module = $name;
+	$module =~ s/.pm$//;
+	$module =~ s#/#::#g;
+	&Janus::update_versions($module);
+	$modules{$module} = 1;
+	&Janus::schedule({ code => sub {
+		$modules{$module} = 2;
+	}});
+	$rv;
+}
+
+BEGIN {
+	our $INC_ITEM;
+	unless ($INC_ITEM) {
+		my $dummy = 1;
+		$INC_ITEM = bless \$dummy;
+		unshift @INC, $INC_ITEM;
+	}
+}
+
+=back
+
+=cut
+
+our $last_check = time;
+
+# TODO this should really be maintained by main with an interface of some kind to add/remove
+# entries
+# (net | port number) => [ sock, recvq, sendq, (Net | undef if listening), trying_read, trying_write ]
+our %netqueues;
+
 $commands{unk} = +{
 	class => 'Janus',
 	code => sub {
@@ -108,61 +250,6 @@ sub command_add {
 		$h->{class} = $class;
 		$commands{$cmd} = $h;
 	}
-}
-
-=item Janus::load($module, @args)
-
-Loads a module from a file, allowing it to register hooks as it loads and
-registering it for unloading
-
-=item Janus::unload($module)
-
-Remove hooks and commands for a module. This is called automatically when your module
-is unladed or reloaded
-
-=item Janus::reload($module, @args)
-
-Same as calling unload and load sequentially
-
-=cut
-
-sub reload {
-	my $module = $_[0];
-
-	&Janus::unload if $modules{$module};
-	&Janus::load;
-}
-
-sub load {
-	my $module = shift;
-	return 1 if $modules{$module};
-
-	$modules{$module} = 1;
-
-	my $fn = $module.'.pm';
-	$fn =~ s#::#/#g;
-	if (do $fn) {
-		$modules{$module} = 2;
-	} else {
-		warn "Cannot load module $module: $@";
-		$modules{$module} = 0;
-	}
-}
-
-sub unload {
-	my $module = $_[0];
-
-	for my $t (keys %hooks) {
-		for my $l (keys %{$hooks{$t}}) {
-			delete $hooks{$t}{$l}{$module};
-		}
-	}
-	for my $cmd (keys %commands) {
-		next unless $commands{$cmd}{class} eq $module;
-		delete $commands{$cmd};
-	}
-
-	$modules{$module} = 0;
 }
 
 =back
@@ -498,7 +585,9 @@ sub delink {
 
 $modules{Janus} = 2;
 
-&Janus::load('InterJanus'); # for debug_send
-&Janus::load('Pending');    # for in_newsock
+# we load these modules down here because their loading uses
+# some of the subs defined above
+use InterJanus;
+use Pending;
 
 1;

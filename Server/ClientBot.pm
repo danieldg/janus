@@ -2,12 +2,10 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Server::ClientBot;
-BEGIN {
-	&Janus::load('LocalNetwork');
-	&Janus::load('Nick');
-	&Janus::load('Modes');
-	&Janus::load('Server::BaseNick');
-}
+use LocalNetwork;
+use Nick;
+use Modes;
+use Server::BaseNick;
 use Persist 'Server::BaseNick';
 use Scalar::Util 'weaken';
 use strict;
@@ -26,7 +24,6 @@ my %toirc;
 sub _init {
 	my $net = shift;
 	$sendq[$$net] = [];
-	$net->SUPER::_init();
 }
 
 sub debug {

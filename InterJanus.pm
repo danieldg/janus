@@ -6,9 +6,7 @@ use Persist;
 use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
-BEGIN {
-	&Janus::load('Nick');
-}
+use Nick;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 

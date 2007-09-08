@@ -3,13 +3,16 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 use strict;
-BEGIN { push @INC, '.' }
+BEGIN {
+	$ENV{PATH} = '/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin';
+	push @INC, '.';
+}
 use Janus;
 use IO::Select;
 use IO::Socket::SSL;
 use POSIX 'setsid';
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
+our $VERSION = '(S)v'.join '', '$Rev$' =~ /(\d+)/;
 
 my $args = @ARGV && $ARGV[0] =~ /^-/ ? shift : '';
 

@@ -2,10 +2,9 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Interface;
-BEGIN {
-	&Janus::load('Network');
-	&Janus::load('Nick');
-}
+use Janus;
+use Network;
+use Nick;
 use Persist 'Network';
 use strict;
 use warnings;

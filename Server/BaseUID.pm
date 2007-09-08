@@ -2,10 +2,7 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Server::BaseUID;
-BEGIN {
-	&Janus::load('LocalNetwork');
-	&Janus::load('Channel');
-}
+use LocalNetwork;
 use Persist 'LocalNetwork';
 use Scalar::Util qw(isweak weaken);
 use strict;
@@ -19,7 +16,6 @@ my @nick2uid :Persist(nickuid);
 sub _init {
 	my $net = shift;
 	$uids[$$net] = {};
-	$net->SUPER::_init();
 }
 
 sub mynick {

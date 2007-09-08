@@ -2,9 +2,7 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Server::InspMods;
-BEGIN {
-	&Janus::load('LocalNetwork');
-}
+use LocalNetwork;
 use Persist 'LocalNetwork';
 use strict;
 use warnings;

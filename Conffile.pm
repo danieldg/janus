@@ -9,6 +9,7 @@ use warnings;
 our $VERSION;
 my $reload = $VERSION;
 ($VERSION) = '$Rev$' =~ /(\d+)/;
+$VERSION = 1 unless $VERSION; # make sure reloads act as such
 
 our $conffile;
 $conffile = $_[0] unless $reload;
@@ -106,11 +107,13 @@ sub connect_net {
 			&Janus::err_jmsg($nick, "Could not listen on port $nconf->{port}: $!");
 		}
 	} elsif ($nconf->{autoconnect}) {
-		my $type = $nconf->{type};
-		my $net = eval "use Server::$type; return Server::${type}->new(id => \$id)";
-		unless ($net) {
+		my $type = 'Server::'.$nconf->{type};
+		unless (&Janus::load($type)) {
 			&Janus::err_jmsg($nick, "Error creating $type network $id: $@");
 		} else {
+			my $net = &Persist::new($type, id => $id);
+			# this is equivalent to $type->new(id => \$id) but without using eval
+
 			print "Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}\n";
 
 			my $sock = $inet{conn}->($nconf);

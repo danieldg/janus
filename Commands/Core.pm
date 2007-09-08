@@ -35,7 +35,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			s/\.pmc?$//;
 			s#/#::#g;
 			no strict 'refs';
-			my $v = ${$_.'::VERSION'} || '';
+			my $v = ${$_.'::VERSION_NAME'} || ${$_.'::VERSION'} || '';
 			next unless $v;
 			$m1 = length $_ if $m1 < length $_;
 			$m2 = length $v if $m2 < length $v;
@@ -46,6 +46,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			my @out = splice @mvs,0,6;
 			&Janus::jmsg($nick, sprintf $ex x (@out/2), @out);
 		}
+		# TODO this would look better if it were read down columns, not across
 	}
 }, {
 	cmd => 'renick',

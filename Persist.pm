@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Attribute::Handlers;
 use Persist::Field;
+use Data::Dumper;
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 our %vars;
@@ -18,19 +19,37 @@ sub Persist : ATTR(ARRAY,BEGIN) {
 	tie @$var, 'Persist::Field', $src;
 }
 
+sub PersistAs : ATTR(ARRAY,BEGIN) {
+	my($spk, $sym, $var, $attr, $dat, $phase) = @_;
+	my($pk, $name) = @$dat;
+	$name = $spk.'::'.$name;
+	my $src = $vars{$pk}{$name} || [];
+	$vars{$pk}{$name} = $src;
+	tie @$var, 'Persist::Field', $src;
+}
+
 sub list_all_refs {
+	local $Data::Dumper::Purity = 0;
+	local $Data::Dumper::Terse = 1;
+	print Data::Dumper::Dumper(dump_all_refs());
+}
+
+sub dump_all_refs {
+	my %out;
 	for my $pk (keys %vars) {
 		my %oops;
 		for my $var (keys %{$vars{$pk}}) {
 			my $arr = $vars{$pk}{$var};
 			for my $i (0..$#$arr) {
-				$oops{$i}++ if exists $arr->[$i];
+				next unless exists $arr->[$i];
+				$oops{$i}{$var} = $arr->[$i];
 			}
 		}
 		if (%oops) {
-			print "Package $pk: ".join(' ', sort keys %oops)."\n";
+			$out{$pk} = \%oops;
 		}
 	}
+	\%out;
 }
 
 sub import {
@@ -39,7 +58,7 @@ sub import {
 	my $pkg = caller;
 	{
 		no strict 'refs';
-		push @{$pkg.'::ISA'}, $self, @_;
+		push @{$pkg.'::ISA'}, @_, $self;
 	}
 }
 
@@ -69,6 +88,7 @@ sub gid_find {
 	}
 	delete $isas{$_} for keys %tops;
 	delete $tops{__PACKAGE__ . ''};
+	warn "Can't find top-level inheritance object" unless %tops;
 	warn "Multiple top-level inheritance doesn't work: ".join ' ', keys %tops if 1 < scalar keys %tops;
 	keys(%tops), keys(%isas);
 }
@@ -91,7 +111,11 @@ sub new {
 			$init_args{$pkg}{$arg}[$n] = $args{$arg};
 		}
 	}
-	$s->_init(\%args) if $s->can('_init');
+	for my $pkg (@pkgs) {
+		no strict 'refs';
+		my $init = *{$pkg.'::_init'}{CODE};
+		$init->($s, \%args) if $init;
+	}
 	$s;
 }
 

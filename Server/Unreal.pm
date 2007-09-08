@@ -2,11 +2,9 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Server::Unreal;
-BEGIN {
-	&Janus::load('Server::BaseNick');
-	&Janus::load('Nick');
-	&Janus::load('Modes');
-}
+use Nick;
+use Modes;
+use Server::BaseNick;
 use Persist 'Server::BaseNick';
 use strict;
 use warnings;
@@ -21,7 +19,6 @@ my @auth    :Persist(auth);
 sub _init {
 	my $net = shift;
 	$sendq[$$net] = [];
-	$net->SUPER::_init();
 }
 
 my %fromirc;

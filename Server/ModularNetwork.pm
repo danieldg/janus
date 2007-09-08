@@ -2,10 +2,6 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Server::ModularNetwork;
-BEGIN {
-	&Janus::load('Nick');
-	&Janus::load('Modes');
-}
 use Persist 'LocalNetwork';
 use strict;
 use warnings;

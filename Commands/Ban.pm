@@ -8,7 +8,6 @@ use warnings;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-our %netbans; # TODO consider saving these
 my @regex  :Persist(regex);
 my @expr   :Persist(expr)   :Arg(expr)   :Get(expr);
 my @net    :Persist(net)    :Arg(net)    :Get(net);
@@ -16,15 +15,18 @@ my @setter :Persist(setter) :Arg(setter) :Get(setter);
 my @expire :Persist(expire) :Arg(expire) :Get(expire);
 my @reason :Persist(reason) :Arg(reason) :Get(reason);
 
+my @bans   :PersistAs(Network,bans);
+
 sub add {
 	my $ban = Commands::Ban->new(@_);
-	push @{$netbans{$ban->net()->id()}}, $ban;
+	my $net = $net[$$ban];
+	push @{$bans[$$net]}, $ban;
 	$ban;
 }
 
 sub find {
 	my($net, $iexpr) = @_;
-	for my $ban (@{$netbans{$net->id()}}) {
+	for my $ban (@{$bans[$$net]}) {
 		$expr[$$ban] eq $iexpr and return $ban;
 	}
 	undef;
@@ -43,7 +45,7 @@ sub _init {
 
 sub banlist {
 	my $net = shift;
-	my $list = $netbans{$net->id()};
+	my $list = $bans[$$net];
 	return () unless $list;
 	my @good;
 	for my $ban (@$list) {
@@ -52,7 +54,7 @@ sub banlist {
 			push @good, $ban;
 		}
 	}
-	$netbans{$net->id()} = \@good;
+	$bans[$$net] = \@good;
 	@good;
 }
 
@@ -209,10 +211,6 @@ my %timespec = (
 			return unless $ban;
 			$ban->delete();
 		}
-	}, NETSPLIT => act => sub {
-		my $act = shift;
-		my $net = $act->{net};
-		delete $netbans{$net->id()};
 	},
 );
 

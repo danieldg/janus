@@ -2,10 +2,7 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Server::BaseNick;
-BEGIN {
-	&Janus::load('LocalNetwork');
-	&Janus::load('Channel');
-}
+use LocalNetwork;
 use Persist 'LocalNetwork';
 use Scalar::Util qw(isweak weaken);
 use strict;
@@ -18,7 +15,6 @@ my @nicks  :Persist(nicks);
 sub _init {
 	my $net = shift;
 	$nicks[$$net] = {};
-	$net->SUPER::_init();
 }
 
 sub mynick {
