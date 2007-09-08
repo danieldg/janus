@@ -10,16 +10,13 @@ use warnings;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-my @nicks  :Persist(nicks);
-
 sub _init {
 	my $net = shift;
-	$nicks[$$net] = {};
 }
 
 sub mynick {
 	my($net, $name) = @_;
-	my $nick = $nicks[$$net]{lc $name};
+	my $nick = $Janus::nicks{lc $name};
 	unless ($nick) {
 		print "Nick '$name' does not exist; ignoring\n";
 		return undef;
@@ -34,22 +31,22 @@ sub mynick {
 
 sub nick {
 	my($net, $name) = @_;
-	return $nicks[$$net]{lc $name} if $nicks[$$net]{lc $name};
+	return $Janus::nicks{lc $name} if $Janus::nicks{lc $name};
 	print "Nick '$name' does not exist; ignoring\n" unless $_[2];
 	undef;
 }
 
 sub nick_collide {
 	my($net, $name, $new) = @_;
-	my $old = delete $nicks[$$net]->{lc $name};
+	my $old = delete $Janus::nicks{lc $name};
 	unless ($old) {
-		$nicks[$$net]->{lc $name} = $new;
+		$Janus::nicks{lc $name} = $new;
 		return 1;
 	}
 	my $tsctl = $old->ts() <=> $new->ts();
 
-	$nicks[$$net]->{lc $name} = $new if $tsctl > 0;
-	$nicks[$$net]->{lc $name} = $old if $tsctl < 0;
+	$Janus::nicks{lc $name} = $new if $tsctl > 0;
+	$Janus::nicks{lc $name} = $old if $tsctl < 0;
 	
 	my @rv = ($tsctl > 0);
 	if ($tsctl >= 0) {
@@ -81,7 +78,7 @@ sub request_nick {
 		my $maxlen = $net->nicklen();
 		$given = substr $reqnick, 0, $maxlen;
 
-		$tagged = 1 if exists $nicks[$$net]->{lc $given};
+		$tagged = 1 if exists $Janus::nicks{lc $given};
 
 		my $tagre = $net->param('force_tag');
 		$tagged = 1 if $tagre && $given =~ /$tagre/;
@@ -92,59 +89,34 @@ sub request_nick {
 			my $tag = $tagsep . $nick->homenet()->id();
 			my $i = 0;
 			$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
-			while (exists $nicks[$$net]->{lc $given}) {
+			while (exists $Janus::nicks{lc $given}) {
 				my $itag = $tagsep.(++$i).$tag; # it will find a free nick eventually...
 				$given = substr($reqnick, 0, $maxlen - length $itag) . $itag;
 			}
 		}
 	}
-	$nicks[$$net]->{lc $given} = $nick;
+	$Janus::nicks{lc $given} = $nick;
 	return $given;
 }
 
 # Release a nick on a remote network (PART/QUIT must be sent BEFORE this)
 sub release_nick {
 	my($net, $req) = @_;
-	delete $nicks[$$net]->{lc $req};
+	delete $Janus::nicks{lc $req};
 }
 
 sub all_nicks {
 	my $net = shift;
-	values %{$nicks[$$net]};
+	values %Janus::nicks;
 }
 
 sub item {
 	my($net, $item) = @_;
 	return undef unless defined $item;
 	return $net->chan($item) if $item =~ /^#/;
-	return $nicks[$$net]{lc $item} if exists $nicks[$$net]{lc $item};
+	return $Janus::nicks{lc $item} if exists $Janus::nicks{lc $item};
 	return $net if $item =~ /\./;
 	return undef;
 }
-
-&Janus::hook_add(
-	NETSPLIT => cleanup => sub {
-		my $act = shift;
-		my $net = $act->{net};
-		return unless $net->isa(__PACKAGE__);
-		my $tid = $net->id();
-		if (%{$nicks[$$net]}) {
-			my @clean;
-			warn "nicks remain after a netsplit, killing...";
-			for my $nick ($net->all_nicks()) {
-				push @clean, +{
-					type => 'KILL',
-					dst => $nick,
-					net => $net,
-					msg => 'JanusSplit',
-					nojlink => 1,
-				};
-			}
-			&Janus::insert_full(@clean);
-			warn "nicks still remain after netsplit kills: ".join ',', keys %{$nicks[$$net]} if %{$nicks[$$net]};
-			$nicks[$$net] = undef;
-		}
-	},
-);
 
 1;

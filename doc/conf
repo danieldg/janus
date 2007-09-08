@@ -1,0 +1,70 @@
+Janus configuration file
+
+The file "janus.conf" is the configuration file for janus. It is a line-based
+file divided into sections for linked networks.
+
+set::ipv6 [0|1]
+	Enables or disables IPv6 support. This value is only read once, at the startup of janus.
+
+set::janus nick
+	Sets the default nick for the janus interface bot
+
+set::pass password
+	Sets the rehash password so that "/msg janus rehash password" will work as
+	a non-oper
+
+set::diepass password
+	Sets the password to use "/msg janus die" and "/msg janus restart"; if this
+	is left out those commands are disabled
+
+
+Network link blocks:
+
+link netid {
+	key value
+	key value
+}
+
+link::type Class
+	Sets the type of the link. The given class should be a subclass of LocalNetwork,
+	and will be loaded if needed. Link classes can define their own keys for network
+	configuration
+
+link::autoconnect [0|1]
+	set this to 1 to have janus autoconnect to this network
+
+link::linkaddr ip
+	The IP to connect to when autoconnecting. Use the ::ffff:1.2.3.4 style if you
+	have IPv6 enabled
+
+link::linkport port
+	the port to connect to when autoconnecting
+
+link::linkname hub.janus
+	the name of the server Janus connects as. The name "hub.janus" is strongly recommended.
+
+link::linktype [ssl|plain]
+	enable/disable SSL when autoconnecting
+
+link::netname Some Name
+	Human-readable network name
+
+link::sendpass password
+link::recvpass password
+	Network-specific passwords to authenticate server-server links
+
+link::server irc.your.net
+	Server name that we are linking to (mainly used for incoming connections)
+
+link::numeric 41
+	The numeric this server uses (not required; used in ircds supporting numerics)
+
+
+Listen blocks:
+
+listen port {
+	key value
+}
+
+listen::linktype [plain|ssl]
+	TODO, will determine if this is an SSL linking port

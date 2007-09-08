@@ -17,10 +17,9 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		my $ts = time;
 		open my $dump, '>', "log/dump-$ts" or return;
 		my @all = (
-			\%Janus::gnicks,
-			\%Janus::gchans,
+			\%Janus::nicks,
+			\%LocalNetwork::chans,
 			\%Janus::nets,
-			\%Janus::ijnets,
 			&Persist::dump_all_refs(),
 		);
 		print $dump Data::Dumper::Dumper(\@all);

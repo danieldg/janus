@@ -18,9 +18,7 @@ my $args = @ARGV && $ARGV[0] =~ /^-/ ? shift : '';
 
 $| = 1;
 
-&Janus::load('Bridge') or die;
-&Janus::load('Interface') or die;
-&Janus::load('Actions') or die;
+&Janus::load($_) or die for qw(Bridge Interface Actions Commands::Core);
 &Janus::load('Conffile', shift || 'janus.conf') or die;
 
 unless ($args =~ /d/) {
