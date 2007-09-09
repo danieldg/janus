@@ -211,8 +211,21 @@ sub item {
 				};
 			}
 			&Janus::insert_full(@clean);
-			warn "nicks still remain after netsplit kills: ".join ',', keys %{$nick2uid[$$net]} if %{$uids[$$net]};
-			delete $uids[$$net];
+		}
+		if (%{$gid2uid[$$net]}) {
+			my @clean;
+			warn "nicks still remain after netsplit kills, trying again...";
+			for my $gid (keys %{$gid2uid[$$net]}) {
+				my $nick = $Janus::gnicks{$gid};
+				push @clean, +{
+					type => 'KILL',
+					dst => $nick,
+					net => $net,
+					msg => 'JanusSplit',
+					nojlink => 1,
+				};
+			}
+			&Janus::insert_full(@clean);
 		}
 	},
 );
