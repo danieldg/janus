@@ -5,6 +5,7 @@ package Conffile;
 use IO::Handle;
 use strict;
 use warnings;
+use Listener;
 
 our $VERSION;
 my $reload = $VERSION;
@@ -56,11 +57,11 @@ sub read_conf {
 				&Janus::err_jmsg($nick, "Missing closing brace at line $. of config file, aborting");
 				return;
 			}
-			/^(\d+)/ or do {
-				&Janus::err_jmsg($nick, "Error in line $. of config file: expected port");
+			/^((?:\S+:)?\d+)( |$)/ or do {
+				&Janus::err_jmsg($nick, "Error in line $. of config file: expected port or IP:port");
 				return;
 			};
-			$current = { port => $1 };
+			$current = { addr => $1 };
 			$newconf{'LISTEN:'.$1} = $current;
 		} elsif ($type eq 'set' || $type eq 'modules') {
 			if (defined $current) {
@@ -68,7 +69,8 @@ sub read_conf {
 				return;
 			}
 			$current = {};
-			$newconf{$type eq 'set' ? 'janus' : $type} = $current;
+			$newconf{$type} = $current;
+			$newconf{janus} = $current if $type eq 'set';
 		} elsif ($type eq '}') {
 			unless (defined $current) {
 				&Janus::err_jmsg($nick, "Extra closing brace at line $. of config file");
@@ -102,9 +104,10 @@ sub connect_net {
 	if ($id =~ /^LISTEN:/) {
 		my $sock = $inet{listn}->($nconf);
 		if ($sock) {
-			$Janus::netqueues{$id} = [$sock, undef, undef, undef, 1, 0];
+			my $list = Listener->new(id => $id, conf => $nconf);
+			$Janus::netqueues{$id} = [$sock, undef, undef, $list, 1, 0];
 		} else {
-			&Janus::err_jmsg($nick, "Could not listen on port $nconf->{port}: $!");
+			&Janus::err_jmsg($nick, "Could not listen on port $nconf->{addr}: $!");
 		}
 	} elsif ($nconf->{autoconnect}) {
 		my $type = 'Server::'.$nconf->{type};
@@ -163,7 +166,7 @@ sub rehash {
 
 unless ($reload) {
 	read_conf;
-	if ($netconf{janus}{ipv6}) {
+	if ($netconf{set}{ipv6}) {
 		eval q[
 			use IO::Socket::INET6;
 			use IO::Socket::SSL 'inet6';
@@ -174,10 +177,12 @@ unless ($reload) {
 		%Conffile::inet = (
 			listn => eval q[ sub {
 				my $nconf = shift;
+				my $addr = $nconf->{addr};
+				$addr = '[::]:'.$addr unless $addr =~ /:/;
 				my $sock = IO::Socket::INET6->new(
 					Listen => 5, 
 					Proto => 'tcp', 
-					LocalPort => $nconf->{port}, 
+					LocalAddr => $addr,
 					Blocking => 0,
 				);
 				if ($sock) {
@@ -221,10 +226,12 @@ unless ($reload) {
 		%Conffile::inet = (
 			listn => eval q[ sub {
 				my $nconf = shift;
+				my $addr = $nconf->{addr};
+				$addr = '[::]:'.$addr unless $addr =~ /:/;
 				my $sock = IO::Socket::INET->new(
 					Listen => 5, 
 					Proto => 'tcp', 
-					LocalPort => $nconf->{port}, 
+					LocalPort => $addr,
 					Blocking => 0,
 				);
 				fcntl $sock, F_SETFL, O_NONBLOCK;

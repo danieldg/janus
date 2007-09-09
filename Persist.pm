@@ -88,7 +88,7 @@ sub gid_find {
 	}
 	delete $isas{$_} for keys %tops;
 	delete $tops{__PACKAGE__ . ''};
-	warn "Can't find top-level inheritance object" unless %tops;
+	warn "Can't find top-level inheritance object for $_[0]" unless %tops;
 	warn "Multiple top-level inheritance doesn't work: ".join ' ', keys %tops if 1 < scalar keys %tops;
 	keys(%tops), keys(%isas);
 }

@@ -99,6 +99,18 @@ sub request_nick {
 	return $given;
 }
 
+sub request_newnick {
+	&request_nick;
+}
+
+sub request_cnick {
+	my($net, $nick, $reqnick, $tagged) = @_;
+	my $b4 = $nick->str($net);
+	my $gv = request_nick(@_);
+	$net->release_nick($b4);
+	$gv;
+}
+
 # Release a nick on a remote network (PART/QUIT must be sent BEFORE this)
 sub release_nick {
 	my($net, $req) = @_;

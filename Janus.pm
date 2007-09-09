@@ -465,7 +465,7 @@ sub in_socket {
 	my @act = $src->parse($line);
 	my $parse_hook = $src->isa('Network');
 	for my $act (@act) {
-		$act->{except} = $src unless $act->{except};
+		$act->{except} = $src unless exists $act->{except};
 		unshift @qstack, [];
 		unless (_mod_hook($act->{type}, ($parse_hook ? 'parse' : 'jparse'), $act)) {
 			_run($act);
@@ -502,12 +502,6 @@ sub timer {
 			push @{$tqueue{$t}}, $event;
 		}
 	}
-}
-
-sub in_newsock {
-	my($sock,$peer) = @_;
-	my $net = Pending->new(peer => $peer);
-	$netqueues{$net->id()} = [$sock, '', '', $net, 1, 0];
 }
 
 sub link {
@@ -588,6 +582,5 @@ $modules{Janus} = 2;
 # we load these modules down here because their loading uses
 # some of the subs defined above
 use InterJanus;
-use Pending;
 
 1;
