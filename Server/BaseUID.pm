@@ -125,8 +125,7 @@ sub register_nick {
 	@rv;
 }
 
-# Request a nick on a remote network (CONNECT/JOIN must be sent AFTER this)
-sub request_nick {
+sub _request_nick {
 	my($net, $nick, $reqnick, $tagged) = @_;
 	$reqnick =~ s/[^0-9a-zA-Z\[\]\\^\-_`{|}]/_/g;
 	my $maxlen = $net->nicklen();
@@ -148,6 +147,13 @@ sub request_nick {
 			$given = substr($reqnick, 0, $maxlen - length $itag) . $itag;
 		}
 	}
+	$given;
+}
+
+# Request a nick on a remote network (CONNECT/JOIN must be sent AFTER this)
+sub request_newnick {
+	my($net, $nick, $reqnick, $tagged) = @_;
+	my $given = _request_nick(@_);
 	my $uid = $net->next_uid($nick->homenet());
 	print "Registering $nick as uid $uid and nick $given\n";
 	$uids[$$net]{uc $uid} = $nick;
@@ -156,11 +162,20 @@ sub request_nick {
 	return $given;
 }
 
+sub request_cnick {
+	my($net, $nick, $reqnick, $tagged) = @_;
+	my $given = _request_nick(@_);
+	my $current = $nick->str($net);
+	$nick2uid[$$net]{lc $given} = delete $nick2uid[$$net]{lc $current};
+	$given;
+}
+
 # Release a nick on a remote network (PART/QUIT must be sent BEFORE this)
 sub release_nick {
 	my($net, $req) = @_;
-	my $uid = delete $nick2uid[$$net]->{lc $req};
-	delete $uids[$$net]->{uc $uid};
+	my $uid = delete $nick2uid[$$net]{lc $req};
+	my $nick = delete $uids[$$net]{uc $uid};
+	delete $gid2uid[$$net]{$nick->gid()} if $nick;
 }
 
 sub all_nicks {

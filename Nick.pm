@@ -279,7 +279,7 @@ sub str {
 		$nets[$$nick]{$id} = $net;
 		return if $net->jlink();
 
-		my $rnick = $net->request_nick($nick, $homenick[$$nick], 0);
+		my $rnick = $net->request_newnick($nick, $homenick[$$nick], 0);
 		$nicks[$$nick]->{$id} = $rnick;
 	}, RECONNECT => act => sub {
 		my $act = shift;
@@ -290,8 +290,7 @@ sub str {
 		delete $act->{except};
 
 		my $from = $act->{from} = $nicks[$$nick]{$id};
-		my $to = $act->{to} = $net->request_nick($nick, $homenick[$$nick], 1);
-		$net->release_nick($from);
+		my $to = $act->{to} = $net->request_cnick($nick, $homenick[$$nick], 1);
 		$nicks[$$nick]{$id} = $to;
 		
 		if ($act->{killed}) {
@@ -318,8 +317,7 @@ sub str {
 			my $net = $nets[$$nick]->{$id};
 			next if $net->jlink();
 			my $from = $nicks[$$nick]->{$id};
-			my $to = $net->request_nick($nick, $new);
-			$net->release_nick($from);
+			my $to = $net->request_cnick($nick, $new);
 			$nicks[$$nick]->{$id} = $to;
 	
 			$act->{from}->{$id} = $from;

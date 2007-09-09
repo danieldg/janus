@@ -177,7 +177,8 @@ if ($Janus::interface) {
 
 sub parse { () }
 sub send { }
-sub request_nick { $_[2] }
+sub request_newnick { $_[2] }
+sub request_cnick { $_[2] }
 sub release_nick { }
 sub all_nicks { $Janus::interface }
 sub all_chans { () }
