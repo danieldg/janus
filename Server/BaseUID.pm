@@ -172,10 +172,10 @@ sub request_cnick {
 
 # Release a nick on a remote network (PART/QUIT must be sent BEFORE this)
 sub release_nick {
-	my($net, $req) = @_;
-	my $uid = delete $nick2uid[$$net]{lc $req};
-	my $nick = delete $uids[$$net]{uc $uid};
-	delete $gid2uid[$$net]{$nick->gid()} if $nick;
+	my($net, $req, $nick) = @_;
+	delete $nick2uid[$$net]{lc $req};
+	my $uid = delete $gid2uid[$$net]{$nick->gid()};
+	delete $uids[$$net]{uc $uid};
 }
 
 sub all_nicks {

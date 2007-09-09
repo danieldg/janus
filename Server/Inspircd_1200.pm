@@ -701,7 +701,6 @@ $moddef{CORE} = {
 			warn "Misdirected SVSNICK!";
 			return ();
 		} elsif (lc $nick->homenick eq lc $_[2]) {
-			$net->release_nick(lc $_[2]);
 			return +{
 				type => 'RECONNECT',
 				src => $net->item($_[0]),

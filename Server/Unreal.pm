@@ -775,7 +775,6 @@ sub srvname {
 			# This is an untagged nick. We assume that the reason this
 			# nick was killed was something like a GHOST command and set up
 			# a reconnection with tag
-			$net->release_nick(lc $_[2]);
 			return +{
 				type => 'RECONNECT',
 				dst => $nick,
@@ -803,7 +802,6 @@ sub srvname {
 			warn "Misdirected SVSNICK!";
 			return ();
 		} elsif (lc $nick->homenick eq lc $_[2]) {
-			$net->release_nick(lc $_[2]);
 			return +{
 				type => 'RECONNECT',
 				src => $net->item($_[0]),

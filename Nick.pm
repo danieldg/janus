@@ -205,7 +205,7 @@ sub _netpart {
 	delete $nets[$$nick]->{$id};
 	return if $net->jlink();
 	my $rnick = delete $nicks[$$nick]{$id};
-	$net->release_nick($rnick);
+	$net->release_nick($rnick, $nick);
 	# this could be the last local network the nick was on
 	# if so, we need to remove it from Janus::gnicks
 	my $jl = $nick->jlink();
@@ -354,7 +354,7 @@ sub str {
 			my $net = $nets[$$nick]->{$id};
 			next if $net->jlink();
 			my $name = $nicks[$$nick]->{$id};
-			$net->release_nick($name);
+			$net->release_nick($name, $nick);
 		}
 		delete $chans[$$nick];
 		delete $nets[$$nick];
