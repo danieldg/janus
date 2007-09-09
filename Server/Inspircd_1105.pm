@@ -980,7 +980,11 @@ $moddef{CORE} = {
 			if ($act->{ts} == $act->{oldts}) {
 				return $net->ncmd(REMSTATUS => $chan);
 			} else {
-				return $net->ncmd(FMODE => $chan, $act->{ts}, '+');
+				# XXX this is needed sometimes, but not all the time
+				return (
+					$net->ncmd(FJOIN => $chan, $act->{ts}, ','.$net->_out($Janus::interface)),
+					$net->cmd2($Janus::interface, PART => $chan, 'Timestamp reset'),
+				);
 			}
 		} else {
 			my @interp = $net->_mode_interp($chan->mode_delta());
