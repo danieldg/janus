@@ -29,7 +29,11 @@ if ($Janus::interface) {
 		id => 'janus',
 	);
 	$int->_set_netname('Janus');
-	&Janus::link($int);
+	&Janus::insert_full(+{
+		type => 'NETLINK',
+		net => $int,
+		sendto => [],
+	});
 
 	$Janus::interface = Nick->new(
 		net => $int,
