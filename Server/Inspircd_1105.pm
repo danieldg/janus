@@ -545,6 +545,23 @@ $moddef{CORE} = {
 			kickee => $nick,
 			msg => $_[4],
 		};
+	}, SVSPART => sub {
+		my $net = shift;
+		my $nick = $net->nick($_[2]) or return ();
+		my $chan = $net->chan($_[3]);
+		$net->send({
+			type => 'PART',
+			src => $nick,
+			dst => $chan,
+			msg => 'Services forced part',
+		});
+		return +{
+			type => 'KICK',
+			src => $net->item($_[0]),
+			dst => $chan,
+			kickee => $nick,
+			msg => 'Services forced part',
+		};
 	},
 	INVITE => \&ignore,
 
