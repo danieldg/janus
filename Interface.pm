@@ -56,7 +56,7 @@ if ($Janus::interface) {
 }
 
 &Janus::hook_add(
-	LINKED => act => sub {
+	BURST => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		return if $net->jlink();
