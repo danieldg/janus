@@ -1,0 +1,74 @@
+set {
+	ipv6 1
+}
+
+modules {
+	Commands::Ban
+	Commands::Network
+	Commands::Channel
+	Commands::Debug
+	Silence
+}
+
+listen 8005 {
+	linktype plain
+}
+
+listen 8006 {
+	linktype ssl
+	certfile server.cert.pem
+	keyfile server.key.pem
+}
+
+link ijt {
+	type InterJanus
+	linkaddr ::1
+	linkport 8009
+	linktype plain
+	sendpass pass
+	recvpass ssap
+	netname Local InterJanus Link
+	autoconnect 0
+}
+
+link insp {
+	type Inspircd_1105
+	linkaddr ::1
+	linkport 8004
+	linkname hub.janus
+	linktype plain
+	linkto penguin.omega.org.za
+	sendpass pass
+	recvpass password
+	netname Insp 1
+	autoconnect 1
+}
+
+link u3 {
+	type Unreal
+	autoconnect 1
+	linkaddr ::1
+	linkport 8001
+	linkname hub.janus
+	sendpass pass
+	recvpass pass
+	linktype plain
+	server irc1.testnet
+	numeric 40
+	netname Test 1
+	send_chatops 1
+}
+
+link u4 {
+	type Inspircd_1105
+	linkaddr ::1
+	linkport 8003
+	linkname hub.janus
+	linktype plain
+	linkto penguin.omega.org.za
+	sendpass pass
+	recvpass password
+	netname Port 8003
+	autoconnect 1
+}
+
