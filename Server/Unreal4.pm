@@ -545,6 +545,23 @@ $moddef{CORE} = {
 			kickee => $nick,
 			msg => $_[4],
 		};
+	}, SVSPART => sub {
+		my $net = shift;
+		my $nick = $net->nick($_[2]) or return ();
+		my $chan = $net->chan($_[3]);
+		$net->send({
+			type => 'PART',
+			src => $nick,
+			dst => $chan,
+			msg => 'Services forced part',
+		});
+		return +{
+			type => 'KICK',
+			src => $net->item($_[0]),
+			dst => $chan,
+			kickee => $nick,
+			msg => 'Services forced part',
+		};
 	},
 	INVITE => \&ignore,
 
@@ -712,7 +729,6 @@ $moddef{CORE} = {
 			warn "Misdirected SVSNICK!";
 			return ();
 		} elsif (lc $nick->homenick eq lc $_[2]) {
-			$net->release_nick(lc $_[2]);
 			return +{
 				type => 'RECONNECT',
 				src => $net->item($_[0]),
@@ -990,7 +1006,11 @@ $moddef{CORE} = {
 			if ($act->{ts} == $act->{oldts}) {
 				return $net->ncmd(REMSTATUS => $chan);
 			} else {
-				return $net->ncmd(FMODE => $chan, $act->{ts}, '+');
+				# XXX this is needed sometimes, but not all the time
+				return (
+					$net->ncmd(FJOIN => $chan, $act->{ts}, ','.$net->_out($Janus::interface)),
+					$net->cmd2($Janus::interface, PART => $chan, 'Timestamp reset'),
+				);
 			}
 		} else {
 			my @interp = $net->_mode_interp($chan->mode_delta());

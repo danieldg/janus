@@ -7,7 +7,11 @@ BEGIN {
 	# Support for taint mode: we don't acually need most of these protections
 	# as the person running janus.pl is assumed to have shell access anyway.
 	# The real benefit of taint mode is protecting IRC-sourced data
-	$ENV{PATH} = '/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin';
+	$_ = $ENV{PATH};
+	s/:.(:|$)/$1/;
+	s/~/$ENV{HOME}/g;
+	/(.*)/;
+	$ENV{PATH} = $1;
 	$ENV{SHELL} = '/bin/sh';
 	delete @ENV{'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
 	push @INC, '.';

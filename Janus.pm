@@ -283,7 +283,7 @@ sub _mod_hook {
 
 sub _send {
 	my $act = $_[0];
-	&InterJanus::debug_send($act);
+	&EventDump::debug_send($act);
 	my @to;
 	if (exists $act->{sendto} && ref $act->{sendto}) {
 		@to = @{$act->{sendto}};
@@ -337,12 +337,12 @@ sub _run {
 		my $err = $@ || 'unknown error';
 		$err =~ s/\n//;
 		print "Validate hook [$err] on";
-		&InterJanus::debug_send($act);
+		&EventDump::debug_send($act);
 		return;
 	}
 	if (_mod_hook($act->{type}, check => $act)) {
 		print "Check hook stole";
-		&InterJanus::debug_send($act);
+		&EventDump::debug_send($act);
 		return;
 	}
 	_hook($act->{type}, act => $act);
@@ -581,6 +581,6 @@ $modules{Janus} = 2;
 
 # we load these modules down here because their loading uses
 # some of the subs defined above
-use InterJanus;
+use EventDump;
 
 1;
