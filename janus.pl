@@ -24,12 +24,6 @@ use POSIX 'setsid';
 our $VERSION = '(S)v'.join '', '$Rev$' =~ /(\d+)/;
 
 my $args = @ARGV && $ARGV[0] =~ /^-/ ? shift : '';
-
-$| = 1;
-
-&Janus::load($_) or die for qw(Bridge Interface Actions Commands::Core);
-&Janus::load('Conffile', shift || 'janus.conf') or die;
-
 unless ($args =~ /d/) {
 	my $log = 'log/'.time;
 	umask 022;
@@ -42,7 +36,13 @@ unless ($args =~ /d/) {
 	setsid;
 }
 
+$| = 1;
 $SIG{PIPE} = 'IGNORE';
+
+&Janus::load('Bridge') or die;
+&Janus::load('Conffile', shift || 'janus.conf') or die;
+&Janus::load($_) or die for qw(Interface Actions Commands::Core);
+
 sub readable {
 	my $l = shift;
 	my ($sock, $recvq, $sendq) = @$l;

@@ -4,9 +4,7 @@
 package Bridge;
 use strict;
 use warnings;
-BEGIN {
-	&Janus::load('Modes');
-}
+use Modes;
 
 &Janus::hook_add(
 	NEWNICK => act => sub {
@@ -69,7 +67,7 @@ BEGIN {
 				in_burst => 1,
 			}) if defined $chan->topic();
 		}
-	}, 
+	},
 );
 
 1;

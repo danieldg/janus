@@ -18,11 +18,11 @@ Object representing a set of linked channels
 
 =cut
 
-my @ts       :Persist(ts)                     :Get(ts);
-my @name     :Persist(keyname)                :Get(keyname);
-my @topic    :Persist(topic)   :Arg(topic)    :Get(topic);
-my @topicts  :Persist(topicts) :Arg(topicts)  :Get(topicts);
-my @topicset :Persist(topicts) :Arg(topicset) :Get(topicset);
+my @ts       :Persist(ts)                      :Get(ts);
+my @name     :Persist(keyname)                 :Get(keyname);
+my @topic    :Persist(topic)    :Arg(topic)    :Get(topic);
+my @topicts  :Persist(topicts)  :Arg(topicts)  :Get(topicts);
+my @topicset :Persist(topicset) :Arg(topicset) :Get(topicset);
 my @mode     :Persist(mode)                    :Get(all_modes);
 my @nicks    :Persist(nicks);
 my @nmode    :Persist(nmode);
