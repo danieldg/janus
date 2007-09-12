@@ -101,7 +101,9 @@ sub connect_net {
 	my($nick,$id) = @_;
 	my $nconf = $netconf{$id};
 	return if !$nconf || exists $Janus::netqueues{$id};
+	print "Connecting $id\n";
 	if ($id =~ /^LISTEN:/) {
+		print "Listening on $nconf->{addr}\n";
 		my $sock = $inet{listn}->($nconf);
 		if ($sock) {
 			my $list = Listener->new(id => $id, conf => $nconf);
@@ -234,8 +236,10 @@ unless ($reload) {
 					LocalAddr => $addr,
 					Blocking => 0,
 				);
-				fcntl $sock, F_SETFL, O_NONBLOCK;
-				setsockopt $sock, SOL_SOCKET, SO_REUSEADDR, 1;
+				if ($sock) {
+					fcntl $sock, F_SETFL, O_NONBLOCK;
+					setsockopt $sock, SOL_SOCKET, SO_REUSEADDR, 1;
+				}
 				$sock;
 			} ], 
 			conn => eval q[ sub {
