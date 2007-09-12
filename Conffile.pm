@@ -227,11 +227,11 @@ unless ($reload) {
 			listn => eval q[ sub {
 				my $nconf = shift;
 				my $addr = $nconf->{addr};
-				$addr = '[::]:'.$addr unless $addr =~ /:/;
+				$addr = '0.0.0.0:'.$addr unless $addr =~ /:/;
 				my $sock = IO::Socket::INET->new(
 					Listen => 5, 
 					Proto => 'tcp', 
-					LocalPort => $addr,
+					LocalAddr => $addr,
 					Blocking => 0,
 				);
 				fcntl $sock, F_SETFL, O_NONBLOCK;
