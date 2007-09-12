@@ -285,7 +285,7 @@ sub _mod_hook {
 
 sub _send {
 	my $act = $_[0];
-	&InterJanus::debug_send($act);
+	&EventDump::debug_send($act);
 	my @to;
 	if (exists $act->{sendto} && ref $act->{sendto}) {
 		@to = @{$act->{sendto}};
@@ -294,7 +294,7 @@ sub _send {
 		for my $q (values %netqueues) {
 			my $net = $$q[3];
 			next unless defined $net;
-			push @to, $net if $net->isa('InterJanus');
+			push @to, $net if $net->isa('Server::InterJanus');
 		}
 	} elsif (!ref $act->{dst}) {
 		warn "Action $act of type $act->{type} does not have a destination or sendto list";
@@ -344,12 +344,12 @@ sub _run {
 		my $err = $@ || 'unknown error';
 		$err =~ s/\n//;
 		print "Validate hook [$err] on";
-		&InterJanus::debug_send($act);
+		&EventDump::debug_send($act);
 		return;
 	}
 	if (_mod_hook($act->{type}, check => $act)) {
 		print "Check hook stole";
-		&InterJanus::debug_send($act);
+		&EventDump::debug_send($act);
 		return;
 	}
 	_hook($act->{type}, act => $act);
@@ -525,7 +525,7 @@ sub delink {
 		my $id = $net->id();
 		delete $nets{$id};
 		delete $netqueues{$id};
-	} elsif ($net->isa('InterJanus')) {
+	} elsif ($net->isa('Server::InterJanus')) {
 		my $id = $net->id();
 		delete $ijnets{$id};
 		my $q = delete $netqueues{$id};
@@ -601,6 +601,6 @@ $modules{Janus} = 2;
 
 # we load these modules down here because their loading uses
 # some of the subs defined above
-use InterJanus;
+use EventDump;
 
 1;

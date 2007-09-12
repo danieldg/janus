@@ -1,54 +1,17 @@
 # Copyright (C) 2007 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
-package InterJanus;
-use Persist;
-use Scalar::Util qw(isweak weaken);
+package EventDump;
 use strict;
 use warnings;
 use Nick;
-use RemoteNetwork;
+use Persist;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-my @sendq :Persist('sendq');
-my @id    :Persist('id')    :Arg(id) :Get(id);
-my @auth  :Persist('auth');
-my @pong  :Persist('ponged');
-
-sub pongcheck {
-	my $p = shift;
-	my $ij = $p->{ij};
-	if ($ij && !isweak($p->{ij})) {
-		warn "Reference is strong! Weakening";
-		weaken($p->{ij});
-	}
-	unless ($ij && defined $id[$$ij]) {
-		delete $p->{repeat};
-		&Conffile::connect_net(undef, $p->{id});
-		return;
-	}
-	unless ($Janus::ijnets{$id[$$ij]} eq $ij) {
-		delete $p->{repeat};
-		warn "Network $ij not deallocated quickly enough!";
-		return;
-	}
-	my $last = $pong[$$ij];
-	if ($last + 90 <= time) {
-		print "PING TIMEOUT!\n";
-		&Janus::delink($ij, 'Ping timeout');
-		&Conffile::connect_net(undef, $p->{id});
-		delete $p->{ij};
-		delete $p->{repeat};
-	} elsif ($last + 29 <= time) {
-		$ij->ij_send({ type => 'PING', sendto => [] });
-	}
-}
-
-my %fromirc;
 my %toirc;
 
-my $INST_DBG = do {
+my $INST = do {
 	my $no;
 	bless \$no;
 };
@@ -56,40 +19,6 @@ my $INST_DBG = do {
 sub str {
 	warn;
 	"";
-}
-
-sub intro {
-	my($ij,$nconf) = @_;
-	$sendq[$$ij] = '';
-
-	$pong[$$ij] = time;
-	my $pinger = {
-		repeat => 30,
-		ij => $ij,
-		id => $nconf->{id},
-		code => \&pongcheck,
-	};
-	weaken($pinger->{ij});
-	&Janus::schedule($pinger);
-
-	$Janus::ijnets{$id[$$ij]} = $ij;
-
-	$ij->ij_send(+{
-		type => 'InterJanus',
-		version => 1,
-		id => $nconf->{id},
-		pass => $nconf->{sendpass},
-	});
-	for my $net (values %Janus::nets) {
-		$ij->ij_send(+{
-			type => 'NETLINK',
-			net => $net,
-		});
-	}
-}
-
-sub jlink {
-	$_[0];
 }
 
 my %esc2char = (
@@ -124,7 +53,7 @@ sub ijstr {
 		return ($$ij ? 'c:' : "c:$$itm:").$itm->keyname();
 	} elsif ($itm->isa('Network')) {
 		return 's:'.$itm->id();
-	} elsif ($itm->isa('InterJanus')) {
+	} elsif ($itm->isa('Server::InterJanus')) {
 		return '';
 	}
 	warn "Unknown object $itm";
@@ -136,7 +65,7 @@ sub send_hdr {
 	my $out = "<$act->{type}";
 	for my $key (@keys) {
 		next unless exists $act->{$key};
-		$out .= ' '.$key.'='.$ij->ijstr($act->{$key}) 
+		$out .= ' '.$key.'='.$ij->ijstr($act->{$key});
 	}
 	$out;
 }
@@ -146,7 +75,7 @@ sub ssend {
 	my $out = "<$act->{type}";
 	for my $key (sort keys %$act) {
 		next if $key eq 'type' || $key eq 'except';
-		$out .= ' '.$key.'='.$ij->ijstr($act->{$key}) 
+		$out .= ' '.$key.'='.$ij->ijstr($act->{$key});
 	}
 	$out.'>';
 }
@@ -201,7 +130,7 @@ my %to_ij = (
 );
 
 sub debug_send {
-	my $ij = $INST_DBG;
+	my $ij = $INST;
 	for my $act (@_) {
 		my $type = $act->{type};
 		print "\e[0;33m    ACTION ";
@@ -214,7 +143,7 @@ sub debug_send {
 	}
 }
 
-sub ij_send {
+sub dump_act {
 	my $ij = shift;
 	my @out;
 	for my $act (@_) {
@@ -225,59 +154,7 @@ sub ij_send {
 			print "Unknown action type '$type'\n";
 		}
 	}
-	@out = grep $_, @out; #remove blank lines
-	print "    OUT\@$id[$$ij]  $_\n" for @out;
-	$sendq[$$ij] .= join '', map "$_\n", @out;
-}
-
-sub dump_sendq {
-	my $ij = shift;
-	my $q = $sendq[$$ij];
-	$sendq[$$ij] = '';
-	$q;
-}
-
-sub parse {
-	my $ij = shift;
-	$pong[$$ij] = time;
-	local $_ = $_[0];
-	print "     IN\@$id[$$ij]  $_\n";
-
-	s/^\s*<(\S+)// or do {
-		warn "bad line: $_";
-		return ();
-	};
-	my $act = { type => $1 };
-	$ij->_kv_pairs($act);
-	warn "bad line: $_[0]" unless /^\s*>\s*$/;
-	$act->{except} = $ij;
-	if ($act->{type} eq 'PING') {
-		$ij->ij_send({ type => 'PONG', sendto => [] });
-	} elsif ($auth[$$ij]) {
-		return $act;
-	} elsif ($act->{type} eq 'InterJanus') {
-		print "Unsupported InterJanus version $act->{version}\n" if $act->{version} ne '1';
-		if ($id[$$ij] && $act->{id} ne $id[$$ij]) {
-			print "Unexpected ID reply $act->{id} from IJ $id[$$ij]\n"
-		} else {
-			$id[$$ij] = $act->{id};
-		}
-		my $id = $id[$$ij];
-		my $nconf = $Conffile::netconf{$id};
-		if (!$nconf) {
-			print "Unknown InterJanus server $id\n";
-		} elsif ($act->{pass} ne $nconf->{recvpass}) {
-			print "Failed authorization\n";
-		} else {
-			$auth[$$ij] = 1;
-			$act->{net} = $ij;
-			$act->{sendto} = [];
-			return $act;
-		}
-		delete $Janus::ijnets{$id};
-		delete $Janus::netqueues{$id};
-	}
-	return ();
+	grep $_, @out; #remove blank lines
 }
 
 my %v_type; %v_type = (
@@ -316,14 +193,14 @@ my %v_type; %v_type = (
 		my $ij = shift;
 		my $h = {};
 		s/^<h// or warn;
-		$ij->_kv_pairs($h);
+		$ij->kv_pairs($h);
 		s/^>// or warn;
 		$h;
 	}, '<s' => sub {
 		my $ij = shift;
 		my $h = {};
 		s/^<s// or warn;
-		$ij->_kv_pairs($h);
+		$ij->kv_pairs($h);
 		s/^>// or warn;
 		if ($Janus::nets{$h->{id}}) {
 			# this is a NETLINK of a network we already know about.
@@ -337,7 +214,7 @@ my %v_type; %v_type = (
 		my $ij = shift;
 		my $h = {};
 		s/^<c// or warn;
-		$ij->_kv_pairs($h);
+		$ij->kv_pairs($h);
 		s/^>// or warn;
 		# this creates a new object every time because LINK will fail if we
 		# give it a cached item
@@ -346,7 +223,7 @@ my %v_type; %v_type = (
 		my $ij = shift;
 		my $h = {};
 		s/^<n// or warn;
-		$ij->_kv_pairs($h);
+		$ij->kv_pairs($h);
 		s/^>// or warn;
 		return undef unless ref $h->{net} && $h->{net}->isa('Network');
 		# TODO verify that homenet is not forged
@@ -354,8 +231,7 @@ my %v_type; %v_type = (
 	},
 );
 
-
-sub _kv_pairs {
+sub kv_pairs {
 	my($ij, $h) = @_;
 	while (s/^\s+(\S+)=//) {
 		my $k = $1;

@@ -286,7 +286,7 @@ my %default = (
 	type => '$',
 	src => '?Nick Network',
 	dst => '?Nick Channel Network',
-	except => '?Network InterJanus',
+	except => '?Network Server::InterJanus',
 	sendto => '?@',
 	nojlink => '?$',
 );
@@ -335,6 +335,7 @@ for my $type (keys %spec) {
 		next if exists $check->{$k};
 		print "Warning: unknown key $k in action $itm\n";
 	}
+	$@ = undef;
 	undef;
 });
 

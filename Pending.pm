@@ -5,7 +5,6 @@ package Pending;
 use strict;
 use warnings;
 use Persist;
-use InterJanus;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
@@ -56,7 +55,8 @@ sub parse {
 		}
 	} elsif ($line =~ /^<InterJanus /) {
 		my $q = delete $Janus::netqueues{$pnet->id()};
-		my $ij = InterJanus->new();
+		&Janus::load('Server::InterJanus');
+		my $ij = Server::InterJanus->new();
 		print "Shifting new connection to InterJanus link\n";
 		my @out = $ij->parse($line);
 		if (@out && $out[0]{type} eq 'InterJanus') {
