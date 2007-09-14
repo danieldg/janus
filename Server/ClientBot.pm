@@ -349,7 +349,7 @@ sub kicked {
 	NICK => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[0]) or return ();
-		my $replace = $net->item($_[2]);
+		my $replace = (lc $_[0] eq lc $_[2]) ? undef : $net->item($_[2]);
 		my @out;
 		if ($replace && $replace->homenet()->id() eq $net->id()) {
 			push @out, +{
