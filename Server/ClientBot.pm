@@ -271,8 +271,27 @@ sub pm_not {
 		if ($_[1] eq 'PRIVMSG') {
 			$net->send("NOTICE $_[0] :Error: user not found. To message a user, prefix your message with their nick");
 		} elsif ($_[1] eq 'NOTICE') {
-			if ($_[0] eq 'NickServ' && $_[3] =~ /(registered|protected|identify)/i) {
-				$net->send("PRIVMSG NickServ :identify ". $net->param('nspass'));
+			if (lc $_[0] eq 'nickserv') {
+				if ($_[3] =~ /(registered|protected|identify)/i) {
+					if ($net->param('nspass')) {
+						$net->send("PRIVMSG NickServ :identify ". $net->param('nspass'));
+					} else {
+						print "Couldn't find a password to identify for this nick. It's registered.\n";
+						$self[$$net] .= '_';
+						$net->send('NICK '. $self[$$net]);
+					}
+				} elsif ($_[3] =~ /wrong\spassword/i) {
+					print "Wrong password to identify. Chaging nick.\n";
+					$self[$$net] .= '_';
+					$net->send('NICK '. $self[$$net]);
+				}
+			} elsif ($_[0] eq 'Q' && $_[3] =~ /registered/i) {
+				# Quakenet
+				if ( $net->param('qauth') =~ /(\w+)\s(\w+)/ ) {
+					$net->send ('PRIVMSG Q : AUTH ' . $1 . ' ' . $2);
+				} else {
+					print 'Wrong Q auth format. Should be: "<authname> <password>"';
+				}
 			}
 		}
 		return ();
@@ -445,6 +464,7 @@ sub kicked {
 	# misc
 	'001' => sub {
 		my $net = shift;
+		$net->send('PRIVMSG Q@CServe.quakenet.org :hello') if $net->param('qauth');
 		return +{
 			type => 'LINKED',
 			net => $net,
@@ -468,7 +488,7 @@ sub kicked {
 	372 => \&ignore,
 	375 => \&ignore,
 	376 => \&ignore,
-	
+
 	301 => \&ignore, # away
 	331 => \&ignore, # no topic
 	332 => \&ignore, # topic
@@ -503,6 +523,7 @@ sub kicked {
 		$net->send("WHO $_[3]");
 		();
 	},
+	400 => \&ignore, # no suck Nick
 	422 => \&ignore, # MOTD missing
 	433 => sub { # nick in use, try another
 		my $net = shift;
@@ -522,7 +543,7 @@ sub kicked {
 			dst => $chan,
 			net => $net,
 		};
-	},	
+	},
 	482 => sub { # kick failed (not enough information to determine which one)
 		my $net = shift;
 		my $chan = $net->chan($_[3]) or return ();
