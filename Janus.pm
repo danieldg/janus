@@ -511,14 +511,6 @@ sub timer {
 	}
 }
 
-sub link {
-	my $net = shift;
-	&Janus::insert_full(+{
-		type => 'NETLINK',
-		net => $net,
-	});
-}
-
 sub delink {
 	my($net,$msg) = @_;
 	if ($net->isa('Pending')) {

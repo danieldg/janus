@@ -40,7 +40,10 @@ sub parse {
 				next unless $rnet;
 				print "Shifting new connection to $type network $id\n";
 				$rnet->intro($nconf, 1);
-				&Janus::link($rnet);
+				&Janus::insert_full({
+					type => 'NETLINK',
+					net => $rnet,
+				});
 				last;
 			}
 		}
