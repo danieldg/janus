@@ -123,7 +123,13 @@ sub connect_net {
 
 			$net->intro($nconf);
 
-			&Janus::link($net) unless $net->isa('Server::InterJanus');
+			if ($net->isa('Network')) {
+				&Janus::insert_full({
+					type => 'NETLINK',
+					net => $net,
+				});
+			} 
+			# otherwise it's interjanus, which we let report its own events
 
 			# we start out waiting on writes because that's what connect(2) says for EINPROGRESS connects
 			$Janus::netqueues{$net->id()} = [$sock, '', '', $net, 0, 1];
