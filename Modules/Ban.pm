@@ -1,7 +1,7 @@
 # Copyright (C) 2007 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
-package Commands::Ban;
+package Modules::Ban;
 use Persist;
 use strict;
 use warnings;
@@ -18,7 +18,7 @@ my @reason :Persist(reason) :Arg(reason) :Get(reason);
 my @bans   :PersistAs(Network,bans);
 
 sub add {
-	my $ban = Commands::Ban->new(@_);
+	my $ban = Modules::Ban->new(@_);
 	my $net = $net[$$ban];
 	push @{$bans[$$net]}, $ban;
 	$ban;
@@ -129,7 +129,7 @@ my %timespec = (
 			} else { 
 				$t = 0;
 			}
-			my $ban = &Commands::Ban::add(
+			my $ban = add(
 				net => $net,
 				expr => $arg[0],
 				expire => $t,
@@ -155,7 +155,7 @@ my %timespec = (
 			}
 		} elsif ($cmd =~ /^d/i) {
 			for (@arg) {
-				my $ban = /^\d+$/ ? $list[$_ - 1] : &Commands::Ban::find($net,$_);
+				my $ban = /^\d+$/ ? $list[$_ - 1] : find($net,$_);
 				if ($ban) {
 					&Janus::jmsg($nick, 'Ban '.$ban->expr().' removed');
 					$ban->delete();
@@ -197,7 +197,7 @@ my %timespec = (
 		my $net = $act->{dst};
 		my $expr = 'NOMATCH'; # "$nick!$ident\@$host\%*";
 		if ($act->{action} eq '+') {
-			&Commands::Ban::add(
+			add(
 				net => $net,
 				expr => $expr,
 				reason => $act->{reason},
