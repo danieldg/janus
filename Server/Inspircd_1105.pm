@@ -574,16 +574,18 @@ $moddef{CORE} = {
 			} else {
 				$net->send(['INIT', 'ERROR :Bad password']);
 			}
+			$serverdsc[$$net]{lc $_[2]} = $_[-1];
+			return +{
+				type => 'BURST',
+				net => $net,
+				sendto => [],
+			};
 		} else {
 			# recall parent
 			$servers[$$net]{lc $_[2]} = lc $_[0];
+			$serverdsc[$$net]{lc $_[2]} = $_[-1];
+			return ();
 		}
-		$serverdsc[$$net]{lc $_[2]} = $_[-1];
-		+{
-			type => 'BURST',
-			net => $net,
-			sendto => [],
-		};
 	}, SQUIT => sub {
 		my $net = shift;
 		my $netid = $net->id();

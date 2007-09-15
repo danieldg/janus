@@ -562,22 +562,25 @@ $moddef{CORE} = {
 	SERVER => sub {
 		my $net = shift;
 		unless ($auth[$$net]) {
+			# TODO record the numerics here
 			if ($_[3] eq $net->cparam('recvpass')) {
 				$auth[$$net] = 1;
 				$net->send(['INIT', 'BURST '.time ]);
 			} else {
 				$net->send(['INIT', 'ERROR :Bad password']);
 			}
+			$serverdsc[$$net]{lc $_[2]} = $_[-1];
+			return +{
+				type => 'BURST',
+				net => $net,
+				sendto => [],
+			};
 		} else {
 			# recall parent
 			$servers[$$net]{lc $_[2]} = lc $_[0];
+			$serverdsc[$$net]{lc $_[2]} = $_[-1];
+			();
 		}
-		$serverdsc[$$net]{lc $_[2]} = $_[-1];
-		+{
-			type => 'BURST',
-			net => $net,
-			sendto => [],
-		};
 	}, SQUIT => sub {
 		my $net = shift;
 		my $netid = $net->id();
