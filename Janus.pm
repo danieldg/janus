@@ -265,7 +265,12 @@ sub _hook {
 	return unless $hook;
 	
 	for my $mod (sort keys %$hook) {
-		$hook->{$mod}->(@args);
+		eval {
+			$hook->{$mod}->(@args);
+			1;
+		} or do {
+			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod: $@");
+		};
 	}
 }
 
@@ -277,8 +282,13 @@ sub _mod_hook {
 
 	my $rv = undef;
 	for my $mod (sort keys %$hook) {
-		my $r = $hook->{$mod}->(@args);
-		$rv = $r if defined $r;
+		eval {
+			my $r = $hook->{$mod}->(@args);
+			$rv = $r if defined $r;
+			1;
+		} or do {
+			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod: $@");
+		};
 	}
 	$rv;
 }
@@ -426,17 +436,26 @@ Send error messages to the given destination and to standard error
 
 sub err_jmsg {
 	my $dst = shift;
-	local $_;
-	for (@_) { 
+	for my $v (@_) {
+		local $_ = $v; # don't use $v directly as it's read-only
+		s/\n/ /g;
 		print STDERR "$_\n";
-		next unless $dst;
-		&Janus::append(+{
-			type => 'MSG',
-			src => $interface,
-			dst => $dst,
-			msgtype => ($dst->isa('Channel') ? 'PRIVMSG' : 'NOTICE'), # channel notice == annoying
-			msg => $_,
-		});
+		if ($dst) {
+			&Janus::append(+{
+				type => 'MSG',
+				src => $interface,
+				dst => $dst,
+				msgtype => ($dst->isa('Channel') ? 'PRIVMSG' : 'NOTICE'), # channel notice == annoying
+				msg => $_,
+			});
+		} else {
+			&Janus::insert_full({
+				type => 'CHATOPS',
+				src => $interface,
+				sendto => [ values %nets ],
+				msg => $_,
+			});
+		}
 	}
 }
 
@@ -479,14 +498,20 @@ sub in_socket {
 		}
 		_runq(shift @qstack);
 	}
-} 
+}
 
 sub in_command {
 	my($cmd, $nick, $text) = @_;
 	my $csub = exists $commands{$cmd} ?
 		$commands{$cmd}{code} : $commands{unk}{code};
 	unshift @qstack, [];
-	$csub->($nick, $text);
+	eval {
+		$csub->($nick, $text);
+		1;
+	} or do {
+		print "Unchecked exception: CMD=$cmd $text N=$$nick ERR=$@\n";
+		&Janus::err_jmsg(undef, "Unchecked exception in janus command '$cmd': $@");
+	};
 	_runq(shift @qstack);
 }
 
