@@ -245,6 +245,7 @@ sub _out {
 			unless $itm->is_on($net);
 		return $itm->str($net);
 	} elsif ($itm->isa('Network')) {
+		return $net->cparam('linkname') if $net eq $itm;
 		return $itm->id(). '.janus';
 	} else {
 		warn "Unknown item $itm";
