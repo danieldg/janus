@@ -13,7 +13,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 my $inick = $Conffile::netconf{janus}{janus} || 'janus';
 
 if ($Janus::interface) {
-	# we are being live-reloaded as a module. Don't recreate 
+	# we are being live-reloaded as a module. Don't recreate
 	# the network or nick, just reload commands
 	print "Reloading Interface\n";
 	if ($inick ne $Janus::interface->homenick()) {
@@ -138,7 +138,7 @@ if ($Janus::interface) {
 		my $snet = $act->{net};
 		my $dnet = $act->{dst};
 		print "Link request:";
-		if ($dnet->jlink()) { 
+		if ($dnet->jlink() || $dnet->isa('Interface')) {
 			print " dst non-local";
 		} else {
 			my $recip = $dnet->is_req($act->{dlink}, $snet);
@@ -186,6 +186,7 @@ sub request_cnick { $_[2] }
 sub release_nick { }
 sub is_synced { 0 }
 sub add_req { }
+sub del_req { }
 sub is_req { 'invalid' }
 sub all_nicks { $Janus::interface }
 sub all_chans { () }
