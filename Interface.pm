@@ -184,6 +184,9 @@ sub send { }
 sub request_newnick { $_[2] }
 sub request_cnick { $_[2] }
 sub release_nick { }
+sub is_synced { 0 }
+sub add_req { }
+sub is_req { 'invalid' }
 sub all_nicks { $Janus::interface }
 sub all_chans { () }
 
