@@ -488,16 +488,22 @@ sub schedule {
 sub in_socket {
 	my($src,$line) = @_;
 	return unless $src;
-	my @act = $src->parse($line);
-	my $parse_hook = $src->isa('Network');
-	for my $act (@act) {
-		$act->{except} = $src unless exists $act->{except};
-		unshift @qstack, [];
-		unless (_mod_hook($act->{type}, ($parse_hook ? 'parse' : 'jparse'), $act)) {
-			_run($act);
+	eval {
+		my @act = $src->parse($line);
+		my $parse_hook = $src->isa('Network');
+		for my $act (@act) {
+			$act->{except} = $src unless exists $act->{except};
+			unshift @qstack, [];
+			unless (_mod_hook($act->{type}, ($parse_hook ? 'parse' : 'jparse'), $act)) {
+				_run($act);
+			}
+			_runq(shift @qstack);
 		}
-		_runq(shift @qstack);
-	}
+		1;
+	} or do {
+		print "$line\n";
+		&Janus::err_jmsg(undef, "Unchecked exception in parsing: $@");
+	};
 }
 
 sub in_command {
