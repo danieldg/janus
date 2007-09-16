@@ -149,7 +149,8 @@ returns the InterJanus link if this nick is remote, or undef if it is local
 =cut
 
 sub jlink {
-	return $homenet[${$_[0]}]->jlink();
+	my $net = $homenet[${$_[0]}];
+	$net ? $net->jlink() : undef;
 }
 
 =item $nick->info($item)

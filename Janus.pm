@@ -513,6 +513,7 @@ sub timer {
 
 sub delink {
 	my($net,$msg) = @_;
+	return unless $net;
 	if ($net->isa('Pending')) {
 		my $id = $net->id();
 		delete $nets{$id};
