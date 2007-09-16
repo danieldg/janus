@@ -51,12 +51,12 @@ sub acl_ok {
 	MODE => check => sub {
 		my $act = shift;
 		return undef if acl_ok($act);
-		my $src = delete $act->{src};
-		delete $act->{except};
-		my $snet = $src->isa('Network') ? $src : $src->homenet();
-		$act->{sendto} = [ $snet ];
-		map tr/+-/-+/, @{$act->{dirs}};
-		0;
+		my %nact = %$act;
+		delete $nact{src};
+		my $net = delete $nact{except};
+		map tr/+-/-+/, @{$nact{dirs}};
+		$net->send(\%nact);
+		1;
 	}, KICK => check => sub {
 		my $act = shift;
 		return undef if acl_ok($act);
