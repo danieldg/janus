@@ -1454,7 +1454,7 @@ sub cmd2 {
 			$net->cmd1(GLOBOPS => "Channel $name delinked by $nick");
 		} else {
 			my $name = $act->{dst}->str($net);
-			$net->cmd1(GLOBOPS => "Network ".$act->{net}->netname()." dropped channel $name");
+			$net->cmd1(GLOBOPS => "Network ".$act->{net}->netname()." dropped channel $name: ".$act->{reason});
 		}
 	}, KILL => sub {
 		my($net,$act) = @_;

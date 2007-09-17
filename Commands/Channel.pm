@@ -83,7 +83,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 	cmd => 'delink',
 	help => 'Delinks a channel from all other networks',
 	details => [
-		"Syntax: \002DELINK\002 #channel [network]",
+		"Syntax: \002DELINK\002 #channel [network] [reason]",
 	],
 	code => sub {
 		my($nick, $args) = @_;
@@ -92,11 +92,11 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			&Janus::jmsg($nick, "You must be an IRC operator to use this command");
 			return;
 		}
-		$args && $args =~ /^(#\S*)(?:\s+(\S+))?/ or do {
-			&Janus::jmsg($nick, "Syntax: DELINK #channel [network]");
+		$args && $args =~ /^(#\S*)(?:\s+(\S+))?(\s.+)$)/ or do {
+			&Janus::jmsg($nick, "Syntax: DELINK #channel [network] [reason]");
 			return;
 		};
-		my($cname,$nname) = ($1,$2);
+        my($cname,$nname,$reason) = ($1,$2 || '-', $3 || 'no reason');
 		my $chan = $snet->chan($cname) or do {
 			&Janus::jmsg($nick, "Cannot find channel $cname");
 			return;
@@ -105,17 +105,20 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			&Janus::jmsg($nick, "You must be a channel owner to use this command");
 			return;
 		}
-		$snet = $Janus::nets{$nname} if $nname;
-		unless ($snet) {
-			&Janus::jmsg($nick, 'Could not find that network');
-			return;
-		}
-			
+		if ( $nname ne '-' ) {
+    		$net = $Janus::nets{$nname} if $nname;
+    		unless ($snet) {
+    			&Janus::jmsg($nick, 'Could not find that network');
+    			return;
+    		}
+        }
+
 		&Janus::append(+{
 			type => 'DELINK',
 			src => $nick,
 			dst => $chan,
 			net => $snet,
+            reason => $reason,			
 		});
 	},
 }, {

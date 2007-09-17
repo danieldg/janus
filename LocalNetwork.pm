@@ -152,6 +152,7 @@ sub del_req {
 					dst => $chan,
 					net => $net,
 					nojlink => 1,
+					reason => 'netsplit',
 				};
 			}
 			&Janus::insert_full(@clean);

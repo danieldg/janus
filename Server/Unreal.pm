@@ -1450,10 +1450,10 @@ sub cmd2 {
 		if ($act->{net}->id() eq $net->id()) {
 			my $name = $act->{split}->str($net);
 			my $nick = $act->{src} ? $act->{src}->str($net) : 'janus';
-			$net->cmd1(GLOBOPS => "Channel $name delinked by $nick");
+			$net->cmd1(GLOBOPS => "Channel $name delinked by $nick (". $act->{reason} . ")");
 		} else {
 			my $name = $act->{dst}->str($net);
-			$net->cmd1(GLOBOPS => "Network ".$act->{net}->netname()." dropped channel $name");
+			$net->cmd1(GLOBOPS => "Network ".$act->{net}->netname()." dropped channel $name: ".$act->{reason});
 		}
 	}, KILL => sub {
 		my($net,$act) = @_;

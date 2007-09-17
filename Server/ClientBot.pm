@@ -542,6 +542,7 @@ sub kicked {
 			type => 'DELINK',
 			dst => $chan,
 			net => $net,
+			reason => 'Banned from channel.',
 		};
 	},
 	482 => sub { # kick failed (not enough information to determine which one)
