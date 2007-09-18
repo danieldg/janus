@@ -20,7 +20,7 @@ my @kicks     :Persist(kicks);
 
 my %fromirc;
 my %toirc;
-
+my $lchan;
 sub _init {
 	my $net = shift;
 	$sendq[$$net] = [];
@@ -189,6 +189,7 @@ sub nicklen { 40 }
 		my($net,$act) = @_;
 		return if $act->{linkfile};
 		return if $act->{dlink} eq 'any';
+		$lchan = $act->{net}->str($net);
 		&Janus::insert_full(+{
 			type => 'LINKREQ',
 			dst => $act->{net},
@@ -202,6 +203,7 @@ sub nicklen { 40 }
 	LINK => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst}->str($net);
+		$lchan = $chan;
 		"JOIN $chan";
 	},
 	MSG => sub {
@@ -277,13 +279,10 @@ sub pm_not {
 						$net->send("PRIVMSG NickServ :identify ". $net->param('nspass'));
 					} else {
 						print "Couldn't find a password to identify for this nick. It's registered.\n";
-						$self[$$net] .= '_';
-						$net->send('NICK '. $self[$$net]);
 					}
 				} elsif ($_[3] =~ /wrong\spassword/i) {
 					print "Wrong password to identify. Chaging nick.\n";
-					$self[$$net] .= '_';
-					$net->send('NICK '. $self[$$net]);
+					#Global?
 				}
 			} elsif ($_[0] eq 'Q' && $_[3] =~ /registered/i) {
 				# Quakenet
@@ -555,6 +554,27 @@ sub kicked {
 			msgtype => 'NOTICE',
 			msg => 'Could not relay kick: '.$_[4],
 		};
+	},
+	477 => sub { # Need to register.
+	   my $net = shift;
+	   my $chan = $net->chan($lchan);
+	   $chan = "requested channel" if ( !$chan);
+	   my $msg .= "Couldn't join channel, need to register";
+	   if ( $net->param('nspass') ) {
+	     $net->send ( 'PRIVMSG NickServ :identify '. $net->param('nspass') );
+	     $msg .= ", Identifying to NickServ.";
+	   } elsif ( $net->param('qauth') =~ /(\w+)\s(\w+)/ ) {
+	     $net->send ('PRIVMSG Q : AUTH ' . $1 . ' ' . $2);
+	     $msg = "Authorizing to Q.";
+	   } else {
+	     $msg .= ", Couldn't find any identify method.";
+	   }
+	   return +{
+			type => 'DELINK',
+			dst => $chan,
+			net => $net,
+			reason => $msg,
+	   };
 	}
 );
 
