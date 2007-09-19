@@ -10,19 +10,11 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 my @regex  :Persist(regex);
 my @expr   :Persist(expr)   :Arg(expr)   :Get(expr);
-my @net    :Persist(net)    :Arg(net)    :Get(net);
 my @setter :Persist(setter) :Arg(setter) :Get(setter);
 my @expire :Persist(expire) :Arg(expire) :Get(expire);
 my @reason :Persist(reason) :Arg(reason) :Get(reason);
 
 my @bans   :PersistAs(Network,bans);
-
-sub add {
-	my $ban = Modules::Ban->new(@_);
-	my $net = $net[$$ban];
-	push @{$bans[$$net]}, $ban;
-	$ban;
-}
 
 sub find {
 	my($net, $iexpr) = @_;
@@ -33,7 +25,10 @@ sub find {
 }
 
 sub _init {
-	my $ban = shift;
+	my($ban,$args) = @_;
+	my $net = $args->{net};
+	push @{$bans[$$net]}, $ban;
+
 	local $_ = $ban->expr();
 	unless (s/^~//) { # all expressions starting with a ~ are raw perl regexes
 		s/(\W)/\\$1/g;
@@ -129,7 +124,7 @@ my %timespec = (
 			} else { 
 				$t = 0;
 			}
-			my $ban = add(
+			my $ban = Modules::Ban->new(
 				net => $net,
 				expr => $arg[0],
 				expire => $t,
@@ -197,7 +192,7 @@ my %timespec = (
 		my $net = $act->{dst};
 		my $expr = 'NOMATCH'; # "$nick!$ident\@$host\%*";
 		if ($act->{action} eq '+') {
-			add(
+			Modules::Ban->new(
 				net => $net,
 				expr => $expr,
 				reason => $act->{reason},
