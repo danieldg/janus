@@ -307,7 +307,7 @@ sub pm_not {
 }
 
 sub kicked {
-	my($net, $cname, $msg) = @_;
+	my($net, $cname, $msg,$knick) = @_;
 	my $chan = $net->chan($cname) or return ();
 	my @out;
 	for my $nick ($chan->all_nicks()) {
@@ -316,7 +316,7 @@ sub kicked {
 			type => 'PART',
 			src => $nick,
 			dst => $chan,
-			msg => 'Janus relay bot kicked: '.$msg,
+			msg => 'Janus relay bot kicked by '.$knick.': '.$msg,
 		};
 		my @chans = $nick->all_chans();
 		if (!@chans || (@chans == 1 && lc $chans[0]->str($net) eq lc $cname)) {
@@ -377,7 +377,7 @@ sub kicked {
 		my $net = shift;
 		if (lc $_[0] eq lc $self[$$net]) {
 			# SAPART gives an auto-rejoin just to spite the people who think it's better than kick
-			return $net->kicked($_[2], $_[3]);
+			return $net->kicked($_[2], $_[3],$_[1]);
 		}
 		my $nick = $net->nick($_[0]) or return ();
 		my $chan = $net->chan($_[2]) or return ();
@@ -401,7 +401,7 @@ sub kicked {
 	KICK => sub {
 		my $net = shift;
 		if (lc $_[3] eq lc $self[$$net]) {
-			return $net->kicked($_[2], $_[4]);
+			return $net->kicked($_[2], $_[4],$_[0]);
 		}
 		my $src = $net->nick($_[0]);
 		my $chan = $net->chan($_[2]) or return ();
