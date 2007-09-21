@@ -85,6 +85,7 @@ sub _init {
 	if ($keyname[$$c]) {
 		my $names = $ifo->{names} || {};
 		$names[$$c] = $names;
+		$nets[$$c] = {};
 		for my $id (keys %$names) {
 			my $name = $names->{$id};
 			$nets[$$c]{$id} = $Janus::nets{$id};
