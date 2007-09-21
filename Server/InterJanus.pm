@@ -11,6 +11,8 @@ use RemoteNetwork;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
+my $IJ_PROTO = 1.1;
+
 my @sendq :Persist('sendq');
 my @id    :Persist('id')    :Arg(id) :Get(id);
 my @auth  :Persist('auth');
@@ -68,7 +70,7 @@ sub intro {
 
 	$ij->ij_send(+{
 		type => 'InterJanus',
-		version => 1,
+		version => $IJ_PROTO,
 		id => $nconf->{id},
 		pass => $nconf->{sendpass},
 	});
@@ -117,7 +119,7 @@ sub parse {
 	} elsif ($auth[$$ij]) {
 		return $act;
 	} elsif ($act->{type} eq 'InterJanus') {
-		print "Unsupported InterJanus version $act->{version}\n" if $act->{version} ne '1';
+		print "Unsupported InterJanus version $act->{version}\n" if $act->{version} ne $IJ_PROTO;
 		if ($id[$$ij] && $act->{id} ne $id[$$ij]) {
 			print "Unexpected ID reply $act->{id} from IJ $id[$$ij]\n"
 		} else {
