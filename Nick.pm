@@ -397,7 +397,7 @@ sub str {
 			next unless $chan->is_on($net);
 			my $act = {
 				type => 'KICK',
-				src => $act->{src},
+				src => ($act->{src} || $net),
 				dst => $chan,
 				kickee => $nick,
 				msg => $act->{msg},

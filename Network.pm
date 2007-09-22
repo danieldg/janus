@@ -73,6 +73,7 @@ sub str {
 				netsplit_quit => 1,
 				except => $net,
 				reason => 'netsplit',
+				nojlink => 1,
 			};
 		}
 		&Janus::insert_full(@clean);

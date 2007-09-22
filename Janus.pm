@@ -418,15 +418,18 @@ to the given destination
 
 sub jmsg {
 	my $dst = shift;
-	return unless $dst;
+	return unless $dst && ref $dst;
+	my $type =
+		$dst->isa('Nick') ? 'NOTICE' :
+		$dst->isa('Channel') ? 'PRIVMSG' : '';
 	local $_;
 	&Janus::append(map +{
 		type => 'MSG',
 		src => $interface,
 		dst => $dst,
-		msgtype => ($dst->isa('Channel') ? 'PRIVMSG' : 'NOTICE'), # channel notice == annoying
+		msgtype => $type,
 		msg => $_,
-	}, @_);
+	}, @_) if $type;
 }
 
 =item Janus::err_jmsg($dst, $msg,...)
