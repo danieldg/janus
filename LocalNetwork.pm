@@ -119,7 +119,7 @@ sub all_chans {
 
 sub add_req {
 	my($net, $lchan, $onet, $ochan) = @_;
-	$lreq[$$net]{$lchan}{$onet->id()} = $ochan;
+	$lreq[$$net]{$lchan}{ref $onet ? $onet->id() : $onet} = $ochan;
 }
 
 sub is_req {

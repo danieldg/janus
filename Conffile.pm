@@ -157,16 +157,20 @@ sub rehash {
 		open my $links, 'links.'.$net->id().'.conf' or return;
 		while (<$links>) {
 			my($cname1, $nname, $cname2) = /^\s*(#\S*)\s+(\S+)\s+(#\S*)/ or next;
-			my $net2 = $Janus::nets{$nname} or next;
-			&Janus::append(+{
-				type => 'LINKREQ',
-				net => $net,
-				dst => $net2,
-				slink => $cname1,
-				dlink => $cname2,
-				sendto => [ $net2 ],
-				linkfile => 1,
-			});
+			my $net2 = $Janus::nets{$nname};
+			if ($net2) {
+				&Janus::append(+{
+					type => 'LINKREQ',
+					net => $net,
+					dst => $net2,
+					slink => $cname1,
+					dlink => $cname2,
+					sendto => [ $net2 ],
+					linkfile => 1,
+				});
+			} elsif ($net->isa('LocalNetwork')) {
+				$net->add_req($cname1, $nname, $cname2);
+			}
 		}
 		close $links;
 	},
