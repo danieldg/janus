@@ -317,6 +317,7 @@ sub _send {
 	my(%real, %jlink);
 		# hash to remove duplicates
 	for my $net (@to) {
+		next unless $net;
 		my $ij = $net->jlink();
 		if (defined $ij) {
 			$jlink{$ij->id()} = $ij;

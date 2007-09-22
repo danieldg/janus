@@ -375,6 +375,8 @@ sub unhook_destroyed {
 				oldts => $ts[$$chan1],
 				wipe => 1,
 			});
+		} else {
+			print "No TS conflict\n";
 		}
 
 		my $chan = Channel->new(keyname => $keyname[$$chan1], names => {});

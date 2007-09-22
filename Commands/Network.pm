@@ -77,7 +77,6 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		&Janus::schedule(+{
 			delay => 2,
 			code => sub {
-				$ENV{PATH} = '/usr/bin';
 				exec 'perl -T janus.pl';
 			},
 		});
