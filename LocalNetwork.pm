@@ -138,6 +138,25 @@ sub del_req {
 		my $net = $act->{net};
 		$synced[$$net] = 1;
 		undef;
+	}, NETLINK => act => sub {
+		my $act = shift;
+		my $rnet = $act->{net};
+		return unless $rnet->isa('RemoteNetwork');
+		my $id = $rnet->id();
+		for my $net (values %Janus::nets) {
+			next unless $net->isa('LocalNetwork');
+			for my $ch (keys %{$lreq[$$net]}) {
+				my $req = $lreq[$$net]{$ch}{$id} or next;
+				&Janus::append(+{
+					type => 'LINKREQ',
+					net => $net,
+					dst => $rnet,
+					slink => $ch,
+					dlink => $req,
+					linkfile => 1,
+				});
+			}
+		}
 	}, NETSPLIT => cleanup => sub {
 		my $act = shift;
 		my $net = $act->{net};

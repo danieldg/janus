@@ -138,26 +138,22 @@ if ($Janus::interface) {
 		my $snet = $act->{net};
 		my $dnet = $act->{dst};
 		print "Link request:";
+		if ($snet->jlink()) {
+			print " src non-local;";
+		} else {
+			$snet->add_req($act->{slink}, $dnet, $act->{dlink});
+			print " added to src requests;";
+		}
 		if ($dnet->jlink() || $dnet->isa('Interface')) {
-			print " dst non-local";
+			print " dst non-local\n";
 		} else {
 			my $recip = $dnet->is_req($act->{dlink}, $snet);
 			print $recip ? " dst req:$recip" : " dst new req";
 			$recip = 'any' if $recip && $act->{override};
-			if ($act->{linkfile}) {
-				if ($dnet->is_synced()) {
-					print '; linkfile: override';
-					$recip = 'any';
-				} else {
-					$recip = '';
-					print '; linkfile: not synced';
-				}
-			}
 			if ($recip && ($recip eq 'any' || lc $recip eq lc $act->{slink})) {
-				print " => LINK OK!\n";
+				print ' => linking!';
 				# there has already been a request to link this channel to that network
 				# also, if it was not an override, the request was for this pair of channels
-				$dnet->del_req($act->{dlink}, $snet);
 				&Janus::append(+{
 					type => 'LSYNC',
 					src => $dnet,
@@ -166,15 +162,8 @@ if ($Janus::interface) {
 					linkto => $act->{slink},
 					linkfile => $act->{linkfile},
 				});
-				# do not add it to request list now
-				return;
 			}
-		}
-		if ($snet->jlink()) {
-			print "; src non-local\n";
-		} else {
-			$snet->add_req($act->{slink}, $dnet, $act->{dlink});
-			print "; added to src requests\n";
+			print "\n";
 		}
 	},
 );
