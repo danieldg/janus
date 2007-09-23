@@ -12,7 +12,7 @@ use warnings;
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 my @cparms :Persist(cparms); # currently active parameters
-my @lreq   :Persist(lreq);
+my @lreq   :Persist(lreq) :Get(all_reqs);
 my @synced :Persist(synced) :Get(is_synced);
 my @ponged :Persist(ponged);
 my @chans  :Persist(chans);

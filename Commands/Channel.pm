@@ -127,12 +127,19 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my $hnet = $nick->homenet();
 		my @file;
+		my $reqs = $hnet->all_reqs();
+		my %reqs = $reqs ? %$reqs : ();
 		for my $chan ($hnet->all_chans()) {
 			my @nets = $chan->nets();
 			next if @nets == 1;
-			for my $net (sort @nets) {
+			for my $net (@nets) {
 				next if $net->id() eq $hnet->id();
-				push @file, join ' ', $chan->str($hnet), $net->id(), $chan->str($net);
+				$reqs{$chan->str($hnet)}{$net->id()} = $chan->str($net);
+			}
+		}
+		for my $chan (sort keys %reqs) {
+			for my $net (sort keys %{$reqs{$chan}}) {
+				push @file, join ' ', $chan, $net, $reqs{$chan}{$net};
 			}
 		}
 		$hnet->id() =~ /^([0-9a-z_A-Z]+)$/ or return warn;
@@ -140,7 +147,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			&Janus::err_jmsg($nick, "Could not open links file for net $1 for writing: $!");
 			return;
 		};
-		print $f join "\n", @file, '';
+		print $f join "\n", @file, '' or warn $!;
 		close $f or warn $!;
 		&Janus::jmsg($nick, 'Link file saved');
 	},
