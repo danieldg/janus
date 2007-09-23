@@ -32,7 +32,14 @@ unless ($args =~ /d/) {
 	open STDERR, '>&', \*STDOUT or die $!;
 	my $pid = fork;
 	die $! unless defined $pid;
-	exit if $pid;
+	if ($pid) {
+		if ($args =~ /p/) {
+			open P, '>janus.pid' or die $!;
+			print P $pid,"\n";
+			close P;
+		}
+		exit;
+	}
 	setsid;
 }
 
