@@ -62,7 +62,7 @@ sub readable {
 		$$l[1] = $recvq;
 		$$l[4] = 1 if $$l[4]; #reset SSL error counter
 	} else {
-		my $net = $$l[3];
+		my $net = $$l[3] or return;
 		if ($sock->isa('IO::Socket::SSL')) {
 			print "SSL read error @".$net->id().": ".$sock->errstr()."\n";
 			if ($sock->errstr() eq SSL_WANT_READ) {
@@ -125,7 +125,7 @@ eval {
 		writable $l;
 	}
 	for my $l (@$r) {
-		my $net = $$l[3];
+		my $net = $$l[3] or next;
 		if ($net->isa('Listener')) {
 			# this is a listening socket; accept a new connection
 			my $lsock = $$l[0];
