@@ -172,7 +172,7 @@ sub process_capabs {
 	# MAXAWAY=200 - TODO
 	# IP6NATIVE=1 IP6SUPPORT=1 - we currently require IPv6 support, and claim to be native because we're cool like that :)
 	# PROTOCOL=1105 - TODO
-	# PREFIX=(qaohv)~&@%+ 
+	# PREFIX=(qaohv)~&@%+
 	local $_ = $capabs[$$net]{PREFIX};
 	my(%p2t,%t2p);
 	while (s/\((.)(.*)\)(.)/($2)/) {
@@ -990,7 +990,12 @@ $moddef{CORE} = {
 			my $type = substr $act->{value}, 0, $len;
 			$type .= ' (remote)';
 			$type =~ s/ /_/g;
-			return $net->cmd2($act->{dst}, OPERTYPE => $type);
+			return (
+				# workaround for heap corruption bug in older versions of inspircd
+				# triggered by opering up a user twice
+				$net->cmd2($act->{dst}, MODE => $act->{dst}, '-o'),
+				$net->cmd2($act->{dst}, OPERTYPE => $type),
+			);
 		}
 		return ();
 	}, TIMESYNC => sub {
