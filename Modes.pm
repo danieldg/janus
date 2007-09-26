@@ -77,11 +77,22 @@ net must implement txt2cmode(), which must return undef for unknown modes
 =cut
 
 sub to_irc {
-	my($net, $mods, $args, $dirs) = @_;
+	my @m = to_multi(@_);
+	warn "to_irc cannot handle overlong mode" if @m > 1;
+	@m ? @{$m[0]} : ();
+}
+
+sub to_multi {
+	my($net, $mods, $args, $dirs, $maxm, $maxl) = @_;
+	$maxm ||= 100; # this will never be hit, maxl will be used instead
+	$maxl ||= 450; # this will give enough room for a source, etc
 	my @modin = @$mods;
 	my @argin = @$args;
 	my @dirin = @$dirs;
 	my $pm = '';
+	my @out;
+
+	my($count,$len) = (0,0);
 	my $mode;
 	my @args;
 	while (@modin) {
@@ -109,16 +120,27 @@ sub to_irc {
 				my $add = $net->txt2cmode($alt);
 				$char .= $add if defined $add;
 			}
-		}			
+		}
 
 		if (defined $char) {
+			$count++;
+			$len += 2 + ($out ? 1 + length $arg : 0);
+			if ($count > $maxm || $len > $maxl) {
+				push @out, [ $mode, @args ];
+				$pm = '';
+				$mode = '';
+				@args = ();
+				$count = 1;
+				$len = 2 + ($out ? 1 + length $arg : 0);
+			}
 			$mode .= $dir if $dir ne $pm;
 			$mode .= $char;
 			$pm = $dir;
 			push @args, $arg if $out;
 		}
 	}
-	$mode, @args;
+	push @out, [ $mode, @args ] unless $mode =~ /^[-+]*$/;
+	@out;
 }
 
 =item (modes, args, dirs) Modes::delta(chan1, chan2)
