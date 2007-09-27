@@ -534,7 +534,17 @@ sub kicked {
 		$self[$$net] = $tried;
 		();
 	},
-	474 => sub { # we are banned
+	473 => sub { # +i invited only.
+		my $net = shift;
+		my $chan = $net->chan($_[3]) or return ();
+		return +{
+			type => 'DELINK',
+			dst => $chan,
+			net => $net,
+			reason => 'Channel is invite only.',
+		};
+	},
+	474 => sub { # we are banned.
 		my $net = shift;
 		my $chan = $net->chan($_[3]) or return ();
 		return +{
