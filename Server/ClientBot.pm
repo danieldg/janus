@@ -534,6 +534,16 @@ sub kicked {
 		$self[$$net] = $tried;
 		();
 	},
+	471 => sub { # +l User list if full.
+		my $net = shift;
+		my $chan = $net->chan($_[3]) or return ();
+		return +{
+			type => 'DELINK',
+			dst => $chan,
+			net => $net,
+			reason => 'Channel is full.'
+		};
+	},
 	473 => sub { # +i invited only.
 		my $net = shift;
 		my $chan = $net->chan($_[3]) or return ();
@@ -544,7 +554,7 @@ sub kicked {
 			reason => 'Channel is invite only.',
 		};
 	},
-	474 => sub { # we are banned.
+	474 => sub { # +b we are banned.
 		my $net = shift;
 		my $chan = $net->chan($_[3]) or return ();
 		return +{
@@ -552,6 +562,16 @@ sub kicked {
 			dst => $chan,
 			net => $net,
 			reason => 'Banned from channel.',
+		};
+	},
+	475 => sub { # +k needs key.
+		my $net = shift;
+		my $chan = $net->chan($_[3]) or return ();
+		return +{
+			type => 'DELINK',
+			dst => $chan,
+			net => $net,
+			reason => 'Channel needs key [Not Supported].',
 		};
 	},
 	482 => sub { # kick failed (not enough information to determine which one)
@@ -577,7 +597,7 @@ sub kicked {
 	     $net->send ('PRIVMSG Q : AUTH ' . $1 . ' ' . $2);
 	     $msg = "Authorizing to Q.";
 	   } else {
-	     $msg .= ", Couldn't find any identify method.";
+	     $msg .= ", Couldn't find any method to identify.";
 	   }
 	   return +{
 			type => 'DELINK',
@@ -585,6 +605,19 @@ sub kicked {
 			net => $net,
 			reason => $msg,
 	   };
+	},
+	520 => sub {
+		my $net = shift;
+		my $c = $_[3];
+		$c =~ s/.*\#/\#/;
+		$c =~ s/\s.*//;
+		my $chan = $net->chan($c) or return ();
+		return +{
+			type => 'DELINK',
+			dst => $chan,
+			net => $net,
+			reason => 'Need to be IRC operator to join.',
+		};
 	}
 );
 
