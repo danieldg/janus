@@ -964,10 +964,13 @@ $moddef{CORE} = {
 		my($net,$act) = @_;
 		my $src = $act->{src} || $net;
 		my $dst = $act->{dst};
-		my @interp = &Modes::to_irc($net, $act->{mode}, $act->{args}, $act->{dirs});
-		return () unless @interp;
-		return () if @interp == 1 && (!$interp[0] || $interp[0] =~ /^[+-]+$/);
-		return $net->cmd2($src, FMODE => $dst, $dst->ts(), @interp);
+		my @modes = &Modes::to_multi($net, $act->{mode}, $act->{args}, $act->{dirs}, 
+			$capabs[$$net]{MAXMODES});
+		my @out;
+		for my $line (@modes) {
+			push @out, $net->cmd2($src, FMODE => $dst, $dst->ts(), @$line);
+		}
+		@out;
 	}, TOPIC => sub {
 		my($net,$act) = @_;
 		if ($act->{in_link}) {

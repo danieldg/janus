@@ -1346,21 +1346,24 @@ sub cmd2 {
 	}, MODE => sub {
 		my($net,$act) = @_;
 		my $src = $act->{src};
-		my @interp = &Modes::to_irc($net, @$act{qw(mode args dirs)});
-		return () unless @interp;
-		return () if @interp == 1 && (!$interp[0] || $interp[0] =~ /^[+-]+$/);
-		if (ref $src && $src->isa('Nick') && $src->is_on($net)) {
-			return $net->cmd2($src, MODE => $act->{dst}, @interp);
-		} else {
-			return $net->cmd2($src, MODE => $act->{dst}, @interp, 0);
+		my @modes = &Modes::to_multi($net, @$act{qw(mode args dirs)}, 12);
+		my @out;
+		for my $line (@modes) {
+			if (ref $src && $src->isa('Nick') && $src->is_on($net)) {
+				push @out, $net->cmd2($src, MODE => $act->{dst}, @$line);
+			} else {
+				push @out, $net->cmd2($src, MODE => $act->{dst}, @$line, 0);
+			}
 		}
+		@out;
 	}, TIMESYNC => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
 		if ($act->{wipe}) {
 			if ($act->{ts} == $act->{oldts}) {
-				my @interp = &Modes::to_irc(&Modes::delta($chan, undef));
-				return $net->cmd1(MODE => $chan, @interp, 0);
+				return map {
+					$net->cmd1(MODE => $chan, @$_, 0);
+				} &Modes::to_multi($net, &Modes::delta($chan, undef), 12);
 			} else {
 				return $net->cmd1(SJOIN => $net->sjb64($act->{ts}), $chan, '+', '');
 			}
