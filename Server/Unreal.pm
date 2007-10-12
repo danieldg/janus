@@ -450,7 +450,7 @@ sub nickact {
 		$dst = $net->nick($_[2]);
 	}
 
-	if ($dst->homenet()->id() eq $net->id()) {
+	if ($dst->homenet() eq $net) {
 		my %a = (
 			type => 'NICKINFO',
 			src => $src,
@@ -746,7 +746,7 @@ sub srvname {
 		my $msg = $_[3];
 		$msg =~ s/^\S+!//;
 
-		if ($dst->homenet()->id() eq $net->id()) {
+		if ($dst->homenet() eq $net) {
 			return {
 				type => 'QUIT',
 				dst => $dst,
@@ -764,7 +764,7 @@ sub srvname {
 	}, SVSKILL => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
-		if ($nick->homenet()->id() eq $net->id()) {
+		if ($nick->homenet() eq $net) {
 			return {
 				type => 'QUIT',
 				dst => $nick,
@@ -821,7 +821,7 @@ sub srvname {
 	}, SVSMODE => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
-		if ($nick->homenet()->id() eq $net->id()) {
+		if ($nick->homenet() eq $net) {
 			return $net->_parse_umode($nick, @_[3 .. $#_]);
 		} else {
 			my $mode = $_[3];
@@ -949,7 +949,7 @@ sub srvname {
 		my $chan = $net->item($_[2]) or return ();
 		if ($chan->isa('Nick')) {
 			# umode change
-			return () unless $chan->homenet()->id() eq $net->id();
+			return () unless $chan->homenet() eq $net;
 			return $net->_parse_umode($chan, @_[3 .. $#_]);
 		}
 		my @out;
@@ -1025,7 +1025,6 @@ sub srvname {
 		};
 	}, SQUIT => sub {
 		my $net = shift;
-		my $netid = $net->id();
 		my $srv = $net->srvname($_[2]);
 		my $splitfrom = $servers[$$net]{lc $srv}{parent};
 		
@@ -1034,7 +1033,7 @@ sub srvname {
 			$net->send($net->cmd2($net->cparam('linkname'), SERVER => $srv, 2, $ns->numeric(), $ns->netname()));
 			my @out;
 			for my $nick ($net->all_nicks()) {
-				next unless $nick->homenet()->id() eq $ns->id();
+				next unless $nick->homenet() eq $ns;
 				push @out, +{
 					type => 'RECONNECT',
 					dst => $nick,
@@ -1060,7 +1059,7 @@ sub srvname {
 
 		my @quits;
 		for my $nick ($net->all_nicks()) {
-			next unless $nick->homenet()->id() eq $netid;
+			next unless $nick->homenet() eq $net;
 			next unless $sgone{lc $nick->info('home_server')};
 			push @quits, +{
 				type => 'QUIT',
@@ -1325,7 +1324,7 @@ sub cmd2 {
 	}, JOIN => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
-		if ($act->{src}->homenet()->id() eq $net->id()) {
+		if ($act->{src}->homenet() eq $net) {
 			print 'ERR: Trying to force channel join remotely ('.$act->{src}->gid().$chan->str($net).")\n";
 			return ();
 		}
@@ -1399,7 +1398,7 @@ sub cmd2 {
 		my $item = $act->{item};
 		if ($item =~ /^(vhost|ident|name)$/) {
 			$item =~ s/vhost/host/;
-			if ($act->{dst}->homenet()->id() eq $net->id()) {
+			if ($act->{dst}->homenet() eq $net) {
 				my $src = $act->{src}->is_on($net) ? $act->{src} : $net->cparam('linkname');
 				return $net->cmd2($src, 'CHG'.uc($item), $act->{dst}, $act->{value});
 			} else {

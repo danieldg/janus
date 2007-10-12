@@ -406,7 +406,7 @@ $moddef{CORE} = {
 		my $msg = $_[3];
 		$msg =~ s/^\S+!//;
 
-		if ($dst->homenet()->id() eq $net->id()) {
+		if ($dst->homenet() eq $net) {
 			return {
 				type => 'QUIT',
 				dst => $dst,
@@ -587,7 +587,6 @@ $moddef{CORE} = {
 		}
 	}, SQUIT => sub {
 		my $net = shift;
-		my $netid = $net->id();
 		my $srv = $_[2];
 		my $splitfrom = $servers[$$net]{lc $srv};
 
@@ -606,7 +605,7 @@ $moddef{CORE} = {
 
 		my @quits;
 		for my $nick ($net->all_nicks()) {
-			next unless $nick->homenet()->id() eq $netid;
+			next unless $nick->homenet() eq $net;
 			next unless $sgone{lc $nick->info('home_server')};
 			push @quits, +{
 				type => 'QUIT',

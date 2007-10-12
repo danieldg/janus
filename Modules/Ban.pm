@@ -136,7 +136,7 @@ my %timespec = (
 			} else {
 				my $c = 0;
 				for my $n ($net->all_nicks()) {
-					next if $n->homenet()->id() eq $net->id();
+					next if $n->homenet() eq $net;
 					next unless $ban->match($n);
 					&Janus::append(+{
 						type => 'KILL',

@@ -64,7 +64,7 @@ sub cli_hostintro {
 	my($net, $nname, $ident, $host, $gecos) = @_;
 	my @out;
 	my $nick = $net->item($nname);
-	unless ($nick && $nick->homenet()->id() eq $net->id()) {
+	unless ($nick && $nick->homenet() eq $net) {
 		if ($nick) {
 			# someone already exists, but remote. They get booted off their current nick
 			# we have to deal with this before the new nick is created
@@ -226,7 +226,7 @@ sub nicklen { 40 }
 	KICK => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{kickee};
-		return () unless $nick->homenet()->id() eq $net->id();
+		return () unless $nick->homenet() eq $net;
 		my $src = $act->{src};
 		my $chan = $act->{dst};
 		$src = ref $src && $src->isa('Nick') ? '<'.$src->str($net).'>' : '[?]';
@@ -260,7 +260,7 @@ sub pm_not {
 		my $msg = $_[3];
 		if ($msg =~ s/^(\S+)\s//) {
 			my $dst = $net->item($1);
-			if (ref $dst && $dst->isa('Nick') && $dst->homenet()->id() ne $net->id()) {
+			if (ref $dst && $dst->isa('Nick') && $dst->homenet() ne $net) {
 				return +{
 					type => 'MSG',
 					src => $src,
@@ -311,7 +311,7 @@ sub kicked {
 	my $chan = $net->chan($cname) or return ();
 	my @out;
 	for my $nick ($chan->all_nicks()) {
-		next unless $nick->homenet()->id() eq $net->id();
+		next unless $nick->homenet() eq $net;
 		push @out, +{
 			type => 'PART',
 			src => $nick,
@@ -350,7 +350,7 @@ sub kicked {
 		my $nick = $net->nick($_[0]) or return ();
 		my $replace = (lc $_[0] eq lc $_[2]) ? undef : $net->item($_[2]);
 		my @out;
-		if ($replace && $replace->homenet()->id() eq $net->id()) {
+		if ($replace && $replace->homenet() eq $net) {
 			push @out, +{
 				type => 'QUIT',
 				dst => $replace,

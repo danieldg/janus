@@ -48,14 +48,14 @@ sub str {
  	NETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
-		my $tid = $net->id();
+		my $msg = 'hub.janus '.$net->id().'.janus';
 		my @clean;
 		for my $nick ($net->all_nicks()) {
-			next if $nick->homenet()->id() ne $tid;
+			next if $nick->homenet() ne $net;
 			push @clean, +{
 				type => 'QUIT',
 				dst => $nick,
-				msg => "hub.janus $tid.janus",
+				msg => $msg,
 				except => $net,
 				netsplit_quit => 1,
 				nojlink => 1,
