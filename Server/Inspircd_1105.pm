@@ -163,7 +163,7 @@ sub process_capabs {
 		$net->module_add('CAPAB_HALFOP');
 	}
 	# CHANMAX=65 - not applicable, we never send channels we have not heard before
-	# MAXMODES=20 - TODO
+	# MAXMODES=20 - checked when calling to_multi
 	# IDENTMAX=12 - TODO
 	# MAXQUIT=255 - TODO
 	# MAXTOPIC=307 - TODO
@@ -171,7 +171,8 @@ sub process_capabs {
 	# MAXGECOS=128 -TODO
 	# MAXAWAY=200 - TODO
 	# IP6NATIVE=1 IP6SUPPORT=1 - we currently require IPv6 support, and claim to be native because we're cool like that :)
-	# PROTOCOL=1105 - TODO
+	# PROTOCOL=1105 - TODO verify =1105 for insp1.1 or =4000 for unreal4, and split on their
+	#                 differences (as they split from one another)
 	# PREFIX=(qaohv)~&@%+
 	local $_ = $capabs[$$net]{PREFIX};
 	my(%p2t,%t2p);
@@ -443,7 +444,7 @@ $moddef{CORE} = {
 		for my $nm (split / /, $_[-1]) {
 			$nm =~ /(?:(.*),)?(\S+)$/ or next;
 			my $nmode = $1;
-			my $nick = $net->mynick($2);
+			my $nick = $net->mynick($2) or next;
 			my %mh = map { $pfx2txt[$$net]{$_} => 1 } split //, $nmode;
 			push @acts, +{
 				type => 'JOIN',
@@ -485,6 +486,7 @@ $moddef{CORE} = {
 		my $src = $net->item($_[0]);
 		my $dst = $net->item($_[2]) or return ();
 		if ($dst->isa('Nick')) {
+			return () unless $dst->homenet() eq $net;
 			$net->_parse_umode($dst, $_[3]);
 		} else {
 			my($modes,$args,$dirs) = &Modes::from_irc($net, $dst, @_[3 .. $#_]);
@@ -945,7 +947,7 @@ $moddef{CORE} = {
 	}, JOIN => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
-		if ($act->{src}->homenet()->id() eq $net->id()) {
+		if ($act->{src}->homenet() eq $net) {
 			print "ERR: Trying to force channel join remotely (".$act->{src}->gid().$chan->str($net).")\n";
 			return ();
 		}
