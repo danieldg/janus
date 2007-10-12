@@ -4,7 +4,32 @@
 package Commands::Dealloc;
 use strict;
 use warnings;
+use Scalar::Util qw(blessed weaken);
 our($VERSION) = '$Rev$' =~ /(\d+)/;
+
+sub rweak {
+	my $v = shift;
+	return unless ref $v;
+	if (ref $v eq 'ARRAY' || ref $v eq 'Persist::Field') {
+		for my $i (@_ || 0..$#$v) {
+			if (blessed $v->[$i]) {
+				weaken $v->[$i];
+			} else {
+				rweak $v->[$i];
+			}
+		}
+	} elsif (ref $v eq 'HASH') {
+		for my $k (keys %$v) {
+			if (blessed $v->{$k}) {
+				weaken $v->{$k};
+			} else {
+				rweak $v->{$k};
+			}
+		}
+	} else {
+		warn "rweak called on object $v";
+	}
+}
 
 &Janus::command_add({
 	cmd => 'dealloc',
@@ -13,10 +38,10 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		my($nick,$args) = @_;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		$args =~ /(\S+) (\S+)/ or return;
-		my $pkv = $Persist::vars{$1};
+		my $pkv = $Persist::vars{$1} or return;
 		my $n = $2 + 0 or return;
 		for my $ar (values %$pkv) {
-			delete $ar->[$n];
+			rweak $ar, $n;
 		}
 	},
 });
