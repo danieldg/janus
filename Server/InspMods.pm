@@ -163,7 +163,7 @@ our %modules = (
 		cmds => { GLOBOPS => \&ignore },
 		acts => { CHATOPS => sub {
 			my($net,$act) = @_;
-			$net->cmd1($act->{src}, GLOBOPS => $act->{msg});
+			$net->cmd2($act->{src}, GLOBOPS => $act->{msg});
 		} }
 	},
 	'm_helpop.so' => {

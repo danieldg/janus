@@ -15,8 +15,7 @@ my @peer     :Persist('peer')    :Arg('peer');
 sub _init {
 	my $net = shift;
 	my($addr,$port) = $Conffile::inet{addr}->($peer[$$net]);
-	print "Pending connection from $addr:$port\n";
-	# TODO authenticate these
+	print "Pending connection #$$net from $addr:$port\n";
 }
 
 sub id {
@@ -32,14 +31,14 @@ sub parse {
 	push @{$buffer[$$pnet]}, $line;
 	if ($line =~ /SERVER (\S+)/) {
 		for my $id (keys %Conffile::netconf) {
+			next if $Janus::nets{$id};
 			my $nconf = $Conffile::netconf{$id};
 			if ($nconf->{server} && $nconf->{server} eq $1) {
-				&Janus::delink($Janus::nets{$id}, 'Replaced by new connection') if $Janus::nets{$id};
-				my $type = $nconf->{type};
-				$rnet = eval "use $type; return ${type}->new(id => \$id)";
-				next unless $rnet;
-				print "Shifting new connection to $type network $id\n";
-				$rnet->intro($nconf, 1);
+				my $type = 'Server::'.$nconf->{type};
+				&Janus::load($type) or next;
+				$rnet = &Persist::new($type, id => $id);
+				print "Shifting new connection #$$pnet to $type network $id\n";
+				$rnet->intro($nconf, $peer[$$pnet]);
 				&Janus::insert_full({
 					type => 'NETLINK',
 					net => $rnet,

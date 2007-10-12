@@ -1318,21 +1318,24 @@ sub cmd2 {
 	}, MODE => sub {
 		my($net,$act) = @_;
 		my $src = $act->{src};
-		my @interp = &Modes::to_irc($net, @$act{qw(mode args dirs)});
-		return () unless @interp;
-		return () if @interp == 1 && (!$interp[0] || $interp[0] =~ /^[+-]+$/);
-		if (ref $src && $src->isa('Nick') && $src->is_on($net)) {
-			return $net->cmd2($src, MODE => $act->{dst}, @interp);
-		} else {
-			return $net->cmd2($src, MODE => $act->{dst}, @interp, 0);
+		my @modes = &Modes::to_multi($net, @$act{qw(mode args dirs)}, 12);
+		my @out;
+		for my $line (@modes) {
+			if (ref $src && $src->isa('Nick') && $src->is_on($net)) {
+				push @out, $net->cmd2($src, MODE => $act->{dst}, @$line);
+			} else {
+				push @out, $net->cmd2($src, MODE => $act->{dst}, @$line, 0);
+			}
 		}
+		@out;
 	}, TIMESYNC => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
 		if ($act->{wipe}) {
 			if ($act->{ts} == $act->{oldts}) {
-				my @interp = &Modes::to_irc(&Modes::delta($chan, undef));
-				return $net->cmd1(MODE => $chan, @interp, 0);
+				return map {
+					$net->cmd1(MODE => $chan, @$_, 0);
+				} &Modes::to_multi($net, &Modes::delta($chan, undef), 12);
 			} else {
 				return $net->cmd1(SJOIN => $net->sjb64($act->{ts}), $chan, '+', '');
 			}
@@ -1427,10 +1430,10 @@ sub cmd2 {
 		if ($act->{net}->id() eq $net->id()) {
 			my $name = $act->{split}->str($net);
 			my $nick = $act->{src} ? $act->{src}->str($net) : 'janus';
-			$net->cmd1(GLOBOPS => "Channel $name delinked by $nick");
+			$net->cmd1(GLOBOPS => "Channel $name delinked by $nick (". $act->{reason} . ")");
 		} else {
 			my $name = $act->{dst}->str($net);
-			$net->cmd1(GLOBOPS => "Network ".$act->{net}->netname()." dropped channel $name");
+			$net->cmd1(GLOBOPS => "Network ".$act->{net}->netname()." dropped channel $name: ".$act->{reason});
 		}
 	}, KILL => sub {
 		my($net,$act) = @_;

@@ -13,7 +13,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 my $inick = $Conffile::netconf{janus}{janus} || 'janus';
 
 if ($Janus::interface) {
-	# we are being live-reloaded as a module. Don't recreate 
+	# we are being live-reloaded as a module. Don't recreate
 	# the network or nick, just reload commands
 	print "Reloading Interface\n";
 	if ($inick ne $Janus::interface->homenick()) {
@@ -88,6 +88,10 @@ sub send { }
 sub request_newnick { $_[2] }
 sub request_cnick { $_[2] }
 sub release_nick { }
+sub is_synced { 0 }
+sub add_req { }
+sub del_req { }
+sub is_req { 'invalid' }
 sub all_nicks { $Janus::interface }
 sub all_chans { () }
 

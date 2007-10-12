@@ -12,7 +12,7 @@ use warnings;
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 my @cparms :Persist(cparms); # currently active parameters
-my @lreq   :Persist(lreq);
+my @lreq   :Persist(lreq) :Get(all_reqs);
 my @synced :Persist(synced) :Get(is_synced);
 my @ponged :Persist(ponged);
 our %chans;
@@ -117,7 +117,7 @@ sub all_chans {
 
 sub add_req {
 	my($net, $lchan, $onet, $ochan) = @_;
-	$lreq[$$net]{$lchan}{$onet->id()} = $ochan;
+	$lreq[$$net]{$lchan}{ref $onet ? $onet->id() : $onet} = $ochan;
 }
 
 sub is_req {
@@ -136,6 +136,25 @@ sub del_req {
 		my $net = $act->{net};
 		$synced[$$net] = 1;
 		undef;
+	}, NETLINK => act => sub {
+		my $act = shift;
+		my $rnet = $act->{net};
+		return unless $rnet->isa('RemoteNetwork');
+		my $id = $rnet->id();
+		for my $net (values %Janus::nets) {
+			next unless $net->isa('LocalNetwork');
+			for my $ch (keys %{$lreq[$$net]}) {
+				my $req = $lreq[$$net]{$ch}{$id} or next;
+				&Janus::append(+{
+					type => 'LINKREQ',
+					net => $net,
+					dst => $rnet,
+					slink => $ch,
+					dlink => $req,
+					linkfile => 1,
+				});
+			}
+		}
 	},
 );
 

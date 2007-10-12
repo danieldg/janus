@@ -101,7 +101,9 @@ sub connect_net {
 	my($nick,$id) = @_;
 	my $nconf = $netconf{$id};
 	return if !$nconf || exists $Janus::netqueues{$id};
+	print "Connecting $id\n";
 	if ($id =~ /^LISTEN:/) {
+		print "Listening on $nconf->{addr}\n";
 		my $sock = $inet{listn}->($nconf);
 		if ($sock) {
 			my $list = Listener->new(id => $id, conf => $nconf);
@@ -155,16 +157,20 @@ sub rehash {
 		open my $links, 'links.'.$net->id().'.conf' or return;
 		while (<$links>) {
 			my($cname1, $nname, $cname2) = /^\s*(#\S*)\s+(\S+)\s+(#\S*)/ or next;
-			my $net2 = $Janus::nets{$nname} or next;
-			&Janus::append(+{
-				type => 'LINKREQ',
-				net => $net,
-				dst => $net2,
-				slink => $cname1,
-				dlink => $cname2,
-				sendto => [ $net2 ],
-				linkfile => 1,
-			});
+			my $net2 = $Janus::nets{$nname};
+			if ($net2) {
+				&Janus::append(+{
+					type => 'LINKREQ',
+					net => $net,
+					dst => $net2,
+					slink => $cname1,
+					dlink => $cname2,
+					sendto => [ $net2 ],
+					linkfile => 1,
+				});
+			} elsif ($net->isa('LocalNetwork')) {
+				$net->add_req($cname1, $nname, $cname2);
+			}
 		}
 		close $links;
 	},
@@ -233,15 +239,17 @@ unless ($reload) {
 			listn => eval q[ sub {
 				my $nconf = shift;
 				my $addr = $nconf->{addr};
-				$addr = '[::]:'.$addr unless $addr =~ /:/;
+				$addr = '0.0.0.0:'.$addr unless $addr =~ /:/;
 				my $sock = IO::Socket::INET->new(
 					Listen => 5, 
 					Proto => 'tcp', 
-					LocalPort => $addr,
+					LocalAddr => $addr,
 					Blocking => 0,
 				);
-				fcntl $sock, F_SETFL, O_NONBLOCK;
-				setsockopt $sock, SOL_SOCKET, SO_REUSEADDR, 1;
+				if ($sock) {
+					fcntl $sock, F_SETFL, O_NONBLOCK;
+					setsockopt $sock, SOL_SOCKET, SO_REUSEADDR, 1;
+				}
 				$sock;
 			} ], 
 			conn => eval q[ sub {

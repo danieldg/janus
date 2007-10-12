@@ -71,11 +71,26 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		return &Janus::jmsg($nick, "Invalid module name") unless $name =~ /^([0-9_A-Za-z:]+)$/;
 		my $n = $1;
 		if (&Janus::reload($n)) {
-			&Janus::err_jmsg($nick, "Module reloaded");
+			&Janus::err_jmsg($nick, "Module $n reloaded");
 		} else {
-			&Janus::err_jmsg($nick, "Module load failed: $@");
+			my $err = $@ || $!;
+			$err =~ s/\n/ /g;
+			&Janus::err_jmsg($nick, "Module load failed: $err");
 		}
 	},
+}, {
+	cmd => 'unload',
+	help => "Unload the hooks registered by a module",
+	code => sub {
+		my($nick,$name) = @_;
+		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
+		if ($name !~ /::/ || $name eq __PACKAGE__) {
+			&Janus::jmsg($nick, "You cannot unload the core module $name");
+			return;
+		}
+		&Janus::unload($name);
+		&Janus::err_jmsg($nick, "Module $name unloaded");
+	}
 });
 
 1;

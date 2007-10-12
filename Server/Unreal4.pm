@@ -172,7 +172,7 @@ sub process_capabs {
 		$net->module_add('CAPAB_HALFOP');
 	}
 	# CHANMAX=65 - not applicable, we never send channels we have not heard before
-	# MAXMODES=20 - TODO
+	# MAXMODES=20 - checked when calling to_multi
 	# IDENTMAX=12 - TODO
 	# MAXQUIT=255 - TODO
 	# MAXTOPIC=307 - TODO
@@ -180,8 +180,9 @@ sub process_capabs {
 	# MAXGECOS=128 -TODO
 	# MAXAWAY=200 - TODO
 	# IP6NATIVE=1 IP6SUPPORT=1 - we currently require IPv6 support, and claim to be native because we're cool like that :)
-	# PROTOCOL=1105 - TODO
-	# PREFIX=(qaohv)~&@%+ 
+	# PROTOCOL=1105 - TODO verify =1105 for insp1.1 or =4000 for unreal4, and split on their
+	#                 differences (as they split from one another)
+	# PREFIX=(qaohv)~&@%+
 	local $_ = $capabs[$$net]{PREFIX};
 	my(%p2t,%t2p);
 	while (s/\((.)(.*)\)(.)/($2)/) {
@@ -254,6 +255,7 @@ sub _out {
 			unless $itm->is_on($net);
 		return $itm->str($net);
 	} elsif ($itm->isa('Network')) {
+		return $net->cparam('linkname') if $net eq $itm;
 		return $itm->id(). '.janus';
 	} else {
 		warn "Unknown item $itm";
@@ -442,7 +444,7 @@ $moddef{CORE} = {
 		for my $nm (split / /, $_[-1]) {
 			$nm =~ /(?:(.*),)?(\S+)$/ or next;
 			my $nmode = $1;
-			my $nick = $net->mynick($2);
+			my $nick = $net->mynick($2) or next;
 			my %mh = map { $pfx2txt[$$net]{$_} => 1 } split //, $nmode;
 			push @acts, +{
 				type => 'JOIN',
@@ -484,6 +486,7 @@ $moddef{CORE} = {
 		my $src = $net->item($_[0]);
 		my $dst = $net->item($_[2]) or return ();
 		if ($dst->isa('Nick')) {
+			return () unless $dst->homenet() eq $net;
 			$net->_parse_umode($dst, $_[3]);
 		} else {
 			my($modes,$args,$dirs) = &Modes::from_irc($net, $dst, @_[3 .. $#_]);
@@ -574,16 +577,18 @@ $moddef{CORE} = {
 			} else {
 				$net->send(['INIT', 'ERROR :Bad password']);
 			}
+			$serverdsc[$$net]{lc $_[2]} = $_[-1];
+			return +{
+				type => 'BURST',
+				net => $net,
+				sendto => [],
+			};
 		} else {
 			# recall parent
 			$servers[$$net]{lc $_[2]} = lc $_[0];
+			$serverdsc[$$net]{lc $_[2]} = $_[-1];
+			return ();
 		}
-		$serverdsc[$$net]{lc $_[2]} = $_[-1];
-		+{
-			type => 'BURST',
-			net => $net,
-			sendto => [],
-		};
 	}, SQUIT => sub {
 		my $net = shift;
 		my $netid = $net->id();
@@ -952,7 +957,7 @@ $moddef{CORE} = {
 	}, JOIN => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
-		if ($act->{src}->homenet()->id() eq $net->id()) {
+		if ($act->{src}->homenet() eq $net) {
 			print "ERR: Trying to force channel join remotely (".$act->{src}->gid().$chan->str($net).")\n";
 			return ();
 		}
@@ -971,10 +976,13 @@ $moddef{CORE} = {
 		my($net,$act) = @_;
 		my $src = $act->{src} || $net;
 		my $dst = $act->{dst};
-		my @interp = &Modes::to_irc($net, $act->{mode}, $act->{args}, $act->{dirs});
-		return () unless @interp;
-		return () if @interp == 1 && (!$interp[0] || $interp[0] =~ /^[+-]+$/);
-		return $net->cmd2($src, FMODE => $dst, $dst->ts(), @interp);
+		my @modes = &Modes::to_multi($net, $act->{mode}, $act->{args}, $act->{dirs}, 
+			$capabs[$$net]{MAXMODES});
+		my @out;
+		for my $line (@modes) {
+			push @out, $net->cmd2($src, FMODE => $dst, $dst->ts(), @$line);
+		}
+		@out;
 	}, TOPIC => sub {
 		my($net,$act) = @_;
 		if ($act->{in_link}) {
@@ -996,7 +1004,12 @@ $moddef{CORE} = {
 			my $len = $net->nicklen();
 			my $type = substr $act->{value}, 0, $len;
 			$type =~ s/ /_/g;
-			return $net->cmd2($act->{dst}, OPERTYPE => $type);
+			return (
+				# workaround for heap corruption bug in older versions of inspircd
+				# triggered by opering up a user twice
+				$net->cmd2($act->{dst}, MODE => $act->{dst}, '-o'),
+				$net->cmd2($act->{dst}, OPERTYPE => $type),
+			);
 		}
 		return ();
 	}, TIMESYNC => sub {

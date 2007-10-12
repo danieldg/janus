@@ -263,7 +263,12 @@ sub _hook {
 	return unless $hook;
 	
 	for my $mod (sort keys %$hook) {
-		$hook->{$mod}->(@args);
+		eval {
+			$hook->{$mod}->(@args);
+			1;
+		} or do {
+			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod: $@");
+		};
 	}
 }
 
@@ -275,8 +280,13 @@ sub _mod_hook {
 
 	my $rv = undef;
 	for my $mod (sort keys %$hook) {
-		my $r = $hook->{$mod}->(@args);
-		$rv = $r if defined $r;
+		eval {
+			my $r = $hook->{$mod}->(@args);
+			$rv = $r if defined $r;
+			1;
+		} or do {
+			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod: $@");
+		};
 	}
 	$rv;
 }
@@ -300,6 +310,7 @@ sub _send {
 	my(%real, %jlink);
 		# hash to remove duplicates
 	for my $net (@to) {
+		next unless $net;
 		my $ij = $net->jlink();
 		if (defined $ij) {
 			$jlink{$ij->id()} = $ij;
@@ -400,15 +411,18 @@ to the given destination
 
 sub jmsg {
 	my $dst = shift;
-	return unless $dst;
+	return unless $dst && ref $dst;
+	my $type =
+		$dst->isa('Nick') ? 'NOTICE' :
+		$dst->isa('Channel') ? 'PRIVMSG' : '';
 	local $_;
 	&Janus::append(map +{
 		type => 'MSG',
 		src => $interface,
 		dst => $dst,
-		msgtype => ($dst->isa('Channel') ? 'PRIVMSG' : 'NOTICE'), # channel notice == annoying
+		msgtype => $type,
 		msg => $_,
-	}, @_);
+	}, @_) if $type;
 }
 
 =item Janus::err_jmsg($dst, $msg,...)
@@ -419,17 +433,26 @@ Send error messages to the given destination and to standard error
 
 sub err_jmsg {
 	my $dst = shift;
-	local $_;
-	for (@_) { 
+	for my $v (@_) {
+		local $_ = $v; # don't use $v directly as it's read-only
+		s/\n/ /g;
 		print STDERR "$_\n";
-		next unless $dst;
-		&Janus::append(+{
-			type => 'MSG',
-			src => $interface,
-			dst => $dst,
-			msgtype => ($dst->isa('Channel') ? 'PRIVMSG' : 'NOTICE'), # channel notice == annoying
-			msg => $_,
-		});
+		if ($dst) {
+			&Janus::append(+{
+				type => 'MSG',
+				src => $interface,
+				dst => $dst,
+				msgtype => ($dst->isa('Channel') ? 'PRIVMSG' : 'NOTICE'), # channel notice == annoying
+				msg => $_,
+			});
+		} else {
+			&Janus::insert_full({
+				type => 'CHATOPS',
+				src => $interface,
+				sendto => [ values %nets ],
+				msg => $_,
+			});
+		}
 	}
 }
 
@@ -462,24 +485,36 @@ sub schedule {
 sub in_socket {
 	my($src,$line) = @_;
 	return unless $src;
-	my @act = $src->parse($line);
-	my $parse_hook = $src->isa('Network');
-	for my $act (@act) {
-		$act->{except} = $src unless exists $act->{except};
-		unshift @qstack, [];
-		unless (_mod_hook($act->{type}, ($parse_hook ? 'parse' : 'jparse'), $act)) {
-			_run($act);
+	eval {
+		my @act = $src->parse($line);
+		my $parse_hook = $src->isa('Network');
+		for my $act (@act) {
+			$act->{except} = $src unless exists $act->{except};
+			unshift @qstack, [];
+			unless (_mod_hook($act->{type}, ($parse_hook ? 'parse' : 'jparse'), $act)) {
+				_run($act);
+			}
+			_runq(shift @qstack);
 		}
-		_runq(shift @qstack);
-	}
-} 
+		1;
+	} or do {
+		print "$line\n";
+		&Janus::err_jmsg(undef, "Unchecked exception in parsing: $@");
+	};
+}
 
 sub in_command {
 	my($cmd, $nick, $text) = @_;
 	my $csub = exists $commands{$cmd} ?
 		$commands{$cmd}{code} : $commands{unk}{code};
 	unshift @qstack, [];
-	$csub->($nick, $text);
+	eval {
+		$csub->($nick, $text);
+		1;
+	} or do {
+		print "Unchecked exception: CMD=$cmd $text N=$$nick ERR=$@\n";
+		&Janus::err_jmsg(undef, "Unchecked exception in janus command '$cmd': $@");
+	};
 	_runq(shift @qstack);
 }
 
@@ -506,6 +541,7 @@ sub timer {
 
 sub delink {
 	my($net,$msg) = @_;
+	return unless $net;
 	if ($net->isa('Pending')) {
 		my $id = $net->id();
 		delete $nets{$id};
