@@ -55,7 +55,7 @@ sub ijstr {
 	} elsif ($itm->isa('Network')) {
 		return 's:'.$itm->id();
 	} elsif ($itm->isa('Server::InterJanus')) {
-		return '';
+		return 'j:'.$itm->id();
 	}
 	warn "Unknown object $itm";
 	return '""';
@@ -169,17 +169,17 @@ my %v_type; %v_type = (
 		$v =~ s/\\(.)/$esc2char{$1}/g;
 		$v;
 	}, 'n' => sub {
-		my $ij = shift;
 		s/^n:([^ >]+)// or return undef;
 		$Janus::gnicks{$1};
 	}, 'c' => sub {
-		my $ij = shift;
 		s/^c:([^ >]+)// or return undef;
 		$Janus::gchans{$1};
 	}, 's' => sub {
-		my $ij = shift;
 		s/^s:([^ >]+)// or return undef;
 		$Janus::nets{$1};
+	}, 'j' => sub {
+		s/^j:([^ >]+)//;
+		undef;
 	}, '<a' => sub {
 		my @arr;
 		s/^<a// or warn;
@@ -226,8 +226,8 @@ my %v_type; %v_type = (
 		s/^<n// or warn;
 		$ij->kv_pairs($h);
 		s/^>// or warn;
-		return undef unless ref $h->{net} && $h->{net}->isa('Network');
-		# TODO verify that homenet is not forged
+		return undef unless ref $h->{net} &&
+			$h->{net}->isa('RemoteNetwork') && $h->{net}->jlink() eq $ij;
 		$Janus::gnicks{$h->{gid}} || Nick->new(%$h);
 	},
 );

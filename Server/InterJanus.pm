@@ -6,8 +6,6 @@ use Persist 'EventDump';
 use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
-use Nick;
-use RemoteNetwork;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
@@ -107,7 +105,7 @@ sub parse {
 	print "     IN\@$id[$$ij]  $_\n";
 
 	s/^\s*<(\S+)// or do {
-		warn "bad line: $_";
+		print "Invalid line: $_";
 		return ();
 	};
 	my $act = { type => $1 };

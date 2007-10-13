@@ -130,7 +130,12 @@ Basic descriptions and checking of all internal janus actions
 =cut
 
 my %spec = (
-
+	InterJanus => {
+		pass => '$',
+		version => '$',
+		id => '$',
+		net => 'Server::InterJanus',
+	},
 	NETLINK => {
 		net => 'Network',
 	},
@@ -262,12 +267,6 @@ my %spec = (
 		reason => '$',
 	},
 
-	InterJanus => {
-		pass => '$',
-		version => '$',
-		id => '$',
-		net => 'InterJanus',
-	},
 	PING => {},
 	PONG => {},
 	REHASH => {},
