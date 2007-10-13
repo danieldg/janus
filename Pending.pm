@@ -61,7 +61,7 @@ sub parse {
 		my $ij = Server::InterJanus->new();
 		print "Shifting new connection #$$pnet to InterJanus link\n";
 		my @out = $ij->parse($line);
-		if (@out && $out[0]{type} eq 'InterJanus') {
+		if (@out && $out[0]{type} eq 'JNETLINK') {
 			$$q[3] = $ij;
 			$Janus::netqueues{$ij->id()} = $q;
 			$ij->intro($Conffile::netconf{$ij->id()}, 1);

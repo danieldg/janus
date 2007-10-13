@@ -4,8 +4,10 @@
 package EventDump;
 use strict;
 use warnings;
-use Nick;
 use Persist;
+use Nick;
+use Channel;
+use RemoteNetwork;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
@@ -109,6 +111,7 @@ my %to_ij = (
 		send_hdr(@_,qw/dst nick/) . '>';
 	},
 	InterJanus => \&ssend,
+	JNETLINK => \&ssend,
 	QUIT => \&ssend,
 	KILL => \&ssend,
 	NICKINFO => \&ssend,

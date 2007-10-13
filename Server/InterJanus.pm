@@ -132,7 +132,7 @@ sub parse {
 		} else {
 			$auth[$$ij] = 1;
 			$act->{net} = $ij;
-			$act->{sendto} = [];
+			$act->{type} = 'JNETLINK';
 			return $act;
 		}
 		delete $Janus::ijnets{$id};

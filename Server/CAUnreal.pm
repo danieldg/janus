@@ -1267,7 +1267,12 @@ sub cmd2 {
 }
 
 %toirc = (
-	NETLINK => sub {
+	JNETLINK => sub {
+		my($net,$act) = @_;
+		my $ij = $act->{net};
+		# don't bother with numerics, no users end up on these servers...
+		$net->cmd2($net->cparam('linkname'), SERVER => $ij->id().'.janus', 2, 0, 'Inter-Janus Link');
+	}, NETLINK => sub {
 		my($net,$act) = @_;
 		my $new = $act->{net};
 		my $id = $new->id();
@@ -1277,12 +1282,22 @@ sub cmd2 {
 			for $id (keys %Janus::nets) {
 				$new = $Janus::nets{$id};
 				next if $new->isa('Interface') || $id eq $net->id();
-				push @out, $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->numeric(), $new->netname());
+				my $jl = $new->jlink();
+				if ($jl) {
+					push @out, $net->cmd2($jl->id() . '.janus', SERVER => "$id.janus", 3, $new->numeric(), $new->netname());
+				} else {
+					push @out, $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->numeric(), $new->netname());
+				}
 			}
 			return @out;
 		} else {
 			return () if $net->isa('Interface');
-			return $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->numeric(), $new->netname());
+			my $jl = $new->jlink();
+			if ($jl) {
+				$net->cmd2($jl->id() . '.janus', SERVER => "$id.janus", 3, $new->numeric(), $new->netname());
+			} else {
+				$net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->numeric(), $new->netname());
+			}
 		}
 	}, LINKED => sub {
 		my($net,$act) = @_;
@@ -1291,11 +1306,21 @@ sub cmd2 {
 		$net->cmd1(SMO => 'o', "(\002link\002) Janus Network $id (".$new->netname().') is now linked');
 	}, NETSPLIT => sub {
 		my($net,$act) = @_;
+		return () if $act->{netsplit_quit};
 		my $gone = $act->{net};
 		my $id = $gone->id();
 		my $msg = $act->{msg} || 'Excessive Core Radiation';
 		(
 			$net->cmd1(SMO => 'o', "(\002delink\002) Janus Network $id (".$gone->netname().") has delinked: $msg"),
+			$net->cmd1(SQUIT => "$id.janus", $msg),
+		);
+	}, JNETSPLIT => sub {
+		my($net,$act) = @_;
+		my $gone = $act->{net};
+		my $id = $gone->id();
+		my $msg = $act->{msg} || 'Excessive Core Radiation';
+		(
+			$net->cmd1(SMO => 'o', "(\002delink\002) InterJanus Network $id has delinked: $msg"),
 			$net->cmd1(SQUIT => "$id.janus", $msg),
 		);
 	}, CONNECT => sub {

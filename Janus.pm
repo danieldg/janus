@@ -299,7 +299,7 @@ sub _send {
 	my @to;
 	if (exists $act->{sendto} && ref $act->{sendto}) {
 		@to = @{$act->{sendto}};
-	} elsif ($act->{type} =~ /^NET(LINK|SPLIT)/) {
+	} elsif ($act->{type} =~ /^J?NET(LINK|SPLIT)/) {
 		@to = (values(%nets), values %ijnets);
 		for my $q (values %netqueues) {
 			my $net = $$q[3];
@@ -352,7 +352,7 @@ sub _runq {
 sub _run {
 	my $act = $_[0];
 	if (_mod_hook('ALL', validate => $act)) {
-		my $err = $@ || 'unknown error';
+		my $err = $act->{ERR} || 'unknown error';
 		$err =~ s/\n//;
 		print "Validate hook [$err] on";
 		&EventDump::debug_send($act);
@@ -554,18 +554,11 @@ sub delink {
 		delete $nets{$id};
 		delete $netqueues{$id};
 	} elsif ($net->isa('Server::InterJanus')) {
-		my $id = $net->id();
-		delete $ijnets{$id};
-		my $q = delete $netqueues{$id};
-		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
-		for my $snet (values %nets) {
-			next unless $snet->jlink() && $id eq $snet->jlink()->id();
-			&Janus::insert_full(+{
-				type => 'NETSPLIT',
-				net => $snet,
-				msg => $msg,
-			});
-		}
+		&Janus::insert_full(+{
+			type => 'JNETSPLIT',
+			net => $net,
+			msg => $msg,
+		});
 	} else {
 		&Janus::insert_full(+{
 			type => 'NETSPLIT',
@@ -585,13 +578,33 @@ sub delink {
 		my $net = $act->{net};
 		my $id = $net->id();
 		$nets{$id} = $net;
+	}, NETSPLIT => jparse => sub {
+		my $act = shift;
+		delete $act->{netsplit_quit};
+		undef;
 	}, NETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		my $id = $net->id();
 		delete $nets{$id};
-		my $q = delete $netqueues{$id};
+		my $q = delete $netqueues{$id} or return;
 		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
+	}, JNETSPLIT => act => sub {
+		my $act = shift;
+		my $net = $act->{net};
+		my $id = $net->id();
+		delete $ijnets{$id};
+		my $q = delete $netqueues{$id} or return;
+		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
+		for my $snet (values %nets) {
+			next unless $snet->jlink() && $id eq $snet->jlink()->id();
+			&Janus::insert_full(+{
+				type => 'NETSPLIT',
+				net => $snet,
+				msg => $act->{msg},
+				netsplit_quit => 1,
+			});
+		}
 	},
 );
 &Janus::command_add({
