@@ -113,16 +113,27 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 	code => sub {
 		my $nick = shift;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
-		my $net = $Janus::nets{lc $_} or return;
-		return if $net->jlink();
-		&Janus::append(+{
-			type => 'NETSPLIT',
-			net => $net,
-			msg => 'Forced split by '.$nick->homenick().' on '.$nick->homenet()->id()
-		}, {
-			type => 'REHASH',
-			sendto => [],
-		});
+		my $net = $Janus::nets{lc $_} || $Janus::ijnets{lc $_};
+		return unless $net;
+		if ($net->isa('LocalNetwork')) {
+			&Janus::append(+{
+				type => 'NETSPLIT',
+				net => $net,
+				msg => 'Forced split by '.$nick->homenick().' on '.$nick->homenet()->id()
+			}, {
+				type => 'REHASH',
+				sendto => [],
+			});
+		} elsif ($net->isa('Server::InterJanus')) {
+			&Janus::append(+{
+				type => 'JNETSPLIT',
+				net => $net,
+				msg => 'Forced split by '.$nick->homenick().' on '.$nick->homenet()->id()
+			}, {
+				type => 'REHASH',
+				sendto => [],
+			});
+		}
 	},
 });
 
