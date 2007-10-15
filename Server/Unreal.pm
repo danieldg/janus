@@ -990,7 +990,7 @@ sub srvname {
 		);
 		if (defined $_[0]) {
 			my $src = $act{src} = $net->item($_[0]);
-			$act{topicset} = $src->str($net);
+			$act{topicset} = $src ? $src->str($net) : 'unknown';
 		}
 		$act{topicset} = $_[3] if @_ > 4;
 		$act{topicts} = $net->sjbint($_[4]) if @_ > 5;

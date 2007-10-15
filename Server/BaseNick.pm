@@ -140,33 +140,50 @@ sub item {
 		my $net = $act->{net};
 		return unless $net->isa(__PACKAGE__);
 		my $tid = $net->id();
-		if (%{$nicks[$$net]}) {
-			my @clean;
-			warn "nicks remain after a netsplit, killing...";
-			for my $nick ($net->all_nicks()) {
-				if ($nick->homenet() eq $net) {
-					push @clean, +{
-						type => 'QUIT',
-						src => $net,
-						dst => $nick,
-						msg => 'JanusSplit',
-						nojlink => 1,
-					};
-				} else {
-					push @clean, +{
-						type => 'KILL',
-						src => $Janus::interface,
-						dst => $nick,
-						net => $net,
-						msg => 'JanusSplit',
-						nojlink => 1,
-					};
-				}
-			}
-			&Janus::insert_full(@clean);
-			warn "nicks still remain after netsplit kills: ".join ',', keys %{$nicks[$$net]} if %{$nicks[$$net]};
-			$nicks[$$net] = undef;
+		return unless %{$nicks[$$net]};
+		my @clean;
+		my %chan_reclaim;
+		for my $nick ($net->all_nicks()) {
+			$_->is_on($net) and $chan_reclaim{$_} = $_ for $nick->all_chans();
 		}
+		warn "channels remain in netsplit cleanup: ".
+			join ' ', map $_->str($net), values %chan_reclaim if %chan_reclaim;
+		for my $ch (values %chan_reclaim) {
+			push @clean, +{
+				type => 'DELINK',
+				dst => $ch,
+				net => $net,
+				netsplit_quit => 1,
+				reason => 'Delink2',
+			};
+		}
+		&Janus::insert_full(@clean);
+
+		@clean = ();
+		warn "nicks remain after a netsplit, killing..." if %{$nicks[$$net]};
+		for my $nick ($net->all_nicks()) {
+			if ($nick->homenet() eq $net) {
+				push @clean, +{
+					type => 'QUIT',
+					src => $net,
+					dst => $nick,
+					msg => 'JanusSplit',
+					nojlink => 1,
+				};
+			} else {
+				push @clean, +{
+					type => 'KILL',
+					src => $Janus::interface,
+					dst => $nick,
+					net => $net,
+					msg => 'JanusSplit',
+					nojlink => 1,
+				};
+			}
+		}
+		&Janus::insert_full(@clean);
+		warn "nicks still remain after netsplit kills: ".join ',', keys %{$nicks[$$net]} if %{$nicks[$$net]};
+		$nicks[$$net] = undef;
 	},
 );
 
