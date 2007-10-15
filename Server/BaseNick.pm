@@ -144,13 +144,24 @@ sub item {
 			my @clean;
 			warn "nicks remain after a netsplit, killing...";
 			for my $nick ($net->all_nicks()) {
-				push @clean, +{
-					type => 'KILL',
-					dst => $nick,
-					net => $net,
-					msg => 'JanusSplit',
-					nojlink => 1,
-				};
+				if ($nick->homenet() eq $net) {
+					push @clean, +{
+						type => 'QUIT',
+						src => $net,
+						dst => $nick,
+						msg => 'JanusSplit',
+						nojlink => 1,
+					};
+				} else {
+					push @clean, +{
+						type => 'KILL',
+						src => $Janus::interface,
+						dst => $nick,
+						net => $net,
+						msg => 'JanusSplit',
+						nojlink => 1,
+					};
+				}
 			}
 			&Janus::insert_full(@clean);
 			warn "nicks still remain after netsplit kills: ".join ',', keys %{$nicks[$$net]} if %{$nicks[$$net]};

@@ -105,7 +105,7 @@ sub dump_sendq {
 	} else {
 		my @delayed;
 		for my $i (@{$sendq[$$net]}) {
-			if (ref $i) {
+			if (ref $i && $i->[0] eq 'INIT') {
 				$q .= join "\n", @$i[1..$#$i],'';
 			} else {
 				push @delayed, $i;
