@@ -16,7 +16,9 @@ sub all_nicks {
 
 sub all_chans {
 	my $net = shift;
-	grep { $_->is_on($net) } values %Janus::gchans;
+	my %cbyid;
+	$_->is_on($net) and $cbyid{$$_} = $_ for values %Janus::gchans;
+	values %cbyid;
 }
 
 1;
