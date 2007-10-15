@@ -451,14 +451,14 @@ sub err_jmsg {
 				dst => $dst,
 				msgtype => ($dst->isa('Channel') ? 'PRIVMSG' : 'NOTICE'), # channel notice == annoying
 				msg => $_,
-			});
+			}) if $interface;
 		} else {
 			&Janus::insert_full({
 				type => 'CHATOPS',
 				src => $interface,
 				sendto => [ values %nets ],
 				msg => $_,
-			});
+			}) if $interface;
 		}
 	}
 }
