@@ -206,7 +206,7 @@ not on the network
 
 sub str {
 	my($chan,$net) = @_;
-	$names[$$chan]{$net->id()};
+	$net ? $names[$$chan]{$net->id()} : undef;
 }
 
 =item $chan->is_on($net)
@@ -471,6 +471,7 @@ sub unhook_destroyed {
 		$net->replace_chan($name, $split) unless $net->jlink();
 
 		for my $nid (keys %{$nicks[$$chan]}) {
+			warn "c$$chan/n$nid:no HN", next unless $nicks[$$chan]{$nid}->homenet();
 			if ($nicks[$$chan]{$nid}->homenet()->id() eq $id) {
 				my $nick = $nicks[$$split]{$nid} = $nicks[$$chan]{$nid};
 				$nmode[$$split]{$nid} = $nmode[$$chan]{$nid};
