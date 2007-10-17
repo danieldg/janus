@@ -266,8 +266,11 @@ sub _hook {
 	my $hook = $hooks{$type}{$lvl};
 	return unless $hook;
 	
-	for my $mod (sort keys %$hook) {
+	my @hookmods = sort keys %$hook; # working around a suspected bug in perl here
+	for my $mod (@hookmods) {
+#		print "EV: ", %$hook,"\n";
 		eval {
+#			print "EV_HOOK $type $lvl $mod\n";
 			$hook->{$mod}->(@args);
 			1;
 		} or do {
@@ -285,6 +288,7 @@ sub _mod_hook {
 	my $rv = undef;
 	for my $mod (sort keys %$hook) {
 		eval {
+#			print "MOD_HOOK $type $lvl $mod\n";
 			my $r = $hook->{$mod}->(@args);
 			$rv = $r if defined $r;
 			1;
@@ -591,7 +595,9 @@ sub delink {
 		my $id = $net->name();
 		delete $gnets{$net->gid()};
 		delete $nets{$id};
-		my $q = delete $netqueues{$$net} or return warn;
+		my $q = delete $netqueues{$$net};
+		return if $net->jlink();
+		return warn unless $q;
 		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
 	}, JNETSPLIT => act => sub {
 		my $act = shift;

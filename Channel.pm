@@ -476,7 +476,7 @@ sub unhook_destroyed {
 		my $name = delete $names[$$chan]{$$net};
 		if ($keyname[$$chan] eq $net->gid().$name) {
 			my @onets = sort keys %{$names[$$chan]};
-			$keyname[$$chan] = $onets[0]->gid().$names[$$chan]{$onets[0]};
+			$keyname[$$chan] = $nets[$$chan]{$onets[0]}->gid().$names[$$chan]{$onets[0]};
 		}
 		my $split = Channel->new(
 			net => $net,

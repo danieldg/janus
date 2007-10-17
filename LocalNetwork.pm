@@ -165,7 +165,13 @@ sub del_req {
 		if (%{$chans[$$net]}) {
 			my @clean;
 			warn "channels remain after a netsplit, delinking...";
-			for my $chan ($net->all_chans()) {
+			for my $cn (keys %{$chans[$$net]}) {
+				my $chan = $chans[$$net]{$cn};
+				unless ($chan->is_on($net)) {
+					print "Channel $cn=$$chan not on network $$net as it claims\n";
+					delete $chans[$$net]{$cn};
+					next;
+				}
 				push @clean, +{
 					type => 'DELINK',
 					dst => $chan,

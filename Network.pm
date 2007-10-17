@@ -89,6 +89,7 @@ sub id {
 		@clean = ();
 		print "Nick deallocation end\n";
 		for my $chan ($net->all_chans()) {
+			warn "Channel not on network!" unless $chan->is_on($net);
 			push @clean, +{
 				type => 'DELINK',
 				dst => $chan,
