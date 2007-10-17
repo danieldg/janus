@@ -219,11 +219,18 @@ sub _netpart {
 sub _netclean {
 	my $nick = shift;
 	return if $info[$$nick]{_is_janus};
-	my %leave = @_ ? map { $_->id() => $_ } @_ : %{$nets[$$nick]};
+	my $home = $nick->homenet();
+	my %leave = @_ ? map { $_->lid() => $_ } @_ : %{$nets[$$nick]};
 	delete $leave{$homenet[$$nick]->lid()};
-	for my $chan (values %{$chans[$$nick]}) {
+	for my $cn (keys %{$chans[$$nick]}) {
+		my $chan = $chans[$$nick]{$cn};
+		unless ($chan->is_on($home)) {
+			print "Found nick $$nick on delinked channel $$chan\n";
+			delete $chans[$$nick]{$cn};
+			next;
+		}
 		for my $net ($chan->nets()) {
-			delete $leave{$net->id()};
+			delete $leave{$net->lid()};
 		}
 	}
 	for my $net (values %leave) {

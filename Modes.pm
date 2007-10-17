@@ -93,7 +93,7 @@ sub to_multi {
 	my @out;
 
 	my($count,$len) = (0,0);
-	my $mode;
+	my $mode = '';
 	my @args;
 	while (@modin) {
 		my($txt,$arg,$dir) = (shift @modin, shift @argin, shift @dirin);

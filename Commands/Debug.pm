@@ -21,6 +21,8 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			\%Janus::gchans,
 			\%Janus::nets,
 			\%Janus::ijnets,
+			\%Janus::gnets,
+			\%Janus::netqueues,
 			&Persist::dump_all_refs(),
 		);
 		print $dump Data::Dumper::Dumper(\@all);

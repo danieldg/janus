@@ -15,7 +15,7 @@ my @nick2uid :Persist(nickuid);
 my @uids     :Persist(uids);
 my @gid2uid  :Persist(giduid);
 
-my @letters = (0 .. 9, 'A' .. 'Z');
+my @letters = ('A' .. 'Z', 0 .. 9);
 
 sub net2uid {
 	return '00J' if @_ == 2 && $_[0] eq $_[1];
@@ -58,8 +58,8 @@ sub mynick {
 		return undef;
 	}
 	if ($nick->homenet() ne $net) {
-		print "UID '$name' is from network '".$nick->homenet()->id().
-			"' but was sourced from network '".$net->id()."'\n";
+		print "UID '$name' is from network '".$nick->homenet()->name().
+			"' but was sourced from network '".$net->name()."'\n";
 		return undef;
 	}
 	return $nick;
@@ -139,7 +139,7 @@ sub _request_nick {
 	if ($tagged) {
 		my $tagsep = $net->param('tag_prefix');
 		$tagsep = '/' unless defined $tagsep;
-		my $tag = $tagsep . $nick->homenet()->id();
+		my $tag = $tagsep . $nick->homenet()->name();
 		my $i = 0;
 		$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
 		while (exists $nick2uid[$$net]->{lc $given}) {
@@ -197,7 +197,6 @@ sub item {
 		my $act = shift;
 		my $net = $act->{net};
 		return unless $net->isa(__PACKAGE__);
-		my $tid = $net->id();
 		if (%{$uids[$$net]}) {
 			my @clean;
 			warn "nicks remain after a netsplit, killing...";
