@@ -335,7 +335,10 @@ sub unhook_destroyed {
 		}
 	}, LSYNC => act => sub {
 		my $act = shift;
-		return if $act->{dst}->jlink();
+		if ($act->{dst}->jlink()) {
+			print "Not linking here\n";
+			return;
+		}
 		my $chan1 = $act->{dst}->chan($act->{linkto},1);
 		my $chan2 = $act->{chan};
 	
@@ -344,10 +347,22 @@ sub unhook_destroyed {
 		# events required to merge into it.
 
 		for my $id (keys %{$nets[$$chan1]}) {
-			if (exists $nets[$$chan2]{$id}) {
-				&Janus::jmsg($act->{src}, "Cannot link: this channel would be in $id twice");
-				return;
+			my $exist = $nets[$$chan2]{$id};
+			next unless $exist;
+			if ($nets[$$chan1]{$id} ne $exist) {
+				warn "BUG: discovered non-deallocated network link with $id";
+				if ($nets[$$chan1]{$id} eq $Janus::nets{$id}) {
+					delete $nets[$$chan2]{$id};
+				} elsif ($nets[$$chan2]{id} eq $Janus::nets{$id}) {
+					delete $nets[$$chan1]{$id};
+				} else {
+					print "BUG:".delete($nets[$$chan1]{$id}).'&'.delete($nets[$$chan2]{$id})."\n";
+				}
+				next;
 			}
+			print "Cannot link: this channel would be in $id twice";
+			&Janus::jmsg($act->{src}, "Cannot link: this channel would be in $id twice");
+			return;
 		}
 	
 		my $tsctl = ($ts[$$chan2] <=> $ts[$$chan1]);
