@@ -102,7 +102,8 @@ sub parse {
 	my $ij = shift;
 	$pong[$$ij] = time;
 	local $_ = $_[0];
-	print "     IN\@$id[$$ij]  $_\n";
+	my $selfid = $id[$$ij] || 'NEW';
+	print "     IN\@$selfid  $_\n";
 
 	s/^\s*<(\S+)// or do {
 		print "Invalid line: $_";
@@ -129,6 +130,8 @@ sub parse {
 			print "Unknown InterJanus server $id\n";
 		} elsif ($act->{pass} ne $nconf->{recvpass}) {
 			print "Failed authorization\n";
+		} elsif ($Janus::ijnets{$id} && $Janus::ijnets{$id} ne $ij) {
+			print "Already connected\n";
 		} else {
 			$auth[$$ij] = 1;
 			$act->{net} = $ij;
@@ -136,7 +139,7 @@ sub parse {
 			return $act;
 		}
 		delete $Janus::ijnets{$id};
-		delete $Janus::netqueues{$id};
+		delete $Janus::netqueues{$$ij};
 	}
 	return ();
 }

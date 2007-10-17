@@ -15,10 +15,12 @@ Primary event multiplexer and module loader/unloader
 =cut
 
 # PUBLIC VARS
+our $name;
 our $interface;
 
-our %nets;
+our %nets; # by name
 our %ijnets;
+our %gnets;
 our %gnicks;
 our %gchans;
 
@@ -320,15 +322,15 @@ sub _send {
 		next unless $net;
 		my $ij = $net->jlink();
 		if (defined $ij) {
-			$jlink{$ij->id()} = $ij;
+			$jlink{$ij} = $ij;
 		} else {
-			$real{$net->id()} = $net;
+			$real{$net} = $net;
 		}
 	}
 	if ($act->{except}) {
-		my $id = $act->{except}->id();
-		delete $real{$id};
-		delete $jlink{$id};
+		my $e = $act->{except};
+		delete $real{$e};
+		delete $jlink{$e};
 	}
 	unless ($act->{nojlink}) {
 		for my $ij (values %jlink) {
@@ -552,7 +554,7 @@ sub delink {
 	if ($net->isa('Pending')) {
 		my $id = $net->id();
 		delete $nets{$id};
-		delete $netqueues{$id};
+		delete $netqueues{$$net};
 	} elsif ($net->isa('Server::InterJanus')) {
 		&Janus::insert_full(+{
 			type => 'JNETSPLIT',
@@ -576,7 +578,8 @@ sub delink {
 	NETLINK => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
-		my $id = $net->id();
+		my $id = $net->name();
+		$gnets{$net->gid()} = $net;
 		$nets{$id} = $net;
 	}, NETSPLIT => jparse => sub {
 		my $act = shift;
@@ -585,19 +588,18 @@ sub delink {
 	}, NETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
-		my $id = $net->id();
+		my $id = $net->name();
+		delete $gnets{$net->gid()};
 		delete $nets{$id};
-		my $q = delete $netqueues{$id} or return;
+		my $q = delete $netqueues{$$net} or return warn;
 		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
 	}, JNETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
-		my $id = $net->id();
-		delete $ijnets{$id};
-		my $q = delete $netqueues{$id} or return;
-		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
+		delete $ijnets{$net->id()};
+		my $q = delete $netqueues{$$net} or warn;
 		for my $snet (values %nets) {
-			next unless $snet->jlink() && $id eq $snet->jlink()->id();
+			next unless $snet->jlink() && $net eq $snet->jlink();
 			&Janus::insert_full(+{
 				type => 'NETSPLIT',
 				net => $snet,
@@ -605,6 +607,8 @@ sub delink {
 				netsplit_quit => 1,
 			});
 		}
+		return unless $q;
+		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
 	},
 );
 &Janus::command_add({

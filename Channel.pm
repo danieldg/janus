@@ -65,14 +65,14 @@ sub get_mode {
 sub to_ij {
 	my($chan,$ij) = @_;
 	my $out = '';
-# perl -e "print q[\$out .= ' ],\$_,q[='.\$ij->ijstr(\$],\$_,q[{\$\$chan});],qq(\n) for qw/keyname ts topic topicts topicset mode names/"
 	$out .= ' keyname='.$ij->ijstr($keyname[$$chan]);
 	$out .= ' ts='.$ij->ijstr($ts[$$chan]);
 	$out .= ' topic='.$ij->ijstr($topic[$$chan]);
 	$out .= ' topicts='.$ij->ijstr($topicts[$$chan]);
 	$out .= ' topicset='.$ij->ijstr($topicset[$$chan]);
 	$out .= ' mode='.$ij->ijstr($mode[$$chan]);
-	$out .= ' names='.$ij->ijstr($names[$$chan]);
+	my %nnames = map { $_->gid(), $names[$$chan]{$$_} } values %{$nets[$$chan]};
+	$out .= ' names='.$ij->ijstr(\%nnames);
 	$out;
 }
 
@@ -84,20 +84,21 @@ sub _init {
 	$ts[$$c] = (time + 60) if $ts[$$c] < 1000000;
 	if ($keyname[$$c]) {
 		my $names = $ifo->{names} || {};
-		$names[$$c] = $names;
+		$names[$$c] = {};
 		$nets[$$c] = {};
 		for my $id (keys %$names) {
 			my $name = $names->{$id};
-			$nets[$$c]{$id} = $Janus::nets{$id};
-			$Janus::gchans{$id.$name} = $c unless $Janus::gchans{$id.$name};
+			my $net = $Janus::gnets{$id} or warn next;
+			$names[$$c]{$$net} = $name;
+			$nets[$$c]{$$net} = $net;
+			$Janus::gchans{$net->gid().$name} = $c unless $Janus::gchans{$net->gid().$name};
 		}
 	} else {
 		my $net = $ifo->{net};
-		my $id = $net->id();
-		$keyname[$$c] = $id.$ifo->{name};
-		$nets[$$c]{$id} = $net;
-		$names[$$c]{$id} = $ifo->{name};
-		$Janus::gchans{$id.$ifo->{name}} = $c;
+		$keyname[$$c] = $net->gid().$ifo->{name};
+		$nets[$$c]{$$net} = $net;
+		$names[$$c]{$$net} = $ifo->{name};
+		$Janus::gchans{$net->gid().$ifo->{name}} = $c;
 	}
 }
 
@@ -134,7 +135,7 @@ sub _link_into {
 		print " $id";
 		my $net = $nets[$$src]{$id};
 		my $name = $names[$$src]{$id};
-		$Janus::gchans{$id.$name} = $chan;
+		$Janus::gchans{$net->gid().$name} = $chan;
 		delete $dstnets{$id};
 		next if $net->jlink();
 		print '+';
@@ -206,7 +207,7 @@ not on the network
 
 sub str {
 	my($chan,$net) = @_;
-	$net ? $names[$$chan]{$net->id()} : undef;
+	$net ? $names[$$chan]{$$net} : undef;
 }
 
 =item $chan->is_on($net)
@@ -217,13 +218,13 @@ returns true if the channel is linked onto the given network
 
 sub is_on {
 	my($chan, $net) = @_;
-	exists $nets[$$chan]{$net->id()};
+	exists $nets[$$chan]{$$net};
 }
 
 sub sendto {
 	my($chan,$act,$except) = @_;
 	my %n = %{$nets[$$chan]};
-	delete $n{$except->id()} if $except;
+	delete $n{$$except} if $except;
 	values %n;
 }
 
@@ -247,7 +248,7 @@ sub unhook_destroyed {
 	for my $id (keys %{$nets[$$chan]}) {
 		my $net = $nets[$$chan]{$id};
 		my $name = $names[$$chan]{$id};
-		delete $Janus::gchans{$id.$name};
+		delete $Janus::gchans{$net->gid().$name};
 		next if $net->jlink();
 		$net->replace_chan($name, undef);
 	}
@@ -460,7 +461,7 @@ sub unhook_destroyed {
 			print "Cannot delink: channel $$chan is not shared: @nets\n";
 			return 1;
 		}
-		unless (exists $nets[$$chan]{$net->id()}) {
+		unless (exists $nets[$$chan]{$$net}) {
 			print "Cannot delink: channel $$chan is not on network #$$net\n";
 			return 1;
 		}
@@ -469,14 +470,13 @@ sub unhook_destroyed {
 		my $act = shift;
 		my $chan = $act->{dst};
 		my $net = $act->{net};
-		my $id = $net->id();
 		$act->{sendto} = [ values %{$nets[$$chan]} ]; # before the splitting
-		delete $nets[$$chan]{$id} or warn;
+		delete $nets[$$chan]{$$net} or warn;
 
-		my $name = delete $names[$$chan]{$id};
-		if ($keyname[$$chan] eq $id.$name) {
+		my $name = delete $names[$$chan]{$$net};
+		if ($keyname[$$chan] eq $net->gid().$name) {
 			my @onets = sort keys %{$names[$$chan]};
-			$keyname[$$chan] = $onets[0].$names[$$chan]{$onets[0]};
+			$keyname[$$chan] = $onets[0]->gid().$names[$$chan]{$onets[0]};
 		}
 		my $split = Channel->new(
 			net => $net,
@@ -493,7 +493,7 @@ sub unhook_destroyed {
 
 		for my $nid (keys %{$nicks[$$chan]}) {
 			warn "c$$chan/n$nid:no HN", next unless $nicks[$$chan]{$nid}->homenet();
-			if ($nicks[$$chan]{$nid}->homenet()->id() eq $id) {
+			if ($nicks[$$chan]{$nid}->homenet() eq $net) {
 				my $nick = $nicks[$$split]{$nid} = $nicks[$$chan]{$nid};
 				$nmode[$$split]{$nid} = $nmode[$$chan]{$nid};
 				$nick->rejoin($split);

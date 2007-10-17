@@ -44,7 +44,7 @@ sub debug {
 
 sub str {
 	my $net = shift;
-	$net->id().'.janus';
+	$net->jname();
 }
 
 sub intro {
@@ -58,9 +58,9 @@ sub intro {
 	push @out, $net->ncmd(VERSION => 'Janus Hub');
 	for my $id (keys %Janus::nets) {
 		my $new = $Janus::nets{$id};
-		next if $new->isa('Interface') || $id eq $net->id();
-		push @out, $net->ncmd(SERVER => "$id.janus", '*', 1, $new->netname());
-		push @out, $net->cmd2("$id.janus", VERSION => 'Remote Janus Server: '.ref $new);
+		next if $new->isa('Interface') || $new eq $net;
+		push @out, $net->ncmd(SERVER => $new->jname(), '*', 1, $new->netname());
+		push @out, $net->cmd2($new->jname(), VERSION => 'Remote Janus Server: '.ref $new);
 	}
 	$net->send(@out);
 }
@@ -68,7 +68,7 @@ sub intro {
 # parse one line of input
 sub parse {
 	my ($net, $line) = @_;
-	debug "\e[0;32m     IN@".$net->id().' '. $line;
+	debug "\e[0;32m     IN@".$net->name().' '. $line;
 	$net->pong();
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
@@ -115,7 +115,7 @@ sub dump_sendq {
 		$auth[$$net] = 3 if $auth[$$net] == 2;
 	}
 	$q =~ s/\n+/\r\n/g;
-	print "\e[0;34m    OUT@".$net->id().' '.$_."\e[0m\n" for split /\r\n/, $q;
+	print "\e[0;34m    OUT@".$net->name().' '.$_."\e[0m\n" for split /\r\n/, $q;
 	$q;
 }
 
@@ -135,7 +135,7 @@ sub _connect_ifo {
 		}
 	}
 	
-	my $srv = $nick->homenet()->id() . '.janus';
+	my $srv = $nick->homenet()->jname();
 	$srv = $net->cparam('linkname') if $srv eq 'janus.janus';
 
 	my $ip = $nick->info('ip') || '0.0.0.0';
@@ -240,14 +240,14 @@ sub _out {
 	return $itm unless ref $itm;
 	if ($itm->isa('Nick')) {
 		return $itm->str($net) if $itm->is_on($net);
-		return $itm->homenet()->id() . '.janus';
+		return $itm->homenet()->jname();
 	} elsif ($itm->isa('Channel')) {
 		warn "This channel message must have been misrouted: ".$itm->keyname()
 			unless $itm->is_on($net);
 		return $itm->str($net);
 	} elsif ($itm->isa('Network')) {
 		return $net->cparam('linkname') if $net eq $itm;
-		return $itm->id(). '.janus';
+		return $itm->jname();
 	} else {
 		warn "Unknown item $itm";
 		$net->cparam('linkname');
@@ -724,7 +724,7 @@ $moddef{CORE} = {
 	SVSNICK => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
-		if ($nick->homenet->id() eq $net->id()) {
+		if ($nick->homenet eq $net) {
 			warn "Misdirected SVSNICK!";
 			return ();
 		} elsif (lc $nick->homenick eq lc $_[2]) {
@@ -874,34 +874,32 @@ $moddef{CORE} = {
 	NETLINK => sub {
 		my($net,$act) = @_;
 		my $new = $act->{net};
-		my $id = $new->id();
-		return () if $net->id() eq $id;
+		return () if $net eq $new;
 		return () if $net->isa('Interface');
 		return (
-			$net->ncmd(SERVER => "$id.janus", '*', 1, $new->netname()),
-			$net->ncmd(OPERNOTICE => "Janus network $id (".$new->netname().") is now linked"),
-			$net->cmd2("$id.janus", VERSION => 'Remote Janus Server: '.ref $id),
+			$net->ncmd(SERVER => $new->jname(), '*', 1, $new->netname()),
+			$net->ncmd(OPERNOTICE => "Janus network ".$new->name().' ('.$new->netname().") is now linked"),
+			$net->cmd2($new->jname(), VERSION => 'Remote Janus Server: '.ref $new),
 		);
 	}, NETSPLIT => sub {
 		my($net,$act) = @_;
 		my $gone = $act->{net};
-		my $id = $gone->id();
 		my $msg = $act->{msg} || 'Excessive Core Radiation';
 		return (
-			$net->ncmd(OPERNOTICE => "Janus network $id (".$gone->netname().") has delinked: $msg"),
-			$net->ncmd(SQUIT => "$id.janus", $msg),
+			$net->ncmd(OPERNOTICE => "Janus network ".$gone->name().' ('.$gone->netname().") has delinked: $msg"),
+			$net->ncmd(SQUIT => $gone->jname(), $msg),
 		);
 	}, CONNECT => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
-		return () if $act->{net}->id() ne $net->id();
+		return () if $act->{net} ne $net;
 		my @out = $net->_connect_ifo($nick);
 		push @out, $net->cmd2($nick, MODULES => $net->cparam('linkto')) if $nick->info('_is_janus');
 		@out;
 	}, RECONNECT => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
-		return () if $act->{net}->id() ne $net->id();
+		return () if $act->{net} ne $net;
 
 		if ($act->{killed}) {
 			my @out = $net->_connect_ifo($nick);
@@ -918,7 +916,7 @@ $moddef{CORE} = {
 		}
 	}, NICK => sub {
 		my($net,$act) = @_;
-		my $id = $net->id();
+		my $id = $$net;
 		$net->cmd2($act->{from}{$id}, NICK => $act->{to}{$id});
 	}, UMODE => sub {
 		my($net,$act) = @_;

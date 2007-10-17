@@ -39,14 +39,13 @@ my %initargs = (
 sub _init {
 	my($nick, $ifo) = @_;
 	my $net = $ifo->{net};
-	my $gid = $ifo->{gid} || $net->id() . ':' . $$nick;
+	my $gid = $ifo->{gid} || $net->gid() . ':' . $$nick;
 	$gid[$$nick] = $gid;
 	$Janus::gnicks{$gid} = $nick;
 	$homenet[$$nick] = $net;
 	$homenick[$$nick] = $ifo->{nick};
-	my $homeid = $net->id();
-	$nets[$$nick] = { $homeid => $net };
-	$nicks[$$nick] = { $homeid => $ifo->{nick} };
+	$nets[$$nick] = { $$net => $net };
+	$nicks[$$nick] = { $$net => $ifo->{nick} };
 	$ts[$$nick] = $ifo->{ts} || time;
 	$info[$$nick] = $ifo->{info} || {};
 	$mode[$$nick] = $ifo->{mode} || {};
@@ -82,7 +81,7 @@ sub sendto {
 		return $act->{net};
 	} else {
 		my %n = %{$nets[$$nick]};
-		delete $n{$except->id()} if $except;
+		delete $n{$$except} if $except;
 		return values %n;
 	}
 }
@@ -95,7 +94,7 @@ return true if the nick is on the given network
 
 sub is_on {
 	my($nick, $net) = @_;
-	return exists $nets[$$nick]{$net->id()};
+	return exists $nets[$$nick]{$$net};
 }
 
 =item $nick->netlist() 
@@ -183,7 +182,7 @@ sub rejoin {
 	return if $nick->jlink();
 
 	for my $net ($chan->nets()) {
-		next if $nets[$$nick]->{$net->id()};
+		next if $nets[$$nick]{$$net};
 		&Janus::append(+{
 			type => 'CONNECT',
 			dst => $nick,
@@ -201,11 +200,10 @@ sub _part {
 
 sub _netpart {
 	my($nick, $net) = @_;	
-	my $id = $net->id();
 
-	delete $nets[$$nick]->{$id};
+	delete $nets[$$nick]{$$net};
 	return if $net->jlink();
-	my $rnick = delete $nicks[$$nick]{$id};
+	my $rnick = delete $nicks[$$nick]{$$net};
 	$net->release_nick($rnick, $nick);
 	# this could be the last local network the nick was on
 	# if so, we need to remove it from Janus::gnicks
@@ -222,7 +220,7 @@ sub _netclean {
 	my $nick = shift;
 	return if $info[$$nick]{_is_janus};
 	my %leave = @_ ? map { $_->id() => $_ } @_ : %{$nets[$$nick]};
-	delete $leave{$homenet[$$nick]->id()};
+	delete $leave{$homenet[$$nick]->lid()};
 	for my $chan (values %{$chans[$$nick]}) {
 		for my $net ($chan->nets()) {
 			delete $leave{$net->id()};
@@ -261,7 +259,7 @@ Get the nick's name on the given network
 
 sub str {
 	my($nick,$net) = @_;
-	$nicks[$$nick]{$net->id()};
+	$nicks[$$nick]{$$net};
 }
 
 =back
@@ -273,26 +271,24 @@ sub str {
 		my $act = shift;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
-		my $id = $net->id();
-		if (exists $nets[$$nick]{$id}) {
+		if (exists $nets[$$nick]{$$net}) {
 			warn "Nick alredy on CONNECTing network!";
 		}
-		$nets[$$nick]{$id} = $net;
+		$nets[$$nick]{$$net} = $net;
 		return if $net->jlink();
 
 		my $rnick = $net->request_newnick($nick, $homenick[$$nick], 0);
-		$nicks[$$nick]->{$id} = $rnick;
+		$nicks[$$nick]->{$$net} = $rnick;
 	}, RECONNECT => act => sub {
 		my $act = shift;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
-		my $id = $net->id();
 		
 		delete $act->{except};
 
-		my $from = $act->{from} = $nicks[$$nick]{$id};
+		my $from = $act->{from} = $nicks[$$nick]{$$net};
 		my $to = $act->{to} = $net->request_cnick($nick, $homenick[$$nick], 1);
-		$nicks[$$nick]{$id} = $to;
+		$nicks[$$nick]{$$net} = $to;
 		
 		if ($act->{killed}) {
 			$act->{reconnect_chans} = [ values %{$chans[$$nick]} ];
@@ -372,7 +368,7 @@ sub str {
 		return if $homenet[$$nick]->jlink();
 		
 		for my $net ($chan->nets()) {
-			next if $nets[$$nick]->{$net->id()};
+			next if $nets[$$nick]->{$$net};
 			&Janus::insert_partial(+{
 				type => 'CONNECT',
 				dst => $nick,

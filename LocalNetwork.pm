@@ -24,8 +24,9 @@ sub _init {
 
 sub param {
 	my $net = shift;
-	$Conffile::netconf{$net->id()}{$_[0]};
+	$Conffile::netconf{$net->name()}{$_[0]};
 }
+
 sub cparam {
 	$cparms[${$_[0]}]{$_[1]};
 }
@@ -43,12 +44,12 @@ sub pongcheck {
 		weaken($p->{net});
 		$net = $p->{net}; #possibly skip
 	}
-	unless ($net && defined $net->id()) {
+	unless ($net) {
 		delete $p->{repeat};
 		&Conffile::connect_net(undef, $p->{netid});
 		return;
 	}
-	unless ($Janus::nets{$net->id()} eq $net) {
+	unless ($Janus::gnets{$net->gid()} eq $net) {
 		delete $p->{repeat};
 		warn "Network $net not deallocated quickly enough!";
 		return;
@@ -69,14 +70,14 @@ sub pongcheck {
 
 sub intro {
 	my $net = shift;
-	$cparms[$$net] = { %{$Conffile::netconf{$net->id()}} };
+	$cparms[$$net] = { %{$Conffile::netconf{$net->name()}} };
 	$net->_set_numeric($cparms[$$net]->{numeric});
 	$net->_set_netname($cparms[$$net]->{netname});
 	$ponged[$$net] = time;
 	my $pinger = {
 		repeat => 30,
 		net => $net,
-		netid => $net->id(),
+		netid => $net->name(),
 		code => \&pongcheck,
 	};
 	weaken($pinger->{net});
@@ -119,17 +120,17 @@ sub all_chans {
 
 sub add_req {
 	my($net, $lchan, $onet, $ochan) = @_;
-	$lreq[$$net]{$lchan}{ref $onet ? $onet->id() : $onet} = $ochan;
+	$lreq[$$net]{$lchan}{ref $onet ? $onet->name() : $onet} = $ochan;
 }
 
 sub is_req {
 	my($net, $lchan, $onet) = @_;
-	$lreq[$$net]{$lchan}{$onet->id()};
+	$lreq[$$net]{$lchan}{$onet->name()};
 }
 
 sub del_req {
 	my($net, $lchan, $onet) = @_;
-	delete $lreq[$$net]{$lchan}{$onet->id()};
+	delete $lreq[$$net]{$lchan}{$onet->name()};
 }
 
 &Janus::hook_add(
@@ -142,7 +143,7 @@ sub del_req {
 		my $act = shift;
 		my $rnet = $act->{net};
 		return unless $rnet->isa('RemoteNetwork');
-		my $id = $rnet->id();
+		my $id = $rnet->name();
 		for my $net (values %Janus::nets) {
 			next unless $net->isa('LocalNetwork');
 			for my $ch (keys %{$lreq[$$net]}) {
@@ -161,7 +162,6 @@ sub del_req {
 		my $act = shift;
 		my $net = $act->{net};
 		return unless $net->isa('LocalNetwork');
-		my $tid = $net->id();
 		if (%{$chans[$$net]}) {
 			my @clean;
 			warn "channels remain after a netsplit, delinking...";

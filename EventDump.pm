@@ -4,7 +4,7 @@
 package EventDump;
 use strict;
 use warnings;
-use Persist;
+use Persist 'SocketHandler';
 use Nick;
 use Channel;
 use RemoteNetwork;
@@ -53,9 +53,9 @@ sub ijstr {
 	} elsif ($itm->isa('Nick')) {
 		return 'n:'.$itm->gid();
 	} elsif ($itm->isa('Channel')) {
-		return ($$ij ? 'c:' : "c:$$itm:").$itm->keyname();
+		return ($$ij ? 'c:' : "c($$itm):").$itm->keyname();
 	} elsif ($itm->isa('Network')) {
-		return 's:'.$itm->id();
+		return 's:'.$itm->gid();
 	} elsif ($itm->isa('Server::InterJanus')) {
 		return 'j:'.$itm->id();
 	}
@@ -179,7 +179,7 @@ my %v_type; %v_type = (
 		$Janus::gchans{$1};
 	}, 's' => sub {
 		s/^s:([^ >]+)// or return undef;
-		$Janus::nets{$1};
+		$Janus::gnets{$1};
 	}, 'j' => sub {
 		s/^j:([^ >]+)//;
 		undef;
@@ -206,11 +206,11 @@ my %v_type; %v_type = (
 		s/^<s// or warn;
 		$ij->kv_pairs($h);
 		s/^>// or warn;
-		if ($Janus::nets{$h->{id}}) {
+		if ($Janus::gnets{$h->{gid}} || $Janus::nets{$h->{id}}) {
 			# this is a NETLINK of a network we already know about.
 			# We either have a loop or a name collision. Either way, the IJ link
 			# cannot continue
-			&Janus::delink($ij, "InterJanus network name collision: network $h->{id} already exists");
+			&Janus::delink($ij, "InterJanus network name collision: network $h->{name} already exists");
 			return undef;
 		}
 		RemoteNetwork->new(jlink => $ij, %$h);

@@ -25,8 +25,8 @@ sub mynick {
 		return undef;
 	}
 	if ($nick->homenet() ne $net) {
-		print "Nick '$name' is from network '".$nick->homenet()->id().
-			"' but was sourced from network '".$net->id()."'\n";
+		print "Nick '$name' is from network '".$nick->homenet()->name().
+			"' but was sourced from network '".$net->name()."'\n";
 		return undef;
 	}
 	return $nick;
@@ -89,7 +89,7 @@ sub request_nick {
 		if ($tagged) {
 			my $tagsep = $net->param('tag_prefix');
 			$tagsep = '/' unless defined $tagsep;
-			my $tag = $tagsep . $nick->homenet()->id();
+			my $tag = $tagsep . $nick->homenet()->name();
 			my $i = 0;
 			$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
 			while (exists $nicks[$$net]->{lc $given}) {
@@ -139,7 +139,6 @@ sub item {
 		my $act = shift;
 		my $net = $act->{net};
 		return unless $net->isa(__PACKAGE__);
-		my $tid = $net->id();
 		return unless %{$nicks[$$net]};
 		my @clean;
 		my %chan_reclaim;
