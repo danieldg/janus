@@ -63,7 +63,7 @@ sub match {
 	if (@v == 1 && ref $v[0]) {
 		my $nick = shift @v;
 		my $head = $nick->homenick().'!'.$nick->info('ident').'@';
-		my $tail = '%'.$nick->homenet()->id().':'.$nick->info('name');
+		my $tail = '%'.$nick->homenet()->name().':'.$nick->info('name');
 		push @v, $head . $nick->info('host') . $tail;
 		push @v, $head . $nick->info('vhost') . $tail;
 		push @v, $head . $nick->info('ip') . $tail;

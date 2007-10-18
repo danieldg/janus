@@ -20,8 +20,8 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			next if @nets == 1;
 			my $list = ' '.$chan->str($hnet);
 			for my $net (sort @nets) {
-				next if $net->id() eq $hnet->id();
-				$list .= ' '.$net->id().$chan->str($net);
+				next if $net eq $hnet;
+				$list .= ' '.$net->name().$chan->str($net);
 			}
 			push @chans, $list;
 		}
@@ -133,8 +133,8 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			my @nets = $chan->nets();
 			next if @nets == 1;
 			for my $net (@nets) {
-				next if $net->id() eq $hnet->id();
-				$reqs{$chan->str($hnet)}{$net->id()} = $chan->str($net);
+				next if $net eq $hnet;
+				$reqs{$chan->str($hnet)}{$net->name()} = $chan->str($net);
 			}
 		}
 		for my $chan (sort keys %reqs) {
@@ -142,7 +142,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 				push @file, join ' ', $chan, $net, $reqs{$chan}{$net};
 			}
 		}
-		$hnet->id() =~ /^([0-9a-z_A-Z]+)$/ or return warn;
+		$hnet->name() =~ /^([0-9a-z_A-Z]+)$/ or return warn;
 		open my $f, '>', "links.$1.conf" or do {
 			&Janus::err_jmsg($nick, "Could not open links file for net $1 for writing: $!");
 			return;

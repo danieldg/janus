@@ -20,12 +20,12 @@ my @home :PersistAs(Channel, homenet);
 		my $chan = $nick->homenet()->chan($cname) or return;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my $oldhome = $home[$$chan];
-		if ($oldhome && $Janus::nets{$oldhome} && $nick->homenet()->id() ne $oldhome && 
+		if ($oldhome && $Janus::nets{$oldhome} && $nick->homenet()->name() ne $oldhome && 
 				$chan->is_on($Janus::nets{$oldhome})) {
 			&Janus::jmsg($nick, "Someone from the $oldhome network must run this command");
 			return;
 		}
-		my $owner = $net ? $net->id() : undef;
+		my $owner = $net ? $net->name() : undef;
 		$home[$$chan] = $owner;
 		$owner ||= 'unset';
 		&Janus::jmsg($nick, "The owner of $cname is now $owner");
@@ -38,7 +38,7 @@ sub acl_ok {
 	my $chan = $act->{dst};
 	my $home = $home[$$chan] or return 1;
 	my $snet = $src->isa('Network') ? $src : $src->homenet();
-	return 1 if $snet->id() eq $home;
+	return 1 if $snet->name() eq $home;
 	if ($src->isa('Nick')) {
 		for (qw/n_owner n_admin n_op n_halfop/) {
 			return 1 if $chan->has_nmode($_, $src);
