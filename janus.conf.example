@@ -1,7 +1,8 @@
 set {
 	ipv6 1
-	pass secret
 	diepass verysecret
+	name yourserver
+	pass rehashdude
 }
 
 link t1 {

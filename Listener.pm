@@ -4,7 +4,7 @@
 package Listener;
 use strict;
 use warnings;
-use Persist;
+use Persist 'SocketHandler';
 use Pending;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
@@ -25,7 +25,7 @@ sub init_pending {
 		);
 		$sock->accept_SSL();
 	}
-	$Janus::netqueues{$net->id()} = [$sock, '', '', $net, 1, 0];
+	$Janus::netqueues{$$net} = [$sock, '', '', $net, 1, 0];
 }
 
 sub dump_sendq { '' }

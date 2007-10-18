@@ -80,6 +80,10 @@ if ($Janus::interface) {
 			dst => $act->{dst},
 			net => $act->{net},
 		});
+	}, CHATOPS => jparse => sub {
+		my $act = shift;
+		$act->{msg} = '[remote] '.$act->{msg} if $act->{src} eq $Janus::interface;
+		undef;
 	},
 );
 

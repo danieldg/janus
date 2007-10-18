@@ -87,6 +87,18 @@ sub read_conf {
 		}
 	}
 	close $conf;
+	if ($newconf{set}{name}) {
+		if ($Janus::name) {
+			&Janus::err_jmsg($nick, "You must restart the server to change the name")
+				if $Janus::name ne $newconf{set}{name};
+			$newconf{set}{name} = $Janus::name;
+		} else {
+			$Janus::name = $newconf{set}{name};
+		}
+	} else {
+		&Janus::err_jmsg($nick, "Server name not set! You need set block with a 'name' entry");
+		return;
+	}
 	%netconf = %newconf;
 	if ($newconf{modules}) {
 		for my $mod (keys %{$newconf{modules}}) {
@@ -100,14 +112,14 @@ sub read_conf {
 sub connect_net {
 	my($nick,$id) = @_;
 	my $nconf = $netconf{$id};
-	return if !$nconf || exists $Janus::netqueues{$id};
+	return if !$nconf || exists $Janus::nets{$id} || exists $Janus::ijnets{$id};
 	print "Connecting $id\n";
 	if ($id =~ /^LISTEN:/) {
 		print "Listening on $nconf->{addr}\n";
 		my $sock = $inet{listn}->($nconf);
 		if ($sock) {
 			my $list = Listener->new(id => $id, conf => $nconf);
-			$Janus::netqueues{$id} = [$sock, undef, undef, $list, 1, 0];
+			$Janus::netqueues{$$list} = [$sock, undef, undef, $list, 1, 0];
 		} else {
 			&Janus::err_jmsg($nick, "Could not listen on port $nconf->{addr}: $!");
 		}
@@ -134,7 +146,7 @@ sub connect_net {
 			# otherwise it's interjanus, which we let report its own events
 
 			# we start out waiting on writes because that's what connect(2) says for EINPROGRESS connects
-			$Janus::netqueues{$net->id()} = [$sock, '', '', $net, 0, 1];
+			$Janus::netqueues{$$net} = [$sock, '', '', $net, 0, 1];
 		}
 	}
 }
@@ -154,7 +166,7 @@ sub rehash {
 		my $act = shift;
 		my $net = $act->{net};
 		return if $net->jlink();
-		open my $links, 'links.'.$net->id().'.conf' or return;
+		open my $links, 'links.'.$net->name().'.conf' or return;
 		while (<$links>) {
 			my($cname1, $nname, $cname2) = /^\s*(#\S*)\s+(\S+)\s+(#\S*)/ or next;
 			my $net2 = $Janus::nets{$nname};

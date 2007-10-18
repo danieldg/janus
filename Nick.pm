@@ -30,12 +30,12 @@ my @ts       :Persist(ts) :Get(ts);
 sub _init {
 	my($nick, $ifo) = @_;
 	my $net = $ifo->{net};
-	my $gid = $ifo->{gid} || $net->id() . ':' . $$nick;
+	my $gid = $ifo->{gid} || $net->gid() . ':' . $$nick;
 	$gid[$$nick] = $gid;
 	$homenet[$$nick] = $net;
 	$homenick[$$nick] = $ifo->{nick};
 	my $homeid = $net->id();
-	$nets[$$nick] = { $homeid => $net };
+	$nets[$$nick] = { $$net => $net };
 	$nick[$$nick] = $ifo->{nick};
 	$ts[$$nick] = $ifo->{ts} || time;
 	$info[$$nick] = $ifo->{info} || {};
@@ -72,7 +72,7 @@ sub sendto {
 		return $act->{net};
 	} else {
 		my %n = %{$nets[$$nick]};
-		delete $n{$except->id()} if $except;
+		delete $n{$$except} if $except;
 		return values %n;
 	}
 }
@@ -85,7 +85,7 @@ return true if the nick is on the given network
 
 sub is_on {
 	my($nick, $net) = @_;
-	return exists $nets[$$nick]{$net->id()};
+	return exists $nets[$$nick]{$$net};
 }
 
 =item $nick->netlist() 
@@ -173,7 +173,7 @@ sub rejoin {
 	return if $nick->jlink();
 
 	for my $net ($chan->nets()) {
-		next if $nets[$$nick]->{$net->id()};
+		next if $nets[$$nick]{$$net};
 		&Janus::append(+{
 			type => 'CONNECT',
 			dst => $nick,
@@ -219,11 +219,10 @@ sub str {
 		my $act = shift;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
-		my $id = $net->id();
-		if (exists $nets[$$nick]{$id}) {
+		if (exists $nets[$$nick]{$$net}) {
 			warn "Nick alredy on CONNECTing network!";
 		}
-		$nets[$$nick]{$id} = $net;
+		$nets[$$nick]{$$net} = $net;
 		return if $net->jlink();
 	}, NICK => check => sub {
 		my $act = shift;

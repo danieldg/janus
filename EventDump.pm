@@ -4,8 +4,10 @@
 package EventDump;
 use strict;
 use warnings;
+use SocketHandler;
+use Persist 'SocketHandler';
 use Nick;
-use Persist;
+use Channel;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
@@ -51,11 +53,11 @@ sub ijstr {
 	} elsif ($itm->isa('Nick')) {
 		return 'n:'.$itm->gid();
 	} elsif ($itm->isa('Channel')) {
-		return ($$ij ? 'c:' : "c:$$itm:").$itm->keyname();
+		return ($$ij ? 'c:' : "c($$itm):").$itm->keyname();
 	} elsif ($itm->isa('Network')) {
-		return 's:'.$itm->id();
+		return 's:'.$itm->gid();
 	} elsif ($itm->isa('Server::InterJanus')) {
-		return '';
+		return 'j:'.$itm->id();
 	}
 	warn "Unknown object $itm";
 	return '""';
@@ -109,6 +111,7 @@ my %to_ij = (
 		send_hdr(@_,qw/dst nick/) . '>';
 	},
 	InterJanus => \&ssend,
+	JNETLINK => \&ssend,
 	QUIT => \&ssend,
 	KILL => \&ssend,
 	NICKINFO => \&ssend,
@@ -169,17 +172,17 @@ my %v_type; %v_type = (
 		$v =~ s/\\(.)/$esc2char{$1}/g;
 		$v;
 	}, 'n' => sub {
-		my $ij = shift;
 		s/^n:([^ >]+)// or return undef;
 		$Janus::gnicks{$1};
 	}, 'c' => sub {
-		my $ij = shift;
 		s/^c:([^ >]+)// or return undef;
 		$Janus::gchans{$1};
 	}, 's' => sub {
-		my $ij = shift;
 		s/^s:([^ >]+)// or return undef;
-		$Janus::nets{$1};
+		$Janus::gnets{$1};
+	}, 'j' => sub {
+		s/^j:([^ >]+)//;
+		undef;
 	}, '<a' => sub {
 		my @arr;
 		s/^<a// or warn;
@@ -203,11 +206,11 @@ my %v_type; %v_type = (
 		s/^<s// or warn;
 		$ij->kv_pairs($h);
 		s/^>// or warn;
-		if ($Janus::nets{$h->{id}}) {
+		if ($Janus::gnets{$h->{gid}} || $Janus::nets{$h->{id}}) {
 			# this is a NETLINK of a network we already know about.
 			# We either have a loop or a name collision. Either way, the IJ link
 			# cannot continue
-			&Janus::delink($ij, "InterJanus network name collision: network $h->{id} already exists");
+			&Janus::delink($ij, "InterJanus network name collision: network $h->{name} already exists");
 			return undef;
 		}
 		RemoteNetwork->new(jlink => $ij, %$h);
@@ -226,8 +229,8 @@ my %v_type; %v_type = (
 		s/^<n// or warn;
 		$ij->kv_pairs($h);
 		s/^>// or warn;
-		return undef unless ref $h->{net} && $h->{net}->isa('Network');
-		# TODO verify that homenet is not forged
+		return undef unless ref $h->{net} &&
+			$h->{net}->isa('RemoteNetwork') && $h->{net}->jlink() eq $ij;
 		$Janus::gnicks{$h->{gid}} || Nick->new(%$h);
 	},
 );

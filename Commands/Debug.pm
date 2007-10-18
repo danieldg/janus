@@ -20,6 +20,8 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			\%Janus::nicks,
 			\%LocalNetwork::chans,
 			\%Janus::nets,
+			\%Janus::gnets,
+			\%Janus::netqueues,
 			&Persist::dump_all_refs(),
 		);
 		print $dump Data::Dumper::Dumper(\@all);

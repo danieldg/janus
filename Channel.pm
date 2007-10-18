@@ -61,7 +61,6 @@ sub get_mode {
 sub to_ij {
 	my($chan,$ij) = @_;
 	my $out = '';
-# perl -e "print q[\$out .= ' ],\$_,q[='.\$ij->ijstr(\$],\$_,q[{\$\$chan});],qq(\n) for qw/ts topic topicts topicset mode/"
 	$out .= ' ts='.$ij->ijstr($ts[$$chan]);
 	$out .= ' topic='.$ij->ijstr($topic[$$chan]);
 	$out .= ' topicts='.$ij->ijstr($topicts[$$chan]);
@@ -133,7 +132,7 @@ sub is_on {
 sub sendto {
 	my($chan,$act,$except) = @_;
 	my %n = %Janus::nets;
-	delete $n{$except->id()} if $except;
+	delete $n{$$except} if $except;
 	values %n;
 }
 

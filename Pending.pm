@@ -46,11 +46,11 @@ sub parse {
 				last;
 			}
 		}
-		my $q = delete $Janus::netqueues{$pnet->id()};
+		my $q = delete $Janus::netqueues{$$pnet};
 		if ($rnet) {
 			$delegate[$$pnet] = $rnet;
 			$$q[3] = $rnet;
-			$Janus::netqueues{$rnet->id()} = $q;
+			$Janus::netqueues{$$rnet} = $q;
 			for my $l (@{$buffer[$$pnet]}) {
 				&Janus::in_socket($rnet, $l);
 			}

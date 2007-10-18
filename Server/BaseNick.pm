@@ -21,9 +21,9 @@ sub mynick {
 		print "Nick '$name' does not exist; ignoring\n";
 		return undef;
 	}
-	if ($nick->homenet()->id() ne $net->id()) {
-		print "Nick '$name' is from network '".$nick->homenet()->id().
-			"' but was sourced from network '".$net->id()."'\n";
+	if ($nick->homenet() ne $net) {
+		print "Nick '$name' is from network '".$nick->homenet()->name().
+			"' but was sourced from network '".$net->name()."'\n";
 		return undef;
 	}
 	return $nick;
@@ -51,7 +51,7 @@ sub nick_collide {
 	my @rv = ($tsctl > 0);
 	if ($tsctl >= 0) {
 		# old nick lost, reconnect it
-		if ($old->homenet()->id() eq $net->id()) {
+		if ($old->homenet() eq $net) {
 			warn "Nick collision on home network!";
 		} else {
 			push @rv, +{
@@ -70,7 +70,7 @@ sub nick_collide {
 sub request_nick {
 	my($net, $nick, $reqnick, $tagged) = @_;
 	my $given;
-	if ($nick->homenet()->id() eq $net->id()) {
+	if ($nick->homenet() eq $net) {
 		$given = $reqnick;
 	} else {
 		$reqnick =~ s/[^0-9a-zA-Z\[\]\\^\-_`{|}]/_/g;
@@ -86,7 +86,7 @@ sub request_nick {
 		if ($tagged) {
 			my $tagsep = $net->param('tag_prefix');
 			$tagsep = '/' unless defined $tagsep;
-			my $tag = $tagsep . $nick->homenet()->id();
+			my $tag = $tagsep . $nick->homenet()->name();
 			my $i = 0;
 			$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
 			while (exists $Janus::nicks{lc $given}) {

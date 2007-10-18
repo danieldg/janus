@@ -130,7 +130,12 @@ Basic descriptions and checking of all internal janus actions
 =cut
 
 my %spec = (
-
+	JNETLINK => {
+		pass => '$',
+		version => '$',
+		id => '$',
+		net => 'Server::InterJanus',
+	},
 	NETLINK => {
 		net => 'Network',
 	},
@@ -142,6 +147,11 @@ my %spec = (
 	},
 	NETSPLIT => {
 		net => 'Network',
+		msg => '$',
+		netsplit_quit => '?$',
+	},
+	JNETSPLIT => {
+		net => 'Server::InterJanus',
 		msg => '$',
 	},
 
@@ -262,12 +272,6 @@ my %spec = (
 		reason => '$',
 	},
 
-	InterJanus => {
-		pass => '$',
-		version => '$',
-		id => '$',
-		net => 'InterJanus',
-	},
 	PING => {},
 	PONG => {},
 	REHASH => {},
@@ -309,7 +313,7 @@ for my $type (keys %spec) {
 		return undef;
 	}
 	KEY: for my $k (keys %$check) {
-		$@ = "Fail: Key $k in $itm";
+		$act->{ERR} = "Fail: Key $k in $itm";
 		$_ = $$check{$k};
 		my $v = $act->{$k};
 		if (s/^\?//) {
@@ -329,14 +333,14 @@ for my $type (keys %spec) {
 				$v->isa($_);
 			};
 		}
-		$@ = "Invalid value $v for key '$k' in action $itm";
+		$act->{ERR} = "Invalid value $v for key '$k' in action $itm";
 		return 1 unless $r;
 	}
+	delete $act->{ERR};
 	for my $k (keys %$act) {
 		next if exists $check->{$k};
 		print "Warning: unknown key $k in action $itm\n";
 	}
-	$@ = undef;
 	undef;
 });
 

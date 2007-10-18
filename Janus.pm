@@ -15,10 +15,12 @@ Primary event multiplexer and module loader/unloader
 =cut
 
 # PUBLIC VARS
+our $name;
 our $interface;
 
-our %nets;
+our %nets; # by name
 our %nicks;
+our %gnets;
 
 =head2 Module loading
 
@@ -262,8 +264,11 @@ sub _hook {
 	my $hook = $hooks{$type}{$lvl};
 	return unless $hook;
 	
-	for my $mod (sort keys %$hook) {
+	my @hookmods = sort keys %$hook; # working around a suspected bug in perl here
+	for my $mod (@hookmods) {
+#		print "EV: ", %$hook,"\n";
 		eval {
+#			print "EV_HOOK $type $lvl $mod\n";
 			$hook->{$mod}->(@args);
 			1;
 		} or do {
@@ -281,6 +286,7 @@ sub _mod_hook {
 	my $rv = undef;
 	for my $mod (sort keys %$hook) {
 		eval {
+#			print "MOD_HOOK $type $lvl $mod\n";
 			my $r = $hook->{$mod}->(@args);
 			$rv = $r if defined $r;
 			1;
@@ -297,7 +303,7 @@ sub _send {
 	my @to;
 	if (exists $act->{sendto} && ref $act->{sendto}) {
 		@to = @{$act->{sendto}};
-	} elsif ($act->{type} =~ /^NET(LINK|SPLIT)/) {
+	} elsif ($act->{type} =~ /^J?NET(LINK|SPLIT)/) {
 		@to = values %nets;
 	} elsif (!ref $act->{dst}) {
 		warn "Action $act of type $act->{type} does not have a destination or sendto list";
@@ -313,15 +319,15 @@ sub _send {
 		next unless $net;
 		my $ij = $net->jlink();
 		if (defined $ij) {
-			$jlink{$ij->id()} = $ij;
+			$jlink{$ij} = $ij;
 		} else {
-			$real{$net->id()} = $net;
+			$real{$net} = $net;
 		}
 	}
 	if ($act->{except}) {
-		my $id = $act->{except}->id();
-		delete $real{$id};
-		delete $jlink{$id};
+		my $e = $act->{except};
+		delete $real{$e};
+		delete $jlink{$e};
 	}
 	unless ($act->{nojlink}) {
 		for my $ij (values %jlink) {
@@ -345,7 +351,7 @@ sub _runq {
 sub _run {
 	my $act = $_[0];
 	if (_mod_hook('ALL', validate => $act)) {
-		my $err = $@ || 'unknown error';
+		my $err = $act->{ERR} || 'unknown error';
 		$err =~ s/\n//;
 		print "Validate hook [$err] on";
 		&EventDump::debug_send($act);
@@ -444,14 +450,14 @@ sub err_jmsg {
 				dst => $dst,
 				msgtype => ($dst->isa('Channel') ? 'PRIVMSG' : 'NOTICE'), # channel notice == annoying
 				msg => $_,
-			});
+			}) if $interface;
 		} else {
 			&Janus::insert_full({
 				type => 'CHATOPS',
 				src => $interface,
 				sendto => [ values %nets ],
 				msg => $_,
-			});
+			}) if $interface;
 		}
 	}
 }
@@ -545,7 +551,7 @@ sub delink {
 	if ($net->isa('Pending')) {
 		my $id = $net->id();
 		delete $nets{$id};
-		delete $netqueues{$id};
+		delete $netqueues{$$net};
 	} else {
 		&Janus::insert_full(+{
 			type => 'NETSPLIT',
@@ -563,14 +569,22 @@ sub delink {
 	NETLINK => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
-		my $id = $net->id();
+		my $id = $net->name();
+		$gnets{$net->gid()} = $net;
 		$nets{$id} = $net;
+	}, NETSPLIT => jparse => sub {
+		my $act = shift;
+		delete $act->{netsplit_quit};
+		undef;
 	}, NETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
-		my $id = $net->id();
+		my $id = $net->name();
+		delete $gnets{$net->gid()};
 		delete $nets{$id};
-		my $q = delete $netqueues{$id};
+		my $q = delete $netqueues{$$net};
+		return if $net->jlink();
+		return warn unless $q;
 		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
 	},
 );

@@ -236,7 +236,7 @@ sub debug {
 
 sub str {
 	my $net = shift;
-	$net->id().'.janus';
+	$net->jname();
 }
 
 sub intro {
@@ -252,7 +252,7 @@ sub intro {
 # parse one line of input
 sub parse {
 	my ($net, $line) = @_;
-	debug "\e[0;32m     IN@".$net->id().' '. $line;
+	debug "\e[0;32m     IN@".$net->name().' '. $line;
 	$net->pong();
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
@@ -340,7 +340,7 @@ sub dump_sendq {
 		}
 	}
 	$sendq[$$net] = [];
-	debug "\e[0;34m    OUT@".$net->id().' '.$_ for split /[\r\n]+/, $q;
+	debug "\e[0;34m    OUT@".$net->name().' '.$_ for split /[\r\n]+/, $q;
 	$q;
 }
 
@@ -372,7 +372,8 @@ sub _connect_ifo {
 		$vhost = '*'; # XXX: CA HACK
 		$mode =~ s/t//;
 	}
-	my($hc, $srv) = (2,$nick->homenet()->id() . '.janus');
+	my($hc, $srv) = (2,$nick->homenet()->jname());
+	$hc = 3 if $nick->jlink();
 	($hc, $srv) = (1, $net->cparam('linkname')) if $srv eq 'janus.janus';
 
 	my $ip = $nick->info('ip') || '*';
@@ -447,7 +448,7 @@ sub nickact {
 		$dst = $net->nick($_[2]);
 	}
 
-	if ($dst->homenet()->id() eq $net->id()) {
+	if ($dst->homenet() eq $net) {
 		my %a = (
 			type => 'NICKINFO',
 			src => $src,
@@ -752,7 +753,7 @@ sub srvname {
 	}, SVSKILL => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
-		if ($nick->homenet()->id() eq $net->id()) {
+		if ($nick->homenet() eq $net) {
 			return {
 				type => 'QUIT',
 				dst => $nick,
@@ -771,7 +772,7 @@ sub srvname {
 	}, SVSNICK => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
-		if ($nick->homenet->id() eq $net->id()) {
+		if ($nick->homenet eq $net) {
 			warn "Misdirected SVSNICK!";
 			return ();
 		} elsif (lc $nick->homenick eq lc $_[2]) {
@@ -794,7 +795,7 @@ sub srvname {
 	}, SVSMODE => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
-		if ($nick->homenet()->id() eq $net->id()) {
+		if ($nick->homenet() eq $net) {
 			return $net->_parse_umode($nick, @_[3 .. $#_]);
 		} else {
 			my $mode = $_[3];
@@ -815,7 +816,7 @@ sub srvname {
 	SWHOIS => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
-		if ($nick->homenet->id() ne $net->id()) {
+		if ($nick->homenet ne $net) {
 			$net->send($net->cmd1(SWHOIS => $nick, ($nick->info('swhois') || '')));
 			return ();
 		}
@@ -922,7 +923,7 @@ sub srvname {
 		my $chan = $net->item($_[2]) or return ();
 		if ($chan->isa('Nick')) {
 			# umode change
-			return () unless $chan->homenet()->id() eq $net->id();
+			return () unless $chan->homenet() eq $net;
 			return $net->_parse_umode($chan, @_[3 .. $#_]);
 		}
 		my @out;
@@ -963,7 +964,7 @@ sub srvname {
 		);
 		if (defined $_[0]) {
 			my $src = $act{src} = $net->item($_[0]);
-			$act{topicset} = $src->str($net);
+			$act{topicset} = $src ? $src->str($net) : 'unknown';
 		}
 		$act{topicset} = $_[3] if @_ > 4;
 		$act{topicts} = $net->sjbint($_[4]) if @_ > 5;
@@ -998,7 +999,6 @@ sub srvname {
 		};
 	}, SQUIT => sub {
 		my $net = shift;
-		my $netid = $net->id();
 		my $srv = $net->srvname($_[2]);
 		my $splitfrom = $servers[$$net]{lc $srv}{parent};
 		
@@ -1007,7 +1007,7 @@ sub srvname {
 			$net->send($net->cmd2($net->cparam('linkname'), SERVER => $srv, 2, $ns->numeric(), $ns->netname()));
 			my @out;
 			for my $nick ($net->all_nicks()) {
-				next unless $nick->homenet()->id() eq $ns->id();
+				next unless $nick->homenet() eq $ns;
 				push @out, +{
 					type => 'RECONNECT',
 					dst => $nick,
@@ -1033,7 +1033,7 @@ sub srvname {
 
 		my @quits;
 		for my $nick ($net->all_nicks()) {
-			next unless $nick->homenet()->id() eq $netid;
+			next unless $nick->homenet() eq $net;
 			next unless $sgone{lc $nick->info('home_server')};
 			push @quits, +{
 				type => 'QUIT',
@@ -1208,13 +1208,13 @@ sub _out {
 	return $itm unless ref $itm;
 	if ($itm->isa('Nick')) {
 		return $itm->str($net) if $itm->is_on($net);
-		return $itm->homenet()->id() . '.janus';
+		return $itm->homenet()->jname();
 	} elsif ($itm->isa('Channel')) {
 		warn "This channel message must have been misrouted: ".$itm->keyname() 
 			unless $itm->is_on($net);
 		return $itm->str($net);
 	} elsif ($itm->isa('Network')) {
-		return $itm->id(). '.janus';
+		return $itm->jname();
 	} else {
 		warn "Unknown item $itm";
 		$net->cparam('linkname');
@@ -1239,41 +1239,65 @@ sub cmd2 {
 }
 
 %toirc = (
-	NETLINK => sub {
+	JNETLINK => sub {
+		my($net,$act) = @_;
+		my $ij = $act->{net};
+		# don't bother with numerics, no users end up on these servers...
+		$net->cmd2($net->cparam('linkname'), SERVER => $ij->id().'.janus', 2, 0, 'Inter-Janus Link');
+	}, NETLINK => sub {
 		my($net,$act) = @_;
 		my $new = $act->{net};
-		my $id = $new->id();
-		if ($net->id() eq $id) {
+		if ($net eq $new) {
 			# first link to the net
 			my @out;
-			for $id (keys %Janus::nets) {
+			for my $id (keys %Janus::nets) {
 				$new = $Janus::nets{$id};
-				next if $new->isa('Interface') || $id eq $net->id();
-				push @out, $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->numeric(), $new->netname());
+				next if $new->isa('Interface') || $new eq $net;
+				my $jl = $new->jlink();
+				if ($jl) {
+					push @out, $net->cmd2($jl->id() . '.janus', SERVER => $new->jname(), 3, $new->numeric(), $new->netname());
+				} else {
+					push @out, $net->cmd2($net->cparam('linkname'), SERVER => $new->jname(), 2, $new->numeric(), $new->netname());
+				}
 			}
 			return @out;
 		} else {
 			return () if $net->isa('Interface');
-			return $net->cmd2($net->cparam('linkname'), SERVER => "$id.janus", 2, $new->numeric(), $new->netname());
+			my $jl = $new->jlink();
+			if ($jl) {
+				$net->cmd2($jl->id() . '.janus', SERVER => $new->jname(), 3, $new->numeric(), $new->netname());
+			} else {
+				$net->cmd2($net->cparam('linkname'), SERVER => $new->jname(), 2, $new->numeric(), $new->netname());
+			}
 		}
 	}, LINKED => sub {
 		my($net,$act) = @_;
 		my $new = $act->{net};
-		my $id = $new->id();
+		my $id = $new->name();
 		$net->cmd1(SMO => 'o', "(\002link\002) Janus Network $id (".$new->netname().') is now linked');
 	}, NETSPLIT => sub {
+		my($net,$act) = @_;
+		return () if $act->{netsplit_quit};
+		my $gone = $act->{net};
+		my $id = $gone->name();
+		my $msg = $act->{msg} || 'Excessive Core Radiation';
+		(
+			$net->cmd1(SMO => 'o', "(\002delink\002) Janus Network $id (".$gone->netname().") has delinked: $msg"),
+			$net->cmd1(SQUIT => $gone->jname(), $msg),
+		);
+	}, JNETSPLIT => sub {
 		my($net,$act) = @_;
 		my $gone = $act->{net};
 		my $id = $gone->id();
 		my $msg = $act->{msg} || 'Excessive Core Radiation';
 		(
-			$net->cmd1(SMO => 'o', "(\002delink\002) Janus Network $id (".$gone->netname().") has delinked: $msg"),
+			$net->cmd1(SMO => 'o', "(\002delink\002) InterJanus Network $id has delinked: $msg"),
 			$net->cmd1(SQUIT => "$id.janus", $msg),
 		);
 	}, CONNECT => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
-		return () if $act->{net}->id() ne $net->id();
+		return () if $act->{net} ne $net;
 
 		return $net->_connect_ifo($nick);
 	}, RECONNECT => sub {
@@ -1297,7 +1321,7 @@ sub cmd2 {
 	}, JOIN => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
-		if ($act->{src}->homenet()->id() eq $net->id()) {
+		if ($act->{src}->homenet() eq $net) {
 			print 'ERR: Trying to force channel join remotely ('.$act->{src}->gid().$chan->str($net).")\n";
 			return ();
 		}
@@ -1364,14 +1388,14 @@ sub cmd2 {
 		$net->cmd2($act->{src}, CHATOPS => $act->{msg});
 	}, NICK => sub {
 		my($net,$act) = @_;
-		my $id = $net->id();
+		my $id = $$net;
 		$net->cmd2($act->{from}->{$id}, NICK => $act->{to}->{$id}, $act->{dst}->ts());
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
 		my $item = $act->{item};
 		if ($item =~ /^(vhost|ident|name)$/) {
 			$item =~ s/vhost/host/;
-			if ($act->{dst}->homenet()->id() eq $net->id()) {
+			if ($act->{dst}->homenet() eq $net) {
 				my $src = $act->{src}->is_on($net) ? $act->{src} : $net->cparam('linkname');
 				return $net->cmd2($src, 'CHG'.uc($item), $act->{dst}, $act->{value});
 			} else {
@@ -1427,7 +1451,7 @@ sub cmd2 {
 	}, DELINK => sub {
 		my($net,$act) = @_;
 		return () if $act->{netsplit_quit};
-		if ($act->{net}->id() eq $net->id()) {
+		if ($act->{net} eq $net) {
 			my $name = $act->{split}->str($net);
 			my $nick = $act->{src} ? $act->{src}->str($net) : 'janus';
 			$net->cmd1(GLOBOPS => "Channel $name delinked by $nick (". $act->{reason} . ")");
@@ -1438,7 +1462,7 @@ sub cmd2 {
 	}, KILL => sub {
 		my($net,$act) = @_;
 		my $killfrom = $act->{net};
-		return () unless $net->id() eq $killfrom->id();
+		return () unless $net eq $killfrom;
 		return () unless defined $act->{dst}->str($net);
 		$net->cmd2($act->{src}, KILL => $act->{dst}, $act->{msg});
 	}, PING => sub {

@@ -210,7 +210,7 @@ our %modules = (
 			NICKLOCK => sub {
 				my $net = shift;
 				my $nick = $net->nick($_[2]);
-				if ($nick->homenet()->id() eq $net->id()) {
+				if ($nick->homenet() eq $net) {
 					return () if $_[2] eq $_[3];
 					# accept it as a nick change
 					return +{
@@ -291,7 +291,7 @@ our %modules = (
 			SANICK => sub {
 				my $net = shift;
 				my $nick = $net->nick($_[2]);
-				if ($nick->homenet()->id() eq $net->id()) {
+				if ($nick->homenet() eq $net) {
 					# accept as normal nick change
 					return +{
 						type => 'NICK',
