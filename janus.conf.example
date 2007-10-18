@@ -1,13 +1,15 @@
 set {
 	ipv6 1
+	name yourserver
+	pass rehashdude
 }
 
 modules {
-	Commands::Ban
 	Commands::Network
 	Commands::Channel
 	Commands::Debug
-	Silence
+	Modules::Ban
+	Modules::Signals
 }
 
 listen 8005 {
