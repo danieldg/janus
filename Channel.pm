@@ -445,13 +445,13 @@ sub unhook_destroyed {
 		my $act = shift;
 		my $chan = $act->{dst};
 		my $net = $act->{net};
-		my @nets = keys %{$nets[$$chan]};
+		my %nets = %{$nets[$$chan]};
 		print "Delink channel $$chan which is currently on: ", join ' ', @nets;
 		if (@nets <= 1) {
 			print "Cannot delink: channel $$chan is not shared\n";
 			return 1;
 		}
-		unless (exists $nets[$$chan]{$$net}) {
+		unless (exists $nets{$$net}) {
 			print "Cannot delink: channel $$chan is not on network #$$net\n";
 			return 1;
 		}
