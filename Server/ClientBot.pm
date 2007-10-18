@@ -130,7 +130,7 @@ sub cli_hostintro {
 sub parse {
 	my ($net, $line) = @_;
 	my @out;
-	debug "\e[0;32m     IN@".$net->id().' '. $line;
+	debug "\e[0;32m     IN@".$net->name().' '. $line;
 	$net->pong();
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
@@ -172,7 +172,7 @@ sub dump_sendq {
 	my $q = join "\n", @{$sendq[$$net]}, '';
 	$q =~ s/\n+/\r\n/g;
 	$sendq[$$net] = [];
-	debug "\e[0;34m    OUT@".$net->id().' '.$_ for split /\r\n/, $q;
+	debug "\e[0;34m    OUT@".$net->name().' '.$_ for split /\r\n/, $q;
 	$q;
 }
 

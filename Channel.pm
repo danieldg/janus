@@ -350,17 +350,6 @@ sub unhook_destroyed {
 		for my $id (keys %{$nets[$$chan1]}) {
 			my $exist = $nets[$$chan2]{$id};
 			next unless $exist;
-			if ($nets[$$chan1]{$id} ne $exist) {
-				warn "BUG: discovered non-deallocated network link with $id";
-				if ($nets[$$chan1]{$id} eq $Janus::nets{$id}) {
-					delete $nets[$$chan2]{$id};
-				} elsif ($nets[$$chan2]{id} eq $Janus::nets{$id}) {
-					delete $nets[$$chan1]{$id};
-				} else {
-					print "BUG:".delete($nets[$$chan1]{$id}).'&'.delete($nets[$$chan2]{$id})."\n";
-				}
-				next;
-			}
 			print "Cannot link: this channel would be in $id twice";
 			&Janus::jmsg($act->{src}, "Cannot link: this channel would be in $id twice");
 			return;
@@ -457,8 +446,9 @@ sub unhook_destroyed {
 		my $chan = $act->{dst};
 		my $net = $act->{net};
 		my @nets = keys %{$nets[$$chan]};
+		print "Delink channel $$chan which is currently on: ", join ' ', @nets;
 		if (@nets <= 1) {
-			print "Cannot delink: channel $$chan is not shared: @nets\n";
+			print "Cannot delink: channel $$chan is not shared\n";
 			return 1;
 		}
 		unless (exists $nets[$$chan]{$$net}) {

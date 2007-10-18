@@ -119,7 +119,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			&Janus::append(+{
 				type => 'NETSPLIT',
 				net => $net,
-				msg => 'Forced split by '.$nick->homenick().' on '.$nick->homenet()->id()
+				msg => 'Forced split by '.$nick->homenick().' on '.$nick->homenet()->name()
 			}, {
 				type => 'REHASH',
 				sendto => [],
@@ -128,7 +128,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			&Janus::append(+{
 				type => 'JNETSPLIT',
 				net => $net,
-				msg => 'Forced split by '.$nick->homenick().' on '.$nick->homenet()->id()
+				msg => 'Forced split by '.$nick->homenick().' on '.$nick->homenet()->name()
 			}, {
 				type => 'REHASH',
 				sendto => [],
