@@ -465,8 +465,12 @@ sub unhook_destroyed {
 
 		my $name = delete $names[$$chan]{$$net};
 		if ($keyname[$$chan] eq $net->gid().$name) {
-			my @onets = sort keys %{$names[$$chan]};
-			$keyname[$$chan] = $nets[$$chan]{$onets[0]}->gid().$names[$$chan]{$onets[0]};
+			my @onets = grep defined, values %{$nets[$$chan]};
+			if (@onets && $onets[0]) {
+				$keyname[$$chan] = $onets[0]->gid().$names[$$chan]{$onets[0]->lid()};
+			} else {
+				print "BAD: no new keyname in DELINK of $$chan\n";
+			}
 		}
 		my $split = Channel->new(
 			net => $net,
