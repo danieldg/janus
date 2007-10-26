@@ -102,7 +102,7 @@ sub to_multi {
 		if (!defined $char && $txt =~ /^v(.*)/) {
 			my $alt = 's'.$1;
 			$char = $net->txt2cmode($alt);
-			$out = 0 if defined $char;
+			$out = 0 if $dir eq '-' && defined $char;
 		}
 		
 		if (!defined $char && $txt =~ /^r(.*)/) {
@@ -122,7 +122,7 @@ sub to_multi {
 			}
 		}
 
-		if (defined $char) {
+		if (defined $char && $char ne '') {
 			$count++;
 			$len += 2 + ($out ? 1 + length $arg : 0);
 			if ($count > $maxm || $len > $maxl) {
