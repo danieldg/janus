@@ -870,12 +870,25 @@ sub srvname {
 		my $nick = $net->mynick($_[0]) or return ();
 		my @act;
 		for (split /,/, $_[2]) {
-			my $chan = $net->chan($_, 1);
-			push @act, +{
-				type => 'JOIN',
-				src => $nick,
-				dst => $chan,
-			};
+			if ($_ eq '0') {
+				# this is SUCH a dumb feature...
+				@act = ();
+				for my $c ($nick->all_chans()) {
+					push @act, +{
+						type => 'PART',
+						src => $nick,
+						dst => $c,
+						msg => 'Left all channels',
+					};
+				}
+			} else {
+				my $chan = $net->chan($_, 1);
+				push @act, +{
+					type => 'JOIN',
+					src => $nick,
+					dst => $chan,
+				};
+			}
 		}
 		@act;
 	}, SJOIN => sub {
