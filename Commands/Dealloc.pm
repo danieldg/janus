@@ -7,6 +7,8 @@ use warnings;
 use Scalar::Util qw(blessed weaken);
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
+sub rweak;
+
 sub rweak {
 	my $v = shift;
 	return unless ref $v;
