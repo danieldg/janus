@@ -396,6 +396,14 @@ sub str {
 		my $act = shift;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
+		if ($nick->is_on($net) && (!$act->{except} || $act->{except} ne $net)) {
+			$net->send({
+				type => 'QUIT',
+				dst => $nick,
+				msg => $act->{msg},
+				killer => $act->{src},
+			});
+		}
 		for my $chan (values %{$chans[$$nick]}) {
 			next unless $chan->is_on($net);
 			my $act = {
