@@ -413,7 +413,10 @@ sub unhook_destroyed {
 					}
 					$mode[$$chan]{$txt} = [ keys %m ];
 				} else {
-					if (exists $mode[$$chan1]{$txt}) {
+					if (defined $mode[$$chan1]{$txt}) {
+						if (defined $mode[$$chan2]{$txt}) {
+							print "Merging $txt: using $mode[$$chan1]{$txt} over $mode[$$chan2]{$txt}\n";
+						}
 						$mode[$$chan]{$txt} = $mode[$$chan1]{$txt};
 					} else {
 						$mode[$$chan]{$txt} = $mode[$$chan2]{$txt};
