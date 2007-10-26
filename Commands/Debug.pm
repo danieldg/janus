@@ -15,6 +15,10 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		my $nick = shift;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my $ts = time;
+		# workaround for a bug in Data::Dumper that only allows one "new" socket per dump
+		eval {
+			Data::Dumper::Dumper($_);
+		} for values %Janus::netqueues;
 		open my $dump, '>', "log/dump-$ts" or return;
 		my @all = (
 			\%Janus::gnicks,
