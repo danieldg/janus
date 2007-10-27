@@ -6,6 +6,7 @@ use IO::Handle;
 use strict;
 use warnings;
 use Listener;
+use Connection;
 
 our $VERSION;
 my $reload = $VERSION;
@@ -115,7 +116,8 @@ sub connect_net {
 	return if !$nconf || exists $Janus::nets{$id} || exists $Janus::ijnets{$id};
 	print "Connecting $id\n";
 	if ($id =~ /^LISTEN:/) {
-		for my $pl (values %Janus::netqueues) {
+		# FIXME this is not the best way to find it, plus we can never stop listening
+		for my $pl (values %Connection::queues) {
 			my $n = $pl->[3] or next;
 			next unless $n->isa('Listener');
 			return if $n->id() eq $id;
@@ -124,7 +126,7 @@ sub connect_net {
 		my $sock = $inet{listn}->($nconf);
 		if ($sock) {
 			my $list = Listener->new(id => $id, conf => $nconf);
-			$Janus::netqueues{$$list} = [$sock, undef, undef, $list, 1, 0];
+			&Connection::add($sock, $list);
 		} else {
 			&Janus::err_jmsg($nick, "Could not listen on port $nconf->{addr}: $!");
 		}
@@ -151,7 +153,7 @@ sub connect_net {
 			# otherwise it's interjanus, which we let report its own events
 
 			# we start out waiting on writes because that's what connect(2) says for EINPROGRESS connects
-			$Janus::netqueues{$$net} = [$sock, '', '', $net, 0, 1];
+			&Connection::add($sock, $net);
 		}
 	}
 }

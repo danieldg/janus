@@ -5,6 +5,7 @@ package Pending;
 use strict;
 use warnings;
 use Persist;
+use Connection;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
@@ -46,27 +47,24 @@ sub parse {
 				last;
 			}
 		}
-		my $q = delete $Janus::netqueues{$$pnet};
+		&Connection::reassign($pnet, $rnet);
 		if ($rnet) {
 			$delegate[$$pnet] = $rnet;
-			$$q[3] = $rnet;
-			$Janus::netqueues{$$rnet} = $q;
 			for my $l (@{$buffer[$$pnet]}) {
 				&Janus::in_socket($rnet, $l);
 			}
 		}
 	} elsif ($line =~ /^<InterJanus /) {
-		my $q = delete $Janus::netqueues{$$pnet};
 		&Janus::load('Server::InterJanus');
 		my $ij = Server::InterJanus->new();
 		print "Shifting new connection #$$pnet to InterJanus link\n";
 		my @out = $ij->parse($line);
 		if (@out && $out[0]{type} eq 'JNETLINK') {
-			$$q[3] = $ij;
-			$Janus::netqueues{$$ij} = $q;
+			&Connection::reassign($pnet, $ij);
 			$ij->intro($Conffile::netconf{$ij->id()}, 1);
+			return @out;
 		}
-		return @out;
+		&Connection::reassign($pnet, undef);
 	}
 	();
 }

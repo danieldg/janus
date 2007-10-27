@@ -139,7 +139,6 @@ sub parse {
 			return $act;
 		}
 		delete $Janus::ijnets{$id};
-		delete $Janus::netqueues{$$ij};
 	}
 	return ();
 }

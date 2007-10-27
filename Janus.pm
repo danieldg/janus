@@ -175,11 +175,6 @@ BEGIN {
 
 our $last_check = time;
 
-# TODO this should really be maintained by main with an interface of some kind to add/remove
-# entries
-# (net | port number) => [ sock, recvq, sendq, (Net | undef if listening), trying_read, trying_write ]
-our %netqueues;
-
 $commands{unk} = +{
 	class => 'Janus',
 	code => sub {
@@ -307,11 +302,6 @@ sub _send {
 		@to = @{$act->{sendto}};
 	} elsif ($act->{type} =~ /^J?NET(LINK|SPLIT)/) {
 		@to = (values(%nets), values %ijnets);
-		for my $q (values %netqueues) {
-			my $net = $$q[3];
-			next unless defined $net;
-			push @to, $net if $net->isa('Server::InterJanus');
-		}
 	} elsif (!ref $act->{dst}) {
 		warn "Action $act of type $act->{type} does not have a destination or sendto list";
 		return;
@@ -558,7 +548,7 @@ sub delink {
 	if ($net->isa('Pending')) {
 		my $id = $net->id();
 		delete $nets{$id};
-		delete $netqueues{$$net};
+		&Connection::replace($net, undef);
 	} elsif ($net->isa('Server::InterJanus')) {
 		&Janus::insert_full(+{
 			type => 'JNETSPLIT',
@@ -595,15 +585,10 @@ sub delink {
 		my $id = $net->name();
 		delete $gnets{$net->gid()};
 		delete $nets{$id};
-		my $q = delete $netqueues{$$net};
-		return if $net->jlink();
-		return warn unless $q;
-		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
 	}, JNETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		delete $ijnets{$net->id()};
-		my $q = delete $netqueues{$$net} or warn;
 		for my $snet (values %nets) {
 			next unless $snet->jlink() && $net eq $snet->jlink();
 			&Janus::insert_full(+{
@@ -613,8 +598,6 @@ sub delink {
 				netsplit_quit => 1,
 			});
 		}
-		return unless $q;
-		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
 	},
 );
 &Janus::command_add({
@@ -652,6 +635,7 @@ $modules{Janus} = 2;
 
 # we load these modules down here because their loading uses
 # some of the subs defined above
+use Connection;
 use EventDump;
 
 1;
