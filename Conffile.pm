@@ -115,6 +115,11 @@ sub connect_net {
 	return if !$nconf || exists $Janus::nets{$id} || exists $Janus::ijnets{$id};
 	print "Connecting $id\n";
 	if ($id =~ /^LISTEN:/) {
+		for my $pl (values %Janus::netqueues) {
+			my $n = $pl->[3] or next;
+			next unless $n->isa('Listener');
+			return if $n->id() eq $id;
+		}
 		print "Listening on $nconf->{addr}\n";
 		my $sock = $inet{listn}->($nconf);
 		if ($sock) {
