@@ -18,12 +18,12 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		for my $chan ($hnet->all_chans()) {
 			my @nets = $chan->nets();
 			next if @nets == 1;
-			my $list = ' '.$chan->str($hnet);
-			for my $net (sort @nets) {
+			my @list;
+			for my $net (@nets) {
 				next if $net eq $hnet;
-				$list .= ' '.$net->name().$chan->str($net);
+				push @list, $net->name().$chan->str($net);
 			}
-			push @chans, $list;
+			push @chans, join ' ', '', $chan->str($hnet), sort @list;
 		}
 		&Janus::jmsg($nick, sort @chans);
 	}
