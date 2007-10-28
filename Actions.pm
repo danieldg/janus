@@ -275,6 +275,9 @@ my %spec = (
 	PING => {},
 	PONG => {},
 	REHASH => {},
+	TSREPORT => {
+		src => 'Nick',
+	},
 
 	XLINE => {
 		dst => 'Network',

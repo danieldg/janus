@@ -1255,6 +1255,7 @@ sub _out {
 			unless $itm->is_on($net);
 		return $itm->str($net);
 	} elsif ($itm->isa('Network')) {
+		return $net->cparam('linkname') if $itm eq $net;
 		return $itm->jname();
 	} else {
 		warn "Unknown item $itm";
@@ -1507,6 +1508,10 @@ sub cmd2 {
 	}, PING => sub {
 		my($net,$act) = @_;
 		$net->cmd1(PING => $net->cparam('linkname'));
+	}, TSREPORT => sub {
+		my($net,$act) = @_;
+		return () unless $act->{src}->is_on($net);
+		$net->cmd2($act->{src}, TSCTL => 'alltime');
 	},
 );
 

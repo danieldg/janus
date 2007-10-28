@@ -129,6 +129,7 @@ my %to_ij = (
 	DELINK => \&ssend,
 	LINKED => \&ssend,
 	NETSPLIT => \&ssend,
+	TSREPORT => \&ssend,
 	PING => \&ssend,
 	PONG => \&ssend,
 );
