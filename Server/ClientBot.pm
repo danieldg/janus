@@ -274,7 +274,7 @@ sub pm_not {
 			$net->send("NOTICE $_[0] :Error: user not found. To message a user, prefix your message with their nick");
 		} elsif ($_[1] eq 'NOTICE') {
 			if (lc $_[0] eq 'nickserv') {
-				if ($_[3] =~ /(registered|protected|identify)/i) {
+				if ($_[3] =~ /(registered|protected|identify)/i && $_[3] !~ / not /i) {
 					if ($net->param('nspass')) {
 						$net->send("PRIVMSG NickServ :identify ". $net->param('nspass'));
 					} else {
