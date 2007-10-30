@@ -17,7 +17,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		my $ts = time;
 		# workaround for a bug in Data::Dumper that only allows one "new" socket per dump
 		eval {
-			Data::Dumper::Dumper($_);
+			Data::Dumper::Dumper(\%Connection::queues);
 		} for values %Connection::queues;
 		open my $dump, '>', "log/dump-$ts" or return;
 		my @all = (
