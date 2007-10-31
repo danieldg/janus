@@ -928,7 +928,7 @@ $moddef{CORE} = {
 			my $um = $net->txt2umode($txt);
 			if (ref $um) {
 				push @out, $um->($net, $act->{dst}, $ltxt);
-			} else {
+			} elsif (defined $um) {
 				$mode .= $d if $pm ne $d;
 				$mode .= $um;
 				$pm = $d;
