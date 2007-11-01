@@ -351,7 +351,10 @@ sub _run {
 		my $err = $act->{ERR} || 'unknown error';
 		$err =~ s/\n//;
 		print "Validate hook [$err] on";
-		&EventDump::debug_send($act);
+		eval {
+			&EventDump::debug_send($act);
+			1;
+		} or print "[ERR2: $@]\n";
 		return;
 	}
 	if (_mod_hook($act->{type}, check => $act)) {
