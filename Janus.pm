@@ -551,7 +551,7 @@ sub delink {
 	if ($net->isa('Pending')) {
 		my $id = $net->id();
 		delete $nets{$id};
-		&Connection::replace($net, undef);
+		&Connection::reassign($net, undef);
 	} elsif ($net->isa('Server::InterJanus')) {
 		&Janus::insert_full(+{
 			type => 'JNETSPLIT',
