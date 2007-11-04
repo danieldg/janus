@@ -592,7 +592,8 @@ sub delink {
 		my $act = shift;
 		my $net = $act->{net};
 		delete $ijnets{$net->id()};
-		for my $snet (values %nets) {
+		my @allnets = values %nets;
+		for my $snet (@allnets) {
 			next unless $snet->jlink() && $net eq $snet->jlink();
 			&Janus::insert_full(+{
 				type => 'NETSPLIT',
