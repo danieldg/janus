@@ -88,7 +88,7 @@ sub ignore { (); }
 my %to_ij = (
 	NETLINK => sub {
 		my($ij, $act) = @_;
-		return '' if $act->{net}->isa('Interface');
+		return '' if !$act->{net} || $act->{net}->isa('Interface');
 		my $out = send_hdr(@_, qw/sendto/) . ' net=<s';
 		$out .= $act->{net}->to_ij($ij);
 		$out . '>>';
@@ -112,6 +112,7 @@ my %to_ij = (
 	},
 	InterJanus => \&ssend,
 	JNETLINK => \&ssend,
+	JNETSPLIT => \&ssend,
 	QUIT => \&ssend,
 	KILL => \&ssend,
 	NICKINFO => \&ssend,
@@ -129,6 +130,7 @@ my %to_ij = (
 	DELINK => \&ssend,
 	LINKED => \&ssend,
 	NETSPLIT => \&ssend,
+	TSREPORT => \&ssend,
 	PING => \&ssend,
 	PONG => \&ssend,
 );
@@ -210,7 +212,7 @@ my %v_type; %v_type = (
 			# this is a NETLINK of a network we already know about.
 			# We either have a loop or a name collision. Either way, the IJ link
 			# cannot continue
-			&Janus::delink($ij, "InterJanus network name collision: network $h->{name} already exists");
+			&Janus::delink($ij, "InterJanus network name collision: network $h->{id} already exists");
 			return undef;
 		}
 		RemoteNetwork->new(jlink => $ij, %$h);

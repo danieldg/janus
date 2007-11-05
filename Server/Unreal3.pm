@@ -1227,6 +1227,7 @@ sub _out {
 			unless $itm->is_on($net);
 		return $itm->str($net);
 	} elsif ($itm->isa('Network')) {
+		return $net->cparam('linkname') if $itm eq $net;
 		return $itm->jname();
 	} else {
 		warn "Unknown item $itm";
@@ -1263,6 +1264,9 @@ sub cmd2 {
 		if ($net eq $new) {
 			# first link to the net
 			my @out;
+			for my $ij (values %Janus::ijnets) {
+				push @out, $net->cmd2($net->cparam('linkname'), SERVER => $ij->id().'.janus', 2, 0, 'Inter-Janus Link');
+			}
 			for my $id (keys %Janus::nets) {
 				$new = $Janus::nets{$id};
 				next if $new->isa('Interface') || $new eq $net;
@@ -1493,6 +1497,10 @@ sub cmd2 {
 		} else {
 			$net->cmd1(TKL => '+', $type, $id, $h, ($act->{setter} || 'hub.janus'), $act->{expire}, $act->{settime}+0, $act->{reason});
 		}
+	}, TSREPORT => sub {
+		my($net,$act) = @_;
+		return () unless $act->{src}->is_on($net);
+		$net->cmd2($act->{src}, TSCTL => 'alltime');		
 	},
 );
 

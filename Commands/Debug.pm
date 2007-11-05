@@ -17,15 +17,15 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		my $ts = time;
 		# workaround for a bug in Data::Dumper that only allows one "new" socket per dump
 		eval {
-			Data::Dumper::Dumper($_);
-		} for values %Janus::netqueues;
+			Data::Dumper::Dumper(\%Connection::queues);
+		} for values %Connection::queues;
 		open my $dump, '>', "log/dump-$ts" or return;
 		my @all = (
 			\%Janus::nicks,
 			\%LocalNetwork::chans,
 			\%Janus::nets,
 			\%Janus::gnets,
-			\%Janus::netqueues,
+			\%Connection::queues,
 			&Persist::dump_all_refs(),
 		);
 		print $dump Data::Dumper::Dumper(\@all);

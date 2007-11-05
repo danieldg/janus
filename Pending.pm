@@ -5,6 +5,7 @@ package Pending;
 use strict;
 use warnings;
 use Persist;
+use Connection;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
@@ -46,11 +47,9 @@ sub parse {
 				last;
 			}
 		}
-		my $q = delete $Janus::netqueues{$$pnet};
+		&Connection::reassign($pnet, $rnet);
 		if ($rnet) {
 			$delegate[$$pnet] = $rnet;
-			$$q[3] = $rnet;
-			$Janus::netqueues{$$rnet} = $q;
 			for my $l (@{$buffer[$$pnet]}) {
 				&Janus::in_socket($rnet, $l);
 			}

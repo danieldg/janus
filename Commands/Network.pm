@@ -41,7 +41,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 				msg => 'Killed',
 			});
 		}
-		%Janus::netqueues = ();
+		&Connection::abort();
 		print "Trying to die!\n";
 	},
 }, {
@@ -65,14 +65,14 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			});
 		}
 		# Clean up all non-LocalNetwork items in the I/O queue
-		for my $itm (keys %Janus::netqueues) {
-			my $net = $Janus::netqueues{$itm}[3];
-			unless (ref $net && $net->isa('LocalNetwork')) {
-				delete $Janus::netqueues{$itm};
+		for my $itm (keys %Connection::queues) {
+			my $net = $Connection::queues{$itm}[3];
+			if (ref $net && $net->isa('Listener')) {
+				delete $Connection::queues{$itm};
 			}
 		}
 		# the I/O queue could possibly be empty by now; add an item to force it to stay around
-		$Janus::netqueues{RESTARTER} = [ undef, undef, undef, undef, 0, 0 ];
+		$Connection::queues{RESTARTER} = [ undef, undef, undef, undef, 0, 0 ];
 		# sechedule the actual exec at a later time to try to send the restart netsplit message around
 		&Janus::schedule(+{
 			delay => 2,

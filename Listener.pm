@@ -13,9 +13,9 @@ my @id :Persist(id) :Arg(id) :Get(id);
 
 sub init_pending {
 	my($self, $sock, $peer) = @_;
-	my $net = Pending->new(peer => $peer);
 	my $conf = $Conffile::netconf{$id[$$self]};
-	return unless $conf;
+	return undef unless $conf;
+	my $net = Pending->new(peer => $peer);
 	if ($conf->{linktype} =~ /ssl/) {
 		IO::Socket::SSL->start_SSL($sock, 
 			SSL_server => 1, 
@@ -25,7 +25,7 @@ sub init_pending {
 		);
 		$sock->accept_SSL();
 	}
-	$Janus::netqueues{$$net} = [$sock, '', '', $net, 1, 0];
+	$net;
 }
 
 sub dump_sendq { '' }

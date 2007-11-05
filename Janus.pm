@@ -173,11 +173,6 @@ BEGIN {
 
 our $last_check = time;
 
-# TODO this should really be maintained by main with an interface of some kind to add/remove
-# entries
-# (net | port number) => [ sock, recvq, sendq, (Net | undef if listening), trying_read, trying_write ]
-our %netqueues;
-
 $commands{unk} = +{
 	class => 'Janus',
 	code => sub {
@@ -354,7 +349,10 @@ sub _run {
 		my $err = $act->{ERR} || 'unknown error';
 		$err =~ s/\n//;
 		print "Validate hook [$err] on";
-		&EventDump::debug_send($act);
+		eval {
+			&EventDump::debug_send($act);
+			1;
+		} or print "[ERR2: $@]\n";
 		return;
 	}
 	if (_mod_hook($act->{type}, check => $act)) {
@@ -551,7 +549,7 @@ sub delink {
 	if ($net->isa('Pending')) {
 		my $id = $net->id();
 		delete $nets{$id};
-		delete $netqueues{$$net};
+		&Connection::reassign($net, undef);
 	} else {
 		&Janus::insert_full(+{
 			type => 'NETSPLIT',
@@ -582,10 +580,6 @@ sub delink {
 		my $id = $net->name();
 		delete $gnets{$net->gid()};
 		delete $nets{$id};
-		my $q = delete $netqueues{$$net};
-		return if $net->jlink();
-		return warn unless $q;
-		$q->[0] = $q->[3] = undef; # fail-fast on remaining references
 	},
 );
 &Janus::command_add({
@@ -623,6 +617,7 @@ $modules{Janus} = 2;
 
 # we load these modules down here because their loading uses
 # some of the subs defined above
+use Connection;
 use EventDump;
 
 1;

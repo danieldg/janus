@@ -4,6 +4,7 @@
 package Commands::Core;
 use strict;
 use warnings;
+use integer;
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 &Janus::command_add({
@@ -26,9 +27,20 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 }, {
 	cmd => 'modules',
 	help => 'Version information on all modules loaded by janus',
+	details => [
+		"Syntax: \002MODULES\002 [all|janus|other]",
+	],
 	code => sub {
-		my $nick = shift;
-		my @mods = sort('main', keys %main::INC);
+		my($nick,$parm) = @_;
+		$parm ||= 'a';
+		my @mods;
+		if ($parm =~ /^j/) {
+			@mods = sort 'main', grep ref $main::INC{$_}, keys %main::INC;
+		} elsif ($parm =~ /^o/) {
+			@mods = sort grep !ref $main::INC{$_}, keys %main::INC;
+		} else {
+			@mods = sort('main', keys %main::INC);
+		}
 		my($m1, $m2) = (10,3); #min lengths
 		my @mvs;
 		for (@mods) {
@@ -39,12 +51,12 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			next unless $v;
 			$m1 = length $_ if $m1 < length $_;
 			$m2 = length $v if $m2 < length $v;
-			push @mvs, $_, $v;
+			push @mvs, [ $_, $v ];
 		}
+		my $c = 1 + $#mvs / 3;
 		my $ex = ' %-'.$m1.'s %'.$m2.'s';
-		while (@mvs) {
-			my @out = splice @mvs,0,6;
-			&Janus::jmsg($nick, sprintf $ex x (@out/2), @out);
+		for my $i (0..($c-1)) {
+			&Janus::jmsg($nick, join '', map $_ ? sprintf $ex, @$_ : '', map $mvs[$c*$_ + $i], 0 .. 2);
 		}
 		# TODO this would look better if it were read down columns, not across
 	}
