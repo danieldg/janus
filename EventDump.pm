@@ -112,6 +112,7 @@ my %to_ij = (
 	},
 	InterJanus => \&ssend,
 	JNETLINK => \&ssend,
+	JNETSPLIT => \&ssend,
 	QUIT => \&ssend,
 	KILL => \&ssend,
 	NICKINFO => \&ssend,
