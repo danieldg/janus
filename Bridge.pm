@@ -11,7 +11,7 @@ use Modes;
 		my $act = shift;
 		my $nick = $act->{dst};
 		for my $net (values %Janus::nets) {
-			next if $nick->homenet()->id() eq $net->id();
+			next if $nick->homenet() eq $net;
 			next if $nick->is_on($net);
 			&Janus::append({
 				type => 'CONNECT',

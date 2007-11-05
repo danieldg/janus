@@ -1445,7 +1445,7 @@ sub cmd2 {
 		my($net,$act) = @_;
 		my $dst = $act->{dst};
 		return () if $act->{netsplit_quit};
-		if ($dst->homenet()->id() eq $net->id()) {
+		if ($dst->homenet() eq $net) {
 			my $msg = $act->{msg};
 			$msg =~ s/^Killed \((.*)\)$/$1/;
 			$net->cmd2($act->{killer}, KILL => $dst, $msg);

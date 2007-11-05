@@ -945,7 +945,7 @@ $moddef{CORE} = {
 		my($net,$act) = @_;
 		my $dst = $act->{dst};
 		return () if $act->{netsplit_quit};
-		if ($dst->homenet()->id() eq $net->id()) {
+		if ($dst->homenet() eq $net) {
 			$net->cmd2($act->{killer}, KILL => $dst, $act->{msg});
 		} else {
 			return () unless $dst->is_on($net);

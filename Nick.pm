@@ -34,7 +34,6 @@ sub _init {
 	$gid[$$nick] = $gid;
 	$homenet[$$nick] = $net;
 	$homenick[$$nick] = $ifo->{nick};
-	my $homeid = $net->id();
 	$nets[$$nick] = { $$net => $net };
 	$nick[$$nick] = $ifo->{nick};
 	$ts[$$nick] = $ifo->{ts} || time;
@@ -304,9 +303,9 @@ sub str {
 		$nick->_part($chan);
 	}, NETSPLIT => cleanup => sub {
 		my $act = shift;
-		my $id = $act->{net}->id();
+		my $net = $act->{net};
 		for my $n (values %Janus::nicks) {
-			delete $nets[$$n]{$id};
+			delete $nets[$$n]{$$net};
 		}
 	},
 );
