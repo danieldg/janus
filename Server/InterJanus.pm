@@ -9,7 +9,7 @@ use warnings;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-my $IJ_PROTO = 1.1;
+my $IJ_PROTO = 1.2;
 
 my @sendq :Persist('sendq');
 my @id    :Persist('id')    :Arg(id) :Get(id);
@@ -69,7 +69,8 @@ sub intro {
 	$ij->ij_send(+{
 		type => 'InterJanus',
 		version => $IJ_PROTO,
-		id => $nconf->{id},
+		id => $Janus::name,
+		rid => $nconf->{id},
 		pass => $nconf->{sendpass},
 	});
 	for my $net (values %Janus::nets) {
@@ -126,7 +127,9 @@ sub parse {
 		}
 		my $id = $id[$$ij];
 		my $nconf = $Conffile::netconf{$id};
-		if (!$nconf) {
+		if ($Janus::name ne $act->{rid}) {
+			print "Unexpected connection: remote was trying to connect to $act->{rid}\n";
+		} elsif (!$nconf) {
 			print "Unknown InterJanus server $id\n";
 		} elsif ($act->{pass} ne $nconf->{recvpass}) {
 			print "Failed authorization\n";

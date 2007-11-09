@@ -142,6 +142,7 @@ my %spec = (
 		pass => '$',
 		version => '$',
 		id => '$',
+		rid => '$',
 		net => 'Server::InterJanus',
 	},
 	NETLINK => {
