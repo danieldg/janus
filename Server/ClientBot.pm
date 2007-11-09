@@ -15,12 +15,11 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 my @sendq     :Persist(sendq);
 my @self      :Persist(mynick);
-my @kicks     :Persist(kicks);
-# $kicks[$$net]{$lid}{$channel} = 1 for a rejoin enabled
+my @kicks     :Persist(kicks); # $kicks[$$net]{$lid}{$channel} = 1 for a rejoin enabled
+my @lchan     :Persist(lchan); # last channel we tried to join
 
 my %fromirc;
 my %toirc;
-my $lchan;
 sub _init {
 	my $net = shift;
 	$sendq[$$net] = [];
@@ -189,7 +188,6 @@ sub nicklen { 40 }
 		my($net,$act) = @_;
 		return if $act->{linkfile};
 		return if $act->{dlink} eq 'any';
-		$lchan = $act->{net}->str($net);
 		&Janus::insert_full(+{
 			type => 'LINKREQ',
 			dst => $act->{net},
@@ -203,7 +201,7 @@ sub nicklen { 40 }
 	LINK => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst}->str($net);
-		$lchan = $chan;
+		$lchan[$$net] = $chan;
 		"JOIN $chan";
 	},
 	MSG => sub {
@@ -249,6 +247,26 @@ sub nicklen { 40 }
 	PING => sub {
 		"PING :poing";
 	},
+	IDENTIFY => sub {
+		my ($net,$act)  = @_;
+		my $m = $act->{method} || '';
+		unless ($m) {
+			$m = 'ns' if $net->param('nspass');
+			$m = 'Q' if $net->param('qauth');
+		}
+		if ($m eq 'Q') {
+			my $qpass = $net->param('qauth') || '';
+			print "WARNING: Bad qauth syntax $qpass\n" unless $qpass && $qpass =~ /^\s*\S+\s+\S+\s*$/;
+			'PRIVMSG Q@CServe.quakenet.org :AUTH '.$qpass;
+		} elsif ($m eq 'ns') {
+			my $pass = $net->param('nspass') || ''; 
+			print "WARNING: Bad nickserv password $pass\n" unless $pass;
+			"PRIVMSG NickServ :IDENTIFY $pass";
+		} else {
+			print "Unknown identify method $m\n";
+			();
+		}
+	},	
 );
 
 sub pm_not {
@@ -275,22 +293,20 @@ sub pm_not {
 		} elsif ($_[1] eq 'NOTICE') {
 			if (lc $_[0] eq 'nickserv') {
 				if ($_[3] =~ /(registered|protected|identify)/i && $_[3] !~ / not /i) {
-					if ($net->param('nspass')) {
-						$net->send("PRIVMSG NickServ :identify ". $net->param('nspass'));
-					} else {
-						print "Couldn't find a password to identify for this nick. It's registered.\n";
-					}
-				} elsif ($_[3] =~ /wrong\spassword/i) {
-					print "Wrong password to identify. Chaging nick.\n";
-					#Global?
+					return +{
+						type => 'IDENTIFY',
+						dst => $net,
+						method => 'ns',
+					};
+				} elsif ($_[3] =~ /wrong\spassword/ ) {
+					print "Wrong password mentioned in the config file.";
 				}
-			} elsif ($_[0] eq 'Q' && $_[3] =~ /registered/i) {
-				# Quakenet
-				if ( $net->param('qauth') =~ /(\w+)\s(\w+)/ ) {
-					$net->send ('PRIVMSG Q : AUTH ' . $1 . ' ' . $2);
-				} else {
-					print 'Wrong Q auth format. Should be: "<authname> <password>"';
-				}
+			} elsif (uc $_[0] eq 'Q' && $_[3] =~ /registered/i ) {
+				return +{
+					type => 'IDENTIFY',
+					dst => $net,
+					method => 'Q',
+				};
 			}
 		}
 		return ();
@@ -463,11 +479,13 @@ sub kicked {
 	# misc
 	'001' => sub {
 		my $net = shift;
-		$net->send('PRIVMSG Q@CServe.quakenet.org :hello') if $net->param('qauth');
 		return +{
 			type => 'LINKED',
 			net => $net,
 			sendto => [ values %Janus::nets ],
+		}, +{
+			type => 'IDENTIFY',
+			dst => $net,
 		};
 	},
 	'002' => \&ignore,
@@ -586,32 +604,29 @@ sub kicked {
 		};
 	},
 	477 => sub { # Need to register.
-	   my $net = shift;
-	   my $chan = $net->chan($lchan);
-	   $chan = "requested channel" if ( !$chan);
-	   my $msg .= "Couldn't join channel, need to register";
-	   if ( $net->param('nspass') ) {
-	     $net->send ( 'PRIVMSG NickServ :identify '. $net->param('nspass') );
-	     $msg .= ", Identifying to NickServ.";
-	   } elsif ( $net->param('qauth') =~ /(\w+)\s(\w+)/ ) {
-	     $net->send ('PRIVMSG Q : AUTH ' . $1 . ' ' . $2);
-	     $msg = "Authorizing to Q.";
-	   } else {
-	     $msg .= ", Couldn't find any method to identify.";
-	   }
-	   return +{
-			type => 'DELINK',
-			dst => $chan,
-			net => $net,
-			reason => $msg,
-	   };
+		my $net = shift;
+		my $cname = $lchan[$$net] || "requested channel";
+		my $msg = "Couldn't join $cname, need to register.";
+		my @out;
+		my $chan = $net->chan($cname);
+		if ($chan) {
+			push @out, +{
+				type => 'DELINK',
+				dst => $chan,
+				net => $net,
+				reason => $msg,
+			}
+		}
+		push @out, +{
+			type => 'IDENTIFY',
+			dst => $net,
+		};
+		@out;
 	},
 	520 => sub {
 		my $net = shift;
-		my $c = $_[3];
-		$c =~ s/.*\#/\#/;
-		$c =~ s/\s.*//;
-		my $chan = $net->chan($c) or return ();
+		$_[3] =~ /(#\S+)/ or return ();
+		my $chan = $net->chan($1) or return ();
 		return +{
 			type => 'DELINK',
 			dst => $chan,

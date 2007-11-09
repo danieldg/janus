@@ -127,6 +127,14 @@ Basic descriptions and checking of all internal janus actions
 
 =back
 
+=head2 ClientBot commands
+
+=over
+
+=item IDENTIFY identify to the network
+
+=back
+
 =cut
 
 my %spec = (
@@ -274,6 +282,11 @@ my %spec = (
 
 	PING => {},
 	PONG => {},
+	IDENTIFY => {
+		dst => 'Network',
+		method => '?$',
+		# add other args for manual methods?
+	},	
 	REHASH => {},
 	TSREPORT => {
 		src => 'Nick',
