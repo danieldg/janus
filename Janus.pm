@@ -321,7 +321,7 @@ sub _send {
 			$real{$net} = $net;
 		}
 	}
-	if ($act->{except}) {
+	if ($act->{except} && !($act->{dst} && $act->{dst} eq $act->{except})) {
 		my $e = $act->{except};
 		delete $real{$e};
 		delete $jlink{$e};
