@@ -48,8 +48,12 @@ Same as calling unload and load sequentially
 our %modules;
 $modules{Janus} = 1;
 
+our $INC_ITEM;
+
 our %hooks;
 our %commands;
+
+sub _hook; # forward since it's used in module load/unload
 
 sub reload {
 	my $module = $_[0];
@@ -62,12 +66,16 @@ sub load {
 	my $module = shift;
 	return 1 if $modules{$module};
 
+	_hook(module => PRELOAD => $module);
+
 	$modules{$module} = 1;
 
 	my $fn = $module.'.pm';
 	$fn =~ s#::#/#g;
 	if (-f $fn && do $fn) {
 		$modules{$module} = 2;
+		_hook(module => LOAD => $module);
+		2;
 	} else {
 		warn "Cannot load module $module: $! $@";
 		$modules{$module} = 0;
@@ -77,6 +85,7 @@ sub load {
 sub unload {
 	my $module = $_[0];
 
+	_hook(module => UNLOAD => $module);
 	for my $t (keys %hooks) {
 		for my $l (keys %{$hooks{$t}}) {
 			delete $hooks{$t}{$l}{$module};
@@ -90,69 +99,13 @@ sub unload {
 	$modules{$module} = 0;
 }
 
-sub update_versions {
-	$_[0] =~ /([0-9A-Za-z_:]+)/;
-	my $mod = $1;
-	my $fn = $mod.'.pm';
-	$fn =~ s#::#/#g;
-	return unless -f $fn;
-	my $ver = '?';
-	my $sha = `sha1sum $fn 2>/dev/null`;
-	if ($sha && $sha =~ /^(.{8})/) {
-		$ver = 'x'.$1;
-		no strict 'refs';
-		no warnings 'once';
-		${$mod.'::SHA_UID'} = $1;
-	} else {
-		$sha = `sha1 $fn 2>/dev/null`;
-		if ($sha =~ / = (.{8})/) {
-			$ver = 'x'.$1;
-			no strict 'refs';
-			no warnings 'once';
-			${$mod.'::SHA_UID'} = $1;
-		} else {
-			warn "Cannot checksum module $mod";
-		}
-	}
-	my $git = `git rev-parse --verify HEAD 2>/dev/null`;
-	if ($git) {
-		unless (`git diff-index HEAD $fn`) {
-			# this file is not modified from the current head
-			`git rev-parse HEAD` =~ /^(.{8})/;
-			$ver = 'g'.$1;
-			# ok, we have the ugly name... now look for a tag
-			`git name-rev --tags --name-only HEAD` =~ /^(.*?)(?:^0)?$/;
-			my $tag = $1;
-			if ($tag ne 'undefined' && $tag !~ /~/) {
-				# we are actually on this tag
-				$ver = 't'.$tag;
-			}
-		}
-	}
-	my $svn = `svn info $fn 2>/dev/null`;
-	if ($svn) {
-		unless (`svn st $fn`) {
-			if ($svn =~ /Revision: (\d+)/) {
-				$ver = 'r'.$1;
-			} else {
-				warn "Cannot parse `svn info` output for $mod ($fn)";
-			}
-		}
-	}
-	no strict 'refs';
-	no warnings 'once';
-	${$mod.'::VERSION_NAME'} = $ver;
-}
-
-update_versions 'Janus';
-
 sub Janus::INC {
 	my($self, $name) = @_;
 	open my $rv, '<', $name or return undef;
 	my $module = $name;
 	$module =~ s/.pm$//;
 	$module =~ s#/#::#g;
-	&Janus::update_versions($module);
+	_hook(module => READ => $module, $rv);
 	$modules{$module} = 1;
 	&Janus::schedule({ code => sub {
 		$modules{$module} = 2;
@@ -160,27 +113,11 @@ sub Janus::INC {
 	$rv;
 }
 
-BEGIN {
-	our $INC_ITEM;
-	unless ($INC_ITEM) {
-		my $dummy = 1;
-		$INC_ITEM = bless \$dummy;
-		unshift @INC, $INC_ITEM;
-	}
-}
-
 =back
 
 =cut
 
 our $last_check = time;
-
-$commands{unk} = +{
-	class => 'Janus',
-	code => sub {
-		&Janus::jmsg($_[0], 'Unknown command. Use "help" to see available commands');
-	},
-};
 
 our @qstack;
 our %tqueue;
@@ -602,8 +539,64 @@ sub delink {
 				netsplit_quit => 1,
 			});
 		}
+	}, module => READ => sub {
+		$_[0] =~ /([0-9A-Za-z_:]+)/;
+		my $mod = $1;
+		my $fn = $mod.'.pm';
+		$fn =~ s#::#/#g;
+		return unless -f $fn;
+		my $ver = '?';
+		no warnings 'exec';
+		my $sha = `sha1sum $fn 2>/dev/null`;
+		if ($sha && $sha =~ /^(.{8})/) {
+			$ver = 'x'.$1;
+			no strict 'refs';
+			no warnings 'once';
+			${$mod.'::SHA_UID'} = $1;
+		} else {
+			$sha = `sha1 $fn 2>/dev/null`;
+			if ($sha =~ / = (.{8})/) {
+				$ver = 'x'.$1;
+				no strict 'refs';
+				no warnings 'once';
+				${$mod.'::SHA_UID'} = $1;
+			} else {
+				warn "Cannot checksum module $mod";
+			}
+		}
+		my $git = `git rev-parse --verify HEAD 2>/dev/null`;
+		if ($git) {
+			unless (`git diff-index HEAD $fn`) {
+				# this file is not modified from the current head
+				`git rev-parse HEAD` =~ /^(.{8})/;
+				$ver = 'g'.$1;
+				# ok, we have the ugly name... now look for a tag
+				`git name-rev --tags --name-only HEAD` =~ /^(.*?)(?:^0)?$/;
+				my $tag = $1;
+				if ($tag ne 'undefined' && $tag !~ /~/) {
+					# we are actually on this tag
+					$ver = 't'.$tag;
+				}
+			}
+		}
+		my $svn = `svn info $fn 2>/dev/null`;
+		if ($svn) {
+			unless (`svn st $fn`) {
+				if ($svn =~ /Revision: (\d+)/) {
+					$ver = 'r'.$1;
+				} else {
+					warn "Cannot parse `svn info` output for $mod ($fn)";
+				}
+			}
+		}
+		do {
+			no strict 'refs';
+			no warnings 'once';
+			${$mod.'::VERSION_NAME'} = $ver;
+		};
 	},
 );
+
 &Janus::command_add({
 	cmd => 'help',
 	help => 'the text you are reading now',
@@ -632,14 +625,30 @@ sub delink {
 				sprintf " \002\%-${synlen}s\002  \%s", uc $_, $commands{$_}{help};
 			} @cmds);
 		}
+	}
+}, {
+	cmd => 'unk',
+	code => sub {
+		&Janus::jmsg($_[0], 'Unknown command. Use "help" to see available commands');
 	},
 });
 
+_hook(module => READ => 'Janus');
+
 $modules{Janus} = 2;
+
+unless ($INC_ITEM) {
+	my $dummy = 1;
+	$INC_ITEM = bless \$dummy;
+	unshift @INC, $INC_ITEM;
+}
 
 # we load these modules down here because their loading uses
 # some of the subs defined above
-use Connection;
-use EventDump;
+eval q[
+	use Connection;
+	use EventDump;
+	1;
+] or die $@;
 
 1;
