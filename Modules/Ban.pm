@@ -32,8 +32,9 @@ sub _init {
 	local $_ = $ban->expr();
 	unless (s/^~//) { # all expressions starting with a ~ are raw perl regexes
 		s/(\W)/\\$1/g;
-		s/\\\?/./g;  # ? matches one char...
-		s/\\\*/.*/g; # * matches any chars...
+		s/_/[ _]/g;  # _ matches space or _
+		s/\\\?/./g;  # ? matches one char
+		s/\\\*/.*/g; # * matches any chars
 	}
 	$regex[$$ban] = qr/^$_$/i; # compile the regex now for faster matching later
 }
@@ -88,6 +89,8 @@ my %timespec = (
 	help => 'Manages Janus bans (bans remote users)',
 	details => [
 		'Bans are matched against nick!ident@host%netid:name on any remote joins to a shared channel',
+		'Expressions are either a string with * and ? being wildcards, or ~ followed by',
+		'any perl regex which matches the entire string',
 		'Expiration can be of the form 1y1w3d4h5m6s, or just # of seconds, or 0 for a permanent ban',
 		" \002ban list\002                      List all active janus bans on your network",
 		" \002ban add\002 expr length reason    Add a ban (applied to new users only)",
@@ -120,7 +123,11 @@ my %timespec = (
 			my $reason = join ' ', @arg[2..$#arg];
 			if ($_) {
 				$t = time;
-				$t += $1*($timespec{lc $2} || 1) while s/^(\d+)(\D*)//;
+				$t += $1*($timespec{lc $2} || 1) while s/^(\d+)(\D?)//;
+				if ($_) {
+					&Janus::jmsg($nick, 'Invalid characters in ban length');
+					return;
+				}
 			} else { 
 				$t = 0;
 			}
