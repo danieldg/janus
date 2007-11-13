@@ -346,6 +346,10 @@ sub unhook_destroyed {
 		# This is the atomic creation of the merged channel. Everyone else
 		# just gets a copy of the channel created here and send out the 
 		# events required to merge into it.
+		# 
+		# At this (LSYNC) stage, however, there shall be NO modification of the
+		# original channel(s), since it is still possible to abort until the
+		# LINK action is executed
 
 		for my $id (keys %{$nets[$$chan1]}) {
 			my $exist = $nets[$$chan2]{$id};
@@ -414,7 +418,7 @@ sub unhook_destroyed {
 					$mode[$$chan]{$txt} = [ keys %m ];
 				} else {
 					if (defined $mode[$$chan1]{$txt}) {
-						if (defined $mode[$$chan2]{$txt}) {
+						if (defined $mode[$$chan2]{$txt} && $mode[$$chan1]{$txt} ne $mode[$$chan2]{$txt}) {
 							print "Merging $txt: using $mode[$$chan1]{$txt} over $mode[$$chan2]{$txt}\n";
 						}
 						$mode[$$chan]{$txt} = $mode[$$chan1]{$txt};
@@ -437,6 +441,11 @@ sub unhook_destroyed {
 			chan2 => $chan2,
 			linkfile => $act->{linkfile},
 		});
+	}, LINK => check => sub {
+		my $act = shift;
+		my($chan1,$chan2) = ($act->{chan1}, $act->{chan2});
+		return 1 if $chan1 && $chan2 && $chan1 eq $chan2;
+		undef;
 	}, LINK => act => sub {
 		my $act = shift;
 		my $chan = $act->{dst};
