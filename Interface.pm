@@ -67,6 +67,7 @@ sub pmsg {
 		# server whois reply message
 		my $nick = $act->{msg}->[0];
 		if ($src->isa('Network') && ref $nick && $nick->isa('Nick')) {
+			return undef if $src->jlink();
 			&Janus::append(+{
 				type => 'MSG',
 				msgtype => 640,
