@@ -17,7 +17,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			&Janus::append(+{
 				type => 'KILL',
 				net => $snet,
-				src => $Janus::interface,
+				src => $snet,
 				dst => $spammer,
 				msg => 'Spam',
 			});
