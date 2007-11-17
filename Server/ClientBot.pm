@@ -186,8 +186,8 @@ sub nicklen { 40 }
 %toirc = (
 	LINKREQ => sub {
 		my($net,$act) = @_;
-		return if $act->{linkfile};
-		return if $act->{dlink} eq 'any';
+		return () if $act->{dlink} eq 'any';
+		return () unless $act->{linkfile} || $act->{override};
 		&Janus::insert_full(+{
 			type => 'LINKREQ',
 			dst => $act->{net},
