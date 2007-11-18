@@ -130,7 +130,7 @@ sub is_req {
 
 sub del_req {
 	my($net, $lchan, $onet) = @_;
-	delete $lreq[$$net]{$lchan}{$onet->name()};
+	delete $lreq[$$net]{$lchan}{ref $onet ? $onet->name() : $onet};
 }
 
 &Janus::hook_add(
