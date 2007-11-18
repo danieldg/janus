@@ -22,6 +22,11 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			my %reqs = $reqs ? %$reqs : ();
 			for my $chan (sort keys %reqs) {
 				my $out = ' '.$chan;
+				unless (%{$reqs{$chan}}) {
+					# empty hash, deleting it will be nice for saving memory
+					delete $reqs{$chan};
+					next;
+				}
 				for my $net (sort keys %{$reqs{$chan}}) {
 					$out .= ' ' . $net . $reqs{$chan}{$net};
 				}
