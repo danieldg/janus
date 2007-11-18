@@ -254,6 +254,28 @@ sub unhook_destroyed {
 	}
 }
 
+sub del_remoteonly {
+	my $chan = shift;
+	my @nets = values %{$nets[$$chan]};
+	my $cij = undef;
+	for my $net (@nets) {
+		my $ij = $net->jlink();
+		return unless $ij;
+		return if $cij && $cij ne $ij;
+		$cij = $ij;
+	}
+	# all networks are on the same ij network. Wipe out the channel.
+	for my $nick (values %{$nicks[$$chan]}) {
+		&Janus::append({
+			type => 'PART',
+			src => $nick,
+			dst => $chan,
+			msg => 'Delink of invisible channel',
+			nojlink => 1,
+		});
+	}
+}
+
 &Janus::hook_add(
 	JOIN => act => sub {
 		my $act = $_[0];
@@ -526,6 +548,10 @@ sub unhook_destroyed {
 				});
 			}
 		}
+	}, DELINK => cleanup => sub {
+		my $act = shift;
+		del_remoteonly($act->{dst});
+		del_remoteonly($act->{split});
 	}
 );
 
