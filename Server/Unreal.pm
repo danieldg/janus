@@ -1293,6 +1293,7 @@ sub cmd2 {
 			# first link to the net
 			my @out;
 			for my $ij (values %Janus::ijnets) {
+				next unless $ij->is_linked();
 				push @out, $net->cmd2($net->cparam('linkname'), SERVER => $ij->id().'.janus', 2, 0, 'Inter-Janus Link');
 			}
 			for my $id (keys %Janus::nets) {

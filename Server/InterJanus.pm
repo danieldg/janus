@@ -13,7 +13,7 @@ my $IJ_PROTO = 1.2;
 
 my @sendq :Persist('sendq');
 my @id    :Persist('id')    :Arg(id) :Get(id);
-my @auth  :Persist('auth');
+my @auth  :Persist('auth')  :Get(is_linked);
 my @pong  :Persist('ponged');
 
 sub pongcheck {
