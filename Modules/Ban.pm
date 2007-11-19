@@ -173,7 +173,7 @@ my %timespec = (
 		my $act = shift;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
-		return undef if $net->jlink() || $act->{reconnect};
+		return undef if $net->jlink();
 
 		for my $ban (banlist($net)) {
 			next unless $ban->match($nick);

@@ -81,7 +81,7 @@ Basic descriptions and checking of all internal janus actions
 
 =item r regular (moderate)
 
-=item t tristate (private/secret; this is planned, not implemented)
+=item t tristate (private/secret)
 
 =back
 
