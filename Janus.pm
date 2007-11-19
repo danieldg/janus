@@ -602,7 +602,8 @@ sub delink {
 	help => 'the text you are reading now',
 	code => sub {
 		my($nick,$arg) = @_;
-		if ($arg) {
+		if ($arg && $arg =~ /(\S+)/) {
+			$arg = lc $1;
 			my $det = $commands{$arg}{details};
 			if (ref $det) {
 				&Janus::jmsg($nick, @$det);
