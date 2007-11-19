@@ -15,8 +15,8 @@ my @homes :PersistAs(Channel, homenets);
 	help => 'Claim network ownership of a channel',
 	details => [
 		"Syntax: \002CLAIM\002 #channel net[,net,net...]",
-		"Claims network ownership for a channel. Opers and services outside this",
-		"network cannot make mode changes or kicks to this channel.",
+		"Claims network ownership for a channel. Opers and services outside these",
+		"networks cannot make mode changes or kicks to this channel.",
 		'-',
 		"Currently this is reset on a link of a channel, and not persisted between",
 		"network restarts. Restricted to opers because of possible conflict with services.",
@@ -24,7 +24,7 @@ my @homes :PersistAs(Channel, homenets);
 	code => sub {
 		my $nick = shift;
 		my($cname, $nname) = $_[0] =~ /(#\S*)(?: (\S+))?/;
-		my $nname ||= $nick->homenet()->name();
+		$nname ||= $nick->homenet()->name();
 		my $chan = $nick->homenet()->chan($cname) or return;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my $oldhomes = $homes[$$chan];
