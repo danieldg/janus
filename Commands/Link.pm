@@ -27,8 +27,15 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 					delete $reqs{$chan};
 					next;
 				}
+				my $ch = $hnet->chan($chan);
 				for my $net (sort keys %{$reqs{$chan}}) {
-					$out .= ' ' . $net . $reqs{$chan}{$net};
+					my $req = $reqs{$chan}{$net};
+					my $nt = $Janus::nets{$net};
+					if ($ch && $nt && $ch->is_on($nt)) {
+						$out .= " \002$net".($ch->str($nt) eq $req ? "$req\002" : "\002$req");
+					} else {
+						$out .= ' '.$net.$req;
+					}
 				}
 				&Janus::jmsg($nick, $out);
 			}
