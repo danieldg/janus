@@ -24,17 +24,21 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 				my $rf = $Janus::gnets{$net->gid()};
 				if (!$rf || $rf ne $net) {
 					print $dump "nick $$nick on dropped network $$net\n";
-				}
-				$rf = $Janus::nets{$net->name()};
-				if (!$rf || $rf ne $net) {
-					print $dump "nick $$nick on replaced network $$net\n";
+				} else {
+					$rf = $Janus::nets{$net->name()};
+					if (!$rf || $rf ne $net) {
+						print $dump "nick $$nick on replaced network $$net\n";
+					}
 				}
 			}
 			for my $chan ($nick->all_chans()) {
 				my $hcname = $chan->str($ht);
-				my $hchan = $ht->chan($hcname);
-				if (!$hchan || $hchan ne $chan) {
-					print $dump "nick $$nick on dropped channel $$chan=$hcname\n";
+				unless ($ht->jlink()) {
+					my $hchan = $ht->chan($hcname);
+					if (!$hchan || $hchan ne $chan) {
+						print $dump "nick $$nick on dropped channel $$chan=$hcname\n";
+						next;
+					}
 				}
 				my $kn = $chan->keyname();
 				my $rf = $Janus::gchans{$kn};
@@ -43,15 +47,21 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 				}
 			}
 		}
+		my %seen;
 		for my $chan (values %Janus::gchans) {
+			next if $seen{$chan}++;
+			if ($Janus::gchans{$chan->keyname()} ne $chan) {
+				print $dump "channel $$chan is not registered on its keyname\n";
+			}
 			for my $net ($chan->nets()) {
 				my $rf = $Janus::gnets{$net->gid()};
 				if (!$rf || $rf ne $net) {
 					print $dump "channel $$chan on dropped network $$net\n";
-				}
-				$rf = $Janus::nets{$net->name()};
-				if (!$rf || $rf ne $net) {
-					print $dump "channel $$chan on replaced network $$net\n";
+				} else {
+					$rf = $Janus::nets{$net->name()};
+					if (!$rf || $rf ne $net) {
+						print $dump "channel $$chan on replaced network $$net\n";
+					}
 				}
 			}
 			for my $nick ($chan->all_nicks()) {
@@ -59,6 +69,34 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 				my $gn = $Janus::gnicks{$gid};
 				if (!$gn || $gn ne $nick) {
 					print $dump "channel $$chan contains dropped nick $$nick\n";
+				}
+			}
+		}
+		for my $net (values %Janus::nets) {
+			for my $nick ($net->all_nicks()) {
+				my $gid = $nick->gid();
+				my $gn = $Janus::gnicks{$gid};
+				if (!$gn || $gn ne $nick) {
+					print $dump "net $$net contains dropped nick $$nick\n";
+				}
+				unless ($nick->is_on($net)) {
+					print $dump "net $$net contains nick $$nick which doesn't agree\n";
+				}
+			}
+			for my $chan ($net->all_chans()) {
+				my $kn = $chan->keyname();
+				my $rf = $Janus::gchans{$kn};
+				if (!$rf || $rf ne $chan) {
+					print $dump "net $$net contains miskeyed channel $$chan=$kn\n";
+				}
+				unless ($chan->is_on($net)) {
+					print $dump "net $$net contains channel $$chan which doesn't agree\n";
+				}
+				next if $net->jlink();
+				my $name = $chan->str($net);
+				my $nch = $net->chan($name);
+				if (!$nch || $nch ne $chan) {
+					print $dump "net $$net has misnamed channel $$chan=$name\n";
 				}
 			}
 		}
