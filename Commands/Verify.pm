@@ -127,6 +127,11 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		close $dump;
 		&Janus::jmsg($nick, 'Verification report in file log/verify-'.$ts);
 		if ($tryfix eq 'yes') {
+			my $nobody = [];
+			for (@fixes) {
+				$_->{sendto} = $nobody;
+				$_->{nojlink} = 1;
+			}
 			&Janus::insert_full(@fixes);
 			&Janus::jmsg($nick, 'Fixes applied');
 		}
