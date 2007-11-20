@@ -10,9 +10,10 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 &Janus::command_add({
 	cmd => 'verify',
 	code => sub {
-		my $nick = shift;
+		my($nick,$tryfix) = @_;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my $ts = time;
+		my @fixes;
 		open my $dump, '>', "log/verify-$ts" or return;
 		for my $nick (values %Janus::gnicks) {
 			my $hn = $nick->homenick();
@@ -23,6 +24,12 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			for my $net ($nick->netlist()) {
 				my $rf = $Janus::gnets{$net->gid()};
 				if (!$rf || $rf ne $net) {
+					push @fixes, +{
+						type => 'KILL',
+						dst => $nick,
+						net => $net,
+						msg => 'Please rejoin | Fixing internal corruption',
+					};
 					print $dump "nick $$nick on dropped network $$net\n";
 				} else {
 					$rf = $Janus::nets{$net->name()};
@@ -37,6 +44,12 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 					my $hchan = $ht->chan($hcname);
 					if (!$hchan || $hchan ne $chan) {
 						print $dump "nick $$nick on dropped channel $$chan=$hcname\n";
+						push @fixes, +{
+							type => 'KICK',
+							dst => $chan,
+							kickee => $nick,
+							msg => 'Please rejoin | Fixing internal corruption',
+						};
 						next;
 					}
 				}
@@ -57,6 +70,11 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 				my $rf = $Janus::gnets{$net->gid()};
 				if (!$rf || $rf ne $net) {
 					print $dump "channel $$chan on dropped network $$net\n";
+					push @fixes, +{
+						type => 'DELINK',
+						net => $net,
+						reason => 'Fixes from validate',
+					};
 				} else {
 					$rf = $Janus::nets{$net->name()};
 					if (!$rf || $rf ne $net) {
@@ -69,6 +87,12 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 				my $gn = $Janus::gnicks{$gid};
 				if (!$gn || $gn ne $nick) {
 					print $dump "channel $$chan contains dropped nick $$nick\n";
+					push @fixes, +{
+						type => 'KICK',
+						dst => $chan,
+						kickee => $nick,
+						msg => 'Please rejoin | Fixing internal corruption',
+					};
 				}
 			}
 		}
@@ -102,6 +126,10 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		}
 		close $dump;
 		&Janus::jmsg($nick, 'Verification report in file log/verify-'.$ts);
+		if ($tryfix eq 'yes') {
+			&Janus::insert_full(@fixes);
+			&Janus::jmsg($nick, 'Fixes applied');
+		}
 	},
 });
 
