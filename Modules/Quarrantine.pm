@@ -18,8 +18,8 @@ my @homes :PersistAs(Channel, homenets);
 		"Claims network ownership for a channel. Opers and services outside these",
 		"networks cannot make mode changes or kicks to this channel.",
 		'-',
-		"Currently this is reset on a link of a channel, and not persisted between",
-		"network restarts. Restricted to opers because of possible conflict with services.",
+		"Currently this is not persisted between network restarts.",
+		"Restricted to opers because of possible conflict with services.",
 	],
 	code => sub {
 		my $nick = shift;
@@ -90,6 +90,15 @@ sub acl_ok {
 			mode => $chan->get_nmode($kicked),
 		});
 		1;
+	}, LINK => cleanup => sub {
+		my $act = shift;
+		my %owns;
+		my $hs = $homes[${$act->{chan1}}];
+		if ($hs) { $owns{$_}++ for split /,/, $hs }
+		my $hs = $homes[${$act->{chan2}}];
+		if ($hs) { $owns{$_}++ for split /,/, $hs }
+		return unless %owns;
+		$homes[${$act->{dst}}] = join ',', sort keys %owns;
 	},
 );
 
