@@ -97,10 +97,13 @@ sub acl_ok {
 	}, LINK => cleanup => sub {
 		my $act = shift;
 		my %owns;
-		my $hs = $homes[${$act->{chan1}}];
-		if ($hs) { $owns{$_}++ for split /,/, $hs }
-		my $hs = $homes[${$act->{chan2}}];
-		if ($hs) { $owns{$_}++ for split /,/, $hs }
+		for my $k (qw/chan1 chan2/) {
+			my $ch = $act->{$k};
+			next unless $ch;
+			my $hs = $homes[$$ch];
+			next unless $hs;
+			$owns{$_}++ for split /,/, $hs;
+		}
 		return unless %owns;
 		$homes[${$act->{dst}}] = join ',', sort keys %owns;
 	},
