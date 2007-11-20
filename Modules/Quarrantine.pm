@@ -54,6 +54,8 @@ sub acl_ok {
 	my $snet = $src->isa('Network') ? $src : $src->homenet();
 	$snet->name() eq $_ and return 1 for split /,/, $home;
 	if ($src->isa('Nick')) {
+		# TODO this is not a true operoverride check, just makes sure
+		# acting users have >= halfop
 		for (qw/n_owner n_admin n_op n_halfop/) {
 			return 1 if $chan->has_nmode($_, $src);
 		}
@@ -79,6 +81,7 @@ sub acl_ok {
 		return undef if $act->{nojlink}; # this is a slight hack, prevents reverting kills
 		return undef if $snet->jlink();
 		my $kicked = $act->{kickee};
+		return undef if $kicked->homenet() eq $snet; # I can't stop you kicking your own users
 		my $chan = $act->{dst};
 		$snet->send(+{
 			type => 'JOIN',
