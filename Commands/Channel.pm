@@ -38,6 +38,9 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 	code => sub {
 		my($nick,$args) = @_;
 		
+		if ($nick->jlink()) {
+			return &Janus::jmsg($nick, 'Please execute this command on your own server');
+		}
 		if ($nick->homenet()->param('oper_only_link') && !$nick->has_mode('oper')) {
 			&Janus::jmsg($nick, "You must be an IRC operator to use this command");
 			return;

@@ -113,7 +113,10 @@ sub run_sendq {
 	my $l = $_[0];
 	my ($sendq, $net) = @$l[2,3];
 	return unless defined $net;
-	$sendq .= $net->dump_sendq();
+	eval {
+		$sendq .= $net->dump_sendq();
+		1;
+	} or &Janus::err_jmsg(undef, "dump_sendq on #$$net died: $@");
 	$$l[2] = $sendq;
 	return if $$l[5] || !$sendq;
 	# no point in trying to write if we are already waiting for writes to unblock
