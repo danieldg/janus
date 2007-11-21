@@ -73,6 +73,10 @@ sub intro {
 		rid => $nconf->{id},
 		pass => $nconf->{sendpass},
 	});
+	# If we are the first mover (initiated connection), auth will be zero, and
+	# will end up being 1 after a successful authorization. If we were listening,
+	# then to get here we must have already authorized, so change it to 2.
+	$auth[$$ij] *= 2;
 	for my $net (values %Janus::nets) {
 		$ij->ij_send(+{
 			type => 'NETLINK',

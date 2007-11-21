@@ -143,6 +143,8 @@ sub del_req {
 		my $act = shift;
 		my $rnet = $act->{net};
 		return unless $rnet->isa('RemoteNetwork');
+		# only the "first mover" of the netlink should make these requests
+		return if $rnet->jlink()->is_linked() == 2;
 		my $id = $rnet->name();
 		for my $net (values %Janus::nets) {
 			next unless $net->isa('LocalNetwork');
