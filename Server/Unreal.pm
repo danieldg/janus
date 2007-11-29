@@ -1207,6 +1207,15 @@ sub srvname {
 		my $nick = $net->mynick($_[0]) or return ();
 		&Janus::jmsg($nick, '$Id$');
 		return ();
+	}, TSCTL => sub {
+		my $net = shift;
+		my $nick = $net->mynick($_[0]) or return ();
+		return () unless lc $_[2] eq 'alltime';
+		return +{
+			type => 'TSREPORT',
+			src => $nick,
+			sendto => [ $nick->netlist() ],
+		};
 	},
 	CREDITS => \&todo,
 	DALINFO => \&todo,
@@ -1224,7 +1233,6 @@ sub srvname {
 	OPERMOTD => \&todo,
 	BOTMOTD => \&todo,
 	INFO => \&todo,
-	TSCTL => \&todo,
 	TIME => \&todo,
 	LAG => \&todo,
 	TRACE => \&todo,
