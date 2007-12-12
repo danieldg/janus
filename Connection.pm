@@ -8,15 +8,19 @@ use integer;
 
 use IO::Select;
 use IO::Socket::SSL;
+use Scalar::Util qw(tainted);
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 our %queues;
 
+my $tblank = ``;
+print "WARNING: not running in taint mode\n" unless tainted($tblank);
+
 sub add {
 	my($sock, $net) = @_;
-	my $q = [ $sock, '', '', $net, 0, 1 ];
+	my $q = [ $sock, $tblank, '', $net, 0, 1 ];
 	if ($net->isa('Listener')) {
-		@$q[1,2,4,5] = (undef, undef, 1, 0);
+		@$q[1,2,4,5] = ($tblank, undef, 1, 0);
 	}
 	$queues{$$net} = $q;
 }
@@ -40,11 +44,11 @@ sub readable {
 		return unless $sock;
 		$net = $net->init_pending($sock, $peer);
 		return unless $net;
-		$queues{$$net} = [ $sock, '', '', $net, 1, 0 ];
+		$queues{$$net} = [ $sock, $tblank, '', $net, 1, 0 ];
 		return;
 	}
 
-	my ($sock, $recvq, $sendq) = @$l;
+	my ($sock, $recvq) = @$l;
 	my $len = $sock->sysread($recvq, 8192, length $recvq);
 	if ($len) {
 		while ($recvq =~ /\n/) {

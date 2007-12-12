@@ -17,6 +17,8 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		return &Janus::jmsg($nick, "Bad syntax") unless $expr =~ s/^(\S+)\s+//;
 		return &Janus::jmsg($nick, "Bad syntax") unless $1 && $1 eq $Conffile::netconf{set}{evalpass};
 		print "EVAL: $expr\n";
+		$expr =~ /(.*)/; # go around taint mode
+		$expr = $1;
 		my @r = eval $expr;
 		@r = $@ if $@ && !@r;
 		if (@r) {

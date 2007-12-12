@@ -58,7 +58,6 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		for my $i (0..($c-1)) {
 			&Janus::jmsg($nick, join '', map $_ ? sprintf $ex, @$_ : '', map $mvs[$c*$_ + $i], 0 .. 2);
 		}
-		# TODO this would look better if it were read down columns, not across
 	}
 }, {
 	cmd => 'renick',
