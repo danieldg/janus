@@ -100,6 +100,8 @@ sub _init {
 		$names[$$c]{$$net} = $ifo->{name};
 		$Janus::gchans{$net->gid().$ifo->{name}} = $c;
 	}
+	my $n = join ',', map { $_.$names[$$c]{$_} } keys %{$names[$$c]};
+	print "   CHAN:$$c $n allocated\n";
 }
 
 sub _destroy {

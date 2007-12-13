@@ -28,6 +28,7 @@ sub lid {
 sub _init {
 	my $net = $_[0];
 	$gid[$$net] ||= $Janus::name.':'.$$net;
+	print "   NET:$$net ".ref($net)." allocated\n";
 }
 
 sub _set_name {

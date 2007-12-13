@@ -51,6 +51,7 @@ sub _init {
 	$mode[$$nick] = $ifo->{mode} || {};
 	# prevent mode bouncing
 	$mode[$$nick]{oper} = 1 if $mode[$$nick]{service};
+	print "   NICK:$$nick $homenick[$$nick] allocated\n";
 }
 
 sub to_ij {
