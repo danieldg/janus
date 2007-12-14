@@ -13,12 +13,14 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		my($nick,$tryfix) = @_;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my $ts = time;
+		my $oops = 0;
 		my @fixes;
 		open my $dump, '>', "log/verify-$ts" or return;
 		for my $nick (values %Janus::gnicks) {
 			my $hn = $nick->homenick();
 			my $ht = $nick->homenet() or do {
 				print $dump "nick $$nick has null homenet\n";
+				$oops++;
 				next;
 			};
 			for my $net ($nick->netlist()) {
@@ -31,10 +33,12 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 						msg => 'Please rejoin | Fixing internal corruption',
 					};
 					print $dump "nick $$nick on dropped network $$net\n";
+					$oops++;
 				} else {
 					$rf = $Janus::nets{$net->name()};
 					if (!$rf || $rf ne $net) {
 						print $dump "nick $$nick on replaced network $$net\n";
+						$oops++;
 					}
 				}
 			}
@@ -44,6 +48,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 					my $hchan = $ht->chan($hcname);
 					if (!$hchan || $hchan ne $chan) {
 						print $dump "nick $$nick on dropped channel $$chan=$hcname\n";
+						$oops++;
 						push @fixes, +{
 							type => 'KICK',
 							dst => $chan,
@@ -57,6 +62,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 				my $rf = $Janus::gchans{$kn};
 				if (!$rf || $rf ne $chan) {
 					print $dump "nick $$nick on miskeyed channel $$chan=$kn\n";
+					$oops++;
 				}
 			}
 		}
@@ -65,11 +71,13 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			next if $seen{$chan}++;
 			if ($Janus::gchans{$chan->keyname()} ne $chan) {
 				print $dump "channel $$chan is not registered on its keyname\n";
+				$oops++;
 			}
 			for my $net ($chan->nets()) {
 				my $rf = $Janus::gnets{$net->gid()};
 				if (!$rf || $rf ne $net) {
 					print $dump "channel $$chan on dropped network $$net\n";
+					$oops++;
 					push @fixes, +{
 						type => 'DELINK',
 						net => $net,
@@ -79,6 +87,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 					$rf = $Janus::nets{$net->name()};
 					if (!$rf || $rf ne $net) {
 						print $dump "channel $$chan on replaced network $$net\n";
+						$oops++;
 					}
 				}
 			}
@@ -87,6 +96,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 				my $gn = $Janus::gnicks{$gid};
 				if (!$gn || $gn ne $nick) {
 					print $dump "channel $$chan contains dropped nick $$nick\n";
+					$oops++;
 					push @fixes, +{
 						type => 'KICK',
 						dst => $chan,
@@ -102,9 +112,11 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 				my $gn = $Janus::gnicks{$gid};
 				if (!$gn || $gn ne $nick) {
 					print $dump "net $$net contains dropped nick $$nick\n";
+					$oops++;
 				}
 				unless ($nick->is_on($net)) {
 					print $dump "net $$net contains nick $$nick which doesn't agree\n";
+					$oops++;
 				}
 			}
 			for my $chan ($net->all_chans()) {
@@ -112,20 +124,23 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 				my $rf = $Janus::gchans{$kn};
 				if (!$rf || $rf ne $chan) {
 					print $dump "net $$net contains miskeyed channel $$chan=$kn\n";
+					$oops++;
 				}
 				unless ($chan->is_on($net)) {
 					print $dump "net $$net contains channel $$chan which doesn't agree\n";
+					$oops++;
 				}
 				next if $net->jlink();
 				my $name = $chan->str($net);
 				my $nch = $net->chan($name);
 				if (!$nch || $nch ne $chan) {
 					print $dump "net $$net has misnamed channel $$chan=$name\n";
+					$oops++;
 				}
 			}
 		}
 		close $dump;
-		&Janus::jmsg($nick, 'Verification report in file log/verify-'.$ts);
+		&Janus::jmsg($nick, "$oops problems found - report is in log/verify-$ts");
 		if ($tryfix eq 'yes') {
 			my $nobody = [];
 			for (@fixes) {
