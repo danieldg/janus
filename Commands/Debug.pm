@@ -5,6 +5,7 @@ package Commands::Debug;
 use strict;
 use warnings;
 use Data::Dumper;
+use Modes;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
@@ -32,6 +33,17 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		print $dump Data::Dumper::Dumper(\@all);
 		close $dump;
 		&Janus::jmsg($nick, 'State dumped to file log/dump-'.$ts);
+	},
+	cmd => 'showmode',
+	help => 'Shows the current intended modes of a channel',
+	code => sub {
+		my($nick,$cname) = @_;
+		my $hn = $nick->homenet();
+		return &Janus::jmsg($nick, 'Local command only') unless $hn->isa('LocalNetwork');
+		my $chan = $hn->chan($cname,0);
+		return &Janus::jmsg($nick, 'That channel does not exist') unless $chan;
+		my @modes = &Modes::to_multi($hn, &Modes::delta(undef, $chan), 0, 400);
+		&Janus::jmsg($nick, join ' ', $chan->str($hn), @$_) for @modes;
 	},
 });
 
