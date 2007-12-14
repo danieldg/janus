@@ -1009,10 +1009,10 @@ $moddef{CORE} = {
 			if ($act->{ts} == $act->{oldts}) {
 				return $net->ncmd(REMSTATUS => $chan);
 			} else {
-				# XXX this is needed sometimes, but not all the time
+				# XXX this is needed sometimes, but not all the time. Do we really need the part?
 				return (
-					$net->ncmd(FJOIN => $chan, $act->{ts}, ','.$net->_out($Janus::interface)),
 					$net->cmd2($Janus::interface, PART => $chan, 'Timestamp reset'),
+					$net->ncmd(FJOIN => $chan, $act->{ts}, ','.$net->_out($Janus::interface)),
 				);
 			}
 		} else {

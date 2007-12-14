@@ -179,13 +179,14 @@ sub _link_into {
 		$nmode[$$chan]{$nid} = $mode;
 
 		$nick->rejoin($chan);
+		next if $nick->jlink() || $nick->info('_is_janus');
 		&Janus::append(+{
 			type => 'JOIN',
 			src => $nick,
 			dst => $chan,
 			mode => $nmode[$$src]{$nid},
 			sendto => $joinnets,
-		}) unless $nick->jlink();
+		});
 	}
 }
 
@@ -475,6 +476,12 @@ sub del_remoteonly {
 		my $chan = $act->{dst};
 		my($chan1,$chan2) = ($act->{chan1}, $act->{chan2});
 		
+		&Janus::append(+{
+			type => 'JOIN',
+			src => $Janus::interface,
+			dst => $chan,
+			nojlink => 1,
+		});
 		$chan1->_link_into($chan) if $chan1;
 		$chan2->_link_into($chan) if $chan2;
 	}, DELINK => check => sub {
