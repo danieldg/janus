@@ -34,6 +34,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		close $dump;
 		&Janus::jmsg($nick, 'State dumped to file log/dump-'.$ts);
 	},
+}, {
 	cmd => 'showmode',
 	help => 'Shows the current intended modes of a channel',
 	code => sub {
