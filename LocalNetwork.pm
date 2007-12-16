@@ -97,7 +97,6 @@ sub chan {
 			name => $name,
 			ts => $new,
 		);
-		print "Creating channel $name - luid=$$chan\n";
 		$chans[$$net]{lc $name} = $chan;
 	}
 	$chans[$$net]{lc $name};
