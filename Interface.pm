@@ -145,11 +145,27 @@ sub pmsg {
 		my $act = shift;
 		my $src = $act->{src};
 		my $dst = $act->{dst};
-		unless ($src->is_on($dst->homenet())) {
+		return undef if $src->is_on($dst->homenet());
+		if ($dst eq $Janus::interface) {
+			my $net = $src->homenet();
+			my @msgs = (
+				[ 311, $src->info('ident'), $src->info('vhost'), '*', $src->info('name') ],
+				[ 312, 'janus.janus', "Janus Interface" ],
+				[ 319, join ' ', map { $_->is_on($net) ? $_->str($net) : () } $dst->all_chans() ],
+				[ 317, 0, 0, 'seconds idle, signon time'], # TODO is the janus start time kept?
+				[ 318, 'End of /WHOIS list' ],
+			);
+			&Janus::append(map +{
+				type => 'MSG',
+				src => $net,
+				dst => $src,
+				msgtype => $_->[0], # first part of message
+				msg => [$dst, @$_[1 .. $#$_] ], # source nick, rest of message array
+			}, @msgs);
+		} else {
 			&Janus::jmsg($src, 'You cannot use this /whois syntax unless you are on a shared channel with the user');
-			return 1;
 		}
-		undef;
+		return 1;
 	}, LINKREQ => act => sub {
 		my $act = shift;
 		my $snet = $act->{net};
