@@ -20,6 +20,7 @@ use Janus;
 use POSIX 'setsid';
 
 our $VERSION = '(J)v'.join '', '$Rev$' =~ /(\d+)/;
+our $uptime = time;
 
 my $args = @ARGV && $ARGV[0] =~ /^-/ ? shift : '';
 unless ($args =~ /d/) {
@@ -47,6 +48,9 @@ $SIG{PIPE} = 'IGNORE';
 &Janus::load('Conffile', shift || 'janus.conf') or die;
 &Janus::load($_) or die for qw(Interface Actions Commands::Core);
 
+&Janus::insert_full(+{ type => 'INIT', sendto => [] });
+&Janus::insert_full(+{ type => 'RUN', sendto => [] });
+
 eval { 
 	1 while &Connection::timestep();
 	1;
@@ -58,6 +62,8 @@ eval {
 	}
 	&Connection::abort();
 };
+
+&Janus::insert_full(+{ type => 'TERMINATE', sendto => [] });
 
 &Janus::delink($Janus::interface->homenet(), 'Goodbye!');
 $Janus::interface = undef;
