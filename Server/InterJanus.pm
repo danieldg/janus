@@ -82,6 +82,10 @@ sub intro {
 			type => 'NETLINK',
 			net => $net,
 		});
+		$ij->ij_send(+{
+			type => 'LINKED',
+			net => $net,
+		}) if $net->is_synced();
 	}
 }
 

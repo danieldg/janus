@@ -122,38 +122,6 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			reason => $reason,
 		});
 	},
-}, {
-	cmd => 'save',
-	help => "Save the current linked channels for this network",
-	code => sub {
-		my($nick) = @_;
-		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
-		my $hnet = $nick->homenet();
-		my @file;
-		my $reqs = $hnet->all_reqs();
-		my %reqs = $reqs ? %$reqs : ();
-		for my $chan ($hnet->all_chans()) {
-			my @nets = $chan->nets();
-			next if @nets == 1;
-			for my $net (@nets) {
-				next if $net eq $hnet;
-				$reqs{$chan->str($hnet)}{$net->name()} = $chan->str($net);
-			}
-		}
-		for my $chan (sort keys %reqs) {
-			for my $net (sort keys %{$reqs{$chan}}) {
-				push @file, join ' ', $chan, $net, $reqs{$chan}{$net};
-			}
-		}
-		$hnet->name() =~ /^([0-9a-z_A-Z]+)$/ or return warn;
-		open my $f, '>', "links.$1.conf" or do {
-			&Janus::err_jmsg($nick, "Could not open links file for net $1 for writing: $!");
-			return;
-		};
-		print $f join "\n", @file, '' or warn $!;
-		close $f or warn $!;
-		&Janus::jmsg($nick, 'Link file saved');
-	},
 });
 
 1;

@@ -166,38 +166,6 @@ sub pmsg {
 			&Janus::jmsg($src, 'You cannot use this /whois syntax unless you are on a shared channel with the user');
 		}
 		return 1;
-	}, LINKREQ => act => sub {
-		my $act = shift;
-		my $snet = $act->{net};
-		my $dnet = $act->{dst};
-		print "Link request:";
-		if ($snet->jlink()) {
-			print " src non-local;";
-		} else {
-			$snet->add_req($act->{slink}, $dnet, $act->{dlink});
-			print " added to src requests;";
-		}
-		if ($dnet->jlink() || $dnet->isa('Interface')) {
-			print " dst non-local\n";
-		} else {
-			my $recip = $dnet->is_req($act->{dlink}, $snet);
-			print $recip ? " dst req:$recip" : " dst new req";
-			$recip = 'any' if $recip && $act->{override};
-			if ($recip && ($recip eq 'any' || lc $recip eq lc $act->{slink})) {
-				print ' => linking!';
-				# there has already been a request to link this channel to that network
-				# also, if it was not an override, the request was for this pair of channels
-				&Janus::append(+{
-					type => 'LSYNC',
-					src => $dnet,
-					dst => $snet,
-					chan => $dnet->chan($act->{dlink},1),
-					linkto => $act->{slink},
-					linkfile => $act->{linkfile},
-				});
-			}
-			print "\n";
-		}
 	}, CHATOPS => jparse => sub {
 		my $act = shift;
 		$act->{msg} = '[remote] '.$act->{msg} if $act->{src} eq $Janus::interface;
@@ -211,9 +179,6 @@ sub request_newnick { $_[2] }
 sub request_cnick { $_[2] }
 sub release_nick { }
 sub is_synced { 0 }
-sub add_req { }
-sub del_req { }
-sub is_req { 'invalid' }
 sub all_nicks { $Janus::interface }
 sub all_chans { () }
 
