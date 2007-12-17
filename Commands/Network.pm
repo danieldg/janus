@@ -143,18 +143,24 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		&Janus::jmsg($nick, 'Linked networks: '.join ' ', sort keys %Janus::nets);
 		return unless $nick->has_mode('oper');
 		my $hnet = $nick->homenet();
-		my @chans;
+		my %chans;
+		my $len=0;
 		for my $chan ($hnet->all_chans()) {
 			my @nets = $chan->nets();
 			next if @nets == 1;
 			my @list;
+			my $hname = lc $chan->str($hnet);
 			for my $net (@nets) {
 				next if $net eq $hnet;
-				push @list, $net->name().$chan->str($net);
+				my $oname = lc $chan->str($net);
+				push @list, $net->name().($hname eq $oname ? '' : $oname);
 			}
-			push @chans, join ' ', '', $chan->str($hnet), sort @list;
+			$len = length $hname if length $hname > $len;
+			$chans{$hname} = join ' ', sort @list;
 		}
-		&Janus::jmsg($nick, sort @chans);
+		&Janus::jmsg($nick, map {
+			sprintf " \%-${len}s \%s", $_, $chans{$_};
+		} sort keys %chans);
 	}
 });
 
