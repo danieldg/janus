@@ -10,7 +10,8 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 	cmd => 'req',
 	help => 'Manipulate channel link requests',
 	details => [
-		"\002REQ LIST\002 - list pending channel link requests",
+		"\002REQ ALL\002 - list all channel links that will be retried on a split",
+		"\002REQ PEND\002 - list channel links that your network has requested",
 		"\002REQ DEL\002 chan net  - delete a pending request",
 	],
 	code => sub {
@@ -18,7 +19,8 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my $hnet = $nick->homenet();
 		my $reqs = $hnet->all_reqs();
-		if ($args =~ /^l/i) {
+		if ($args =~ /^a/i || $args =~ /^p/i) {
+			my $all = /^a/i;
 			my %reqs = $reqs ? %$reqs : ();
 			for my $chan (sort keys %reqs) {
 				my $out = ' '.$chan;
@@ -31,12 +33,16 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 				for my $net (sort keys %{$reqs{$chan}}) {
 					my $req = $reqs{$chan}{$net};
 					my $nt = $Janus::nets{$net};
-					if ($ch && $nt && $ch->is_on($nt)) {
+					if (!$nt) {
+						$out .= ' '.$net.$req if $all;
+					} elsif ($ch && $ch->is_on($nt)) {
+						next unless $all;
 						$out .= " \002$net".($ch->str($nt) eq $req ? "$req\002" : "\002$req");
 					} else {
 						$out .= ' '.$net.$req;
 					}
 				}
+				next unless $out =~ /\S\s/; # skip empty lines
 				&Janus::jmsg($nick, $out);
 			}
 		} elsif ($args =~ /^d\S* (#\S*) (\S+)/i) {
