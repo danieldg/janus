@@ -395,7 +395,17 @@ our %modules = (
 	'm_setidle.so' => { },
 	'm_sha256.so' => { },
 	'm_showwhois.so' => {
-		umode => { W => 'whois_notice' }
+		umode => { W => 'whois_notice' },
+		acts => {
+			WHOIS => sub {
+				my($net,$act) = @_;
+				print "Hit Code\n";
+				my($src,$dst) = @$act{'src','dst'};
+				return () unless $dst->isa('Nick') && $dst->has_mode('whois_notice');
+				$net->ncmd(PUSH => $dst, $net->cmd2($src->homenet()->jname(), NOTICE =>
+					$dst, '*** '.$src->str($net).' did a /whois on you.'));
+			}
+		},
 	},
 	'm_silence.so' => { cmds => { SILENCE => \&ignore } },
 	'm_silence_ext.so' => { cmds => { SILENCE => \&ignore } },
