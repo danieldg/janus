@@ -1,5 +1,6 @@
 set {
 	ipv6 1
+	save janus.dat
 	name yourserver
 	pass rehashdude
 }
