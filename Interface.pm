@@ -152,7 +152,7 @@ sub pmsg {
 				[ 311, $src->info('ident'), $src->info('vhost'), '*', $src->info('name') ],
 				[ 312, 'janus.janus', "Janus Interface" ],
 				[ 319, join ' ', map { $_->is_on($net) ? $_->str($net) : () } $dst->all_chans() ],
-				[ 317, 0, 0, 'seconds idle, signon time'], # TODO is the janus start time kept?
+				[ 317, 0, $main::uptime, 'seconds idle, signon time'],
 				[ 318, 'End of /WHOIS list' ],
 			);
 			&Janus::append(map +{

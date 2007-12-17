@@ -25,7 +25,8 @@ sub linked {
 		"\002REQUEST WIPE\002 network       remove \002all\002 link requests for a network",
 		"\002REQUEST PEND\002 [network]     list all pending requests (from given network)",
 		"\002REQUEST LIST\002 [network]     list all waiting requests (to given network)",
-		"\002REQUEST DUMP\002               list all saved channel relink requsts",
+		"\002REQUEST DUMP\002               list all local saved channel relink requsts",
+		"\002REQUEST PDUMP\002              list all remote saved channel relink requests",
 	],
 	code => sub {
 		my($nick,$args) = @_;
@@ -50,11 +51,12 @@ sub linked {
 			} else {
 				&Janus::jmsg($nick, 'Not found');
 			}
-		} elsif ($args =~ /^pend *(\S+)?/i) {
+		} elsif ($args =~ /^(?:pend|pdump) *(\S+)?/i) {
+			my $list = $args =~ /^pend/i;
 			for my $net ($1 || sort keys %Links::reqs) {
 				my $chanh = $Links::reqs{$net}{$nname} or next;
 				for my $schan (sort keys %$chanh) {
-					next if linked($net, $nname, $schan, $chanh->{$schan});
+					next if $list && linked($net, $nname, $schan, $chanh->{$schan});
 					&Janus::jmsg($nick, "$net: $schan $chanh->{$schan}");
 				}
 			}					

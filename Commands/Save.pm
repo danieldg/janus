@@ -12,6 +12,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 	help => 'Save janus state to filesystem',
 	code => sub {
 		my($nick,$args) = @_;
+		return &Janus::jmsg($nick, 'You must be an IRC operator to use this command') unless $nick->has_mode('oper');
 		my $out = $Conffile::netconf{set}{save};
 		my(@vars,@refs);
 		keys %Janus::states;
@@ -22,9 +23,13 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 				push @refs, '*'.$class.'::'.$var;
 			}
 		}
-		open my $f, '>', $out;
-		print $f Data::Dumper->Dump(\@vars, \@refs);
-		close $f;
+		if (open my $f, '>', $out) {
+			print $f Data::Dumper->Dump(\@vars, \@refs);
+			close $f;
+			&Janus::jmsg($nick, 'Saved');
+		} else {
+			&Janus::jmsg($nick, "Could not save: $!");
+		}
 	}
 });
 
