@@ -52,6 +52,7 @@ our $INC_ITEM;
 
 our %hooks;
 our %commands;
+our %states;
 
 sub _hook; # forward since it's used in module load/unload
 
@@ -96,6 +97,7 @@ sub unload {
 		delete $commands{$cmd};
 	}
 
+	delete $states{$module};
 	$modules{$module} = 0;
 }
 
@@ -186,6 +188,12 @@ sub command_add {
 		$h->{class} = $class;
 		$commands{$cmd} = $h;
 	}
+}
+
+sub save_vars {
+	my $class = caller || 'Janus';
+	cluck "command_add called outside module load" unless $modules{$class} == 1;
+	$states{$class} = { @_ };
 }
 
 =back

@@ -275,6 +275,7 @@ sub rehash {
 		undef;
 	},
 	RUN => act => sub {
+		do $netconf{set}{save};
 		connect_net undef,$_ for keys %netconf;
 	},
 );

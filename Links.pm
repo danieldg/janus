@@ -11,6 +11,8 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 our %reqs;
 # {requestor}{destination}{src-channel} = dst-channel
 
+&Janus::save_vars('reqs', \%reqs);
+
 &Janus::hook_add(
 	LINKED => act => sub {
 		my $act = shift;
