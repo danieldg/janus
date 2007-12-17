@@ -36,6 +36,7 @@ sub linked {
 			&Janus::jmsg($nick, "You must be an IRC operator to use this command");
 			return;
 		}
+		$args ||= '';
 		my $nname = $nick->homenet()->name();
 		if ($args =~ /^del (#\S*) (\S+)/i) {
 			if (delete $Links::reqs{$nname}{$2}{$1}) {
@@ -57,10 +58,11 @@ sub linked {
 					&Janus::jmsg($nick, "$net: $schan $chanh->{$schan}");
 				}
 			}					
+			&Janus::jmsg($nick, 'End of list');
 		} elsif ($args =~ /^(?:list|dump) *(\S+)?/i) {
 			my %chans;
 			my $list = $args =~ /^list/i;
-			for my $net ($1 || keys %{$Links::reqs{$nname}}) {
+			for my $net ($1 || sort keys %{$Links::reqs{$nname}}) {
 				my $chanh = $Links::reqs{$nname}{$net} or next;
 				for my $schan (keys %$chanh) {
 					next if $list && linked($nname, $net, $schan, $chanh->{$schan});
@@ -71,6 +73,9 @@ sub linked {
 			for my $chan (sort keys %chans) {
 				&Janus::jmsg($nick, $chan.$chans{$chan});
 			}
+			&Janus::jmsg($nick, 'End of list');
+		} else {
+			&Janus::jmsg($nick, 'See "help request" for the correct syntax');
 		}
 	},
 });
