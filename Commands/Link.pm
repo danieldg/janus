@@ -1,33 +1,12 @@
 # Copyright (C) 2007 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
-package Commands::Channel;
+package Commands::Link;
 use strict;
 use warnings;
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 &Janus::command_add({
-	cmd => 'list',
-	help => 'Shows a list of the linked networks and shared channels',
-	code => sub {
-		my $nick = shift;
-		&Janus::jmsg($nick, 'Linked networks: '.join ' ', sort keys %Janus::nets);
-		return unless $nick->has_mode('oper');
-		my $hnet = $nick->homenet();
-		my @chans;
-		for my $chan ($hnet->all_chans()) {
-			my @nets = $chan->nets();
-			next if @nets == 1;
-			my @list;
-			for my $net (@nets) {
-				next if $net eq $hnet;
-				push @list, $net->name().$chan->str($net);
-			}
-			push @chans, join ' ', '', $chan->str($hnet), sort @list;
-		}
-		&Janus::jmsg($nick, sort @chans);
-	}
-}, {
 	cmd => 'link',
 	help => 'Links a channel with a remote network.',
 	details => [ 
