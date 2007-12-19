@@ -140,11 +140,11 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 	help => 'Shows a list of the linked networks and shared channels',
 	code => sub {
 		my $nick = shift;
-		&Janus::jmsg($nick, 'Linked networks: '.join ' ', sort keys %Janus::nets);
-		return unless $nick->has_mode('oper');
 		my $hnet = $nick->homenet();
+		my $amsg = 'Linked Networks:';
+		my $head = join ' ', grep !($_ eq 'janus' || $_ eq $hnet->name()), sort keys %Janus::nets;
 		my %chans;
-		my $len=0;
+		my $len = length($amsg) - 1;
 		for my $chan ($hnet->all_chans()) {
 			my @nets = $chan->nets();
 			next if @nets == 1;
@@ -158,8 +158,9 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			$len = length $hname if length $hname > $len;
 			$chans{$hname} = join ' ', sort @list;
 		}
+		&Janus::jmsg($nick, sprintf '%-'.($len+1).'s %s', $amsg, $head);
 		&Janus::jmsg($nick, map {
-			sprintf " \%-${len}s \%s", $_, $chans{$_};
+			sprintf " %-${len}s \%s", $_, $chans{$_};
 		} sort keys %chans);
 	}
 });
