@@ -456,7 +456,7 @@ sub in_socket {
 
 sub in_command {
 	my($cmd, $nick, $text) = @_;
-	my $csub = exists $commands{$cmd} ?
+	my $csub = exists $commands{$cmd}{code} ?
 		$commands{$cmd}{code} : $commands{unk}{code};
 	unshift @qstack, [];
 	eval {
