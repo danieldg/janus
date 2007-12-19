@@ -43,6 +43,7 @@ sub code {
 	} elsif ($args =~ /^(?:pend|pdump) *(\S+)?/i) {
 		my $list = $args =~ /^pend/i;
 		for my $net ($1 || sort keys %Links::reqs) {
+			next if $list && !$Janus::nets{$net};
 			my $chanh = $Links::reqs{$net}{$nname} or next;
 			for my $schan (sort keys %$chanh) {
 				next if $list && linked($net, $nname, $schan, $chanh->{$schan});
