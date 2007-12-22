@@ -48,6 +48,10 @@ our %reqs;
 			print "dst non-local\n";
 			return;
 		}
+		unless ($dnet->is_synced()) {
+			print "dst not ready\n";
+			return;
+		}
 		my $recip = $reqs{$dnet->name()}{$snet->name()}{$act->{dlink}};
 		unless ($recip) {
 			print "saved in list\n";
