@@ -56,12 +56,6 @@ sub intro {
 	# forge the module list. However, we can set up the other server introductions
 	# as they will be sent after auth is done
 	push @out, $net->ncmd(VERSION => 'Janus Hub');
-	for my $id (keys %Janus::nets) {
-		my $new = $Janus::nets{$id};
-		next if $new->isa('Interface') || $new eq $net;
-		push @out, $net->ncmd(SERVER => $new->jname(), '*', 1, $new->netname());
-		push @out, $net->cmd2($new->jname(), VERSION => 'Remote Janus Server: '.ref $new);
-	}
 	$net->send(@out);
 }
 
@@ -876,7 +870,16 @@ $moddef{CORE} = {
 	NETLINK => sub {
 		my($net,$act) = @_;
 		my $new = $act->{net};
-		return () if $net eq $new;
+		if ($net eq $new) {
+			my @out;
+			for my $id (keys %Janus::nets) {
+				my $new = $Janus::nets{$id};
+				next if $new->isa('Interface') || $new eq $net;
+				push @out, $net->ncmd(SERVER => $new->jname(), '*', 1, $new->netname());
+				push @out, $net->cmd2($new->jname(), VERSION => 'Remote Janus Server: '.ref $new);
+			}
+			return @out;
+		}
 		return () if $net->isa('Interface');
 		return (
 			$net->ncmd(SERVER => $new->jname(), '*', 1, $new->netname()),
