@@ -290,7 +290,10 @@ my %spec = (
 		# add other args for manual methods?
 	},	
 	REHASH => {},
-	'INIT' => { except => '?NONE' },
+	'INIT' => {
+		args => '@', # program arguments
+		except => '?NONE',
+	},
 	RUN => { except => '?NONE' },
 	TSREPORT => {
 		src => 'Nick',

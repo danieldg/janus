@@ -23,6 +23,7 @@ our $VERSION = '(J)v'.join '', '$Rev$' =~ /(\d+)/;
 our $uptime = time;
 
 my $args = @ARGV && $ARGV[0] =~ /^-/ ? shift : '';
+
 unless ($args =~ /d/) {
 	my $log = 'log/'.time;
 	umask 022;
@@ -45,10 +46,10 @@ unless ($args =~ /d/) {
 $| = 1;
 $SIG{PIPE} = 'IGNORE';
 
-&Janus::load('Conffile', shift || 'janus.conf') or die;
+&Janus::load('Conffile') or die;
 &Janus::load($_) or die for qw(Interface Actions Commands::Core);
 
-&Janus::insert_full(+{ type => 'INIT', sendto => [] });
+&Janus::insert_full(+{ type => 'INIT', args => [ $args, @ARGV ], sendto => [] });
 &Janus::insert_full(+{ type => 'RUN', sendto => [] });
 
 eval { 

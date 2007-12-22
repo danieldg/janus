@@ -15,8 +15,6 @@ my $reload = $VERSION;
 $VERSION = 1 unless $VERSION; # make sure reloads act as such
 
 our $conffile;
-$conffile = $_[0] unless $reload;
-
 our %netconf;
 our %inet;
 # these values are replaced in modload by IPv4 or IPv6 code
@@ -29,6 +27,7 @@ sub read_conf {
 	local $_;
 	my %newconf;
 	my $current;
+	$conffile ||= 'janus.conf';
 	open my $conf, '<', $conffile;
 	$conf->untaint(); 
 		# the configurator is assumed to have at least half a brain :)
@@ -146,7 +145,7 @@ sub connect_net {
 			$net->intro($nconf);
 
 			if ($net->isa('Network')) {
-				&Janus::insert_full({
+				&Janus::append({
 					type => 'NETLINK',
 					net => $net,
 				});
@@ -172,6 +171,8 @@ sub rehash {
 		&Conffile::rehash($act->{src});
 	},
 	'INIT' => check => sub {
+		my $act = shift;
+		$conffile = $act->{args}[1];
 		read_conf;
 		if ($netconf{set}{ipv6}) {
 			eval q[

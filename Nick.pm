@@ -275,13 +275,16 @@ sub str {
 =cut
 
 &Janus::hook_add(
-	CONNECT => act => sub {
+	CONNECT => check => sub {
 		my $act = shift;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
-		if (exists $nets[$$nick]{$$net}) {
-			warn "Nick alredy on CONNECTing network!";
-		}
+		return 1 if exists $nets[$$nick]{$$net};
+		undef;
+	}, CONNECT => act => sub {
+		my $act = shift;
+		my $nick = $act->{dst};
+		my $net = $act->{net};
 		$nets[$$nick]{$$net} = $net;
 		return if $net->jlink();
 
@@ -376,7 +379,7 @@ sub str {
 		return if $homenet[$$nick]->jlink();
 		
 		for my $net ($chan->nets()) {
-			next if $nets[$$nick]->{$$net};
+			next if $nets[$$nick]{$$net};
 			&Janus::insert_partial(+{
 				type => 'CONNECT',
 				dst => $nick,
