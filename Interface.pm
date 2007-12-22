@@ -89,7 +89,7 @@ sub pmsg {
 		$Janus::interface = Nick->new(
 			net => $int,
 			nick => $inick,
-			ts => 100000000,
+			ts => ($main::uptime - 1000000000),
 			info => {
 				ident => 'janus',
 				host => 'services.janus',
