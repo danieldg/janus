@@ -16,6 +16,46 @@ Object representing a set of linked channels
 
 =over
 
+=item Channel->new(arghash)
+
+Create a new channel. Should only be called by LocalNetwork and InterJanus.
+
+=over
+
+=item ts, mode, topic, topicts, topicset - same as getters
+
+=item keyname - if set, is assumed to be a merging channel
+
+=item names - hashref of netname => channame. Only used if keyname set
+
+=item net - network this channel is on. Only used if keyname unset
+
+=back
+
+=item $chan->ts()
+
+Timestamp for this channel
+
+=item $chan->keyname()
+
+Name used for this channel in interjanus communication
+
+=item $chan->topic()
+
+Topic text for the channel
+
+=item $chan->topicts()
+
+Topic set timestamp
+
+=item $chan->topicset()
+
+String representing the setter of the topic
+
+=item $chan->all_modes()
+
+Hash of modetext => modeval (see Modes.pm)
+
 =cut
 
 my @ts       :Persist(ts)                      :Get(ts);
@@ -25,11 +65,11 @@ my @topicts  :Persist(topicts)  :Arg(topicts)  :Get(topicts);
 my @topicset :Persist(topicset) :Arg(topicset) :Get(topicset);
 my @mode     :Persist(mode)                    :Get(all_modes);
 
-my @names    :Persist(names);
-my @nets     :Persist(nets);
+my @names    :Persist(names); # channel's name on the various networks
+my @nets     :Persist(nets);  # networks this channel is shared to
 
-my @nicks    :Persist(nicks);
-my @nmode    :Persist(nmode);
+my @nicks    :Persist(nicks); # all nicks on this channel
+my @nmode    :Persist(nmode); # modes of those nicks
 
 =item $chan->nets()
 
