@@ -46,8 +46,7 @@ unless ($args =~ /d/) {
 $| = 1;
 $SIG{PIPE} = 'IGNORE';
 
-&Janus::load('Conffile') or die;
-&Janus::load($_) or die for qw(Interface Actions Commands::Core);
+&Janus::load($_) or die for qw(Conffile Interface Actions Commands::Core);
 
 &Janus::insert_full(+{ type => 'INIT', args => [ $args, @ARGV ], sendto => [] });
 &Janus::insert_full(+{ type => 'RUN', sendto => [] });
