@@ -101,6 +101,9 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			return;
 		};
 		$nconf->{autoconnect} = $onoff;
+		if ($onoff) {
+			&Conffile::connect_net($nick, $id);
+		}
 		&Janus::jmsg($nick, 'Done');
 	},
 }, {

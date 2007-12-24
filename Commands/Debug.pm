@@ -39,6 +39,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 	help => 'Shows the current intended modes of a channel',
 	code => sub {
 		my($nick,$cname) = @_;
+		chomp $cname;
 		my $hn = $nick->homenet();
 		return &Janus::jmsg($nick, 'Local command only') unless $hn->isa('LocalNetwork');
 		my $chan = $hn->chan($cname,0);

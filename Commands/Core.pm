@@ -60,21 +60,12 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		}
 	}
 }, {
-	cmd => 'renick',
-	# hidden command, no help
-	code => sub {
-		my($nick,$name) = @_;
-		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
-		$Conffile::netconf{janus}{janus} = $name;
-		&Janus::reload('Interface');
-	},
-}, {
 	cmd => 'reload',
-	help => "Load or reload a module, live. \002EXPERIMENTAL\002.",
+	help => "Load or reload a module, live.",
 	details => [
 		"Syntax: \002RELOAD\002 module",
 		"\002WARNING\002: Reloading core modules may introduce bugs because of persistance",
-		"of old code by the perl interpreter"
+		"of old code by the perl interpreter."
 	],
 	code => sub {
 		my($nick,$name) = @_;
