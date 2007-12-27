@@ -33,7 +33,7 @@ sub _init {
 
 sub ignore { () }
 
-sub nicklen { 
+sub nicklen {
 	my $net = shift;
 	($capabs[$$net]{NICKMAX} || 32) - 1;
 }
@@ -128,7 +128,7 @@ sub _connect_ifo {
 			$mode .= $um;
 		}
 	}
-	
+
 	my $srv = $nick->homenet()->jname();
 	$srv = $net->cparam('linkname') if $srv eq 'janus.janus';
 
@@ -145,7 +145,7 @@ sub _connect_ifo {
 		push @out, $net->cmd2($nick, OPERTYPE => $type);
 	}
 	push @out, $net->cmd2($nick, AWAY => $nick->info('away')) if $nick->info('away');
-	
+
 	@out;
 }
 
@@ -197,10 +197,10 @@ sub process_capabs {
 
 # IRC Parser
 # Arguments:
-# 	$_[0] = Network
-# 	$_[1] = source (not including leading ':') or 'undef'
-# 	$_[2] = command (for multipurpose subs)
-# 	3 ... = arguments to the irc line; last element has the leading ':' stripped
+#	$_[0] = Network
+#	$_[1] = source (not including leading ':') or 'undef'
+#	$_[2] = command (for multipurpose subs)
+#	3 ... = arguments to the irc line; last element has the leading ':' stripped
 # Return:
 #  list of hashrefs containing the Action(s) represented (can be empty)
 
@@ -298,7 +298,7 @@ $moddef{CORE} = {
 		w => 'wallops',
   },
   cmds => {
-  	NICK => sub {
+	NICK => sub {
 		my $net = shift;
 		if (@_ < 10) {
 			my $nick = $net->mynick($_[0]) or return ();
@@ -397,7 +397,7 @@ $moddef{CORE} = {
 			type => 'QUIT',
 			dst => $nick,
 			msg => $_[-1],
-		};	
+		};
 	}, KILL => sub {
 		my $net = shift;
 		my $src = $net->item($_[0]);
@@ -587,7 +587,7 @@ $moddef{CORE} = {
 		my $net = shift;
 		my $srv = $_[2];
 		my $splitfrom = $servers[$$net]{lc $srv};
-		
+
 		my %sgone = (lc $srv => 1);
 		my $k = 0;
 		while ($k != scalar keys %sgone) {
@@ -676,7 +676,7 @@ $moddef{CORE} = {
 			expire => ($_[6] ? ($_[5] + $_[6]) : 0),
 			reason => $_[7],
 		};
-	},	
+	},
 	GLINE => sub {
 		my $net = shift;
 		my $type = substr $_[1],0,1;
@@ -835,7 +835,7 @@ $moddef{CORE} = {
 		my @msg = split /\s+/, $rmsg;
 		push @msg, $txt if defined $txt;
 		unshift @msg, undef unless $msg[0] =~ s/^://;
-		
+
 		if ($dst->info('_is_janus')) {
 			# a PUSH to the janus nick. Don't send any events, for one.
 			# However, it might be something we asked about, like the MODULES output
@@ -880,7 +880,6 @@ $moddef{CORE} = {
 			}
 			return @out;
 		}
-		return () if $net->isa('Interface');
 		return (
 			$net->ncmd(SERVER => $new->jname(), '*', 1, $new->netname()),
 			$net->ncmd(OPERNOTICE => "Janus network ".$new->name().' ('.$new->netname().") is now linked"),
@@ -968,7 +967,7 @@ $moddef{CORE} = {
 		my($net,$act) = @_;
 		my $src = $act->{src} || $net;
 		my $dst = $act->{dst};
-		my @modes = &Modes::to_multi($net, $act->{mode}, $act->{args}, $act->{dirs}, 
+		my @modes = &Modes::to_multi($net, $act->{mode}, $act->{args}, $act->{dirs},
 			$capabs[$$net]{MAXMODES});
 		my @out;
 		for my $line (@modes) {
@@ -1064,7 +1063,7 @@ $moddef{CORE} = {
 		$net->ncmd(OPERNOTICE => $src->netname()." would like to link $act->{slink} to $act->{dlink}");
 	}, RAW => sub {
 		my($net,$act) = @_;
-		$act->{msg};	
+		$act->{msg};
 	}, CHATOPS => sub {
 		my($net,$act) = @_;
 		return () if $net->get_module('m_globops.so');

@@ -56,12 +56,6 @@ sub intro {
 	# forge the module list. However, we can set up the other server introductions
 	# as they will be sent after auth is done
 	push @out, $net->ncmd(VERSION => 'Janus Hub');
-	for my $id (keys %Janus::nets) {
-		my $new = $Janus::nets{$id};
-		next if $new->isa('Interface') || $new eq $net;
-		push @out, $net->ncmd(SERVER => $new->jname(), '*', 1, $new, $new->netname());
-		push @out, $net->cmd2($new, VERSION => 'Remote Janus Server: '.ref $new);
-	}
 	$net->send(@out);
 }
 
@@ -105,7 +99,7 @@ sub dump_sendq {
 	} else {
 		my @delayed;
 		for my $i (@{$sendq[$$net]}) {
-			if (ref $i) {
+			if (ref $i && $i->[0] eq 'INIT') {
 				$q .= join "\n", @$i[1..$#$i],'';
 			} else {
 				push @delayed, $i;
@@ -202,10 +196,10 @@ sub process_capabs {
 
 # IRC Parser
 # Arguments:
-# 	$_[0] = Network
-# 	$_[1] = source (not including leading ':') or 'undef'
-# 	$_[2] = command (for multipurpose subs)
-# 	3 ... = arguments to the irc line; last element has the leading ':' stripped
+#	$_[0] = Network
+#	$_[1] = source (not including leading ':') or 'undef'
+#	$_[2] = command (for multipurpose subs)
+#	3 ... = arguments to the irc line; last element has the leading ':' stripped
 # Return:
 #  list of hashrefs containing the Action(s) represented (can be empty)
 
@@ -464,7 +458,7 @@ $moddef{CORE} = {
 	}, FMODE => sub {
 		my $net = shift;
 		my $src = $net->item($_[0]);
-		my $chan = $net->chan($_[2]);
+		my $chan = $net->chan($_[2]) or return ();
 		my $ts = $_[3];
 		return () if $ts > $chan->ts();
 		my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, @_[4 .. $#_]);
@@ -583,7 +577,7 @@ $moddef{CORE} = {
 			# recall parent
 			$servers[$$net]{lc $_[2]} = lc $_[0];
 			$serverdsc[$$net]{lc $_[2]} = $_[-1];
-			();
+			return ();
 		}
 	}, SQUIT => sub {
 		my $net = shift;
@@ -778,7 +772,6 @@ $moddef{CORE} = {
 			# nick message, possibly with a server mask
 			# server mask is ignored as the server is going to be wrong anyway
 			my $dst = $net->nick($1);
-			print "DBG $src-$dst $_[3]\n";
 			return +{
 				type => 'MSG',
 				src => $src,
@@ -793,6 +786,8 @@ $moddef{CORE} = {
 	OPERNOTICE => \&ignore,
 	MODENOTICE => \&ignore,
 	SNONOTICE => \&ignore,
+	WALLOPS => \&ignore,
+	RCONNECT => \&ignore,
 	METADATA => sub {
 		my $net = shift;
 		my $key = $_[3];
@@ -871,8 +866,16 @@ $moddef{CORE} = {
 	NETLINK => sub {
 		my($net,$act) = @_;
 		my $new = $act->{net};
-		return () if $net eq $new;
-		return () if $new->isa('Interface');
+		if ($net eq $new) {
+			my @out;
+			for my $id (keys %Janus::nets) {
+				my $new = $Janus::nets{$id};
+				next if $new->isa('Interface') || $new eq $net;
+				push @out, $net->ncmd(SERVER => $new->jname(), '*', 1, $new, $new->netname());
+				push @out, $net->cmd2($new, VERSION => 'Remote Janus Server: '.ref $new);
+			}
+			return @out;
+		}
 		return (
 			$net->ncmd(SERVER => $new->jname(), '*', 1, $new, $new->netname()),
 			$net->ncmd(OPERNOTICE => "Janus network ".$new->name()." (".$new->netname().") is now linked"),
@@ -881,10 +884,9 @@ $moddef{CORE} = {
 	}, NETSPLIT => sub {
 		my($net,$act) = @_;
 		my $gone = $act->{net};
-		my $n = $gone->name();
 		my $msg = $act->{msg} || 'Excessive Core Radiation';
 		return (
-			$net->ncmd(OPERNOTICE => "Janus network $n (".$gone->netname().") has delinked: $msg"),
+			$net->ncmd(OPERNOTICE => "Janus network ".$gone->name().' ('.$gone->netname().") has delinked: $msg"),
 			$net->ncmd(SQUIT => $gone->jname(), $msg),
 		);
 	}, CONNECT => sub {
@@ -926,7 +928,7 @@ $moddef{CORE} = {
 			my $um = $net->txt2umode($txt);
 			if (ref $um) {
 				push @out, $um->($net, $act->{dst}, $ltxt);
-			} else {
+			} elsif (defined $um) {
 				$mode .= $d if $pm ne $d;
 				$mode .= $um;
 				$pm = $d;
@@ -961,7 +963,7 @@ $moddef{CORE} = {
 		my($net,$act) = @_;
 		my $src = $act->{src} || $net;
 		my $dst = $act->{dst};
-		my @modes = &Modes::to_multi($net, $act->{mode}, $act->{args}, $act->{dirs}, 
+		my @modes = &Modes::to_multi($net, $act->{mode}, $act->{args}, $act->{dirs},
 			$capabs[$$net]{MAXMODES});
 		my @out;
 		for my $line (@modes) {
@@ -1002,8 +1004,8 @@ $moddef{CORE} = {
 			} else {
 				# TODO this is still an ugly hack
 				return (
-					$net->ncmd(FJOIN => $chan, $act->{ts}, ','.$net->_out($Janus::interface)),
 					$net->cmd2($Janus::interface, PART => $chan, 'Timestamp reset'),
+					$net->ncmd(FJOIN => $chan, $act->{ts}, ','.$net->_out($Janus::interface)),
 				);
 			}
 		} else {
