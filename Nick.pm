@@ -15,6 +15,22 @@ Object representing a nick that exists across several networks
 
 =over
 
+=item $nick->gid()
+
+Globally unique identifier for this nick. Format is currently jname:netid:nickid
+
+=item $nick->homenet()
+
+Home network object for this nick.
+
+=item $nick->homenick()
+
+String of the home nick of this user
+
+=item $nick->ts()
+
+Last nick-change timestamp of this user (to help determine collision resolution)
+
 =cut
 
 my @gid      :Persist(gid) :Get(gid);
