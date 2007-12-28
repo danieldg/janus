@@ -11,7 +11,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 	help => 'Reload the config and attempt to reconnect to split servers',
 	code => sub {
 		my($nick,$pass) = @_;
-		unless ($nick->has_mode('oper') || $pass eq $Conffile::netconf{janus}{pass}) {
+		unless ($nick->has_mode('oper') || $pass eq $Conffile::netconf{set}{pass}) {
 			&Janus::jmsg($nick, "You must be an IRC operator or specify the rehash password to use this command");
 			return;
 		}

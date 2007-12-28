@@ -44,7 +44,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			}
 			for my $chan ($nick->all_chans()) {
 				my $hcname = $chan->str($ht);
-				unless ($ht->jlink()) {
+				unless ($ht->jlink() || $nick eq $Janus::interface) {
 					my $hchan = $ht->chan($hcname);
 					if (!$hchan || $hchan ne $chan) {
 						print $dump "nick $$nick on dropped channel $$chan=$hcname\n";

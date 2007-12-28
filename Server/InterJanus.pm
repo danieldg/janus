@@ -89,6 +89,11 @@ sub intro {
 	}
 }
 
+sub _destroy {
+	my $net = $_[0];
+	print "  IJNET:$$net $id[$$net] deallocated\n";
+}
+
 sub jlink {
 	$_[0];
 }

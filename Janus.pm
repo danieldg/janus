@@ -119,7 +119,8 @@ sub Janus::INC {
 
 =cut
 
-our $last_check = time;
+our $last_check;
+$last_check ||= time; # not assigned so that reloads don't skip seconds
 
 our @qstack;
 our %tqueue;
