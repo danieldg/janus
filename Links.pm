@@ -67,7 +67,7 @@ our %reqs;
 		my $snet = $act->{net};
 		my $dnet = $act->{dst};
 		print "Link request: ";
-		$reqs{$snet->name()}{$dnet->name()}{$act->{slink}} = $act->{dlink};
+		$reqs{$snet->name()}{$dnet->name()}{lc $act->{slink}} = $act->{dlink};
 		if ($dnet->jlink() || $dnet->isa('Interface')) {
 			print "dst non-local\n";
 			return;
@@ -76,7 +76,7 @@ our %reqs;
 			print "dst not ready\n";
 			return;
 		}
-		my $recip = $reqs{$dnet->name()}{$snet->name()}{$act->{dlink}};
+		my $recip = $reqs{$dnet->name()}{$snet->name()}{lc $act->{dlink}};
 		unless ($recip) {
 			print "saved in list\n";
 			return;
