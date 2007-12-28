@@ -430,10 +430,10 @@ sub _connect_ifo {
 
 # IRC Parser
 # Arguments:
-# 	$_[0] = Network
-# 	$_[1] = source (not including leading ':') or 'undef'
-# 	$_[2] = command (for multipurpose subs)
-# 	3 ... = arguments to the irc line; last element has the leading ':' stripped
+#	$_[0] = Network
+#	$_[1] = source (not including leading ':') or 'undef'
+#	$_[2] = command (for multipurpose subs)
+#	3 ... = arguments to the irc line; last element has the leading ':' stripped
 # Return:
 #  list of hashrefs containing the Action(s) represented (can be empty)
 
@@ -442,7 +442,7 @@ sub nickact {
 	my $net = shift;
 	my($type, $act) = (lc($_[1]) =~ /(SET|CHG)(HOST|IDENT|NAME)/i);
 	$act =~ s/host/vhost/i;
-	
+
 	my($src,$dst);
 	if ($type eq 'set') {
 		$src = $dst = $net->mynick($_[0]);
@@ -541,7 +541,7 @@ my %opermodes = (
 );
 
 my @opertypes = (
-	'IRC Operator', 'Server Co-Admin', 'Server Administrator', 
+	'IRC Operator', 'Server Co-Admin', 'Server Administrator',
 	'Service', 'Services Administrator', 'Network Administrator',
 );
 
@@ -677,9 +677,9 @@ sub srvname {
 		if (@_ >= 12) {
 			my @m = split //, $_[9];
 			warn unless '+' eq shift @m;
-			$nick{mode} = +{ map { 
+			$nick{mode} = +{ map {
 				if (exists $umode2txt{$_}) {
-					$umode2txt{$_} => 1 
+					$umode2txt{$_} => 1
 				} else {
 					warn "Unknown umode '$_'";
 					();
@@ -695,7 +695,7 @@ sub srvname {
 			} else {
 				$nick{info}{chost} = 'unknown.cloaked';
 				$_ = $_[11];
-			}				
+			}
 			if (s/=+//) {
 				s/(.)/sprintf '%06b', index $textip_table, $1/eg;
 				if (length $_[12] == 8) { # IPv4
@@ -710,7 +710,7 @@ sub srvname {
 		} else {
 			$nick{info}{chost} = 'unknown.cloaked';
 		}
-		
+
 		unless ($nick{mode}{vhost}) {
 			$nick{info}{vhost} = $nick{mode}{vhost_x} ? $nick{info}{chost} : $nick{info}{host};
 		}
@@ -814,7 +814,7 @@ sub srvname {
 		} else {
 			print "Ignoring SVSNICK on already tagged nick\n";
 			return ();
-		}	
+		}
 	}, UMODE2 => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
@@ -934,7 +934,7 @@ sub srvname {
 			src => $net,
 			dst => $chan,
 			mode => $modes,
-			args => $args, 
+			args => $args,
 			dirs => $dirs,
 		} if $applied && @$modes;
 		return @acts;
@@ -980,7 +980,7 @@ sub srvname {
 		my $mode = $_[3];
 		if ($mode =~ s/^&//) {
 			# mode bounce: assume we are correct, and inform the server
-			# that they are mistaken about whatever they think we have wrong. 
+			# that they are mistaken about whatever they think we have wrong.
 			# This is not very safe, but there's not much way around it
 			$mode =~ y/+-/-+/;
 			$net->send($net->cmd1(MODE => $_[2], $mode, @_[4 .. $#_]));
@@ -1021,7 +1021,7 @@ sub srvname {
 		my $name = lc $_[2];
 		my $desc = $_[-1];
 
-		my $snum = $net->sjb64((@_ > 5          ? $_[4] : 
+		my $snum = $net->sjb64((@_ > 5          ? $_[4] :
 				($desc =~ s/^U\d+-\S+-(\d+) //) ? $1    : 0), 1);
 
 		print "Server $_[2] [\@$snum] added from $src\n";
@@ -1041,7 +1041,7 @@ sub srvname {
 		my $net = shift;
 		my $srv = $net->srvname($_[2]);
 		my $splitfrom = $servers[$$net]{lc $srv}{parent};
-		
+
 		if (!$splitfrom && $srv =~ /^(.*)\.janus/) {
 			my $ns = $Janus::nets{$1} or return ();
 			$net->send($net->cmd2($net->cparam('linkname'), SERVER => $srv, 2, $ns->numeric(), $ns->netname()));
@@ -1110,7 +1110,7 @@ sub srvname {
 		shift;
 		print join ' ', @_, "\n";
 		();
-	}, 
+	},
 	EOS => \&ignore,
 	ERROR => sub {
 		my $net = shift;
@@ -1206,8 +1206,13 @@ sub srvname {
 	VERSION => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
-		&Janus::jmsg($nick, '$Id$');
-		return ();
+		return +{
+			type => 'MSG',
+			src => $nick,
+			dst => $Janus::interface,
+			msgtype => 'PRIVMSG',
+			msg => 'version',
+		};
 	},
 	CREDITS => \&todo,
 	DALINFO => \&todo,
@@ -1252,7 +1257,7 @@ sub _out {
 		return $itm->str($net) if $itm->is_on($net);
 		return $itm->homenet()->jname();
 	} elsif ($itm->isa('Channel')) {
-		warn "This channel message must have been misrouted: ".$itm->keyname() 
+		warn "This channel message must have been misrouted: ".$itm->keyname()
 			unless $itm->is_on($net);
 		return $itm->str($net);
 	} elsif ($itm->isa('Network')) {
@@ -1349,13 +1354,13 @@ sub cmd2 {
 	}, RECONNECT => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
-		
+
 		if ($act->{killed}) {
 			my @out = $net->_connect_ifo($nick);
 			for my $chan (@{$act->{reconnect_chans}}) {
 				next unless $chan->is_on($net);
 				my $mode = '';
-				$chan->has_nmode($_, $nick) and $mode .= $net->txt2cmode($_) 
+				$chan->has_nmode($_, $nick) and $mode .= $net->txt2cmode($_)
 					for qw/n_voice n_halfop n_op n_admin n_owner/;
 				$mode =~ tr/qaohv/*~@%+/;
 				push @out, $net->cmd1(SJOIN => $net->sjb64($chan->ts()), $chan, $mode.$nick->str($net));
@@ -1414,7 +1419,7 @@ sub cmd2 {
 		}
 	}, TOPIC => sub {
 		my($net,$act) = @_;
-		$net->cmd2($act->{src}, TOPIC => $act->{dst}, $act->{topicset}, 
+		$net->cmd2($act->{src}, TOPIC => $act->{dst}, $act->{topicset},
 			$net->sjb64($act->{topicts}), $act->{topic});
 	}, MSG => sub {
 		my($net,$act) = @_;
