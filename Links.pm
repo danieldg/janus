@@ -38,6 +38,30 @@ our %reqs;
 			}
 		}
 		&Janus::append(@acts);
+	}, JLINKED => act => sub {
+		my $act = shift;
+		my $ij = $act->{except};
+		my @nets = grep { $_->jlink() && $_->jlink() eq $ij } values %Janus::nets;
+		my @acts;
+		for my $lto (@nets) {
+			for my $net (values %Janus::nets) {
+				next if $net->jlink();
+				my $bychan = $reqs{$net->name()}{$lto->name()};
+				keys %$bychan;
+				while (my($src,$dst) = each %$bychan) {
+					push @acts, +{
+						type => 'LINKREQ',
+						net => $net,
+						dst => $lto,
+						slink => $src,
+						dlink => $dst,
+						sendto => [ $lto ],
+						linkfile => $ij->is_linked(),
+					};
+				}
+			}
+		}
+		&Janus::append(@acts);
 	}, LINKREQ => act => sub {
 		my $act = shift;
 		my $snet = $act->{net};
@@ -55,6 +79,10 @@ our %reqs;
 		my $recip = $reqs{$dnet->name()}{$snet->name()}{$act->{dlink}};
 		unless ($recip) {
 			print "saved in list\n";
+			return;
+		}
+		if ($act->{linkfile} && $act->{linkfile} == 2) {
+			print "not syncing to avoid races\n";
 			return;
 		}
 		if ($act->{override} || $recip eq 'any' || lc $recip eq lc $act->{slink}) {

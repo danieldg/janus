@@ -151,6 +151,9 @@ my %spec = (
 	LINKED => {
 		net => 'Network',
 	},
+	JLINKED => {
+		except => 'Server::InterJanus',
+	},
 	BURST => {
 		net => 'Network',
 	},

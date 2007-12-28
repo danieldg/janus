@@ -76,7 +76,7 @@ sub intro {
 	# If we are the first mover (initiated connection), auth will be zero, and
 	# will end up being 1 after a successful authorization. If we were listening,
 	# then to get here we must have already authorized, so change it to 2.
-	$auth[$$ij] *= 2;
+	$auth[$$ij] = $auth[$$ij] ? 2 : 0;
 	for my $net (values %Janus::nets) {
 		$ij->ij_send(+{
 			type => 'NETLINK',
@@ -87,6 +87,10 @@ sub intro {
 			net => $net,
 		}) if $net->is_synced();
 	}
+	$ij->ij_send(+{
+		type => 'JLINKED',
+		sendto => [],
+	});
 }
 
 sub _destroy {

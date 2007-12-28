@@ -120,6 +120,7 @@ sub all_chans {
  	LINKED => check => sub {
 		my $act = shift;
 		my $net = $act->{net};
+		return undef unless $net->isa(__PACKAGE__);
 		$synced[$$net] = 1;
 		undef;
 	}, NETSPLIT => cleanup => sub {
