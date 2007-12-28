@@ -59,7 +59,7 @@ sub nick_collide {
 		} else {
 			push @rv, +{
 				type => 'RECONNECT',
-				dst => $new,
+				dst => $old,
 				net => $net,
 				killed => 1,
 				nojlink => 1,
