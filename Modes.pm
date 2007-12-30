@@ -33,7 +33,7 @@ sub from_irc {
 			next;
 		}
 		my $txt = $net->cmode2txt($_) || '?';
-		my $arg = $pm eq '+';
+		my $arg;
 		my $type = substr $txt,0,1;
 		if ($type eq 'n') {
 			$arg = $net->nick(shift);
@@ -57,6 +57,7 @@ sub from_irc {
 				next;
 			}
 		} elsif ($type eq 'r') {
+			$arg = 1;
 		} else {
 			warn "Invalid mode text $txt for mode $_ in network $net";
 			next;
