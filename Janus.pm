@@ -16,7 +16,8 @@ Primary event multiplexer and module loader/unloader
 
 # PUBLIC VARS
 our $name;       # Name of this server
-our $server;     # Represents this server: the hub in servers, or self in interjanus communication
+our $server;     # Message target/source: this server
+our $global;     # Message target: all servers
 
 our %nets;       # by network tag
 our %ijnets;     # by name (ij tag)
@@ -655,9 +656,16 @@ _hook(module => READ => 'Janus');
 $modules{Janus} = 2;
 
 unless ($server) {
-	my $dummy = 1;
-	$server = bless \$dummy;
+	my $one = 1;
+	my $two = 2;
+	$server = bless \$one;
+	$global = bless \$two;
 	unshift @INC, $server;
+}
+
+sub gid {
+	my $inst = shift;
+	$$inst == 1 ? $name : '*';
 }
 
 # we load these modules down here because their loading uses

@@ -59,7 +59,7 @@ sub ijstr {
 	} elsif ($itm->isa('Server::InterJanus')) {
 		return 'j:'.$itm->id();
 	} elsif ($itm->isa('Janus')) {
-		return 'j:'.$Janus::name;
+		return 'j:'.$itm->gid();
 	}
 	warn "Unknown object $itm";
 	return '""';
