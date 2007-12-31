@@ -12,7 +12,6 @@ use warnings;
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 my @cparms :Persist(cparms); # currently active parameters
-my @synced :Persist(synced) :Get(is_synced);
 my @ponged :Persist(ponged);
 my @chans  :Persist(chans);
 
@@ -117,13 +116,7 @@ sub all_chans {
 }
 
 &Janus::hook_add(
- 	LINKED => check => sub {
-		my $act = shift;
-		my $net = $act->{net};
-		return undef unless $net->isa(__PACKAGE__);
-		$synced[$$net] = 1;
-		undef;
-	}, NETSPLIT => cleanup => sub {
+	NETSPLIT => cleanup => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		return unless $net->isa('LocalNetwork');

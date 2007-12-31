@@ -43,6 +43,7 @@ my @gid     :Persist(gid)     :Get(gid)     :Arg(gid);
 my @name    :Persist(id)      :Get(name)    :Arg(id);
 my @netname :Persist(netname) :Get(netname) :Arg(netname);
 my @numeric :Persist(numeric) :Get(numeric) :Arg(numeric);
+my @synced  :Persist(synced)  :Get(is_synced);
 
 sub jname {
 	my $net = $_[0];
@@ -97,7 +98,13 @@ sub id {
 }
 
 &Janus::hook_add(
- 	NETSPLIT => act => sub {
+	LINKED => check => sub {
+		my $act = shift;
+		my $net = $act->{net};
+		return undef unless $net->isa(__PACKAGE__);
+		$synced[$$net] = 1;
+		undef;
+	}, NETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		my $msg = 'hub.janus '.$net->jname();

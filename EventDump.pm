@@ -91,7 +91,7 @@ my %to_ij = (
 	NETLINK => sub {
 		my($ij, $act) = @_;
 		return '' if !$act->{net} || $act->{net}->isa('Interface');
-		my $out = send_hdr(@_, qw/sendto/) . ' net=<s';
+		my $out = send_hdr(@_) . ' net=<s';
 		$out .= $act->{net}->to_ij($ij);
 		$out . '>>';
 	}, LSYNC => sub {

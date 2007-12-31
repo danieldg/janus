@@ -261,18 +261,18 @@ sub _send {
 		# hash to remove duplicates
 	for my $net (@to) {
 		next unless $net;
-		if ($net eq $server) {
-			# send to all. No need to continue looping after this
-			%real = %nets;
-			%jlink = %ijnets;
-			$real{$_}->jlink() and delete $real{$_} for keys %real;
-			last;
-		}
-		my $ij = $net->jlink();
-		if (defined $ij) {
-			$jlink{$ij} = $ij;
+		if ($net->isa('Janus')) {
+			$_->jlink() or $real{$_} = $_ for values %nets;
+			if ($$net == 1) {
+				$jlink{$_} = $_ for values %ijnets;
+			}
 		} else {
-			$real{$net} = $net;
+			my $ij = $net->jlink();
+			if (defined $ij) {
+				$jlink{$ij} = $ij;
+			} else {
+				$real{$net} = $net;
+			}
 		}
 	}
 	if ($act->{except} && !($act->{dst} && $act->{dst} eq $act->{except})) {
