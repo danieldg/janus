@@ -9,11 +9,10 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 # item => Class
 #   multiple classes space separated
-#   Begins with a ?    only checks if defined
+#   '?'                must be first. Allows undef as value
+#   '=expr='           must be first. Sets to eval(expr) if is undef
 #   '@' or '%'         unblessed array or hash
 #   '$'                checks that it is a string/number
-#   '!'                verifies that it is undef
-#   ''                 allows anything
 
 =head1 Actions
 
@@ -144,31 +143,39 @@ my %spec = (
 		id => '$',
 		rid => '$',
 		net => 'Server::InterJanus',
+		sendto => '=$Janus::server= @',
 	},
 	NETLINK => {
 		net => 'Network',
+		sendto => '=$Janus::server= @',
 	},
 	LINKED => {
 		net => 'Network',
+		sendto => '=$Janus::Server= @',
 	},
 	JLINKED => {
 		except => 'Server::InterJanus',
+		sendto => '=$Janus::Server= @',
 	},
 	BURST => {
 		net => 'Network',
+		sendto => '=$Janus::Server= @',
 	},
 	NETSPLIT => {
 		net => 'Network',
 		msg => '$',
 		netsplit_quit => '?$',
+		sendto => '=$Janus::Server= @',
 	},
 	JNETSPLIT => {
 		net => 'Server::InterJanus',
 		msg => '$',
+		sendto => '=$Janus::Server= @',
 	},
 
 	NEWNICK => {
 		dst => 'Nick',
+		sendto => '?',
 	},
 	CONNECT => {
 		dst => 'Nick',
@@ -292,12 +299,13 @@ my %spec = (
 		method => '?$',
 		# add other args for manual methods?
 	},	
-	REHASH => {},
+	REHASH => {
+	},
 	'INIT' => {
 		args => '@', # program arguments
-		except => '?NONE',
+		except => '?',
 	},
-	RUN => { except => '?NONE' },
+	RUN => { except => '?' },
 	TSREPORT => {
 		src => 'Nick',
 	},
@@ -318,7 +326,7 @@ my %default = (
 	src => '?Nick Network',
 	dst => '?Nick Channel Network',
 	except => '?Network Server::InterJanus',
-	sendto => '?@',
+	sendto => '?@ Network Server::InterJanus Janus',
 	nojlink => '?$',
 );
 
@@ -342,13 +350,15 @@ for my $type (keys %spec) {
 		$act->{ERR} = "Fail: Key $k in $itm";
 		$_ = $$check{$k};
 		my $v = $act->{$k};
-		if (s/^\?//) {
+		if (s/^=(.*)=(\s+|$)//) {
+			unless (defined $v) {
+				$act->{$k} = eval $1;
+				next KEY;
+			}
+		} elsif (s/^\?//) {
 			next KEY unless defined $v;
 		} else {
 			return 1 unless defined $v;
-		}
-		if (s/^~//) {
-			return 1 unless eval;
 		}
 		my $r = 0;
 		for (split /\s+/) {

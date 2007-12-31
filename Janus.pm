@@ -243,12 +243,14 @@ sub _send {
 	my $act = $_[0];
 	&EventDump::debug_send($act);
 	my @to;
-	if (exists $act->{sendto} && ref $act->{sendto}) {
-		@to = @{$act->{sendto}};
-	} elsif ($act->{type} =~ /^J?NET(LINK|SPLIT)/) {
-		@to = (values(%nets), values %ijnets);
+	if (exists $act->{sendto}) {
+		if ('ARRAY' eq ref $act->{sendto}) {
+			@to = @{$act->{sendto}};
+		} else {
+			@to = $act->{sendto};
+		}
 	} elsif (!ref $act->{dst}) {
-		warn "Action $act of type $act->{type} does not have a destination or sendto list";
+		# this must be an internal command, otherwise we have already complained in Actions
 		return;
 	} elsif ($act->{dst}->isa('Network')) {
 		@to = $act->{dst};
@@ -259,6 +261,12 @@ sub _send {
 		# hash to remove duplicates
 	for my $net (@to) {
 		next unless $net;
+		if ($net eq $server) {
+			# send to all. No need to continue looping after this
+			%real = %nets;
+			%jlink = %ijnets;
+			last;
+		}
 		my $ij = $net->jlink();
 		if (defined $ij) {
 			$jlink{$ij} = $ij;

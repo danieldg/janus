@@ -18,7 +18,6 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		&Janus::append(+{
 			src => $nick,
 			type => 'REHASH',
-			sendto => [],
 		});
 	},
 }, {
