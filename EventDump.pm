@@ -58,6 +58,8 @@ sub ijstr {
 		return 's:'.$itm->gid();
 	} elsif ($itm->isa('Server::InterJanus')) {
 		return 'j:'.$itm->id();
+	} elsif ($itm->isa('Janus')) {
+		return 'j:'.$Janus::name;
 	}
 	warn "Unknown object $itm";
 	return '""';
@@ -184,8 +186,8 @@ my %v_type; %v_type = (
 		s/^s:([^ >]+)// or return undef;
 		$Janus::gnets{$1};
 	}, 'j' => sub {
-		s/^j:([^ >]+)//;
-		undef;
+		s/^j:([^ >]+)// or return undef;;
+		$Janus::ijnets{$1}
 	}, '<a' => sub {
 		my @arr;
 		s/^<a// or warn;
