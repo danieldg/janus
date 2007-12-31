@@ -172,7 +172,7 @@ sub item {
 			} else {
 				push @clean, +{
 					type => 'KILL',
-					src => $Janus::interface,
+					src => $Interface::janus,
 					dst => $nick,
 					net => $net,
 					msg => 'JanusSplit',

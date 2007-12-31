@@ -977,7 +977,7 @@ $moddef{CORE} = {
 			return $net->ncmd(FTOPIC => $act->{dst}, $act->{topicts}, $act->{topicset}, $act->{topic});
 		}
 		my $src = $act->{src};
-		$src = $Janus::interface unless $src && $src->isa('Nick') && $src->is_on($net);
+		$src = $Interface::janus unless $src && $src->isa('Nick') && $src->is_on($net);
 		return $net->cmd2($src, TOPIC => $act->{dst}, $act->{topic});
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
@@ -1010,8 +1010,8 @@ $moddef{CORE} = {
 			} else {
 				# XXX this is needed sometimes, but not all the time. Do we really need the part?
 				return (
-					$net->cmd2($Janus::interface, PART => $chan, 'Timestamp reset'),
-					$net->ncmd(FJOIN => $chan, $act->{ts}, ','.$net->_out($Janus::interface)),
+					$net->cmd2($Interface::janus, PART => $chan, 'Timestamp reset'),
+					$net->ncmd(FJOIN => $chan, $act->{ts}, ','.$net->_out($Interface::janus)),
 				);
 			}
 		} else {
@@ -1046,7 +1046,7 @@ $moddef{CORE} = {
 			my $src = $act->{src};
 			$src = $src->homenick() if $src && $src->isa('Nick');
 			$msg = $msg =~ /^\001ACTION (.*?)\001?$/ ? '* '.$net->_out($src).' '.$msg : '<'.$net->_out($src).'> '.$msg;
-			$net->cmd2($Janus::interface, $type, $act->{dst}, $msg);
+			$net->cmd2($Interface::janus, $type, $act->{dst}, $msg);
 		}
 	}, WHOIS => sub {
 		my($net,$act) = @_;

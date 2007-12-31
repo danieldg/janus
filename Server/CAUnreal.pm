@@ -1207,7 +1207,7 @@ sub srvname {
 		return +{
 			type => 'MSG',
 			src => $nick,
-			dst => $Janus::interface,
+			dst => $Interface::janus,
 			msgtype => 'PRIVMSG',
 			msg => 'version',
 		};

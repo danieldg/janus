@@ -518,7 +518,7 @@ sub del_remoteonly {
 		
 		&Janus::append(+{
 			type => 'JOIN',
-			src => $Janus::interface,
+			src => $Interface::janus,
 			dst => $chan,
 			nojlink => 1,
 		});

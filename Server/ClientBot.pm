@@ -596,7 +596,7 @@ sub kicked {
 		my $chan = $net->chan($_[3]) or return ();
 		return +{
 			type => 'MSG',
-			src => $Janus::interface,
+			src => $Interface::janus,
 			dst => $chan,
 			msgtype => 'NOTICE',
 			msg => 'Could not relay kick: '.$_[4],

@@ -65,7 +65,7 @@ eval {
 
 &Janus::insert_full(+{ type => 'TERMINATE', sendto => [] });
 
-&Janus::delink($Janus::interface->homenet(), 'Goodbye!');
-$Janus::interface = undef;
+&Janus::delink($Interface::janus->homenet(), 'Goodbye!');
+$Janus::interface = undef; $Interface::janus = undef;
 print "All networks disconnected. Goodbye!\n";
 &Persist::list_all_refs();

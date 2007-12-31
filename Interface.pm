@@ -101,7 +101,6 @@ sub pmsg {
 			},
 			mode => { oper => 1, service => 1, bot => 1 },
 		);
-		$Janus::interface = $janus; # compatability entry
 		&Janus::append(+{
 			type => 'NEWNICK',
 			dst => $janus,

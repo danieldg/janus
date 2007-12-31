@@ -17,7 +17,6 @@ Primary event multiplexer and module loader/unloader
 # PUBLIC VARS
 our $name;       # Name of this server
 our $server;     # Represents this server: the hub in servers, or self in interjanus communication
-our $interface;  # DEPRECATED. Moved to $Interface::janus
 
 our %nets;       # by network tag
 our %ijnets;     # by name (ij tag)
@@ -378,7 +377,7 @@ sub jmsg {
 	local $_;
 	&Janus::append(map +{
 		type => 'MSG',
-		src => $interface,
+		src => $Interface::janus,
 		dst => $dst,
 		msgtype => $type,
 		msg => $_,
@@ -400,18 +399,18 @@ sub err_jmsg {
 		if ($dst) {
 			&Janus::append(+{
 				type => 'MSG',
-				src => $interface,
+				src => $Interface::janus,
 				dst => $dst,
 				msgtype => ($dst->isa('Channel') ? 'PRIVMSG' : 'NOTICE'), # channel notice == annoying
 				msg => $_,
-			}) if $interface;
+			}) if $Interface::janus;
 		} else {
 			&Janus::insert_full({
 				type => 'CHATOPS',
-				src => $interface,
+				src => $Interface::janus,
 				sendto => [ values %nets ],
 				msg => $_,
-			}) if $interface;
+			}) if $Interface::janus;
 		}
 	}
 }

@@ -90,7 +90,7 @@ our %modules = (
 			NICKINFO => sub {
 				my($net,$act) = @_;
 				if ($act->{item} eq 'ident') {
-					return $net->cmd2($Janus::interface, CHGIDENT => $act->{dst}, $act->{value});
+					return $net->cmd2($Interface::janus, CHGIDENT => $act->{dst}, $act->{value});
 				}
 				();
 			},
@@ -223,7 +223,7 @@ our %modules = (
 				}
 				# we need to unlock and change nicks back
 				my @out;
-				push @out, $net->cmd2($Janus::interface, NICKUNLOCK => $_[3]);
+				push @out, $net->cmd2($Interface::janus, NICKUNLOCK => $_[3]);
 				push @out, $net->cmd2($_[3], NICK => $_[2]) unless $_[2] eq $_[3];
 				$net->send(@out);
 				();
