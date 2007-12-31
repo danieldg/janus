@@ -10,6 +10,8 @@ use strict;
 use warnings;
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
+our $janus; # Janus interface bot: this module handles interactions with this bot
+
 sub pmsg {
 	my $act = shift;
 	my $src = $act->{src};
@@ -86,7 +88,7 @@ sub pmsg {
 
 		my $inick = $Conffile::netconf{set}{janus} || 'janus';
 
-		$Janus::interface = Nick->new(
+		$janus = Nick->new(
 			net => $int,
 			nick => $inick,
 			ts => ($main::uptime - 1000000000),
@@ -100,9 +102,10 @@ sub pmsg {
 			},
 			mode => { oper => 1, service => 1, bot => 1 },
 		);
+		$Janus::interface = $janus; # compatability entry
 		&Janus::append(+{
 			type => 'NEWNICK',
-			dst => $Janus::interface,
+			dst => $janus,
 		});
 	}, BURST => act => sub {
 		my $act = shift;
@@ -110,12 +113,12 @@ sub pmsg {
 		return if $net->jlink();
 		&Janus::append(+{
 			type => 'CONNECT',
-			dst => $Janus::interface,
+			dst => $janus,
 			net => $net,
 		});
 	}, KILL => act => sub {
 		my $act = shift;
-		return unless $act->{dst} eq $Janus::interface;
+		return unless $act->{dst} eq $janus;
 		&Janus::append(+{
 			type => 'CONNECT',
 			dst => $act->{dst},
@@ -123,7 +126,7 @@ sub pmsg {
 		});
 	}, NETSPLIT => act => sub {
 		my $act = shift;
-		$Janus::interface->_netpart($act->{net});
+		$janus->_netpart($act->{net});
 	},
 	MSG => parse => \&pmsg,
 	MSG => jparse => \&pmsg,
@@ -132,12 +135,12 @@ sub pmsg {
 		my $src = $act->{src};
 		my $dst = $act->{dst};
 		return undef if $src->is_on($dst->homenet());
-		if ($dst eq $Janus::interface) {
+		if ($dst eq $janus) {
 			my $net = $src->homenet();
 			my @msgs = (
 				[ 311, $src->info('ident'), $src->info('vhost'), '*', $src->info('name') ],
 				[ 312, 'janus.janus', "Janus Interface" ],
-				[ 319, join ' ', map { $_->is_on($net) ? $_->str($net) : () } $dst->all_chans() ],
+				[ 319, join ' ', map { $_->is_on($net) ? $_->str($net) : () } $janus->all_chans() ],
 				[ 317, 0, $main::uptime, 'seconds idle, signon time'],
 				[ 318, 'End of /WHOIS list' ],
 			);
@@ -146,7 +149,7 @@ sub pmsg {
 				src => $net,
 				dst => $src,
 				msgtype => $_->[0], # first part of message
-				msg => [$dst, @$_[1 .. $#$_] ], # source nick, rest of message array
+				msg => [$janus, @$_[1 .. $#$_] ], # source nick, rest of message array
 			}, @msgs);
 		} else {
 			&Janus::jmsg($src, 'You cannot use this /whois syntax unless you are on a shared channel with the user');
@@ -154,7 +157,7 @@ sub pmsg {
 		return 1;
 	}, CHATOPS => jparse => sub {
 		my $act = shift;
-		$act->{msg} = '[remote] '.$act->{msg} if $act->{src} eq $Janus::interface;
+		$act->{msg} = '[remote] '.$act->{msg} if $act->{src} eq $janus;
 		undef;
 	},
 );
@@ -165,7 +168,7 @@ sub request_newnick { $_[2] }
 sub request_cnick { $_[2] }
 sub release_nick { }
 sub is_synced { 0 }
-sub all_nicks { $Janus::interface }
+sub all_nicks { $janus }
 sub all_chans { () }
 
 1;

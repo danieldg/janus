@@ -15,14 +15,15 @@ Primary event multiplexer and module loader/unloader
 =cut
 
 # PUBLIC VARS
-our $name;
-our $interface;
+our $name;       # Name of this server
+our $server;     # Represents this server: the hub in servers, or self in interjanus communication
+our $interface;  # DEPRECATED. Moved to $Interface::janus
 
-our %nets; # by name
-our %ijnets;
-our %gnets;
-our %gnicks;
-our %gchans;
+our %nets;       # by network tag
+our %ijnets;     # by name (ij tag)
+our %gnets;      # by guid
+our %gnicks;     # by guid
+our %gchans;     # by all possible keynames
 
 =head2 Module loading
 
@@ -47,8 +48,6 @@ Same as calling unload and load sequentially
 # module => state (0 = unloaded, 1 = loading, 2 = loaded)
 our %modules;
 $modules{Janus} = 1;
-
-our $INC_ITEM;
 
 our %hooks;
 our %commands;
@@ -647,10 +646,10 @@ _hook(module => READ => 'Janus');
 
 $modules{Janus} = 2;
 
-unless ($INC_ITEM) {
+unless ($server) {
 	my $dummy = 1;
-	$INC_ITEM = bless \$dummy;
-	unshift @INC, $INC_ITEM;
+	$server = bless \$dummy;
+	unshift @INC, $server;
 }
 
 # we load these modules down here because their loading uses
