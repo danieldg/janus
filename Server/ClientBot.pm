@@ -482,7 +482,6 @@ sub kicked {
 		return +{
 			type => 'LINKED',
 			net => $net,
-			sendto => [ values %Janus::nets ],
 		}, +{
 			type => 'IDENTIFY',
 			dst => $net,

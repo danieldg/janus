@@ -575,7 +575,6 @@ $moddef{CORE} = {
 			return +{
 				type => 'BURST',
 				net => $net,
-				sendto => [],
 			};
 		} else {
 			# recall parent
@@ -739,7 +738,6 @@ $moddef{CORE} = {
 	REHASH => sub {
 		return +{
 			type => 'REHASH',
-			sendto => [],
 		};
 	},
 	MODULES => \&ignore,
@@ -748,7 +746,6 @@ $moddef{CORE} = {
 		return (+{
 			type => 'LINKED',
 			net => $net,
-			sendto => [ values %Janus::nets ],
 		}, +{
 			type => 'RAW',
 			dst => $net,

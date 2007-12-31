@@ -41,7 +41,7 @@ sub pongcheck {
 		delete $p->{ij};
 		delete $p->{repeat};
 	} elsif ($last + 29 <= time) {
-		$ij->ij_send({ type => 'PING', sendto => [] });
+		$ij->ij_send({ type => 'PING'  });
 	}
 }
 
@@ -89,7 +89,6 @@ sub intro {
 	}
 	$ij->ij_send(+{
 		type => 'JLINKED',
-		sendto => [],
 	});
 }
 
@@ -123,16 +122,17 @@ sub parse {
 	my $selfid = $id[$$ij] || 'NEW';
 	print "     IN\@$selfid  $_\n";
 
-	s/^\s*<(\S+)// or do {
+	s/^\s*<([^ >]+)// or do {
 		print "Invalid line: $_";
 		return ();
 	};
 	my $act = { type => $1 };
+	return $act if $_ eq '>';
 	$ij->kv_pairs($act);
 	warn "bad line: $_[0]" unless /^\s*>\s*$/;
 	$act->{except} = $ij;
 	if ($act->{type} eq 'PING') {
-		$ij->ij_send({ type => 'PONG', sendto => [] });
+		$ij->ij_send({ type => 'PONG' });
 	} elsif ($auth[$$ij]) {
 		return $act;
 	} elsif ($act->{type} eq 'InterJanus') {

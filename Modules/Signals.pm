@@ -12,7 +12,6 @@ $SIG{HUP} = sub {
 		code => sub {
 			&Janus::insert_full({
 				type => 'REHASH',
-				sendto => [],
 			});
 		},
 		delay => 0,

@@ -56,7 +56,6 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			net => $net1,
 			slink => $cname1,
 			dlink => $cname2,
-			sendto => [ $net2 ],
 			override => $nick->has_mode('oper'),
 		});
 		&Janus::jmsg($nick, "Link request sent");

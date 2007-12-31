@@ -265,6 +265,7 @@ sub _send {
 			# send to all. No need to continue looping after this
 			%real = %nets;
 			%jlink = %ijnets;
+			$real{$_}->jlink() and delete $real{$_} for keys %real;
 			last;
 		}
 		my $ij = $net->jlink();

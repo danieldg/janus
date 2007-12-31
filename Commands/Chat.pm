@@ -23,7 +23,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			type => 'CHATOPS',
 			src => $nick,
 			msg => $msg,
-			sendto => ($1 eq '*' ? [ values %Janus::nets ] : [ $net ]),
+			sendto => ($1 eq '*' ? $Janus::server : [ $net ]),
 		});
 	},
 });

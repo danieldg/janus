@@ -124,7 +124,6 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 				msg => 'Forced split by '.$nick->homenick().' on '.$nick->homenet()->name()
 			}, {
 				type => 'REHASH',
-				sendto => [],
 			});
 		} elsif ($net->isa('Server::InterJanus')) {
 			&Janus::append(+{
@@ -133,7 +132,6 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 				msg => 'Forced split by '.$nick->homenick().' on '.$nick->homenet()->name()
 			}, {
 				type => 'REHASH',
-				sendto => [],
 			});
 		}
 	},

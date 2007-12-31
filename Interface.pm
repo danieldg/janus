@@ -83,7 +83,6 @@ sub pmsg {
 		&Janus::append(+{
 			type => 'NETLINK',
 			net => $int,
-			sendto => [],
 		});
 
 		my $inick = $Conffile::netconf{set}{janus} || 'janus';

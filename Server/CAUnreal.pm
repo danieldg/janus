@@ -1035,7 +1035,6 @@ sub srvname {
 		$_[0] ? () : {
 			type => 'BURST',
 			net => $net,
-			sendto => [],
 		};
 	}, SQUIT => sub {
 		my $net = shift;
@@ -1103,7 +1102,6 @@ sub srvname {
 		return +{
 			type => 'LINKED',
 			net => $net,
-			sendto => [ values %Janus::nets ],
 		};
 	}, PROTOCTL => sub {
 		my $net = shift;
@@ -1151,7 +1149,7 @@ sub srvname {
 		return +{
 			type => 'CHATOPS',
 			src => $net->item($_[0]),
-			sendto => [ values %Janus::nets ],
+			sendto => $Janus::server,
 			msg => $_[-1],
 		};
 	},
@@ -1243,7 +1241,6 @@ sub srvname {
 	REHASH => sub {
 		return +{
 			type => 'REHASH',
-			sendto => [],
 		};
 	},
 );

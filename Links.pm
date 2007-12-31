@@ -32,7 +32,6 @@ our %reqs;
 					dst => $dnet,
 					slink => $src,
 					dlink => $dst,
-					sendto => [ $dnet ],
 					linkfile => 1,
 				};
 			}
@@ -55,7 +54,6 @@ our %reqs;
 						dst => $lto,
 						slink => $src,
 						dlink => $dst,
-						sendto => [ $lto ],
 						linkfile => $ij->is_linked(),
 					};
 				}
