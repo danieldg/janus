@@ -186,8 +186,9 @@ my %v_type; %v_type = (
 		s/^s:([^ >]+)// or return undef;
 		$Janus::gnets{$1};
 	}, 'j' => sub {
-		s/^j:([^ >]+)// or return undef;;
-		$Janus::ijnets{$1}
+		s/^j:([^ >]+)// or return undef;
+		return $Janus::global if $1 eq '*';
+		$Janus::ijnets{$1};
 	}, '<a' => sub {
 		my @arr;
 		s/^<a// or warn;

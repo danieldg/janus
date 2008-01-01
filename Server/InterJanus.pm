@@ -127,7 +127,6 @@ sub parse {
 		return ();
 	};
 	my $act = { type => $1 };
-	return $act if $_ eq '>';
 	$ij->kv_pairs($act);
 	warn "bad line: $_[0]" unless /^\s*>\s*$/;
 	$act->{except} = $ij;
