@@ -143,11 +143,7 @@ sub debug_send {
 	for my $act (@_) {
 		my $type = $act->{type};
 		print "\e[0;33m    ACTION ";
-		if (exists $to_ij{$type}) {
-			print $to_ij{$type}->($ij, $act);
-		} else {
-			print ssend($ij, $act);
-		}
+		print ssend($ij, $act);
 		print "\e[0m\n";
 	}
 }
