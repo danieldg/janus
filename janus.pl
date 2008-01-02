@@ -68,4 +68,3 @@ eval {
 &Janus::delink($Interface::janus->homenet(), 'Goodbye!');
 $Interface::janus = undef;
 print "All networks disconnected. Goodbye!\n";
-&Persist::list_all_refs();

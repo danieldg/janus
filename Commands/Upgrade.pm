@@ -13,6 +13,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		my($nick,$arg) = @_;
 		my @mods = grep { $Janus::modules{$_} == 2 } keys %Janus::modules;
 		for my $mod (@mods) {
+			print "Reload $mod:\n";
 			&Janus::reload($mod);
 		}
 		&Janus::jmsg($nick, 'All modules reloaded');

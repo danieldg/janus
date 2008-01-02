@@ -30,6 +30,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			\%Connection::queues,
 			&Persist::dump_all_refs(),
 		);
+		local $Data::Dumper::Sortkeys = 1;
 		print $dump Data::Dumper::Dumper(\@all);
 		close $dump;
 		&Janus::jmsg($nick, 'State dumped to file log/dump-'.$ts);
@@ -42,11 +43,11 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		"\002SHOWMODE RAW\002 #channel - shows the internal (textual) modes of the channel",
 	],
 	code => sub {
-		my($nick,$cname) = @_;
+		my($nick,$args) = @_;
 		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my $hn = $nick->homenet();
 		return &Janus::jmsg($nick, 'Local command only') unless $hn->isa('LocalNetwork');
-		$cname =~ /^(raw )?(#\S*)/i or return &Janus::jmsg($nick, 'Syntax: SHOWMODE [raw] #chan');
+		$args =~ /^(raw )?(#\S*)/i or return &Janus::jmsg($nick, 'Syntax: SHOWMODE [raw] #chan');
 		my($raw,$cname) = ($1,$2);
 		my $chan = $hn->chan($cname,0);
 		return &Janus::jmsg($nick, 'That channel does not exist') unless $chan;
