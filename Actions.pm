@@ -143,34 +143,34 @@ my %spec = (
 		id => '$',
 		rid => '$',
 		net => 'Server::InterJanus',
-		sendto => '=$Janus::global= @',
+		sendto => '=$Janus::global= $ @',
 	},
 	NETLINK => {
 		net => 'Network',
-		sendto => '=$Janus::global= @',
+		sendto => '=$Janus::global= $ @',
 	},
 	LINKED => {
 		net => 'Network',
-		sendto => '=$Janus::global= @',
+		sendto => '=$Janus::global= $ @',
 	},
 	JLINKED => {
 		except => 'Server::InterJanus',
-		sendto => '=$Janus::global= @',
+		sendto => '=$Janus::global= $ @',
 	},
 	BURST => {
 		net => 'Network',
-		sendto => '=$Janus::server= @',
+		sendto => '=$Janus::server= $ @',
 	},
 	NETSPLIT => {
 		net => 'Network',
 		msg => '$',
 		netsplit_quit => '?$',
-		sendto => '=$Janus::global= @',
+		sendto => '=$Janus::global= $ @',
 	},
 	JNETSPLIT => {
 		net => 'Server::InterJanus',
 		msg => '$',
-		sendto => '=$Janus::global= @',
+		sendto => '=$Janus::global= $ @',
 	},
 
 	NEWNICK => {
@@ -306,6 +306,7 @@ my %spec = (
 		except => '?',
 	},
 	RUN => { except => '?' },
+	TERMINATE => { except => '?' },
 	TSREPORT => {
 		src => 'Nick',
 	},

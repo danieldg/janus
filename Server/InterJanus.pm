@@ -75,19 +75,6 @@ sub intro {
 	# will end up being 1 after a successful authorization. If we were listening,
 	# then to get here we must have already authorized, so change it to 2.
 	$auth[$$ij] = $auth[$$ij] ? 2 : 0;
-	for my $net (values %Janus::nets) {
-		$ij->ij_send(+{
-			type => 'NETLINK',
-			net => $net,
-		});
-		$ij->ij_send(+{
-			type => 'LINKED',
-			net => $net,
-		}) if $net->is_synced();
-	}
-	$ij->ij_send(+{
-		type => 'JLINKED',
-	});
 }
 
 sub _destroy {
@@ -160,5 +147,25 @@ sub parse {
 	}
 	return ();
 }
+
+&Janus::hook_add(
+	JNETLINK => act => sub {
+		my $act = shift;
+		my $ij = $act->{net};
+		for my $net (values %Janus::nets) {
+			$ij->ij_send(+{
+				type => 'NETLINK',
+				net => $net,
+			});
+			$ij->ij_send(+{
+				type => 'LINKED',
+				net => $net,
+			}) if $net->is_synced();
+		}
+		$ij->ij_send(+{
+			type => 'JLINKED',
+		});
+	}
+);
 
 1;
