@@ -379,9 +379,10 @@ sub del_remoteonly {
 				$mode[$$chan]{$i} = $arg if $pm eq '+';
 				delete $mode[$$chan]{$i} if $pm eq '-';
 			} elsif ($t eq 'r') {
-				$mode[$$chan]{$i} |= $arg;
-				$mode[$$chan]{$i} &= ~$arg if $pm eq '-';
-				delete $mode[$$chan]{$i} unless $mode[$$chan]{$i};
+				my $v = 0 + $mode[$$chan]{$i};
+				$v |= $arg;
+				$v &= ~$arg if $pm eq '-';
+				$v ? $mode[$$chan]{$i} = $v : delete $mode[$$chan]{$i};
 			} else {
 				warn "Unknown mode '$i'";
 			}
