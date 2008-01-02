@@ -43,6 +43,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 	],
 	code => sub {
 		my($nick,$cname) = @_;
+		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my $hn = $nick->homenet();
 		return &Janus::jmsg($nick, 'Local command only') unless $hn->isa('LocalNetwork');
 		$cname =~ /^(raw )?(#\S*)/i or return &Janus::jmsg($nick, 'Syntax: SHOWMODE [raw] #chan');
