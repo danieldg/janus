@@ -54,7 +54,7 @@ sub pmsg {
 		if (s/^@(\S+)\s*//) {
 			my $rto = $Janus::ijnets{$1};
 			if ($rto) {
-				$act->{sendto} = [ $rto ];
+				$act->{sendto} = $rto;
 				return 0;
 			} elsif ($1 ne $Janus::name) {
 				&Janus::jmsg($src, "Cannot find remote network $1");
