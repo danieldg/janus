@@ -37,15 +37,38 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 }, {
 	cmd => 'showmode',
 	help => 'Shows the current intended modes of a channel',
+	details => [
+		"\002SHOWMODE\002 #channel - shows the intended modes of the channel on your network",
+		"\002SHOWMODE RAW\002 #channel - shows the internal (textual) modes of the channel",
+	],
 	code => sub {
 		my($nick,$cname) = @_;
 		my $hn = $nick->homenet();
 		return &Janus::jmsg($nick, 'Local command only') unless $hn->isa('LocalNetwork');
-		$cname =~ /^(#\S*)/ or return &Janus::jmsg($nick, 'Syntax: SHOWMODE #chan');
-		my $chan = $hn->chan($1,0);
+		$cname =~ /^(raw )?(#\S*)/i or return &Janus::jmsg($nick, 'Syntax: SHOWMODE [raw] #chan');
+		my($raw,$cname) = ($1,$2);
+		my $chan = $hn->chan($cname,0);
 		return &Janus::jmsg($nick, 'That channel does not exist') unless $chan;
-		my @modes = &Modes::to_multi($hn, &Modes::delta(undef, $chan), 0, 400);
-		&Janus::jmsg($nick, join ' ', $chan->str($hn), @$_) for @modes;
+		if ($raw) {
+			my $modeh = $chan->all_modes() or return;
+			my $out = $cname;
+			for my $mk (sort keys %$modeh) {
+				my $mv = $modeh->{$mk};
+				$mk =~ /^(.)_(.+)/ or warn $mk;
+				if ($1 eq 'r') {
+					$out .= ' '.$2.('+'x($mv - 1));
+				} elsif ($1 eq 'v') {
+					$out .= ' '.$2.'='.$mv;
+				} elsif ($1 eq 'l') {
+					$out .= join ' ', '', $2.'={', @$mv, '}';
+				}
+			}
+			&Janus::jmsg($nick, $1) while $out =~ s/(.{,450}) //;
+			&Janus::jmsg($nick, $out);
+		} else {
+			my @modes = &Modes::to_multi($hn, &Modes::delta(undef, $chan), 0, 400);
+			&Janus::jmsg($nick, join ' ', $chan->str($hn), @$_) for @modes;
+		}
 	},
 });
 
