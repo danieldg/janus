@@ -64,8 +64,6 @@ sub intro {
 	weaken($pinger->{ij});
 	&Janus::schedule($pinger);
 
-	$Janus::ijnets{$id[$$ij]} = $ij;
-
 	$ij->ij_send(+{
 		type => 'InterJanus',
 		version => $IJ_PROTO,
@@ -157,6 +155,7 @@ sub parse {
 			$act->{type} = 'JNETLINK';
 			return $act;
 		}
+		# TODO this might be better done by a JNETSPLIT
 		delete $Janus::ijnets{$id};
 	}
 	return ();

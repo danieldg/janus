@@ -263,7 +263,7 @@ sub _send {
 		next unless $net;
 		if ($net->isa('Janus')) {
 			$_->jlink() or $real{$_} = $_ for values %nets;
-			if ($$net == 1) {
+			if ($$net == 2) {
 				$jlink{$_} = $_ for values %ijnets;
 			}
 		} else {
@@ -275,6 +275,7 @@ sub _send {
 			}
 		}
 	}
+#	print "DBG: Sending to ".join(' ',keys %jlink, keys %real)."\n";
 	if ($act->{except} && !($act->{dst} && $act->{dst} eq $act->{except})) {
 		my $e = $act->{except};
 		delete $real{$e};
@@ -542,6 +543,11 @@ sub delink {
 		my $id = $net->name();
 		delete $gnets{$net->gid()};
 		delete $nets{$id};
+	}, JNETLINK => act => sub {
+		my $act = shift;
+		my $net = $act->{net};
+		my $id = $net->id();
+		$ijnets{$id} = $net;
 	}, JNETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};

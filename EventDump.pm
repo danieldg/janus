@@ -113,29 +113,29 @@ my %to_ij = (
 		send_hdr(@_,qw/dst nick/) . '>';
 	},
 	InterJanus => \&ssend,
+	CHATOPS => \&ssend,
+	DELINK => \&ssend,
+	JLINKED => \&ssend,
 	JNETLINK => \&ssend,
 	JNETSPLIT => \&ssend,
-	JLINKED => \&ssend,
-	QUIT => \&ssend,
-	KILL => \&ssend,
-	NICKINFO => \&ssend,
-	UMODE => \&ssend,
-	MODE => \&ssend,
-	TIMESYNC => \&ssend,
 	JOIN => \&ssend,
-	PART => \&ssend,
 	KICK => \&ssend,
-	TOPIC => \&ssend,
-	MSG => \&ssend,
-	WHOIS => \&ssend,
-	CHATOPS => \&ssend,
-	LINKREQ => \&ssend,
-	DELINK => \&ssend,
+	KILL => \&ssend,
 	LINKED => \&ssend,
+	LINKREQ => \&ssend,
+	MODE => \&ssend,
+	MSG => \&ssend,
 	NETSPLIT => \&ssend,
-	TSREPORT => \&ssend,
+	NICKINFO => \&ssend,
+	PART => \&ssend,
 	PING => \&ssend,
 	PONG => \&ssend,
+	QUIT => \&ssend,
+	TIMESYNC => \&ssend,
+	TOPIC => \&ssend,
+	TSREPORT => \&ssend,
+	UMODE => \&ssend,
+	WHOIS => \&ssend,
 );
 
 sub debug_send {
@@ -160,7 +160,7 @@ sub dump_act {
 		if (exists $to_ij{$type}) {
 			push @out, $to_ij{$type}->($ij, $act);
 		} else {
-			print "Unknown action type '$type'\n";
+			print "EventDump: unknown action type '$type'\n";
 		}
 	}
 	grep $_, @out; #remove blank lines
