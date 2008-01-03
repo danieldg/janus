@@ -18,7 +18,9 @@ my @unfiltered :PersistAs(Nick,unfilter);
 		'By default, if this module is loaded, you are only notified when a',
 		'user does /whois nick nick on you. This command disables the filter',
 		'for your nick, until the next netsplit',
-	], code => sub {
+	],
+	acl => 1,
+	code => sub {
 		my($nick,$arg) = @_;
 		my $on = $arg && $arg !~ /off/;
 		$unfiltered[$$nick] = !$on;
