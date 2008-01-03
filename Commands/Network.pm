@@ -26,10 +26,11 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 	details => [
 		"Syntax: \002DIE\002 diepass",
 	],
+	acl => 1,
 	code => sub {
 		my($nick,$pass) = @_;
 		unless ($nick->has_mode('oper') && $pass && $pass eq $Conffile::netconf{janus}{diepass}) {
-			&Janus::jmsg($nick, "You must be an IRC operator and specify the 'diepass' password to use this command");
+			&Janus::jmsg($nick, "You must specify the 'diepass' password to use this command");
 			return;
 		}
 		for my $net (values %Janus::nets) {
@@ -49,10 +50,11 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 	details => [
 		"Syntax: \002RESTART\002 diepass",
 	],
+	acl => 1,
 	code => sub {
 		my($nick,$pass) = @_;
 		unless ($nick->has_mode('oper') && $pass && $pass eq $Conffile::netconf{janus}{diepass}) {
-			&Janus::jmsg($nick, "You must be an IRC operator and specify the 'diepass' password to use this command");
+			&Janus::jmsg($nick, "You must specify the 'diepass' password to use this command");
 			return;
 		}
 		for my $net (values %Janus::nets) {
@@ -88,9 +90,9 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		"Enables or disables the automatic reconnection that janus makes to a network.",
 		"A rehash will reread the value for the network from the janus configuration",
 	],
+	acl => 1,
 	code => sub {
 		my($nick, $args) = @_;
-		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my($id, $onoff) = ($args =~ /(\S+) (\d)/) or do {
 			&Janus::jmsg($nick, "Syntax: \002AUTOCONNECT\002 network [0|1]");
 			return;
@@ -112,9 +114,9 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		"Syntax: \002NETSPLIT\002 network",
 		"Disconnects the given network from janus and then rehashes to (possibly) reconnect",
 	],
+	acl => 1,
 	code => sub {
 		my $nick = shift;
-		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my $net = $Janus::nets{lc $_} || $Janus::ijnets{lc $_};
 		return unless $net;
 		if ($net->isa('LocalNetwork')) {

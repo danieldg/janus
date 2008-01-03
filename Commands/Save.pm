@@ -10,9 +10,9 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 &Janus::command_add({
 	cmd => 'save',
 	help => 'Save janus state to filesystem',
+	acl => 1,
 	code => sub {
 		my($nick,$args) = @_;
-		return &Janus::jmsg($nick, 'You must be an IRC operator to use this command') unless $nick->has_mode('oper');
 		my $out = $Conffile::netconf{set}{save};
 		my(@vars,@refs);
 		keys %Janus::states;

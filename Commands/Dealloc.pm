@@ -36,9 +36,9 @@ sub rweak {
 &Janus::command_add({
 	cmd => 'dealloc',
 	# no help. You don't want to use this command.
+	acl => 1,
 	code => sub {
 		my($nick,$args) = @_;
-		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		$args =~ /(\S+) (\S+)/ or return;
 		my $pkv = $Persist::vars{$1} or return;
 		my $n = $2 + 0 or return;

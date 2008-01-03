@@ -19,10 +19,6 @@ sub linked {
 
 sub code {
 	my($nick,$args) = @_;
-	if (!$nick->has_mode('oper')) {
-		&Janus::jmsg($nick, "You must be an IRC operator to use this command");
-		return;
-	}
 	$args ||= '';
 	my $nname = $nick->homenet()->name();
 	if ($args =~ /^del (#\S*) (\S+)/i) {
@@ -68,21 +64,26 @@ sub code {
 	}
 }
 
+my $help = [
+	"\002REQUEST DEL\002 #chan network  delete a locally added request",
+	"\002REQUEST WIPE\002 network       remove \002all\002 link requests for a network",
+	"\002REQUEST PEND\002 [network]     list all pending requests (from given network)",
+	"\002REQUEST LIST\002 [network]     list all waiting requests (to given network)",
+	"\002REQUEST DUMP\002               list all local saved channel relink requsts",
+	"\002REQUEST PDUMP\002              list all remote saved channel relink requests",
+];
+
 &Janus::command_add({
 	cmd => 'request',
 	help => 'Displays and manipluates channel link requsts',
-	details => [
-		"\002REQUEST DEL\002 #chan network  delete a locally added request",
-		"\002REQUEST WIPE\002 network       remove \002all\002 link requests for a network",
-		"\002REQUEST PEND\002 [network]     list all pending requests (from given network)",
-		"\002REQUEST LIST\002 [network]     list all waiting requests (to given network)",
-		"\002REQUEST DUMP\002               list all local saved channel relink requsts",
-		"\002REQUEST PDUMP\002              list all remote saved channel relink requests",
-	],
+	details => $help,
+	acl => 1,
 	code => \&code,
 }, {
 	cmd => 'req',
-	# no help, see 'request'
+	# no {help}, just presented as 'request'
+	details => $help,
+	acl => 1,
 	code => \&code,
 });
 

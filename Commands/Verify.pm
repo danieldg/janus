@@ -9,9 +9,9 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 &Janus::command_add({
 	cmd => 'verify',
+	acl => 1,
 	code => sub {
 		my($nick,$tryfix) = @_;
-		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my $ts = time;
 		my $oops = 0;
 		my @fixes;

@@ -12,9 +12,9 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 &Janus::command_add({
 	cmd => 'dump',
 	help => 'Dumps current janus internal state to a file',
+	acl => 1,
 	code => sub {
 		my $nick = shift;
-		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my $ts = time;
 		# workaround for a bug in Data::Dumper that only allows one "new" socket per dump
 		eval {
@@ -42,9 +42,9 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		"\002SHOWMODE\002 #channel - shows the intended modes of the channel on your network",
 		"\002SHOWMODE RAW\002 #channel - shows the internal (textual) modes of the channel",
 	],
+	acl => 1,
 	code => sub {
 		my($nick,$args) = @_;
-		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my $hn = $nick->homenet();
 		return &Janus::jmsg($nick, 'Local command only') unless $hn->isa('LocalNetwork');
 		$args =~ /^(raw )?(#\S*)/i or return &Janus::jmsg($nick, 'Syntax: SHOWMODE [raw] #chan');

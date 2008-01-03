@@ -67,9 +67,9 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		"\002WARNING\002: Reloading core modules may introduce bugs because of persistance",
 		"of old code by the perl interpreter."
 	],
+	acl => 1,
 	code => sub {
 		my($nick,$name) = @_;
-		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		return &Janus::jmsg($nick, "Invalid module name") unless $name =~ /^([0-9_A-Za-z:]+)$/;
 		my $n = $1;
 		if (&Janus::reload($n)) {
@@ -83,9 +83,9 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 }, {
 	cmd => 'unload',
 	help => "Unload the hooks registered by a module",
+	acl => 1,
 	code => sub {
 		my($nick,$name) = @_;
-		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		if ($name !~ /::/ || $name eq __PACKAGE__) {
 			&Janus::jmsg($nick, "You cannot unload the core module $name");
 			return;

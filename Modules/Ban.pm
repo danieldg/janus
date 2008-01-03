@@ -96,10 +96,11 @@ my %timespec = (
 		" \002ban add\002 expr length reason    Add a ban (applied to new users only)",
 		" \002ban kadd\002 expr length reason   Add a ban, and kill all users matching it",
 		" \002ban del\002 [expr|index]          Remove a ban by expression or index in the ban list",
-	], code => sub {
+	],
+	acl => 1,
+	code => sub {
 		my $nick = shift;
 		my($cmd, @arg) = split /\s+/, shift;
-		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		return &Janus::jmsg($nick, "use 'help ban' to see the syntax") unless $cmd;
 		my $net = $nick->homenet();
 		my @list = banlist($net);

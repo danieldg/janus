@@ -13,9 +13,9 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		"Syntax: \002FORCEID\002 network",
 		"Tries to identify to the network with a method mentioned in the config, serever has to be a ClientBot",
 	],
+	acl => 1,
 	code => sub {
 		my $nick = shift;
-		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');	
 		my $net = $Janus::nets{lc $_} || $Janus::ijnets{lc $_};
 		return unless $net;
 		return &Janus::jmsg($nick, "Network needs to be a ClientBot.") unless $net->isa('Server::ClientBot');

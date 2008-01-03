@@ -21,12 +21,12 @@ my @homes :PersistAs(Channel, homenets);
 		"Currently this is not persisted between network restarts.",
 		"Restricted to opers because of possible conflict with services.",
 	],
+	acl => 1,
 	code => sub {
 		my $nick = shift;
 		my($cname, $nname) = $_[0] =~ /(#\S*)(?: (\S+))?/;
 		$nname ||= $nick->homenet()->name();
 		my $chan = $nick->homenet()->chan($cname) or return;
-		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		my $oldhomes = $homes[$$chan];
 		if ($oldhomes) {
 			my($claimed, $mine) = (0,0);

@@ -173,6 +173,9 @@ Add commands (/msg janus <command> <cmdargs>). Should be called from module init
 Command hashref contains:
 	cmd - command name
 	code - will be executed with two arguments: ($nick, $cmdargs)
+	help - help text
+	details - arrayref of detailed help text, one line per elt
+	acl - undef/0 for all, 1 for oper-only, 2+ to be defined later
 
 =cut
 
@@ -466,8 +469,13 @@ sub in_socket {
 
 sub in_command {
 	my($cmd, $nick, $text) = @_;
-	my $csub = exists $commands{$cmd}{code} ?
-		$commands{$cmd}{code} : $commands{unk}{code};
+	$cmd = 'unk' unless exists $commands{$cmd};
+	my $csub = exists $commands{$cmd}{code} ? $commands{$cmd}{code} : $commands{unk}{code};
+	my $acl = $commands{$cmd}{acl} || 0;
+	if ($acl == 1 && !$nick->has_mode('oper')) {
+		&Janus::jmsg($nick, "You must be an IRC operator to use this command");
+		return;
+	}
 	unshift @qstack, [];
 	eval {
 		$csub->($nick, $text);
@@ -622,10 +630,10 @@ sub delink {
 
 &Janus::command_add({
 	cmd => 'help',
-	help => 'the text you are reading now',
+	help => 'The text you are reading now',
 	code => sub {
 		my($nick,$arg) = @_;
-		if ($arg && $arg =~ /(\S+)/) {
+		if ($arg && $arg =~ /(\S+)/ && exists $commands{lc $1}) {
 			$arg = lc $1;
 			my $det = $commands{$arg}{details};
 			if (ref $det) {
@@ -637,10 +645,12 @@ sub delink {
 			}
 		} else {
 			my @cmds;
+			my $all = $nick->has_mode('oper') || ($arg && lc $arg eq 'all');
 			my $synlen = 0;
 			for my $cmd (sort keys %commands) {
 				my $h = $commands{$cmd}{help};
 				next unless $h;
+				next if $commands{$cmd}{acl} && !$all;
 				push @cmds, $cmd;
 				$synlen = length $cmd if length $cmd > $synlen;
 			}
