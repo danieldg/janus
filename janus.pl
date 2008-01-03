@@ -48,23 +48,22 @@ $SIG{PIPE} = 'IGNORE';
 
 &Janus::load($_) or die for qw(Conffile Interface Actions Commands::Core);
 
-&Janus::insert_full(+{ type => 'INIT', args => [ $args, @ARGV ], sendto => [] });
-&Janus::insert_full(+{ type => 'RUN', sendto => [] });
+&Janus::insert_full(+{ type => 'INIT', args => [ $args, @ARGV ] });
+&Janus::insert_full(+{ type => 'RUN' });
 
 eval { 
 	1 while &Connection::timestep();
 	1;
 } || do {
 	print "Aborting, error=$@\n";
+	my %all;
 	for my $net (values %Janus::nets) {
 		$net = $net->jlink() if $net->jlink();
-		&Janus::delink($net, 'aborting');
+		$all{$net} = $net;
 	}
-	&Connection::abort();
+	&Janus::delink($_, 'aborting') for values %all;
 };
 
-&Janus::insert_full(+{ type => 'TERMINATE', sendto => [] });
+&Janus::insert_full(+{ type => 'TERMINATE' });
 
-&Janus::delink($Interface::janus->homenet(), 'Goodbye!');
-$Interface::janus = undef;
 print "All networks disconnected. Goodbye!\n";

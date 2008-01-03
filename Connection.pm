@@ -155,10 +155,10 @@ sub _cleanup {
 &Janus::hook_add(
 	NETSPLIT => act => \&_cleanup,
 	JNETSPLIT => act => \&_cleanup,
+	TERMINATE => cleanup => sub {
+		print "Queues remain at termination: ".join(' ', keys %queues)."\n" if %queues;
+		%queues = ();
+	},
 );
-
-sub abort {
-	%queues = ();
-}
 
 1;

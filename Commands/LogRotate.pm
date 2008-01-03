@@ -11,6 +11,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 &Janus::command_add({
 	cmd => 'logrotate',
 	help => 'Opens a new debug logfile so that logs do not grow too large',
+	acl => 1,
 	code => sub {
 		my $log = 'log/';
 		my $fmt = $Conffile::netconf{set}{datefmt};

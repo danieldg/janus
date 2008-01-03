@@ -361,17 +361,15 @@ for my $type (keys %spec) {
 		} else {
 			return 1 unless defined $v;
 		}
-		my $r = 0;
 		for (split /\s+/) {
 			next KEY if eval {
-				/\$/ ? (defined $v && '' eq ref $v) :
-				/\@/ ? (ref $v && 'ARRAY' eq ref $v) :
-				/\%/ ? (ref $v && 'HASH' eq ref $v) :
+				/\$/ ? ('' eq ref $v) :
+				/\@/ ? ('ARRAY' eq ref $v) :
+				/\%/ ? ('HASH' eq ref $v) :
 				$v->isa($_);
 			};
 		}
-		$act->{ERR} = "Invalid value $v for key '$k' in action $itm";
-		return 1 unless $r;
+		return 1;
 	}
 	delete $act->{ERR};
 	for my $k (keys %$act) {

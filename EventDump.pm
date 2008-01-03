@@ -173,8 +173,8 @@ my %v_type; %v_type = (
 		$v =~ s/\\(.)/$esc2char{$1}/g;
 		$v;
 	}, 'n' => sub {
-		s/^n:([^ >]+)// or return undef;
-		$Janus::gnicks{$1};
+		s/^n:([^ >]+)(:\d+)// or return undef;
+		$Janus::gnicks{$1.$2} || $Janus::gnets{$1};
 	}, 'c' => sub {
 		s/^c:([^ >]+)// or return undef;
 		$Janus::gchans{$1};
@@ -215,6 +215,7 @@ my %v_type; %v_type = (
 			&Janus::delink($ij, "InterJanus network name collision: network $h->{id} already exists");
 			return undef;
 		}
+		delete $h->{jlink};
 		RemoteNetwork->new(jlink => $ij, %$h);
 	}, '<c' => sub {
 		my $ij = shift;
@@ -223,7 +224,7 @@ my %v_type; %v_type = (
 		$ij->kv_pairs($h);
 		s/^>// or warn;
 		# this creates a new object every time because LINK will fail if we
-		# give it a cached item
+		# give it a cached item, and LSYNC needs to create a lot of the time
 		Channel->new(%$h);
 	}, '<n' => sub {
 		my $ij = shift;
