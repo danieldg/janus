@@ -14,7 +14,13 @@ our %reqs;
 &Janus::save_vars('reqs', \%reqs);
 
 &Janus::hook_add(
-	LINKED => act => sub {
+	NETLINK => act => sub {
+		my $act = shift;
+		my $net = $act->{net};
+		return unless $net->jlink();
+		# clear the request list as it will be repopulated as part of the remote sync
+		delete $reqs{$net->name()};
+	}, LINKED => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		return if $net->jlink();
@@ -95,6 +101,15 @@ our %reqs;
 			});
 		} else {
 			print "request not matched\n";
+		}
+	}, REQDEL => act => sub {
+		my $act = shift;
+		my $src = $act->{snet};
+		my $dst = $act->{dnet};
+		if (delete $reqs{$src->name()}{$dst->name()}{lc $act->{name}}) {
+			&Janus::jmsg($act->{src}, 'Deleted');
+		} else {
+			&Janus::jmsg($act->{src}, 'Not found');
 		}
 	},
 );

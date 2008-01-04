@@ -22,11 +22,33 @@ sub code {
 	$args ||= '';
 	my $nname = $nick->homenet()->name();
 	if ($args =~ /^del (#\S*) (\S+)/i) {
-		if (delete $Links::reqs{$nname}{$2}{$1}) {
-			&Janus::jmsg($nick, 'Deleted');
+		my $net = $Janus::nets{$2};
+		if ($net) {
+			&Janus::append(+{
+				type => 'REQDEL',
+				src => $nick,
+				snet => $nick->homenet(),
+				dnet => $net,
+				dst => $net,
+				name => $1,
+			});
 		} else {
-			&Janus::jmsg($nick, 'Not found');
+			if (delete $Links::reqs{$nname}{$2}{$1}) {
+				&Janus::jmsg($nick, 'Deleted');
+			} else {
+				&Janus::jmsg($nick, 'Not found');
+			}
 		}
+	} elsif ($args =~ /^reject (#\S*) (\S+)/i) {
+		my $net = $Janus::nets{$2} or return &Janus::jmsg($nick, 'Network not found');
+		&Janus::append(+{
+			type => 'REQDEL',
+			src => $nick,
+			snet => $net,
+			dnet => $nick->homenet(),
+			dst => $net,
+			name => $1,
+		});
 	} elsif ($args =~ /^wipe (\S+)/i) {
 		if (delete $Links::reqs{$nname}{$1}) {
 			&Janus::jmsg($nick, 'Deleted');
@@ -65,12 +87,15 @@ sub code {
 }
 
 my $help = [
-	"\002REQUEST DEL\002 #chan network  delete a locally added request",
-	"\002REQUEST WIPE\002 network       remove \002all\002 link requests for a network",
-	"\002REQUEST PEND\002 [network]     list all pending requests (from given network)",
-	"\002REQUEST LIST\002 [network]     list all waiting requests (to given network)",
-	"\002REQUEST DUMP\002               list all local saved channel relink requsts",
-	"\002REQUEST PDUMP\002              list all remote saved channel relink requests",
+	"Pending requests (remote networks waiting for local approval):",
+	" \002REQUEST PEND\002 [network]       List all pending requests (from given network)",
+	" \002REQUEST REJECT\002 #chan network Reject the given request",
+	" \002REQUEST PDUMP\002                List all saved channel relink requests",
+	"Waiting requests (local channels waiting for remote approval):",
+	" \002REQUEST LIST\002 [network]       List all waiting requests (to given network)",
+	" \002REQUEST DEL\002 #chan network    Delete a locally added request",
+	" \002REQUEST WIPE\002 network         Remove \002all\002 link requests for a network",
+	" \002REQUEST DUMP\002                 List all local saved channel relink requsts",
 ];
 
 &Janus::command_add({

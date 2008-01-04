@@ -273,6 +273,11 @@ my %spec = (
 		linkfile => '?$',
 		override => '?$',
 	},
+	REQDEL => {
+		snet => 'Network',
+		dnet => 'Network',
+		name => '$',
+	},
 	LSYNC => {
 		dst => 'Network',
 		chan => 'Channel',
@@ -298,7 +303,7 @@ my %spec = (
 		dst => 'Network',
 		method => '?$',
 		# add other args for manual methods?
-	},	
+	},
 	REHASH => {
 	},
 	'INIT' => {
