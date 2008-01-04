@@ -92,6 +92,7 @@ sub unload {
 		}
 	}
 	for my $cmd (keys %commands) {
+		warn "Command $cmd lacks class" unless $commands{$cmd}{class};
 		next unless $commands{$cmd}{class} eq $module;
 		delete $commands{$cmd};
 	}

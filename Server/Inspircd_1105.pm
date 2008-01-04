@@ -735,6 +735,7 @@ $moddef{CORE} = {
 		}
 	},
 	SVSMODE => 'MODE',
+	SVSHOLD => \&ignore,
 	REHASH => sub {
 		return +{
 			type => 'REHASH',
