@@ -20,9 +20,10 @@ my @letters = ('A' .. 'Z', 0 .. 9);
 sub net2uid {
 	return '00J' if @_ == 2 && $_[0] eq $_[1];
 	my $srv = $_[-1];
-	return '00J' if $srv->isa('Interface');
+	return '00J' if $srv->isa('Interface') || $srv->isa('Janus');
 	my $res = ($$srv / 36) . $letters[$$srv % 36] . 'J';
 	warn 'you have too many servers' if length $res > 3;
+		# maximum of 360. Can be increased if 'J' is modified too
 	$res;
 }
 
@@ -35,7 +36,7 @@ sub next_uid {
 		$uid = $letters[$number % 36].$uid;
 		$number /= 36;
 	}
-	warn if $number;
+	warn if $number; # wow, you had 2 billion users on this server?
 	$pfx.$uid;
 }
 
