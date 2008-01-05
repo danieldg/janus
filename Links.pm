@@ -102,6 +102,26 @@ our %reqs;
 		} else {
 			print "request not matched\n";
 		}
+	}, DELINK => act => sub {
+		my $act = shift;
+		my $src = $act->{src};
+		my $chan = $act->{dst};
+		return unless $src && $src->isa('Nick');
+		my $snet = $src->homenet();
+		return if $snet->jlink();
+
+		my $sname = $snet->name();
+		my $scname = $chan->str($snet) || $act->{split}->str($snet);
+		if ($snet eq $act->{net}) {
+			# delink own network: delete all outgoing requests
+			for my $net ($chan->nets()) {
+				next if $net eq $snet;
+				delete $reqs{$sname}{$net->name()}{$scname};
+			}
+		} else {
+			# delink other network: delete only that request
+			delete $reqs{$sname}{$act->{net}->name()}{$scname};
+		}
 	}, REQDEL => act => sub {
 		my $act = shift;
 		my $src = $act->{snet};
