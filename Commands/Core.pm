@@ -28,11 +28,12 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 	cmd => 'modules',
 	help => 'Version information on all modules loaded by janus',
 	details => [
-		"Syntax: \002MODULES\002 [all|janus|other]",
+		"Syntax: \002MODULES\002 [all|janus|other] [columns]",
 	],
 	code => sub {
 		my($nick,$parm) = @_;
 		$parm ||= 'a';
+		my $w = $parm =~ /(\d)/ ? $1 : 3;
 		my @mods;
 		if ($parm =~ /^j/) {
 			@mods = sort 'main', grep ref $main::INC{$_}, keys %main::INC;
@@ -53,10 +54,11 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			$m2 = length $v if $m2 < length $v;
 			push @mvs, [ $_, $v ];
 		}
-		my $c = 1 + $#mvs / 3;
+		my $c = 1 + $#mvs / $w;
 		my $ex = ' %-'.$m1.'s %'.$m2.'s';
 		for my $i (0..($c-1)) {
-			&Janus::jmsg($nick, join '', map $_ ? sprintf $ex, @$_ : '', map $mvs[$c*$_ + $i], 0 .. 2);
+			&Janus::jmsg($nick, join '', map $_ ? sprintf $ex, @$_ : '', 
+				map $mvs[$c*$_ + $i], 0 .. ($w-1));
 		}
 	}
 }, {
