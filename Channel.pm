@@ -471,28 +471,7 @@ sub del_remoteonly {
 		} else {
 			# Equal timestamps; recovering from a split. Merge any information
 			$ts[$$chan] = $ts[$$chan1];
-			my @allmodes = keys(%{$mode[$$chan1]}), keys(%{$mode[$$chan2]});
-			for my $txt (@allmodes) {
-				if ($txt =~ /^l/) {
-					my %m;
-					if (exists $mode[$$chan1]{$txt}) {
-						$m{$_} = 1 for @{$mode[$$chan1]{$txt}};
-					}
-					if (exists $mode[$$chan2]{$txt}) {
-						$m{$_} = 1 for @{$mode[$$chan2]{$txt}};
-					}
-					$mode[$$chan]{$txt} = [ keys %m ];
-				} else {
-					if (defined $mode[$$chan1]{$txt}) {
-						if (defined $mode[$$chan2]{$txt} && $mode[$$chan1]{$txt} ne $mode[$$chan2]{$txt}) {
-							print "Merging $txt: using $mode[$$chan1]{$txt} over $mode[$$chan2]{$txt}\n";
-						}
-						$mode[$$chan]{$txt} = $mode[$$chan1]{$txt};
-					} else {
-						$mode[$$chan]{$txt} = $mode[$$chan2]{$txt};
-					}
-				}
-			}
+			&Modes::merge($chan, $chan1, $chan2);
 		}
 
 		# copy in nets and names of the channel
