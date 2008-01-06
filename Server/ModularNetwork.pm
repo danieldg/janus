@@ -1,4 +1,4 @@
-# Copyright (C) 2007 Daniel De Graaf
+# Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Server::ModularNetwork;
@@ -178,9 +178,11 @@ sub to_irc {
 	for my $act (@_) {
 		if (ref $act && ref $act eq 'HASH') {
 			my $type = $act->{type};
-			next unless $act_hooks[$$net]{$type};
-			for my $hook (values %{$act_hooks[$$net]{$type}}) {
-				push @sendq, $hook->($net,$act);
+			for my $ttype ("$type-", $type, "$type+") {
+				next unless $act_hooks[$$net]{$ttype};
+				for my $hook (values %{$act_hooks[$$net]{$ttype}}) {
+					push @sendq, $hook->($net,$act);
+				}
 			}
 		} else {
 			push @sendq, $act;

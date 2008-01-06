@@ -1,4 +1,4 @@
-# Copyright (C) 2007 Daniel De Graaf
+# Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Server::InspMods;
@@ -184,6 +184,22 @@ our %modules = (
 	},
 	'm_inviteexception.so' => {
 		cmode => { I => 'l_invex' }
+	},
+	'm_janus.so' => {
+		acts => {
+			'CONNECT+' => sub {
+				my($net,$act) = @_;
+				my $nick = $act->{dst};
+				return $net->ncmd(METADATA => $nick, 'jinfo', 'Home network: '.
+					$nick->homenet()->netname().'; Home nick: '.$nick->homenick());
+			},
+			'NICK+' => sub {
+				my($net,$act) = @_;
+				my $nick = $act->{dst};
+				return $net->ncmd(METADATA => $nick, 'jinfo', 'Home network: '.
+					$nick->homenet()->netname().'; Home nick: '.$act->{nick});
+			},
+		},
 	},
 	'm_joinflood.so' => {
 		cmode => { j => 's_joinlimit' }
