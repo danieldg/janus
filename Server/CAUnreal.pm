@@ -698,10 +698,10 @@ sub srvname {
 			}
 			if (s/=+//) {
 				s/(.)/sprintf '%06b', index $textip_table, $1/eg;
-				if (length $_ == 8) { # IPv4
+				if (length $_ == 36) { # IPv4
 					s/(.{8})/sprintf '%d.', oct "0b$1"/eg;
 					s/\.\d*$//;
-				} elsif (length $_ == 24) { # IPv6
+				} elsif (length $_ == 132) { # IPv6
 					s/(.{16})/sprintf '%x:', oct "0b$1"/eg;
 					s/:[^:]*$//;
 				} else {
