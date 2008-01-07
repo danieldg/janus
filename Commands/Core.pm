@@ -1,6 +1,5 @@
-# Copyright (C) 2007 Daniel De Graaf
+# Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
 package Commands::Core;
 use strict;
 use warnings;
@@ -18,9 +17,8 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			'across both networks. If configured to allow it, users can also share their own',
 			'channels across any linked network.',
 			'-------------------------',
-			'The source code can be found at http://danieldegraaf.afraid.org/janus/trunk/',
-			'This file was checked out from $URL$',
-			'If you make any modifications to this software, you must change these URLs',
+			'The source code can be found at http://sourceforge.net/projects/janus-irc/',
+			'If you make any modifications to this software, you must change this URL',
 			'to one which allows downloading the version of the code you are running.'
 		);
 	}

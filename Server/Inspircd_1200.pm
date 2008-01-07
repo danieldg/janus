@@ -1,6 +1,5 @@
-# Copyright (C) 2007 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+# Copyright (C) 2007-2008 Daniel De Graaf
+# Released under the GNU Affero General Public License v3
 package Server::Inspircd_1200;
 use Nick;
 use Modes;
@@ -832,7 +831,7 @@ $moddef{CORE} = {
 		if ($dst->info('_is_janus')) {
 			# a PUSH to the janus nick. Don't send any events, for one.
 			# However, it might be something we asked about, like the MODULES output
-			if (@msg == 4 && $msg[1] eq '900' && $msg[0] && $msg[0] eq $net->cparam('linkto')) {
+			if (@msg == 4 && $msg[1] eq '900' && $msg[0] && $msg[0] eq $net->cparam('server')) {
 				if ($msg[3] =~ /^(\S+)$/) {
 					$net->module_add($1);
 				} elsif ($msg[3] =~ /^0x\S+ \S+ (\S+) \(.*\)$/) {
@@ -891,7 +890,7 @@ $moddef{CORE} = {
 		my $nick = $act->{dst};
 		return () if $act->{net} ne $net;
 		my @out = $net->_connect_ifo($nick);
-		push @out, $net->cmd2($nick, MODULES => $net->cparam('linkto')) if $nick->info('_is_janus');
+		push @out, $net->cmd2($nick, MODULES => $net->cparam('server')) if $nick->info('_is_janus');
 		@out;
 	}, RECONNECT => sub {
 		my($net,$act) = @_;
@@ -1044,7 +1043,7 @@ $moddef{CORE} = {
 		$net->cmd2($act->{src}, IDLE => $act->{dst});
 	}, PING => sub {
 		my($net,$act) = @_;
-		$net->ncmd(PING => $net->cparam('linkto'));
+		$net->ncmd(PING => $net->cparam('server'));
 	}, LINKREQ => sub {
 		my($net,$act) = @_;
 		my $src = $act->{net};

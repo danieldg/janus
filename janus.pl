@@ -1,8 +1,8 @@
-#!/usr/bin/perl -w
-# Copyright (C) 2007 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+#!/usr/bin/perl
+# Copyright (C) 2007-2008 Daniel De Graaf
+# Released under the GNU Affero General Public License v3
 use strict;
+use warnings;
 BEGIN {
 	# Support for taint mode: we don't acually need most of these protections
 	# as the person running janus.pl is assumed to have shell access anyway.
