@@ -1,6 +1,5 @@
 # Copyright (C) 2007 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+# Released under the GNU Affero General Public License v3
 package Modules::Signals;
 use strict;
 use warnings;

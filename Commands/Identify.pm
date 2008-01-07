@@ -1,6 +1,5 @@
 # Copyright (C) 2007 Nima Gardideh
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+# Released under the GNU Affero General Public License v3
 package Commands::Identify;
 use strict;
 use warnings;

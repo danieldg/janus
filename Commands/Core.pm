@@ -1,5 +1,5 @@
 # Copyright (C) 2007-2008 Daniel De Graaf
-# Released under the Affero General Public License
+# Released under the GNU Affero General Public License v3
 package Commands::Core;
 use strict;
 use warnings;

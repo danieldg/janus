@@ -1,6 +1,5 @@
-# Copyright (C) 2007 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+# Copyright (C) 2007-2008 Daniel De Graaf
+# Released under the GNU Affero General Public License v3
 package Server::CAUnreal;
 use Nick;
 use Modes;
@@ -1151,7 +1150,7 @@ sub srvname {
 		return +{
 			type => 'CHATOPS',
 			src => $net->item($_[0]),
-			sendto => $Janus::server,
+			sendto => $Janus::global,
 			msg => $_[-1],
 		};
 	},

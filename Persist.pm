@@ -1,3 +1,5 @@
+# Copyright (C) 2007 Daniel De Graaf
+# Released under the GNU Affero General Public License v3
 package Persist;
 use strict;
 use warnings;
