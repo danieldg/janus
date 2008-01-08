@@ -1,6 +1,5 @@
-# Copyright (C) 2007 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+# Copyright (C) 2007-2008 Daniel De Graaf
+# Released under the GNU Affero General Public License v3
 package Channel;
 use strict;
 use warnings;
@@ -16,6 +15,46 @@ Object representing a set of linked channels
 
 =over
 
+=item Channel->new(arghash)
+
+Create a new channel. Should only be called by LocalNetwork and InterJanus.
+
+=over
+
+=item ts, mode, topic, topicts, topicset - same as getters
+
+=item keyname - if set, is assumed to be a merging channel
+
+=item names - hashref of netname => channame. Only used if keyname set
+
+=item net - network this channel is on. Only used if keyname unset
+
+=back
+
+=item $chan->ts()
+
+Timestamp for this channel
+
+=item $chan->keyname()
+
+Name used for this channel in interjanus communication
+
+=item $chan->topic()
+
+Topic text for the channel
+
+=item $chan->topicts()
+
+Topic set timestamp
+
+=item $chan->topicset()
+
+String representing the setter of the topic
+
+=item $chan->all_modes()
+
+Hash of modetext => modeval (see Modes.pm)
+
 =cut
 
 my @ts       :Persist(ts)                      :Get(ts);
@@ -24,8 +63,8 @@ my @topic    :Persist(topic)    :Arg(topic)    :Get(topic);
 my @topicts  :Persist(topicts)  :Arg(topicts)  :Get(topicts);
 my @topicset :Persist(topicset) :Arg(topicset) :Get(topicset);
 my @mode     :Persist(mode)                    :Get(all_modes);
-my @nicks    :Persist(nicks);
-my @nmode    :Persist(nmode);
+my @nicks    :Persist(nicks); # all nicks on this channel
+my @nmode    :Persist(nmode); # modes of those nicks
 
 =item $chan->nets()
 
@@ -77,6 +116,7 @@ sub _init {
 	$ts[$$c] = $ifo->{ts} || 0;
 	$ts[$$c] = (time + 60) if $ts[$$c] < 1000000;
 	$name[$$c] = $ifo->{name};
+	print "   CHAN:$$c $ifo->{name} allocated\n";
 }
 
 sub _destroy {
@@ -216,9 +256,10 @@ sub unhook_destroyed {
 				$mode[$$chan]{$i} = $arg if $pm eq '+';
 				delete $mode[$$chan]{$i} if $pm eq '-';
 			} elsif ($t eq 'r') {
-				$mode[$$chan]{$i} |= $arg;
-				$mode[$$chan]{$i} &= ~$arg if $pm eq '-';
-				delete $mode[$$chan]{$i} unless $mode[$$chan]{$i};
+				my $v = 0+($mode[$$chan]{$i} || 0);
+				$v |= $arg;
+				$v &= ~$arg if $pm eq '-';
+				$v ? $mode[$$chan]{$i} = $v : delete $mode[$$chan]{$i};
 			} else {
 				warn "Unknown mode '$i'";
 			}

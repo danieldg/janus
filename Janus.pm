@@ -1,10 +1,12 @@
-# Copyright (C) 2007 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+# Copyright (C) 2007-2008 Daniel De Graaf
+# Released under the GNU Affero General Public License v3
 package Janus;
 use strict;
 use warnings;
 use Carp 'cluck';
+
+# set only on released versions
+our $RELEASE;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
@@ -15,12 +17,13 @@ Primary event multiplexer and module loader/unloader
 =cut
 
 # PUBLIC VARS
-our $name;
-our $interface;
+our $name;       # Name of this server
+our $server;     # Message target/source: this server
+our $global;     # Message target: all servers
 
-our %nets; # by name
+our %nets;       # by network tag
 our %nicks;
-our %gnets;
+our %gnets;      # by guid
 
 =head2 Module loading
 
@@ -48,6 +51,10 @@ $modules{Janus} = 1;
 
 our %hooks;
 our %commands;
+our %states;
+our %rel_csum;
+
+sub _hook; # forward since it's used in module load/unload
 
 sub reload {
 	my $module = $_[0];
@@ -60,12 +67,16 @@ sub load {
 	my $module = shift;
 	return 1 if $modules{$module};
 
+	_hook(module => PRELOAD => $module);
+
 	$modules{$module} = 1;
 
 	my $fn = $module.'.pm';
 	$fn =~ s#::#/#g;
 	if (-f $fn && do $fn) {
 		$modules{$module} = 2;
+		_hook(module => LOAD => $module);
+		2;
 	} else {
 		warn "Cannot load module $module: $! $@";
 		$modules{$module} = 0;
@@ -75,74 +86,21 @@ sub load {
 sub unload {
 	my $module = $_[0];
 
+	_hook(module => UNLOAD => $module);
 	for my $t (keys %hooks) {
 		for my $l (keys %{$hooks{$t}}) {
 			delete $hooks{$t}{$l}{$module};
 		}
 	}
 	for my $cmd (keys %commands) {
+		warn "Command $cmd lacks class" unless $commands{$cmd}{class};
 		next unless $commands{$cmd}{class} eq $module;
 		delete $commands{$cmd};
 	}
 
+	delete $states{$module};
 	$modules{$module} = 0;
 }
-
-sub update_versions {
-	$_[0] =~ /([0-9A-Za-z_:]+)/;
-	my $mod = $1;
-	my $fn = $mod.'.pm';
-	$fn =~ s#::#/#g;
-	return unless -f $fn;
-	my $ver = '?';
-	my $sha = `sha1sum $fn 2>/dev/null`;
-	if ($sha && $sha =~ /^(.{8})/) {
-		$ver = 'x'.$1;
-		no strict 'refs';
-		no warnings 'once';
-		${$mod.'::SHA_UID'} = $1;
-	} else {
-		$sha = `sha1 $fn 2>/dev/null`;
-		if ($sha =~ / = (.{8})/) {
-			$ver = 'x'.$1;
-			no strict 'refs';
-			no warnings 'once';
-			${$mod.'::SHA_UID'} = $1;
-		} else {
-			warn "Cannot checksum module $mod";
-		}
-	}
-	my $git = `git rev-parse --verify HEAD 2>/dev/null`;
-	if ($git) {
-		unless (`git diff-index HEAD $fn`) {
-			# this file is not modified from the current head
-			`git rev-parse HEAD` =~ /^(.{8})/;
-			$ver = 'g'.$1;
-			# ok, we have the ugly name... now look for a tag
-			`git name-rev --tags --name-only HEAD` =~ /^(.*?)(?:^0)?$/;
-			my $tag = $1;
-			if ($tag ne 'undefined' && $tag !~ /~/) {
-				# we are actually on this tag
-				$ver = 't'.$tag;
-			}
-		}
-	}
-	my $svn = `svn info $fn 2>/dev/null`;
-	if ($svn) {
-		unless (`svn st $fn`) {
-			if ($svn =~ /Revision: (\d+)/) {
-				$ver = 'r'.$1;
-			} else {
-				warn "Cannot parse `svn info` output for $mod ($fn)";
-			}
-		}
-	}
-	no strict 'refs';
-	no warnings 'once';
-	${$mod.'::VERSION_NAME'} = $ver;
-}
-
-update_versions 'Janus';
 
 sub Janus::INC {
 	my($self, $name) = @_;
@@ -150,7 +108,7 @@ sub Janus::INC {
 	my $module = $name;
 	$module =~ s/.pm$//;
 	$module =~ s#/#::#g;
-	&Janus::update_versions($module);
+	_hook(module => READ => $module, $rv);
 	$modules{$module} = 1;
 	&Janus::schedule({ code => sub {
 		$modules{$module} = 2;
@@ -158,27 +116,12 @@ sub Janus::INC {
 	$rv;
 }
 
-BEGIN {
-	our $INC_ITEM;
-	unless ($INC_ITEM) {
-		my $dummy = 1;
-		$INC_ITEM = bless \$dummy;
-		unshift @INC, $INC_ITEM;
-	}
-}
-
 =back
 
 =cut
 
-our $last_check = time;
-
-$commands{unk} = +{
-	class => 'Janus',
-	code => sub {
-		&Janus::jmsg($_[0], 'Unknown command. Use "help" to see available commands');
-	},
-};
+our $last_check;
+$last_check ||= time; # not assigned so that reloads don't skip seconds
 
 our @qstack;
 our %tqueue;
@@ -232,6 +175,9 @@ Add commands (/msg janus <command> <cmdargs>). Should be called from module init
 Command hashref contains:
 	cmd - command name
 	code - will be executed with two arguments: ($nick, $cmdargs)
+	help - help text
+	details - arrayref of detailed help text, one line per elt
+	acl - undef/0 for all, 1 for oper-only, 2+ to be defined later
 
 =cut
 
@@ -247,6 +193,12 @@ sub command_add {
 		$h->{class} = $class;
 		$commands{$cmd} = $h;
 	}
+}
+
+sub save_vars {
+	my $class = caller || 'Janus';
+	cluck "command_add called outside module load" unless $modules{$class} == 1;
+	$states{$class} = { @_ };
 }
 
 =back
@@ -296,12 +248,14 @@ sub _send {
 	my $act = $_[0];
 	&EventDump::debug_send($act);
 	my @to;
-	if (exists $act->{sendto} && ref $act->{sendto}) {
-		@to = @{$act->{sendto}};
-	} elsif ($act->{type} =~ /^J?NET(LINK|SPLIT)/) {
-		@to = values %nets;
+	if (exists $act->{sendto}) {
+		if ('ARRAY' eq ref $act->{sendto}) {
+			@to = @{$act->{sendto}};
+		} else {
+			@to = $act->{sendto};
+		}
 	} elsif (!ref $act->{dst}) {
-		warn "Action $act of type $act->{type} does not have a destination or sendto list";
+		# this must be an internal command, otherwise we have already complained in Actions
 		return;
 	} elsif ($act->{dst}->isa('Network')) {
 		@to = $act->{dst};
@@ -312,14 +266,19 @@ sub _send {
 		# hash to remove duplicates
 	for my $net (@to) {
 		next unless $net;
-		my $ij = $net->jlink();
-		if (defined $ij) {
-			$jlink{$ij} = $ij;
+		if ($net->isa('Janus')) {
+			$_->jlink() or $real{$_} = $_ for values %nets;
 		} else {
-			$real{$net} = $net;
+			my $ij = $net->jlink();
+			if (defined $ij) {
+				$jlink{$ij} = $ij;
+			} else {
+				$real{$net} = $net;
+			}
 		}
 	}
-	if ($act->{except}) {
+#	print "DBG: Sending to ".join(' ',keys %jlink, keys %real)."\n";
+	if ($act->{except} && !($act->{dst} && $act->{dst} eq $act->{except})) {
 		my $e = $act->{except};
 		delete $real{$e};
 		delete $jlink{$e};
@@ -422,7 +381,7 @@ sub jmsg {
 	local $_;
 	&Janus::append(map +{
 		type => 'MSG',
-		src => $interface,
+		src => $Interface::janus,
 		dst => $dst,
 		msgtype => $type,
 		msg => $_,
@@ -444,18 +403,18 @@ sub err_jmsg {
 		if ($dst) {
 			&Janus::append(+{
 				type => 'MSG',
-				src => $interface,
+				src => $Interface::janus,
 				dst => $dst,
 				msgtype => ($dst->isa('Channel') ? 'PRIVMSG' : 'NOTICE'), # channel notice == annoying
 				msg => $_,
-			}) if $interface;
+			}) if $Interface::janus;
 		} else {
 			&Janus::insert_full({
 				type => 'CHATOPS',
-				src => $interface,
+				src => $Interface::janus,
 				sendto => [ values %nets ],
 				msg => $_,
-			}) if $interface;
+			}) if $Interface::janus;
 		}
 	}
 }
@@ -509,8 +468,13 @@ sub in_socket {
 
 sub in_command {
 	my($cmd, $nick, $text) = @_;
-	my $csub = exists $commands{$cmd} ?
-		$commands{$cmd}{code} : $commands{unk}{code};
+	$cmd = 'unk' unless exists $commands{$cmd};
+	my $csub = exists $commands{$cmd}{code} ? $commands{$cmd}{code} : $commands{unk}{code};
+	my $acl = $commands{$cmd}{acl} || 0;
+	if ($acl == 1 && !$nick->has_mode('oper')) {
+		&Janus::jmsg($nick, "You must be an IRC operator to use this command");
+		return;
+	}
 	unshift @qstack, [];
 	eval {
 		$csub->($nick, $text);
@@ -563,6 +527,15 @@ sub delink {
 
 =cut
 
+if ($RELEASE) {
+	open my $rcs, ".rel-$RELEASE" or warn "Cannot open release checksum file!";
+	while (<$rcs>) {
+		my($s,$f) = /(\S+)\s+(.*)/ or warn "bad line: $_";
+		$rel_csum{$f} = $s;
+	}
+	close $rcs;
+}
+
 &Janus::hook_add(
 	NETLINK => act => sub {
 		my $act = shift;
@@ -580,14 +553,79 @@ sub delink {
 		my $id = $net->name();
 		delete $gnets{$net->gid()};
 		delete $nets{$id};
+	}, module => READ => sub {
+		$_[0] =~ /([0-9A-Za-z_:]+)/;
+		my $mod = $1;
+		my $fn = $mod.'.pm';
+		$fn =~ s#::#/#g;
+		return unless -f $fn;
+		my $ver = '?';
+		no warnings 'exec';
+		my $csum = '';
+		my $sha = `sha1sum $fn 2>/dev/null`;
+		if ($sha && $sha =~ /^(.{8})(.{32})/) {
+			$ver = 'x'.$1;
+			$csum = $1.$2;
+			no strict 'refs';
+			no warnings 'once';
+			${$mod.'::SHA_UID'} = $1;
+		} else {
+			$sha = `sha1 $fn 2>/dev/null`;
+			if ($sha =~ / = (.{8})(.{32})/) {
+				$ver = 'x'.$1;
+				$csum = $1.$2;
+				no strict 'refs';
+				no warnings 'once';
+				${$mod.'::SHA_UID'} = $1;
+			} else {
+				print "Cannot checksum module - check that you have sha1sum installed\n";
+			}
+		}
+		my $git = `git rev-parse --verify HEAD 2>/dev/null`;
+		if ($git) {
+			unless (`git diff-index HEAD $fn`) {
+				# this file is not modified from the current head
+				`git rev-parse HEAD` =~ /^(.{8})/;
+				$ver = 'g'.$1;
+				# ok, we have the ugly name... now look for a tag
+				`git name-rev --tags --name-only HEAD` =~ /^(.*?)(?:^0)?$/;
+				my $tag = $1;
+				if ($tag ne 'undefined' && $tag !~ /~/) {
+					# we are actually on this tag
+					$ver = 't'.$tag;
+				}
+			}
+		}
+		my $svn = `svn info $fn 2>/dev/null`;
+		if ($svn) {
+			unless (`svn st $fn`) {
+				if ($svn =~ /Revision: (\d+)/) {
+					$ver = 'r'.$1;
+				} else {
+					warn "Cannot parse `svn info` output for $mod ($fn)";
+				}
+			}
+		}
+		if ($RELEASE && $rel_csum{$fn}) {
+			if ($rel_csum{$fn} eq $csum) {
+				$ver = $RELEASE;
+			}
+		}
+		do {
+			no strict 'refs';
+			no warnings 'once';
+			${$mod.'::VERSION_NAME'} = $ver;
+		};
 	},
 );
+
 &Janus::command_add({
 	cmd => 'help',
-	help => 'the text you are reading now',
+	help => 'The text you are reading now',
 	code => sub {
 		my($nick,$arg) = @_;
-		if ($arg) {
+		if ($arg && $arg =~ /(\S+)/ && exists $commands{lc $1}) {
+			$arg = lc $1;
 			my $det = $commands{$arg}{details};
 			if (ref $det) {
 				&Janus::jmsg($nick, @$det);
@@ -598,10 +636,12 @@ sub delink {
 			}
 		} else {
 			my @cmds;
+			my $all = $nick->has_mode('oper') || ($arg && lc $arg eq 'all');
 			my $synlen = 0;
 			for my $cmd (sort keys %commands) {
 				my $h = $commands{$cmd}{help};
 				next unless $h;
+				next if $commands{$cmd}{acl} && !$all;
 				push @cmds, $cmd;
 				$synlen = length $cmd if length $cmd > $synlen;
 			}
@@ -610,14 +650,37 @@ sub delink {
 				sprintf " \002\%-${synlen}s\002  \%s", uc $_, $commands{$_}{help};
 			} @cmds);
 		}
+	}
+}, {
+	cmd => 'unk',
+	code => sub {
+		&Janus::jmsg($_[0], 'Unknown command. Use "help" to see available commands');
 	},
 });
 
+_hook(module => READ => 'Janus');
+
 $modules{Janus} = 2;
+
+unless ($server) {
+	my $one = 1;
+	my $two = 2;
+	$server = bless \$one;
+	$global = bless \$two;
+	unshift @INC, $server;
+}
+
+sub gid {
+	my $inst = shift;
+	$$inst == 1 ? $name : '*';
+}
 
 # we load these modules down here because their loading uses
 # some of the subs defined above
-use Connection;
-use EventDump;
+eval q[
+	use Connection;
+	use EventDump;
+	1;
+] or die $@;
 
 1;

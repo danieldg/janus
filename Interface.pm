@@ -1,6 +1,5 @@
-# Copyright (C) 2007 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+# Copyright (C) 2007-2008 Daniel De Graaf
+# Released under the GNU Affero General Public License v3
 package Interface;
 use Janus;
 use Network;
@@ -10,53 +9,109 @@ use strict;
 use warnings;
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-my $inick = $Conffile::netconf{janus}{janus} || 'janus';
+our $janus; # Janus interface bot: this module handles interactions with this bot
 
-if ($Janus::interface) {
-	# we are being live-reloaded as a module. Don't recreate
-	# the network or nick, just reload commands
-	print "Reloading Interface\n";
-	if ($inick ne $Janus::interface->homenick()) {
-		&Janus::insert_full(+{
-			type => 'NICK',
-			dst => $Janus::interface,
-			nick => $inick,
-			nickts => 100000000,
-		});
+sub pmsg {
+	my $act = shift;
+	my $src = $act->{src};
+	my $dst = $act->{dst};
+	my $type = $act->{msgtype};
+	return 1 unless ref $src && ref $dst;
+
+	if ($type eq '312') {
+		# server whois reply message
+		my $nick = $act->{msg}->[0];
+		if ($src->isa('Network') && ref $nick && $nick->isa('Nick')) {
+			return undef if $src->jlink();
+			&Janus::append(+{
+				type => 'MSG',
+				msgtype => 640,
+				src => $src,
+				dst => $dst,
+				msg => [
+					$nick,
+					'is connected through a Janus link. Home network: '.$src->netname().
+					'; Home nick: '.$nick->homenick(),
+				],
+			});
+		} else {
+			warn "Incorrect /whois reply: $src $nick";
+		}
+		return undef;
+	} elsif ($type eq '313') {
+		# remote oper - change message type
+		$act->{msgtype} = 641;
+		$act->{msg}->[-1] .= ' (on remote network)';
+		return 0;
 	}
-} else {
-	my $int = Interface->new(
-		id => 'janus',
-	);
-	$int->_set_netname('Janus');
-	&Janus::insert_full(+{
-		type => 'NETLINK',
-		net => $int,
-		sendto => [],
-	});
+	return 1 if $type eq '310'; # available for help
 
-	$Janus::interface = Nick->new(
-		net => $int,
-		nick => $inick,
-		ts => 100000000,
-		info => {
-			ident => 'janus',
-			host => 'services.janus',
-			vhost => 'services',
-			name => 'Janus Control Interface',
-			opertype => 'Janus Service',
-			_is_janus => 1,
-		},
-		mode => { oper => 1, service => 1, bot => 1 },
-	);
-	&Janus::insert_full(+{
-		type => 'NEWNICK',
-		dst => $Janus::interface,
-	});
+	return undef unless $src->isa('Nick') && $dst->isa('Nick');
+	if ($dst->info('_is_janus')) {
+		return 1 unless $act->{msgtype} eq 'PRIVMSG' && $src;
+		local $_ = $act->{msg};
+		if (s/^@(\S+)\s*//) {
+			my $rto = $Janus::ijnets{$1};
+			if ($rto) {
+				$act->{sendto} = $rto;
+				return 0;
+			} elsif ($1 ne $Janus::name) {
+				&Janus::jmsg($src, "Cannot find remote network $1");
+				return 1;
+			}
+		}
+		my $cmd = s/^\s*(\S+)\s*// ? lc $1 : 'unk';
+		&Janus::in_command($cmd, $src, $_);
+		return 1;
+	}
+
+	unless ($src->is_on($dst->homenet())) {
+		&Janus::jmsg($src, 'You must join a shared channel to speak with remote users') if $act->{msgtype} eq 'PRIVMSG';
+		return 1;
+	}
+	undef;
 }
 
 &Janus::hook_add(
-	MSG => parse => sub {
+	'INIT' => act => sub {
+		my $int = Interface->new(
+			id => 'janus',
+			gid => 'janus',
+		);
+		$int->_set_netname('Janus');
+		&Janus::append(+{
+			type => 'NETLINK',
+			net => $int,
+		});
+
+		my $inick = $Conffile::netconf{set}{janus} || 'janus';
+
+		$janus = Nick->new(
+			net => $int,
+			nick => $inick,
+			ts => ($main::uptime - 1000000000),
+			info => {
+				ident => 'janus',
+				host => 'services.janus',
+				vhost => 'services',
+				name => 'Janus Control Interface',
+				opertype => 'Janus Service',
+				_is_janus => 1,
+			},
+			mode => { oper => 1, service => 1, bot => 1 },
+		);
+		&Janus::append(+{
+			type => 'NEWNICK',
+			dst => $janus,
+		});
+	}, TERMINATE => act => sub {
+		&Janus::append(+{
+			type => 'NETSPLIT',
+			net => $janus->homenet(),
+			msg => 'Terminated',
+		});
+		$janus = undef;
+	}, MSG => parse => sub {
 		my $act = shift;
 		my $src = $act->{src};
 		my $dst = $act->{dst};
@@ -74,7 +129,7 @@ if ($Janus::interface) {
 		undef;
 	}, KILL => act => sub {
 		my $act = shift;
-		return unless $act->{dst} eq $Janus::interface;
+		return unless $act->{dst} eq $janus;
 		&Janus::append(+{
 			type => 'CONNECT',
 			dst => $act->{dst},
@@ -82,7 +137,7 @@ if ($Janus::interface) {
 		});
 	}, CHATOPS => jparse => sub {
 		my $act = shift;
-		$act->{msg} = '[remote] '.$act->{msg} if $act->{src} eq $Janus::interface;
+		$act->{msg} = '[remote] '.$act->{msg} if $act->{src} eq $janus;
 		undef;
 	},
 );
@@ -93,10 +148,7 @@ sub request_newnick { $_[2] }
 sub request_cnick { $_[2] }
 sub release_nick { }
 sub is_synced { 0 }
-sub add_req { }
-sub del_req { }
-sub is_req { 'invalid' }
-sub all_nicks { $Janus::interface }
+sub all_nicks { $janus }
 sub all_chans { () }
 
 1;

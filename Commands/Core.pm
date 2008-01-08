@@ -1,6 +1,5 @@
-# Copyright (C) 2007 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+# Copyright (C) 2007-2008 Daniel De Graaf
+# Released under the GNU Affero General Public License v3
 package Commands::Core;
 use strict;
 use warnings;
@@ -18,9 +17,8 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			'across both networks. If configured to allow it, users can also share their own',
 			'channels across any linked network.',
 			'-------------------------',
-			'The source code can be found at http://danieldegraaf.afraid.org/janus/trunk/',
-			'This file was checked out from $URL$',
-			'If you make any modifications to this software, you must change these URLs',
+			'The source code can be found at http://sourceforge.net/projects/janus-irc/',
+			'If you make any modifications to this software, you must change this URL',
 			'to one which allows downloading the version of the code you are running.'
 		);
 	}
@@ -28,11 +26,12 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 	cmd => 'modules',
 	help => 'Version information on all modules loaded by janus',
 	details => [
-		"Syntax: \002MODULES\002 [all|janus|other]",
+		"Syntax: \002MODULES\002 [all|janus|other] [columns]",
 	],
 	code => sub {
 		my($nick,$parm) = @_;
 		$parm ||= 'a';
+		my $w = $parm =~ /(\d)/ ? $1 : 3;
 		my @mods;
 		if ($parm =~ /^j/) {
 			@mods = sort 'main', grep ref $main::INC{$_}, keys %main::INC;
@@ -53,33 +52,24 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			$m2 = length $v if $m2 < length $v;
 			push @mvs, [ $_, $v ];
 		}
-		my $c = 1 + $#mvs / 3;
+		my $c = 1 + $#mvs / $w;
 		my $ex = ' %-'.$m1.'s %'.$m2.'s';
 		for my $i (0..($c-1)) {
-			&Janus::jmsg($nick, join '', map $_ ? sprintf $ex, @$_ : '', map $mvs[$c*$_ + $i], 0 .. 2);
+			&Janus::jmsg($nick, join '', map $_ ? sprintf $ex, @$_ : '', 
+				map $mvs[$c*$_ + $i], 0 .. ($w-1));
 		}
-		# TODO this would look better if it were read down columns, not across
 	}
 }, {
-	cmd => 'renick',
-	# hidden command, no help
-	code => sub {
-		my($nick,$name) = @_;
-		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
-		$Conffile::netconf{janus}{janus} = $name;
-		&Janus::reload('Interface');
-	},
-}, {
 	cmd => 'reload',
-	help => "Load or reload a module, live. \002EXPERIMENTAL\002.",
+	help => "Load or reload a module, live.",
 	details => [
 		"Syntax: \002RELOAD\002 module",
 		"\002WARNING\002: Reloading core modules may introduce bugs because of persistance",
-		"of old code by the perl interpreter"
+		"of old code by the perl interpreter."
 	],
+	acl => 1,
 	code => sub {
 		my($nick,$name) = @_;
-		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		return &Janus::jmsg($nick, "Invalid module name") unless $name =~ /^([0-9_A-Za-z:]+)$/;
 		my $n = $1;
 		if (&Janus::reload($n)) {
@@ -93,9 +83,9 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 }, {
 	cmd => 'unload',
 	help => "Unload the hooks registered by a module",
+	acl => 1,
 	code => sub {
 		my($nick,$name) = @_;
-		return &Janus::jmsg($nick, "You must be an IRC operator to use this command") unless $nick->has_mode('oper');
 		if ($name !~ /::/ || $name eq __PACKAGE__) {
 			&Janus::jmsg($nick, "You cannot unload the core module $name");
 			return;

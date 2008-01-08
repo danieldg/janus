@@ -1,22 +1,25 @@
+# Copyright (C) 2007-2008 Daniel De Graaf
+# Released under the GNU Affero General Public License v3
 package Connection;
-# Copyright (C) 2007 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
 use strict;
 use warnings;
 use integer;
 
 use IO::Select;
 use IO::Socket::SSL;
+use Scalar::Util qw(tainted);
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 our %queues;
 
+my $tblank = ``;
+print "WARNING: not running in taint mode\n" unless tainted($tblank);
+
 sub add {
 	my($sock, $net) = @_;
-	my $q = [ $sock, '', '', $net, 0, 1 ];
+	my $q = [ $sock, $tblank, '', $net, 0, 1 ];
 	if ($net->isa('Listener')) {
-		@$q[1,2,4,5] = (undef, undef, 1, 0);
+		@$q[1,2,4,5] = ($tblank, undef, 1, 0);
 	}
 	$queues{$$net} = $q;
 }
@@ -40,11 +43,11 @@ sub readable {
 		return unless $sock;
 		$net = $net->init_pending($sock, $peer);
 		return unless $net;
-		$queues{$$net} = [ $sock, '', '', $net, 1, 0 ];
+		$queues{$$net} = [ $sock, $tblank, '', $net, 1, 0 ];
 		return;
 	}
 
-	my ($sock, $recvq, $sendq) = @$l;
+	my ($sock, $recvq) = @$l;
 	my $len = $sock->sysread($recvq, 8192, length $recvq);
 	if ($len) {
 		while ($recvq =~ /\n/) {
@@ -61,8 +64,8 @@ sub readable {
 			if ($sock->errstr() eq SSL_WANT_READ) {
 				# we were trying to read, and want another read: act just like reading
 				# half of a line, i.e. return and wait for the next incoming blob
-				return unless $$l[4]++ > 10; 
-				# However, if we have had more than 10 errors, assume something else is wrong
+				return unless $$l[4]++ > 30;
+				# However, if we have had more than 30 errors, assume something else is wrong
 				# and bail out.
 				print "Bailing out!\n";
 			} elsif ($sock->errstr() eq SSL_WANT_WRITE) {
@@ -113,7 +116,10 @@ sub run_sendq {
 	my $l = $_[0];
 	my ($sendq, $net) = @$l[2,3];
 	return unless defined $net;
-	$sendq .= $net->dump_sendq();
+	eval {
+		$sendq .= $net->dump_sendq();
+		1;
+	} or &Janus::err_jmsg(undef, "dump_sendq on #$$net died: $@");
 	$$l[2] = $sendq;
 	return if $$l[5] || !$sendq;
 	# no point in trying to write if we are already waiting for writes to unblock
@@ -148,10 +154,10 @@ sub _cleanup {
 &Janus::hook_add(
 	NETSPLIT => act => \&_cleanup,
 	JNETSPLIT => act => \&_cleanup,
+	TERMINATE => cleanup => sub {
+		print "Queues remain at termination: ".join(' ', keys %queues)."\n" if %queues;
+		%queues = ();
+	},
 );
-
-sub abort {
-	%queues = ();
-}
 
 1;

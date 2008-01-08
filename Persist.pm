@@ -1,9 +1,11 @@
+# Copyright (C) 2007 Daniel De Graaf
+# Released under the GNU Affero General Public License v3
 package Persist;
 use strict;
 use warnings;
 use Attribute::Handlers;
 use Persist::Field;
-use Data::Dumper;
+
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 our %vars;
@@ -26,12 +28,6 @@ sub PersistAs : ATTR(ARRAY,BEGIN) {
 	my $src = $vars{$pk}{$name} || [];
 	$vars{$pk}{$name} = $src;
 	tie @$var, 'Persist::Field', $src;
-}
-
-sub list_all_refs {
-	local $Data::Dumper::Purity = 0;
-	local $Data::Dumper::Terse = 1;
-	print Data::Dumper::Dumper(dump_all_refs());
 }
 
 sub dump_all_refs {

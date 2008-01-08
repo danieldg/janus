@@ -1,4 +1,4 @@
-# Copyright (C) 2007 Daniel De Graaf
+# Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Server::ModularNetwork;
@@ -21,7 +21,7 @@ my @umode2txt :Persist(umode2txt);
 sub module_add {
 	my($net,$name) = @_;
 	my $mod = $net->find_module($name) or do {
-		$net->send($net->cmd2($Janus::interface, OPERNOTICE => 
+		$net->send($net->cmd2($Interface::janus, OPERNOTICE => 
 			"Unknown module $name, janus may become desynced if it is used"));
 		# TODO inspircd specific
 		return;
@@ -72,7 +72,7 @@ sub module_add {
 sub module_remove {
 	my($net,$name) = @_;
 	my $mod = delete $modules[$$net]{$name} or do {
-		$net->send($net->cmd2($Janus::interface, OPERNOTICE => "Could not unload moule $name: not loaded"));
+		$net->send($net->cmd2($Interface::janus, OPERNOTICE => "Could not unload moule $name: not loaded"));
 		return;
 	};
 	if ($mod->{cmode}) {
@@ -165,7 +165,7 @@ sub from_irc {
 	$cmd = $fromirc[$$net]{$cmd} || $cmd;
 	$cmd = $fromirc[$$net]{$cmd} || $cmd if $cmd && !ref $cmd; # allow one layer of indirection
 	unless ($cmd && ref $cmd) {
-		$net->send($net->cmd2($Janus::interface, OPERNOTICE => "Unknown command $cmd, janus is possibly desynced"));
+		$net->send($net->cmd2($Interface::janus, OPERNOTICE => "Unknown command $cmd, janus is possibly desynced"));
 		print "Unknown command '$cmd'\n";
 		return ();
 	}
@@ -178,9 +178,11 @@ sub to_irc {
 	for my $act (@_) {
 		if (ref $act && ref $act eq 'HASH') {
 			my $type = $act->{type};
-			next unless $act_hooks[$$net]{$type};
-			for my $hook (values %{$act_hooks[$$net]{$type}}) {
-				push @sendq, $hook->($net,$act);
+			for my $ttype ("$type-", $type, "$type+") {
+				next unless $act_hooks[$$net]{$ttype};
+				for my $hook (values %{$act_hooks[$$net]{$ttype}}) {
+					push @sendq, $hook->($net,$act);
+				}
 			}
 		} else {
 			push @sendq, $act;

@@ -1,6 +1,5 @@
-# Copyright (C) 2007 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+# Copyright (C) 2007-2008 Daniel De Graaf
+# Released under the GNU Affero General Public License v3
 package Server::Unreal4;
 use Nick;
 use Modes;
@@ -33,7 +32,7 @@ sub _init {
 
 sub ignore { () }
 
-sub nicklen { 
+sub nicklen {
 	my $net = shift;
 	($capabs[$$net]{NICKMAX} || 32) - 1;
 }
@@ -65,12 +64,6 @@ sub intro {
 	# forge the module list. However, we can set up the other server introductions
 	# as they will be sent after auth is done
 	push @out, $net->ncmd(VERSION => 'Janus Hub');
-	for my $id (keys %Janus::nets) {
-		my $new = $Janus::nets{$id};
-		next if $new->isa('Interface') || $new eq $net;
-		push @out, $net->ncmd(SERVER => $new->jname(), '*', 1, $new->netname());
-		push @out, $net->cmd2($new->jname(), VERSION => 'Remote Janus Server: '.ref $new);
-	}
 	$net->send(@out);
 }
 
@@ -144,7 +137,7 @@ sub _connect_ifo {
 			$mode .= $um;
 		}
 	}
-	
+
 	my $srv = $nick->homenet()->jname();
 	$srv = $net->cparam('linkname') if $srv eq 'janus.janus';
 
@@ -160,7 +153,7 @@ sub _connect_ifo {
 		push @out, $net->cmd2($nick, OPERTYPE => $type);
 	}
 	push @out, $net->cmd2($nick, AWAY => $nick->info('away')) if $nick->info('away');
-	
+
 	@out;
 }
 
@@ -212,10 +205,10 @@ sub process_capabs {
 
 # IRC Parser
 # Arguments:
-# 	$_[0] = Network
-# 	$_[1] = source (not including leading ':') or 'undef'
-# 	$_[2] = command (for multipurpose subs)
-# 	3 ... = arguments to the irc line; last element has the leading ':' stripped
+#	$_[0] = Network
+#	$_[1] = source (not including leading ':') or 'undef'
+#	$_[2] = command (for multipurpose subs)
+#	3 ... = arguments to the irc line; last element has the leading ':' stripped
 # Return:
 #  list of hashrefs containing the Action(s) represented (can be empty)
 
@@ -313,7 +306,7 @@ $moddef{CORE} = {
 		w => 'wallops',
   },
   cmds => {
-  	NICK => sub {
+	NICK => sub {
 		my $net = shift;
 		if (@_ < 10) {
 			my $nick = $net->mynick($_[0]) or return ();
@@ -412,7 +405,7 @@ $moddef{CORE} = {
 			type => 'QUIT',
 			dst => $nick,
 			msg => $_[-1],
-		};	
+		};
 	}, KILL => sub {
 		my $net = shift;
 		my $src = $net->item($_[0]);
@@ -581,7 +574,6 @@ $moddef{CORE} = {
 			return +{
 				type => 'BURST',
 				net => $net,
-				sendto => [],
 			};
 		} else {
 			# recall parent
@@ -593,7 +585,7 @@ $moddef{CORE} = {
 		my $net = shift;
 		my $srv = $_[2];
 		my $splitfrom = $servers[$$net]{lc $srv};
-		
+
 		my %sgone = (lc $srv => 1);
 		my $k = 0;
 		while ($k != scalar keys %sgone) {
@@ -682,7 +674,7 @@ $moddef{CORE} = {
 			expire => ($_[6] ? ($_[5] + $_[6]) : 0),
 			reason => $_[7],
 		};
-	},	
+	},
 	GLINE => sub {
 		my $net = shift;
 		my $type = substr $_[1],0,1;
@@ -747,10 +739,10 @@ $moddef{CORE} = {
 		}
 	},
 	SVSMODE => 'MODE',
+	SVSHOLD => \&ignore,
 	REHASH => sub {
 		return +{
 			type => 'REHASH',
-			sendto => [],
 		};
 	},
 	MODULES => \&ignore,
@@ -759,7 +751,6 @@ $moddef{CORE} = {
 		return (+{
 			type => 'LINKED',
 			net => $net,
-			sendto => [ values %Janus::nets ],
 		}, +{
 			type => 'RAW',
 			dst => $net,
@@ -801,6 +792,8 @@ $moddef{CORE} = {
 	OPERNOTICE => \&ignore,
 	MODENOTICE => \&ignore,
 	SNONOTICE => \&ignore,
+	WALLOPS => \&ignore,
+	RCONNECT => \&ignore,
 	METADATA => sub {
 		my $net = shift;
 		my $key = $_[3];
@@ -844,11 +837,11 @@ $moddef{CORE} = {
 		my @msg = split /\s+/, $rmsg;
 		push @msg, $txt if defined $txt;
 		unshift @msg, undef unless $msg[0] =~ s/^://;
-		
+
 		if ($dst->info('_is_janus')) {
 			# a PUSH to the janus nick. Don't send any events, for one.
 			# However, it might be something we asked about, like the MODULES output
-			if (@msg == 4 && $msg[1] eq '900' && $msg[0] && $msg[0] eq $net->cparam('linkto')) {
+			if (@msg == 4 && $msg[1] eq '900' && $msg[0] && $msg[0] eq $net->cparam('server')) {
 				if ($msg[3] =~ /^(\S+)$/) {
 					$net->module_add($1);
 				} elsif ($msg[3] =~ /^0x\S+ \S+ (\S+) \(.*\)$/) {
@@ -879,8 +872,16 @@ $moddef{CORE} = {
 	NETLINK => sub {
 		my($net,$act) = @_;
 		my $new = $act->{net};
-		return () if $net eq $new;
-		return () if $net->isa('Interface');
+		if ($net eq $new) {
+			my @out;
+			for my $id (keys %Janus::nets) {
+				my $new = $Janus::nets{$id};
+				next if $new->isa('Interface') || $new eq $net;
+				push @out, $net->ncmd(SERVER => $new->jname(), '*', 1, $new->netname());
+				push @out, $net->cmd2($new->jname(), VERSION => 'Remote Janus Server: '.ref $new);
+			}
+			return @out;
+		}
 		return (
 			$net->ncmd(SERVER => $new->jname(), '*', 1, $new->netname()),
 			$net->ncmd(OPERNOTICE => "Janus network ".$new->name().' ('.$new->netname().") is now linked"),
@@ -899,7 +900,7 @@ $moddef{CORE} = {
 		my $nick = $act->{dst};
 		return () if $act->{net} ne $net;
 		my @out = $net->_connect_ifo($nick);
-#		push @out, $net->cmd2($nick, MODULES => $net->cparam('linkto')) if $nick->info('_is_janus');
+#		push @out, $net->cmd2($nick, MODULES => $net->cparam('server')) if $nick->info('_is_janus');
 		@out;
 	}, RECONNECT => sub {
 		my($net,$act) = @_;
@@ -973,7 +974,7 @@ $moddef{CORE} = {
 		my($net,$act) = @_;
 		my $src = $act->{src} || $net;
 		my $dst = $act->{dst};
-		my @modes = &Modes::to_multi($net, $act->{mode}, $act->{args}, $act->{dirs}, 
+		my @modes = &Modes::to_multi($net, $act->{mode}, $act->{args}, $act->{dirs},
 			$capabs[$$net]{MAXMODES});
 		my @out;
 		for my $line (@modes) {
@@ -986,7 +987,7 @@ $moddef{CORE} = {
 			return $net->ncmd(FTOPIC => $act->{dst}, $act->{topicts}, $act->{topicset}, $act->{topic});
 		}
 		my $src = $act->{src};
-		$src = $Janus::interface unless $src && $src->isa('Nick') && $src->is_on($net);
+		$src = $Interface::janus unless $src && $src->isa('Nick') && $src->is_on($net);
 		return $net->cmd2($src, TOPIC => $act->{dst}, $act->{topic});
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
@@ -1016,10 +1017,10 @@ $moddef{CORE} = {
 			if ($act->{ts} == $act->{oldts}) {
 				return $net->ncmd(REMSTATUS => $chan);
 			} else {
-				# XXX this is needed sometimes, but not all the time
+				# XXX this is needed sometimes, but not all the time. Do we really need the part?
 				return (
-					$net->ncmd(FJOIN => $chan, $act->{ts}, ','.$net->_out($Janus::interface)),
-					$net->cmd2($Janus::interface, PART => $chan, 'Timestamp reset'),
+					$net->cmd2($Interface::janus, PART => $chan, 'Timestamp reset'),
+					$net->ncmd(FJOIN => $chan, $act->{ts}, ','.$net->_out($Interface::janus)),
 				);
 			}
 		} else {
@@ -1054,21 +1055,21 @@ $moddef{CORE} = {
 			my $src = $act->{src};
 			$src = $src->homenick() if $src && $src->isa('Nick');
 			$msg = $msg =~ /^\001ACTION (.*?)\001?$/ ? '* '.$net->_out($src).' '.$msg : '<'.$net->_out($src).'> '.$msg;
-			$net->cmd2($Janus::interface, $type, $act->{dst}, $msg);
+			$net->cmd2($Interface::janus, $type, $act->{dst}, $msg);
 		}
 	}, WHOIS => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, IDLE => $act->{dst});
 	}, PING => sub {
 		my($net,$act) = @_;
-		$net->ncmd(PING => $net->cparam('linkto'));
+		$net->ncmd(PING => $net->cparam('server'));
 	}, LINKREQ => sub {
 		my($net,$act) = @_;
 		my $src = $act->{net};
 		$net->ncmd(OPERNOTICE => $src->netname()." would like to link $act->{slink} to $act->{dlink}");
 	}, RAW => sub {
 		my($net,$act) = @_;
-		$act->{msg};	
+		$act->{msg};
 	}, CHATOPS => sub {
 		my($net,$act) = @_;
 		return () if $net->get_module('m_globops.so');

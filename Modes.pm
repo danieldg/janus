@@ -1,6 +1,5 @@
-# Copyright (C) 2007 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+# Copyright (C) 2007-2008 Daniel De Graaf
+# Released under the GNU Affero General Public License v3
 package Modes;
 use Persist;
 use strict;
@@ -33,7 +32,7 @@ sub from_irc {
 			next;
 		}
 		my $txt = $net->cmode2txt($_) || '?';
-		my $arg = $pm eq '+';
+		my $arg;
 		my $type = substr $txt,0,1;
 		if ($type eq 'n') {
 			$arg = $net->nick(shift);
@@ -57,6 +56,7 @@ sub from_irc {
 				next;
 			}
 		} elsif ($type eq 'r') {
+			$arg = 1;
 		} else {
 			warn "Invalid mode text $txt for mode $_ in network $net";
 			next;
@@ -205,6 +205,50 @@ sub delta {
 		}
 	}
 	(\@modes, \@args, \@dirs);
+}
+
+=item Modes::merge(dest, src1, src2)
+
+Merges the modes of the two channels src1 and src2 into the channel dest,
+which is assumed to have no modes currently set.
+
+=cut
+
+sub merge {
+	my($c0, $c1, $c2) = @_;
+	my %allmodes;
+	my %m1 = %{$c1->all_modes()};
+	my %m2 = %{$c2->all_modes()};
+	my $mset = $c0->all_modes();
+
+	$allmodes{$_}++ for keys %m1;
+	$allmodes{$_}++ for keys %m2;
+	for my $txt (keys %allmodes) {
+		if ($txt =~ /^l/) {
+			my %m;
+			if (exists $m1{$txt}) {
+				$m{$_} = 1 for @{$m1{$txt}};
+			}
+			if (exists $m2{$txt}) {
+				$m{$_} = 1 for @{$m2{$txt}};
+			}
+			$mset->{$txt} = [ keys %m ];
+		} else {
+			if (defined $m1{$txt}) {
+				if (defined $m2{$txt} && $m1{$txt} ne $m2{$txt}) {
+					print "Merging $txt: using $m1{$txt} over $m2{$txt}\n";
+				} elsif (defined $m2{$txt}) {
+					print "Merging $txt: using $m1{$txt} by agreement\n";
+				} else {
+					print "Merging $txt: using m1=$m1{$txt} by default\n";
+				}
+				$mset->{$txt} = $m1{$txt};
+			} else {
+				print "Merging $txt: using m2=$m2{$txt} by default\n";
+				$mset->{$txt} = $m2{$txt};
+			}
+		}
+	}
 }
 
 =back

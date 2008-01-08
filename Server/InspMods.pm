@@ -1,4 +1,4 @@
-# Copyright (C) 2007 Daniel De Graaf
+# Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Server::InspMods;
@@ -90,7 +90,7 @@ our %modules = (
 			NICKINFO => sub {
 				my($net,$act) = @_;
 				if ($act->{item} eq 'ident') {
-					return $net->cmd2($Janus::interface, CHGIDENT => $act->{dst}, $act->{value});
+					return $net->cmd2($Interface::janus, CHGIDENT => $act->{dst}, $act->{value});
 				}
 				();
 			},
@@ -185,6 +185,22 @@ our %modules = (
 	'm_inviteexception.so' => {
 		cmode => { I => 'l_invex' }
 	},
+	'm_janus.so' => {
+		acts => {
+			'CONNECT+' => sub {
+				my($net,$act) = @_;
+				my $nick = $act->{dst};
+				return $net->ncmd(METADATA => $nick, 'jinfo', 'Home network: '.
+					$nick->homenet()->netname().'; Home nick: '.$nick->homenick());
+			},
+			'NICK+' => sub {
+				my($net,$act) = @_;
+				my $nick = $act->{dst};
+				return $net->ncmd(METADATA => $nick, 'jinfo', 'Home network: '.
+					$nick->homenet()->netname().'; Home nick: '.$act->{nick});
+			},
+		},
+	},
 	'm_joinflood.so' => {
 		cmode => { j => 's_joinlimit' }
 	},
@@ -223,7 +239,7 @@ our %modules = (
 				}
 				# we need to unlock and change nicks back
 				my @out;
-				push @out, $net->cmd2($Janus::interface, NICKUNLOCK => $_[3]);
+				push @out, $net->cmd2($Interface::janus, NICKUNLOCK => $_[3]);
 				push @out, $net->cmd2($_[3], NICK => $_[2]) unless $_[2] eq $_[3];
 				$net->send(@out);
 				();
@@ -395,7 +411,17 @@ our %modules = (
 	'm_setidle.so' => { },
 	'm_sha256.so' => { },
 	'm_showwhois.so' => {
-		umode => { W => 'whois_notice' }
+		umode => { W => 'whois_notice' },
+		acts => {
+			WHOIS => sub {
+				my($net,$act) = @_;
+				print "Hit Code\n";
+				my($src,$dst) = @$act{'src','dst'};
+				return () unless $dst->isa('Nick') && $dst->has_mode('whois_notice');
+				$net->ncmd(PUSH => $dst, $net->cmd2($src->homenet()->jname(), NOTICE =>
+					$dst, '*** '.$src->str($net).' did a /whois on you.'));
+			}
+		},
 	},
 	'm_silence.so' => { cmds => { SILENCE => \&ignore } },
 	'm_silence_ext.so' => { cmds => { SILENCE => \&ignore } },

@@ -1,8 +1,8 @@
-#!/usr/bin/perl -w
-# Copyright (C) 2007 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+#!/usr/bin/perl
+# Copyright (C) 2007-2008 Daniel De Graaf
+# Released under the GNU Affero General Public License v3
 use strict;
+use warnings;
 BEGIN {
 	# Support for taint mode: we don't acually need most of these protections
 	# as the person running janus.pl is assumed to have shell access anyway.
@@ -20,8 +20,10 @@ use Janus;
 use POSIX 'setsid';
 
 our $VERSION = '(J)v'.join '', '$Rev$' =~ /(\d+)/;
+our $uptime = time;
 
 my $args = @ARGV && $ARGV[0] =~ /^-/ ? shift : '';
+
 unless ($args =~ /d/) {
 	my $log = 'log/'.time;
 	umask 022;
@@ -44,23 +46,24 @@ unless ($args =~ /d/) {
 $| = 1;
 $SIG{PIPE} = 'IGNORE';
 
-&Janus::load('Bridge') or die;
-&Janus::load('Conffile', shift || 'janus.conf') or die;
-&Janus::load($_) or die for qw(Interface Actions Commands::Core);
+&Janus::load($_) or die for qw(Bridge Conffile Interface Actions Commands::Core);
+
+&Janus::insert_full(+{ type => 'INIT', args => [ $args, @ARGV ] });
+&Janus::insert_full(+{ type => 'RUN' });
 
 eval { 
 	1 while &Connection::timestep();
 	1;
 } || do {
 	print "Aborting, error=$@\n";
+	my %all;
 	for my $net (values %Janus::nets) {
 		$net = $net->jlink() if $net->jlink();
-		&Janus::delink($net, 'aborting');
+		$all{$net} = $net;
 	}
-	&Connection::abort();
+	&Janus::delink($_, 'aborting') for values %all;
 };
 
-&Janus::delink($Janus::interface->homenet(), 'Goodbye!');
-$Janus::interface = undef;
+&Janus::insert_full(+{ type => 'TERMINATE' });
+
 print "All networks disconnected. Goodbye!\n";
-&Persist::list_all_refs();

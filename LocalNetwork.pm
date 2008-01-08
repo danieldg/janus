@@ -1,6 +1,5 @@
-# Copyright (C) 2007 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+# Copyright (C) 2007-2008 Daniel De Graaf
+# Released under the GNU Affero General Public License v3
 package LocalNetwork;
 use Network;
 use Channel;
@@ -12,8 +11,6 @@ use warnings;
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 my @cparms :Persist(cparms); # currently active parameters
-my @lreq   :Persist(lreq) :Get(all_reqs);
-my @synced :Persist(synced) :Get(is_synced);
 my @ponged :Persist(ponged);
 our %chans;
 
@@ -96,7 +93,6 @@ sub chan {
 			name => $name,
 			ts => $new,
 		);
-		print "Creating channel $name - luid=$$chan\n";
 		$chans{lc $name} = $chan;
 	}
 	$chans{lc $name};
@@ -115,48 +111,5 @@ sub replace_chan {
 sub all_chans {
 	values %chans;
 }
-
-sub add_req {
-	my($net, $lchan, $onet, $ochan) = @_;
-	$lreq[$$net]{$lchan}{ref $onet ? $onet->name() : $onet} = $ochan;
-}
-
-sub is_req {
-	my($net, $lchan, $onet) = @_;
-	$lreq[$$net]{$lchan}{$onet->name()};
-}
-
-sub del_req {
-	my($net, $lchan, $onet) = @_;
-	delete $lreq[$$net]{$lchan}{$onet->name()};
-}
-
-&Janus::hook_add(
- 	LINKED => check => sub {
-		my $act = shift;
-		my $net = $act->{net};
-		$synced[$$net] = 1;
-		undef;
-	}, NETLINK => act => sub {
-		my $act = shift;
-		my $rnet = $act->{net};
-		return unless $rnet->isa('RemoteNetwork');
-		my $id = $rnet->name();
-		for my $net (values %Janus::nets) {
-			next unless $net->isa('LocalNetwork');
-			for my $ch (keys %{$lreq[$$net]}) {
-				my $req = $lreq[$$net]{$ch}{$id} or next;
-				&Janus::append(+{
-					type => 'LINKREQ',
-					net => $net,
-					dst => $rnet,
-					slink => $ch,
-					dlink => $req,
-					linkfile => 1,
-				});
-			}
-		}
-	},
-);
 
 1;

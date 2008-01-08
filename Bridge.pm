@@ -24,7 +24,7 @@ use Modes;
 		delete $act->{except};
 	}, XLINE => parse => sub {
 		my $act = shift;
-		$act->{sendto} = [ values %Janus::nets ];
+		$act->{sendto} = $Janus::global;
 		0;
 	}, BURST => act => sub {
 		my $act = shift;

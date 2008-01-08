@@ -1,6 +1,5 @@
-# Copyright (C) 2007 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+# Copyright (C) 2007-2008 Daniel De Graaf
+# Released under the GNU Affero General Public License v3
 package EventDump;
 use strict;
 use warnings;
@@ -58,6 +57,8 @@ sub ijstr {
 		return 's:'.$itm->gid();
 	} elsif ($itm->isa('Server::InterJanus')) {
 		return 'j:'.$itm->id();
+	} elsif ($itm->isa('Janus')) {
+		return 'j:'.$itm->gid();
 	}
 	warn "Unknown object $itm";
 	return '""';
@@ -89,7 +90,7 @@ my %to_ij = (
 	NETLINK => sub {
 		my($ij, $act) = @_;
 		return '' if !$act->{net} || $act->{net}->isa('Interface');
-		my $out = send_hdr(@_, qw/sendto/) . ' net=<s';
+		my $out = send_hdr(@_) . ' net=<s';
 		$out .= $act->{net}->to_ij($ij);
 		$out . '>>';
 	}, LSYNC => sub {
@@ -111,28 +112,29 @@ my %to_ij = (
 		send_hdr(@_,qw/dst nick/) . '>';
 	},
 	InterJanus => \&ssend,
+	CHATOPS => \&ssend,
+	DELINK => \&ssend,
+	JLINKED => \&ssend,
 	JNETLINK => \&ssend,
 	JNETSPLIT => \&ssend,
-	QUIT => \&ssend,
-	KILL => \&ssend,
-	NICKINFO => \&ssend,
-	UMODE => \&ssend,
-	MODE => \&ssend,
-	TIMESYNC => \&ssend,
 	JOIN => \&ssend,
-	PART => \&ssend,
 	KICK => \&ssend,
-	TOPIC => \&ssend,
-	MSG => \&ssend,
-	WHOIS => \&ssend,
-	CHATOPS => \&ssend,
-	LINKREQ => \&ssend,
-	DELINK => \&ssend,
+	KILL => \&ssend,
 	LINKED => \&ssend,
+	LINKREQ => \&ssend,
+	MODE => \&ssend,
+	MSG => \&ssend,
 	NETSPLIT => \&ssend,
-	TSREPORT => \&ssend,
+	NICKINFO => \&ssend,
+	PART => \&ssend,
 	PING => \&ssend,
 	PONG => \&ssend,
+	QUIT => \&ssend,
+	TIMESYNC => \&ssend,
+	TOPIC => \&ssend,
+	TSREPORT => \&ssend,
+	UMODE => \&ssend,
+	WHOIS => \&ssend,
 );
 
 sub debug_send {
@@ -140,11 +142,7 @@ sub debug_send {
 	for my $act (@_) {
 		my $type = $act->{type};
 		print "\e[0;33m    ACTION ";
-		if (exists $to_ij{$type}) {
-			print $to_ij{$type}->($ij, $act);
-		} else {
-			print ssend($ij, $act);
-		}
+		print ssend($ij, $act);
 		print "\e[0m\n";
 	}
 }
@@ -157,7 +155,7 @@ sub dump_act {
 		if (exists $to_ij{$type}) {
 			push @out, $to_ij{$type}->($ij, $act);
 		} else {
-			print "Unknown action type '$type'\n";
+			print "EventDump: unknown action type '$type'\n";
 		}
 	}
 	grep $_, @out; #remove blank lines
@@ -174,8 +172,8 @@ my %v_type; %v_type = (
 		$v =~ s/\\(.)/$esc2char{$1}/g;
 		$v;
 	}, 'n' => sub {
-		s/^n:([^ >]+)// or return undef;
-		$Janus::gnicks{$1};
+		s/^n:([^ >]+)(:\d+)// or return undef;
+		$Janus::gnicks{$1.$2} || $Janus::gnets{$1};
 	}, 'c' => sub {
 		s/^c:([^ >]+)// or return undef;
 		$Janus::gchans{$1};
@@ -183,8 +181,9 @@ my %v_type; %v_type = (
 		s/^s:([^ >]+)// or return undef;
 		$Janus::gnets{$1};
 	}, 'j' => sub {
-		s/^j:([^ >]+)//;
-		undef;
+		s/^j:([^ >]+)// or return undef;
+		return $Janus::global if $1 eq '*';
+		$Janus::ijnets{$1};
 	}, '<a' => sub {
 		my @arr;
 		s/^<a// or warn;
@@ -215,6 +214,7 @@ my %v_type; %v_type = (
 			&Janus::delink($ij, "InterJanus network name collision: network $h->{id} already exists");
 			return undef;
 		}
+		delete $h->{jlink};
 		RemoteNetwork->new(jlink => $ij, %$h);
 	}, '<c' => sub {
 		my $ij = shift;
@@ -223,7 +223,7 @@ my %v_type; %v_type = (
 		$ij->kv_pairs($h);
 		s/^>// or warn;
 		# this creates a new object every time because LINK will fail if we
-		# give it a cached item
+		# give it a cached item, and LSYNC needs to create a lot of the time
 		Channel->new(%$h);
 	}, '<n' => sub {
 		my $ij = shift;

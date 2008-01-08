@@ -1,6 +1,5 @@
-# Copyright (C) 2007 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+# Copyright (C) 2007-2008 Daniel De Graaf
+# Released under the GNU Affero General Public License v3
 package Actions;
 use strict;
 use warnings;
@@ -9,11 +8,10 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 # item => Class
 #   multiple classes space separated
-#   Begins with a ?    only checks if defined
+#   '?'                must be first. Allows undef as value
+#   '=expr='           must be first. Sets to eval(expr) if is undef
 #   '@' or '%'         unblessed array or hash
 #   '$'                checks that it is a string/number
-#   '!'                verifies that it is undef
-#   ''                 allows anything
 
 =head1 Actions
 
@@ -81,7 +79,7 @@ Basic descriptions and checking of all internal janus actions
 
 =item r regular (moderate)
 
-=item t tristate (private/secret; this is planned, not implemented)
+=item t tristate (private/secret)
 
 =back
 
@@ -127,6 +125,14 @@ Basic descriptions and checking of all internal janus actions
 
 =back
 
+=head2 ClientBot commands
+
+=over
+
+=item IDENTIFY identify to the network
+
+=back
+
 =cut
 
 my %spec = (
@@ -134,29 +140,41 @@ my %spec = (
 		pass => '$',
 		version => '$',
 		id => '$',
+		rid => '$',
 		net => 'Server::InterJanus',
+		sendto => '=$Janus::global= Janus @',
 	},
 	NETLINK => {
 		net => 'Network',
+		sendto => '=$Janus::global= Janus @',
 	},
 	LINKED => {
 		net => 'Network',
+		sendto => '=$Janus::global= Janus @',
+	},
+	JLINKED => {
+		except => 'Server::InterJanus',
+		sendto => '=$Janus::global= Janus @',
 	},
 	BURST => {
 		net => 'Network',
+		sendto => '=$Janus::server= Janus @',
 	},
 	NETSPLIT => {
 		net => 'Network',
 		msg => '$',
 		netsplit_quit => '?$',
+		sendto => '=$Janus::global= Janus @',
 	},
 	JNETSPLIT => {
 		net => 'Server::InterJanus',
 		msg => '$',
+		sendto => '=$Janus::global= Janus @',
 	},
 
 	NEWNICK => {
 		dst => 'Nick',
+		sendto => '?',
 	},
 	CONNECT => {
 		dst => 'Nick',
@@ -254,6 +272,11 @@ my %spec = (
 		linkfile => '?$',
 		override => '?$',
 	},
+	REQDEL => {
+		snet => 'Network',
+		dnet => 'Network',
+		name => '$',
+	},
 	LSYNC => {
 		dst => 'Network',
 		chan => 'Channel',
@@ -261,6 +284,7 @@ my %spec = (
 		linkfile => '?$',
 	},
 	LINK => {
+		dst => 'Channel',
 		chan1 => '?Channel',
 		chan2 => '?Channel',
 		linkfile => '?$',
@@ -274,7 +298,19 @@ my %spec = (
 
 	PING => {},
 	PONG => {},
-	REHASH => {},
+	IDENTIFY => {
+		dst => 'Network',
+		method => '?$',
+		# add other args for manual methods?
+	},
+	REHASH => {
+	},
+	'INIT' => {
+		args => '@', # program arguments
+		except => '?',
+	},
+	RUN => { except => '?' },
+	TERMINATE => { except => '?' },
 	TSREPORT => {
 		src => 'Nick',
 	},
@@ -295,7 +331,7 @@ my %default = (
 	src => '?Nick Network',
 	dst => '?Nick Channel Network',
 	except => '?Network Server::InterJanus',
-	sendto => '?@',
+	sendto => '?@ Network Server::InterJanus Janus',
 	nojlink => '?$',
 );
 
@@ -319,25 +355,25 @@ for my $type (keys %spec) {
 		$act->{ERR} = "Fail: Key $k in $itm";
 		$_ = $$check{$k};
 		my $v = $act->{$k};
-		if (s/^\?//) {
+		if (s/^=(.*)=(\s+|$)//) {
+			unless (defined $v) {
+				$act->{$k} = eval $1;
+				next KEY;
+			}
+		} elsif (s/^\?//) {
 			next KEY unless defined $v;
 		} else {
 			return 1 unless defined $v;
 		}
-		if (s/^~//) {
-			return 1 unless eval;
-		}
-		my $r = 0;
 		for (split /\s+/) {
 			next KEY if eval {
-				/\$/ ? (defined $v && '' eq ref $v) :
-				/\@/ ? (ref $v && 'ARRAY' eq ref $v) :
-				/\%/ ? (ref $v && 'HASH' eq ref $v) :
+				/\$/ ? ('' eq ref $v) :
+				/\@/ ? ('ARRAY' eq ref $v) :
+				/\%/ ? ('HASH' eq ref $v) :
 				$v->isa($_);
 			};
 		}
-		$act->{ERR} = "Invalid value $v for key '$k' in action $itm";
-		return 1 unless $r;
+		return 1;
 	}
 	delete $act->{ERR};
 	for my $k (keys %$act) {

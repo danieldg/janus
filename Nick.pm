@@ -1,6 +1,5 @@
-# Copyright (C) 2007 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+# Copyright (C) 2007-2008 Daniel De Graaf
+# Released under the GNU Affero General Public License v3
 package Nick;
 use strict;
 use warnings;
@@ -14,6 +13,22 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 Object representing a nick that exists across several networks
 
 =over
+
+=item $nick->gid()
+
+Globally unique identifier for this nick. Format is currently jname:netid:nickid
+
+=item $nick->homenet()
+
+Home network object for this nick.
+
+=item $nick->homenick()
+
+String of the home nick of this user
+
+=item $nick->ts()
+
+Last nick-change timestamp of this user (to help determine collision resolution)
 
 =cut
 
@@ -41,6 +56,7 @@ sub _init {
 	$mode[$$nick] = $ifo->{mode} || {};
 	# prevent mode bouncing
 	$mode[$$nick]{oper} = 1 if $mode[$$nick]{service};
+	print "   NICK:$$nick $nick[$$nick] allocated\n";
 }
 
 sub to_ij {
@@ -218,9 +234,6 @@ sub str {
 		my $act = shift;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
-		if (exists $nets[$$nick]{$$net}) {
-			warn "Nick alredy on CONNECTing network!";
-		}
 		$nets[$$nick]{$$net} = $net;
 		return if $net->jlink();
 	}, NICK => check => sub {

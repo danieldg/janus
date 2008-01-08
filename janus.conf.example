@@ -25,7 +25,7 @@ link insp {
 	linkport 8002
 	linkname hub.janus
 	linktype plain
-	linkto irc2.testnet
+	server irc2.testnet
 	sendpass pass
 	recvpass password
 	numeric 41

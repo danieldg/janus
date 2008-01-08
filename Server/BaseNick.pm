@@ -1,6 +1,5 @@
 # Copyright (C) 2007 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+# Released under the GNU Affero General Public License v3
 package Server::BaseNick;
 use LocalNetwork;
 use Persist 'LocalNetwork';
@@ -56,7 +55,7 @@ sub nick_collide {
 		} else {
 			push @rv, +{
 				type => 'RECONNECT',
-				dst => $new,
+				dst => $old,
 				net => $net,
 				killed => 1,
 				nojlink => 1,
