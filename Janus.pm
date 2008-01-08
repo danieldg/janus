@@ -5,6 +5,9 @@ use strict;
 use warnings;
 use Carp 'cluck';
 
+# set only on released versions
+our $RELEASE;
+
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 =head1 Janus
@@ -51,6 +54,7 @@ $modules{Janus} = 1;
 our %hooks;
 our %commands;
 our %states;
+our %rel_csum;
 
 sub _hook; # forward since it's used in module load/unload
 
@@ -534,6 +538,15 @@ sub delink {
 
 =cut
 
+if ($RELEASE) {
+	open my $rcs, ".rel-$RELEASE" or warn "Cannot open release checksum file!";
+	while (<$rcs>) {
+		my($s,$f) = /(\S+)\s+(.*)/ or warn "bad line: $_";
+		$rel_csum{$f} = $s;
+	}
+	close $rcs;
+}
+
 &Janus::hook_add(
 	NETLINK => act => sub {
 		my $act = shift;
@@ -578,21 +591,24 @@ sub delink {
 		return unless -f $fn;
 		my $ver = '?';
 		no warnings 'exec';
+		my $csum = '';
 		my $sha = `sha1sum $fn 2>/dev/null`;
-		if ($sha && $sha =~ /^(.{8})/) {
+		if ($sha && $sha =~ /^(.{8})(.{32})/) {
 			$ver = 'x'.$1;
+			$csum = $1.$2;
 			no strict 'refs';
 			no warnings 'once';
 			${$mod.'::SHA_UID'} = $1;
 		} else {
 			$sha = `sha1 $fn 2>/dev/null`;
-			if ($sha =~ / = (.{8})/) {
+			if ($sha =~ / = (.{8})(.{32})/) {
 				$ver = 'x'.$1;
+				$csum = $1.$2;
 				no strict 'refs';
 				no warnings 'once';
 				${$mod.'::SHA_UID'} = $1;
 			} else {
-				warn "Cannot checksum module $mod";
+				print "Cannot checksum module - check that you have sha1sum installed\n";
 			}
 		}
 		my $git = `git rev-parse --verify HEAD 2>/dev/null`;
@@ -618,6 +634,11 @@ sub delink {
 				} else {
 					warn "Cannot parse `svn info` output for $mod ($fn)";
 				}
+			}
+		}
+		if ($RELEASE && $rel_csum{$fn}) {
+			if ($rel_csum{$fn} eq $csum) {
+				$ver = $RELEASE;
 			}
 		}
 		do {
