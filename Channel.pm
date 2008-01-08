@@ -399,6 +399,38 @@ sub del_remoteonly {
 				$topicset[$$chan] = 'janus';
 			}
 		}
+	}, LSYNC => check => sub {
+		my $act = shift;
+		my $chan = $act->{chan};
+		my $dchan = $Janus::gchans{$keyname[$$chan]};
+		for my $nid (keys %{$nets[$$chan]}) {
+			my $net = $nets[$$chan]{$nid};
+			my $kn = $net->gid().$names[$$chan]{$nid};
+			my $kc = $Janus::gchans{$kn};
+
+			if ($dchan) {
+				# we should already know everything here...
+				return 1 unless $kc;
+				if ($kc ne $dchan) {
+					print "Can't deal with an imported merge! $$chan, $$dchan, $$kc\n";
+					print join ' ', map $_->gid(), values %{$nets[$$chan]};
+					print "\n";
+					print join ' ', map $_->gid(), values %{$nets[$$dchan]};
+					print "\n";
+					print join ' ', map $_->gid(), values %{$nets[$$kc]};
+					print "\n";
+					return 1;
+				}
+			} else {
+				# we should not know anything about this channel
+				return 1 if $kc;
+				print "WARN: Importing a merge to a nonexistant channel!\n" unless $net->jlink();
+			}
+		}
+		$act->{chan} = $dchan if $dchan;
+		$chan = undef;
+		print "Should dealloc above\n" if $dchan;
+		undef;
 	}, LSYNC => act => sub {
 		my $act = shift;
 		if ($act->{dst}->jlink()) {
