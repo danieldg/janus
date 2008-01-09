@@ -494,7 +494,7 @@ $moddef{CORE} = {
 		}
 	}, REMSTATUS => sub {
 		my $net = shift;
-		my $chan = $net->chan($_[2]);
+		my $chan = $net->chan($_[2]) or return ();
 		return +{
 			type => 'TIMESYNC',
 			src => $net,
@@ -544,7 +544,7 @@ $moddef{CORE} = {
 	}, SVSPART => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
-		my $chan = $net->chan($_[3]);
+		my $chan = $net->chan($_[3]) or return ();
 		$net->send({
 			type => 'PART',
 			src => $nick,
@@ -660,7 +660,6 @@ $moddef{CORE} = {
 			msg => 'ERROR: '.$_[-1],
 		};
 	},
-	PONG => \&ignore, # already got ->ponged() above
 	VERSION => \&ignore,
 	ADDLINE => sub {
 		my $net = shift;
@@ -864,31 +863,66 @@ $moddef{CORE} = {
 	},
 	TIMESET => \&ignore,
   }, acts => {
-	NETLINK => sub {
+	JNETLINK => sub {
 		my($net,$act) = @_;
 		my $new = $act->{net};
+		my $jid = $new->id().'.janus';
+		($net->ncmd(SERVER => $jid, '*', 1, 'Inter-Janus link'),
+		 $net->cmd2($jid, VERSION => 'Interjanus'));
+	}, NETLINK => sub {
+		my($net,$act) = @_;
+		my $new = $act->{net};
+		my @out;
 		if ($net eq $new) {
-			my @out;
+			for my $ij (values %Janus::ijnets) {
+				next unless $ij->is_linked();
+				my $jid = $ij->id().'.janus';
+				push @out, $net->ncmd(SERVER => $jid, '*', 1, 'Inter-Janus link');
+				push @out, $net->cmd2($jid, VERSION => 'Interjanus');
+			}
 			for my $id (keys %Janus::nets) {
 				my $new = $Janus::nets{$id};
 				next if $new->isa('Interface') || $new eq $net;
+				my $jl = $net->jlink();
+				if ($jl) {
+					push @out, $net->cmd2($jl->id().'.janus', SERVER =>
+						$new->jname(), '*', 2, $new->netname());
+					push @out, $net->cmd2($new->jname(), VERSION => 'Remote Janus Server');
+				} else {
+					push @out, $net->ncmd(SERVER => $new->jname(), '*', 1, $new->netname());
+					push @out, $net->cmd2($new->jname(), VERSION => 'Remote Janus Server: '.ref $new);
+				}
+			}
+		} else {
+			my $jl = $new->jlink();
+			if ($jl) {
+				push @out, $net->cmd2($jl->id().'.janus', SERVER =>
+					$new->jname(), '*', 2, $new->netname());
+				push @out, $net->cmd2($new->jname(), VERSION => 'Remote Janus Server');
+			} else {
 				push @out, $net->ncmd(SERVER => $new->jname(), '*', 1, $new->netname());
 				push @out, $net->cmd2($new->jname(), VERSION => 'Remote Janus Server: '.ref $new);
 			}
-			return @out;
+			push @out, $net->ncmd(OPERNOTICE => "Janus network ".$new->name().'	('.$new->netname().") is now linked");
 		}
-		return (
-			$net->ncmd(SERVER => $new->jname(), '*', 1, $new->netname()),
-			$net->ncmd(OPERNOTICE => "Janus network ".$new->name().' ('.$new->netname().") is now linked"),
-			$net->cmd2($new->jname(), VERSION => 'Remote Janus Server: '.ref $new),
-		);
+		return @out;
 	}, NETSPLIT => sub {
 		my($net,$act) = @_;
+		return () if $act->{netsplit_quit};
 		my $gone = $act->{net};
 		my $msg = $act->{msg} || 'Excessive Core Radiation';
 		return (
 			$net->ncmd(OPERNOTICE => "Janus network ".$gone->name().' ('.$gone->netname().") has delinked: $msg"),
 			$net->ncmd(SQUIT => $gone->jname(), $msg),
+		);
+	}, JNETSPLIT => sub {
+		my($net,$act) = @_;
+		my $gone = $act->{net};
+		my $jid = $gone->id().'.janus';
+		my $msg = $act->{msg} || 'Excessive Core Radiation';
+		return (
+			$net->ncmd(OPERNOTICE => 'InterJanus network '.$gone->id()." has delinked: $msg"),
+			$net->ncmd(SQUIT => $jid, $msg),
 		);
 	}, CONNECT => sub {
 		my($net,$act) = @_;
