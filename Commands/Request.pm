@@ -65,6 +65,23 @@ sub code {
 			}
 		}
 		&Janus::jmsg($nick, 'End of list');
+	} elsif ( $args =~ /^linkall/i ) {
+		for my $net (sort keys %Links::reqs) {
+			next if !$Janus::nets{$net};
+			my $chanh = $Links::reqs{$net}{$nname} or next;
+			for my $schan (sort keys %$chanh) {
+				next if linked($net, $nname, $schan, $chanh->{$schan});
+				&Janus::append(+{
+					type => 'LINKREQ',
+					src => $nick,
+					dst => $Janus::nets{$net},
+					net => $nick->homenet(),
+					slink => $schan,
+					dlink => $chanh->{$schan},
+				});
+			}
+		}
+		&Janus::jmsg($nick, 'All pending requsts linked');
 	} elsif ($args =~ /^(?:list|dump) *(\S+)?/i) {
 		my %chans;
 		my $list = $args =~ /^list/i;
@@ -88,6 +105,7 @@ sub code {
 my $help = [
 	"Pending requests (remote networks waiting for local approval):",
 	" \002REQUEST PEND\002 [network]       List all pending requests (from given network)",
+	" \002REQUEST LINKALL\002              Link all pending requests",
 	" \002REQUEST REJECT\002 #chan network Reject the given request",
 	" \002REQUEST PDUMP\002                List all saved channel relink requests",
 	"Waiting requests (local channels waiting for remote approval):",
