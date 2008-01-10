@@ -28,11 +28,6 @@ sub pongcheck {
 		&Conffile::connect_net(undef, $p->{id});
 		return;
 	}
-	unless ($Janus::ijnets{$id[$$ij]} eq $ij) {
-		delete $p->{repeat};
-		warn "Network $ij not deallocated quickly enough!";
-		return;
-	}
 	my $last = $pong[$$ij];
 	if ($last + 90 <= time) {
 		print "PING TIMEOUT!\n";
