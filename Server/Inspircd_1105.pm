@@ -883,7 +883,7 @@ $moddef{CORE} = {
 			for my $id (keys %Janus::nets) {
 				my $new = $Janus::nets{$id};
 				next if $new->isa('Interface') || $new eq $net;
-				my $jl = $net->jlink();
+				my $jl = $new->jlink();
 				if ($jl) {
 					push @out, $net->cmd2($jl->id().'.janus', SERVER =>
 						$new->jname(), '*', 2, $new->netname());
