@@ -58,7 +58,7 @@ Hash of modetext => modeval (see Modes.pm)
 =cut
 
 my @ts       :Persist(ts)                      :Get(ts);
-my @keyname  :Persist(keyname)  :Arg(keyname)  :Get(keyname);
+my @keyname  :Persist(keyname)                 :Get(keyname);
 my @topic    :Persist(topic)    :Arg(topic)    :Get(topic);
 my @topicts  :Persist(topicts)  :Arg(topicts)  :Get(topicts);
 my @topicset :Persist(topicset) :Arg(topicset) :Get(topicset);
@@ -104,7 +104,6 @@ sub get_mode {
 sub to_ij {
 	my($chan,$ij) = @_;
 	my $out = '';
-	$out .= ' keyname='.$ij->ijstr($keyname[$$chan]);
 	$out .= ' ts='.$ij->ijstr($ts[$$chan]);
 	$out .= ' topic='.$ij->ijstr($topic[$$chan]);
 	$out .= ' topicts='.$ij->ijstr($topicts[$$chan]);
@@ -121,7 +120,17 @@ sub _init {
 	$mode[$$c] = $ifo->{mode} || {};
 	$ts[$$c] = $ifo->{ts} || 0;
 	$ts[$$c] = (time + 60) if $ts[$$c] < 1000000;
-	if ($keyname[$$c]) {
+	if ($ifo->{net}) {
+		my $net = $ifo->{net};
+		$keyname[$$c] = $net->gid().$ifo->{name};
+		$nets[$$c]{$$net} = $net;
+		$names[$$c]{$$net} = $ifo->{name};
+		$Janus::gchans{$net->gid().$ifo->{name}} = $c;
+	} elsif ($ifo->{merge}) {
+		$keyname[$$c] = $ifo->{merge};
+		$names[$$c] = {};
+		$nets[$$c] = {};
+	} else {
 		my $names = $ifo->{names} || {};
 		$names[$$c] = {};
 		$nets[$$c] = {};
@@ -130,14 +139,11 @@ sub _init {
 			my $net = $Janus::gnets{$id} or warn next;
 			$names[$$c]{$$net} = $name;
 			$nets[$$c]{$$net} = $net;
-			$Janus::gchans{$net->gid().$name} = $c unless $Janus::gchans{$net->gid().$name};
+			my $kn = $net->gid().$name;
+			$Janus::gchans{$kn} = $c unless $Janus::gchans{$kn};
+			$keyname[$$c] = $kn; # it just has to be one of them
 		}
-	} else {
-		my $net = $ifo->{net};
-		$keyname[$$c] = $net->gid().$ifo->{name};
-		$nets[$$c]{$$net} = $net;
-		$names[$$c]{$$net} = $ifo->{name};
-		$Janus::gchans{$net->gid().$ifo->{name}} = $c;
+		print "ERROR: Constructing unkeyed channel!\n" unless $keyname[$$c];
 	}
 	my $n = join ',', map { $_.$names[$$c]{$_} } keys %{$names[$$c]};
 	print "   CHAN:$$c $n allocated\n";
@@ -485,7 +491,7 @@ sub del_remoteonly {
 			print "No TS conflict\n";
 		}
 
-		my $chan = Channel->new(keyname => $keyname[$$chan1], names => {});
+		my $chan = Channel->new(merge => $keyname[$$chan1]);
 
 		my $topctl = ($tsctl > 0 || ($tsctl == 0 && $topicts[$$chan1] >= $topicts[$$chan2]))
 			? $$chan1 : $$chan2;
