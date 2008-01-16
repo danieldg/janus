@@ -93,11 +93,15 @@ my %to_ij = (
 		my $out = send_hdr(@_) . ' net=<s';
 		$out .= $act->{net}->to_ij($ij);
 		$out . '>>';
-	}, LSYNC => sub {
+	}, LOCKACK => sub {
 		my($ij, $act) = @_;
-		my $out = send_hdr(@_, qw/dst linkto/) . ' chan=<c';
-		$out .= $act->{chan}->to_ij($ij);
-		$out . '>>';
+		if ($act->{chan}) {
+			my $out = send_hdr(@_, qw/src dst expire lockid/) . ' chan=<c';
+			$out .= $act->{chan}->to_ij($ij);
+			$out . '>>';
+		} else {
+			&ssend;
+		}
 	}, LINK => sub {
 		my($ij, $act) = @_;
 		my $out = send_hdr(@_, qw/chan1 chan2/) . ' dst=<c';
@@ -122,6 +126,7 @@ my %to_ij = (
 	KILL => \&ssend,
 	LINKED => \&ssend,
 	LINKREQ => \&ssend,
+	LOCKREQ => \&ssend,
 	MODE => \&ssend,
 	MSG => \&ssend,
 	NETSPLIT => \&ssend,
