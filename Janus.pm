@@ -20,6 +20,8 @@ Primary event multiplexer and module loader/unloader
 our $name;       # Name of this server
 our $server;     # Message target/source: this server
 our $global;     # Message target: all servers
+our $time;       # Current server timestamp, used to avoid extra calls to time()
+$time ||= time;
 
 our %nets;       # by network tag
 our %ijnets;     # by name (ij tag)
@@ -442,7 +444,7 @@ All other fields are available for use in passing additional arguments to the su
 
 sub schedule {
 	for my $event (@_) {
-		my $t = time;
+		my $t = $time;
 		$t = $event->{time} if $event->{time} && $event->{time} > $t;
 		$t += $event->{repeat} if $event->{repeat};
 		$t += $event->{delay} if $event->{delay};
@@ -492,21 +494,21 @@ sub in_command {
 }
 
 sub timer {
-	my $now = time;
-	return if $now == $last_check;
+	$time = time;
+	return if $time == $last_check;
 	my @q;
-	for ($last_check .. $now) {
+	for ($last_check .. $time) {
 		# yes it will hit some times twice... that is needed if events with delay=0 are
 		# added to the queue in the same second, but after the queue has already run
 		push @q, @{delete $tqueue{$_}} if exists $tqueue{$_};
 	}
-	$last_check = $now;
+	$last_check = $time;
 	for my $event (@q) {
 		unshift @qstack, [];
 		$event->{code}->($event);
 		_runq(shift @qstack);
 		if ($event->{repeat}) {
-			my $t = $now + $event->{repeat};
+			my $t = $time + $event->{repeat};
 			push @{$tqueue{$t}}, $event;
 		}
 	}

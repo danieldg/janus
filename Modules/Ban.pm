@@ -45,7 +45,7 @@ sub banlist {
 	my @good;
 	for my $ban (@$list) {
 		my $exp = $expire[$$ban];
-		unless ($exp && $exp < time) {
+		unless ($exp && $exp < $Janus::time) {
 			push @good, $ban;
 		}
 	}
@@ -107,7 +107,7 @@ my %timespec = (
 			my $c = 0;
 			for my $ban (@list) {
 				my $expire = $ban->expire() ? 
-					'expires in '.($ban->expire() - time).'s ('.gmtime($ban->expire()) .')' :
+					'expires in '.($ban->expire() - $Janus::time).'s ('.gmtime($ban->expire()) .')' :
 					'does not expire';
 				$c++;
 				&Janus::jmsg($nick, $c.' '.$ban->expr().' - set by '.$ban->setter().", $expire - ".$ban->reason());
@@ -122,7 +122,7 @@ my %timespec = (
 			my $t;
 			my $reason = join ' ', @arg[2..$#arg];
 			if ($_) {
-				$t = time;
+				$t = $Janus::time;
 				$t += $1*($timespec{lc $2} || 1) while s/^(\d+)(\D?)//;
 				if ($_) {
 					&Janus::jmsg($nick, 'Invalid characters in ban length');

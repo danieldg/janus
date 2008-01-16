@@ -15,9 +15,9 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		my $log = 'log/';
 		my $fmt = $Conffile::netconf{set}{datefmt};
 		if ($fmt) {
-			$log .= strftime $fmt, gmtime;
+			$log .= strftime $fmt, gmtime $Janus::time;
 		} else {
-			$log .= time;
+			$log .= $Janus::time;
 		}
 
 		umask 022;

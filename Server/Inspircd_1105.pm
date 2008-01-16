@@ -306,7 +306,7 @@ $moddef{CORE} = {
 				src => $nick,
 				dst => $nick,
 				nick => $_[2],
-				nickts => (@_ == 4 ? $_[3] : time),
+				nickts => (@_ == 4 ? $_[3] : $Janus::time),
 			};
 		}
 		my $ip = $_[8];
@@ -519,7 +519,7 @@ $moddef{CORE} = {
 			type => 'TOPIC',
 			src => $net->item($_[0]),
 			dst => $net->chan($_[2]),
-			topicts => time,
+			topicts => $Janus::time,
 			topicset => $_[0],
 			topic => $_[-1],
 		};
@@ -566,7 +566,7 @@ $moddef{CORE} = {
 		unless ($auth[$$net]) {
 			if ($_[3] eq $net->cparam('recvpass')) {
 				$auth[$$net] = 1;
-				$net->send(['INIT', 'BURST '.time, $net->ncmd(VERSION => 'Janus')]);
+				$net->send(['INIT', 'BURST '.$Janus::time, $net->ncmd(VERSION => 'Janus')]);
 			} else {
 				$net->send(['INIT', 'ERROR :Bad password']);
 			}
@@ -693,8 +693,8 @@ $moddef{CORE} = {
 				ltype => $type,
 				mask => $_[2],
 				setter => $_[0],
-				settime => time,
-				expire => ($_[3] ? time + $_[3] : 0),
+				settime => $Janus::time,
+				expire => ($_[3] ? $Janus::time + $_[3] : 0),
 				reason => $_[4],
 			};
 		}
@@ -858,7 +858,7 @@ $moddef{CORE} = {
 		};
 	}, TIME => sub {
 		my $net = shift;
-		$net->send($net->cmd2(@_[2,1,0,3], time)) if @_ == 4;
+		$net->send($net->cmd2(@_[2,1,0,3], $Janus::time)) if @_ == 4;
 		();
 	},
 	TIMESET => \&ignore,

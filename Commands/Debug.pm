@@ -14,7 +14,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 	acl => 1,
 	code => sub {
 		my $nick = shift;
-		my $ts = time;
+		my $ts = $Janus::time;
 		# workaround for a bug in Data::Dumper that only allows one "new" socket per dump
 		eval {
 			Data::Dumper::Dumper(\%Connection::queues);

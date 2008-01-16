@@ -234,7 +234,7 @@ our %modules = (
 						src => $nick,
 						dst => $nick,
 						nick => $_[3],
-						nickts => time,
+						nickts => $Janus::time,
 					};
 				}
 				# we need to unlock and change nicks back
@@ -314,7 +314,7 @@ our %modules = (
 						src => $nick,
 						dst => $nick,
 						nick => $_[3],
-						nickts => time,
+						nickts => $Janus::time,
 					};
 				}
 				# reject

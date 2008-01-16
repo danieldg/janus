@@ -9,7 +9,7 @@ use warnings;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-my $IJ_PROTO = 1.3;
+my $IJ_PROTO = 1.4;
 
 my @sendq :Persist('sendq');
 my @id    :Persist('id')    :Arg(id) :Get(id);
@@ -29,13 +29,13 @@ sub pongcheck {
 		return;
 	}
 	my $last = $pong[$$ij];
-	if ($last + 90 <= time) {
+	if ($last + 90 <= $Janus::time) {
 		print "PING TIMEOUT!\n";
 		&Janus::delink($ij, 'Ping timeout');
 		&Conffile::connect_net(undef, $p->{id});
 		delete $p->{ij};
 		delete $p->{repeat};
-	} elsif ($last + 29 <= time) {
+	} elsif ($last + 29 <= $Janus::time) {
 		$ij->ij_send({ type => 'PING'  });
 	}
 }
@@ -49,7 +49,7 @@ sub intro {
 	my($ij,$nconf) = @_;
 	$sendq[$$ij] = '';
 
-	$pong[$$ij] = time;
+	$pong[$$ij] = $Janus::time;
 	my $pinger = {
 		repeat => 30,
 		ij => $ij,
@@ -65,6 +65,7 @@ sub intro {
 		id => $Janus::name,
 		rid => $nconf->{id},
 		pass => $nconf->{sendpass},
+		ts => $Janus::time,
 	});
 	# If we are the first mover (initiated connection), auth will be zero, and
 	# will end up being 1 after a successful authorization. If we were listening,
@@ -97,7 +98,7 @@ sub dump_sendq {
 
 sub parse {
 	my $ij = shift;
-	$pong[$$ij] = time;
+	$pong[$$ij] = $Janus::time;
 	local $_ = $_[0];
 	my $selfid = $id[$$ij] || 'NEW';
 	print "     IN\@$selfid  $_\n";
@@ -120,6 +121,7 @@ sub parse {
 		} else {
 			$id[$$ij] = $act->{id};
 		}
+		my $ts_delta = abs($Janus::time - $act->{ts});
 		my $id = $id[$$ij];
 		my $nconf = $Conffile::netconf{$id};
 		if ($act->{version} ne $IJ_PROTO) {
@@ -132,6 +134,8 @@ sub parse {
 			print "Failed authorization\n";
 		} elsif ($Janus::ijnets{$id} && $Janus::ijnets{$id} ne $ij) {
 			print "Already connected\n";
+		} elsif ($ts_delta >= 20) {
+			print "Clocks are too far off (delta=$ts_delta here=$Janus::time there=$act->{ts})\n";
 		} else {
 			$auth[$$ij] = 1;
 			$act->{net} = $ij;

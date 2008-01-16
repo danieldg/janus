@@ -11,7 +11,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 	acl => 1,
 	code => sub {
 		my($nick,$tryfix) = @_;
-		my $ts = time;
+		my $ts = $Janus::time;
 		my $oops = 0;
 		my @fixes;
 		open my $dump, '>', "log/verify-$ts" or return;

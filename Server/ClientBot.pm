@@ -77,7 +77,7 @@ sub cli_hostintro {
 		}
 		$nick = Nick->new(
 			net => $net,
-			ts => time,
+			ts => $Janus::time,
 			nick => $nname,
 			info => {
 				host => $host,

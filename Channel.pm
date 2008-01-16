@@ -4,6 +4,7 @@ package Channel;
 use strict;
 use warnings;
 use Persist;
+use Carp;
 use Nick;
 use Modes;
 
@@ -119,7 +120,7 @@ sub _init {
 	$topicts[$$c] = 0 unless $topicts[$$c];
 	$mode[$$c] = $ifo->{mode} || {};
 	$ts[$$c] = $ifo->{ts} || 0;
-	$ts[$$c] = (time + 60) if $ts[$$c] < 1000000;
+	$ts[$$c] = ($Janus::time + 60) if $ts[$$c] < 1000000;
 	if ($ifo->{net}) {
 		my $net = $ifo->{net};
 		$keyname[$$c] = $net->gid().$ifo->{name};
@@ -270,10 +271,9 @@ sub is_on {
 }
 
 sub sendto {
-	my($chan,$act,$except) = @_;
-	my %n = %{$nets[$$chan]};
-	delete $n{$$except} if $except;
-	values %n;
+	my($chan,$act) = @_;
+	carp "except in sendto is deprecated" if @_ > 2;
+	values %{$nets[$$chan]};
 }
 
 =item $chan->part($nick)
@@ -396,7 +396,7 @@ sub del_remoteonly {
 		my $act = $_[0];
 		my $chan = $act->{dst};
 		$topic[$$chan] = $act->{topic};
-		$topicts[$$chan] = $act->{topicts} || time;
+		$topicts[$$chan] = $act->{topicts} || $Janus::time;
 		$topicset[$$chan] = $act->{topicset};
 		unless ($topicset[$$chan]) {
 			if ($act->{src} && $act->{src}->isa('Nick')) {

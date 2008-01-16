@@ -30,7 +30,7 @@ sub cparam {
 
 sub pong {
 	my $net = shift;
-	$ponged[$$net] = time;
+	$ponged[$$net] = $Janus::time;
 }
 
 sub pongcheck {
@@ -52,13 +52,13 @@ sub pongcheck {
 		return;
 	}
 	my $last = $ponged[$$net];
-	if ($last + 90 <= time) {
+	if ($last + 90 <= $Janus::time) {
 		print "PING TIMEOUT!\n";
 		&Janus::delink($net, 'Ping timeout');
 		&Conffile::connect_net(undef, $p->{netid});
 		delete $p->{net};
 		delete $p->{repeat};
-	} elsif ($last + 29 <= time) {
+	} elsif ($last + 29 <= $Janus::time) {
 		$net->send(+{
 			type => 'PING',
 		});
@@ -70,7 +70,7 @@ sub intro {
 	$cparms[$$net] = { %{$Conffile::netconf{$net->name()}} };
 	$net->_set_numeric($cparms[$$net]->{numeric});
 	$net->_set_netname($cparms[$$net]->{netname});
-	$ponged[$$net] = time;
+	$ponged[$$net] = $Janus::time;
 	my $pinger = {
 		repeat => 30,
 		net => $net,

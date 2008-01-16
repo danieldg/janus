@@ -655,7 +655,7 @@ sub srvname {
 				src => $nick,
 				dst => $nick,
 				nick => $_[2],
-				nickts => (@_ == 4 ? $net->sjbint($_[3]) : time),
+				nickts => (@_ == 4 ? $net->sjbint($_[3]) : $Janus::time),
 			};
 		}
 		# NICKv2 introduction

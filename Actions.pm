@@ -142,6 +142,7 @@ my %spec = (
 		id => '$',
 		rid => '$',
 		net => 'Server::InterJanus',
+		ts => '$',
 		sendto => '=$Janus::global= Janus @',
 	},
 	NETLINK => {
