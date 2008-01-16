@@ -295,6 +295,10 @@ my %spec = (
 		chan1 => 'Channel',
 		chan2 => 'Channel',
 	},
+	UNLOCK => {
+		dst => 'Channel',
+		lockid => '$',
+	},
 	LINK => {
 		dst => 'Channel',
 		chan1 => '?Channel',

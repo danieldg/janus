@@ -452,6 +452,10 @@ sub can_lock {
 				lockid => $act->{lockid},
 			});
 		}
+	}, UNLOCK => act => sub {
+		my $act = shift;
+		my $chan = $act->{dst};
+		delete $locker[$$chan];
 	}, LOCKED => act => sub {
 		my $act = shift;
 		my $chan1 = $act->{chan1};

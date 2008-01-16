@@ -50,6 +50,16 @@ sub ready {
 	1;
 }
 
+sub unlock {
+	my $link = shift;
+	return unless $chan[$$link];
+	&Janus::append({
+		type => 'UNLOCK',
+		dst => $chan[$$link],
+		lockid => $lock[$$link],
+	});
+}
+
 &Janus::save_vars('reqs', \%reqs);
 
 &Janus::hook_add(
@@ -151,7 +161,13 @@ sub ready {
 		my $act = shift;
 		my $link = $bylock{$act->{lockid}};
 		return unless $link;
-		my $exp = $act->{expire} or return; # TODO unlock
+		my $exp = $act->{expire};
+		if (!$exp) {
+			# failed to lock. TODO try again later
+			$link->unlock();
+			$other[$$link]->unlock();
+			return;
+		}
 		if ($exp < $expire[$$link]) {
 			$expire[$$link] = $exp;
 		}

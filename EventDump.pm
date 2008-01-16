@@ -139,6 +139,7 @@ my %to_ij = (
 	TOPIC => \&ssend,
 	TSREPORT => \&ssend,
 	UMODE => \&ssend,
+	UNLOCK => \&ssend,
 	WHOIS => \&ssend,
 );
 
