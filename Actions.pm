@@ -301,8 +301,6 @@ my %spec = (
 	},
 	LINK => {
 		dst => 'Channel',
-		chan1 => '?Channel',
-		chan2 => '?Channel',
 		linkfile => '?$',
 	},
 	DELINK => {

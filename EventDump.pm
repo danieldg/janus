@@ -104,7 +104,7 @@ my %to_ij = (
 		}
 	}, LINK => sub {
 		my($ij, $act) = @_;
-		my $out = send_hdr(@_, qw/chan1 chan2/) . ' dst=<c';
+		my $out = send_hdr(@_) . ' dst=<c';
 		$out .= $act->{dst}->to_ij($ij);
 		$out . '>>';
 	}, CONNECT => sub {

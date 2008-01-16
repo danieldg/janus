@@ -1485,8 +1485,6 @@ sub cmd2 {
 		my $chan = $act->{dst}->str($net);
 		return () if $act->{linkfile};
 		[ FLOAT_ALL => $net->cmd1(GLOBOPS => "Channel $chan linked") ];
-	}, LSYNC => sub {
-		();
 	}, LINKREQ => sub {
 		my($net,$act) = @_;
 		my $src = $act->{net};

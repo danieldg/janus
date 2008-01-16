@@ -181,7 +181,6 @@ sub _modecpy {
 sub _link_into {
 	my($src,$chan) = @_;
 	my %dstnets = %{$nets[$$chan]};
-	delete $locker[$$src];
 	print "Link into ($$src -> $$chan):";
 	for my $id (keys %{$nets[$$src]}) {
 		print " $id";
@@ -335,7 +334,7 @@ sub can_lock {
 		print "Stealing expired lock from $locker[$$chan]\n";
 		return 1;
 	} else {
-		print "Lock held by $locker[$$chan]\n";
+		print "Lock on #$$chan held by $locker[$$chan] until $lockts[$$chan]\n";
 		return 0;
 	}
 }
@@ -526,19 +525,19 @@ sub can_lock {
 			type => 'LINK',
 			src => $act->{src},
 			dst => $chan,
-			chan1 => $chan1,
-			chan2 => $chan2,
 			linkfile => $act->{linkfile},
 		});
-	}, LINK => check => sub {
-		my $act = shift;
-		my($chan1,$chan2) = ($act->{chan1}, $act->{chan2});
-		return 1 if $chan1 && $chan2 && $chan1 eq $chan2;
-		undef;
 	}, LINK => act => sub {
 		my $act = shift;
 		my $chan = $act->{dst};
-		my($chan1,$chan2) = ($act->{chan1}, $act->{chan2});
+
+		my %from;
+		for my $nid (keys %{$nets[$$chan]}) {
+			my $net = $nets[$$chan]{$nid} or next;
+			my $kn = $net->gid().$names[$$chan]{$nid};
+			my $src = $Janus::gchans{$kn} or next;
+			$from{$$src} = $src;
+		}
 		
 		&Janus::append(+{
 			type => 'JOIN',
@@ -546,8 +545,12 @@ sub can_lock {
 			dst => $chan,
 			nojlink => 1,
 		});
-		$chan1->_link_into($chan) if $chan1;
-		$chan2->_link_into($chan) if $chan2;
+		for my $src (values %from) {
+			next if $src eq $chan;
+			$src->_link_into($chan);
+			delete $locker[$$src];
+		}
+		delete $locker[$$chan];
 	}, DELINK => check => sub {
 		my $act = shift;
 		my $chan = $act->{dst};
@@ -560,6 +563,11 @@ sub can_lock {
 		}
 		unless (exists $nets{$$net}) {
 			print "Cannot delink: channel $$chan is not on network #$$net\n";
+			return 1;
+		}
+		unless ($chan->can_lock()) {
+			return undef if $act->{netsplit_quit};
+			print "Cannot delink: channel $$chan is locked by $locker[$$chan]\n";
 			return 1;
 		}
 		undef;

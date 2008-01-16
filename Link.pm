@@ -160,8 +160,19 @@ sub unlock {
 	}, LOCKACK => act => sub {
 		my $act = shift;
 		my $link = $bylock{$act->{lockid}};
-		return unless $link;
 		my $exp = $act->{expire};
+		unless ($link) {
+			# is it our lock?
+			$act->{lockid} =~ /(.+):\d+/;
+			return unless $1 eq $Janus::name;
+			# unlock. We didn't actually need it.
+			&Janus::append({
+				type => 'UNLOCK',
+				dst => $act->{chan},
+				lockid => $act->{lockid},
+			});
+			return;
+		}
 		if (!$exp) {
 			# failed to lock. TODO try again later
 			$link->unlock();
