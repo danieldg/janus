@@ -1,6 +1,6 @@
 # Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
-package Links;
+package Link;
 use strict;
 use warnings;
 use Persist;
@@ -9,6 +9,46 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 our %reqs;
 # {requestor}{destination}{src-channel} = dst-channel
+
+our %bylock;
+# lockid => Link
+
+our $lockmax;
+my @lock   :Persist(lockid) :Get(lockid);
+my @chan   :Persist(chan);
+my @ready  :Persist(ready);
+my @expire :Persist(expire);
+my @other  :Persist(other)  :Arg(other);
+
+sub _init {
+	my $link = shift;
+	my $id = $Janus::name.':'.++$lockmax;
+	$lock[$$link] = $id;
+	$expire[$$link] = $Janus::time + 61;
+	$bylock{$id} = $link;
+	&Janus::schedule(+{
+		delay => 61,
+		code => sub {
+			my $l = delete $bylock{$id};
+			$other[$$l] = undef if $l;
+		}
+	});
+	print "Link $$link alloc'd\n";
+}
+
+sub _destroy {
+	print "Link ${$_[0]} dealloc'd\n";
+}
+
+sub ready {
+	my $link = shift;
+	my $chan = $chan[$$link] or return 0;
+	for my $net ($chan->nets()) {
+		my $jl = $net->jlink() || $Janus::server;
+		return 0 unless $ready[$$link]{$jl};
+	}
+	1;
+}
 
 &Janus::save_vars('reqs', \%reqs);
 
@@ -90,17 +130,44 @@ our %reqs;
 		}
 		if ($act->{override} || $recip eq 'any' || lc $recip eq lc $act->{slink}) {
 			print "linking!\n";
+			my $link1 = Link->new();
+			my $link2 = Link->new(other => $link1);
+			$other[$$link1] = $link2;
 			&Janus::append(+{
-				type => 'LSYNC',
+				type => 'LOCKREQ',
 				src => $dnet,
 				dst => $snet,
-				chan => $dnet->chan($act->{dlink},1),
-				linkto => $act->{slink},
-				linkfile => $act->{linkfile},
+				name => $act->{slink},
+				lockid => $link1->lockid(),
+			}, {
+				type => 'LOCKREQ',
+				src => $dnet,
+				dst => $dnet,
+				name => $act->{dlink},
+				lockid => $link2->lockid(),
 			});
-		} else {
-			print "request not matched\n";
 		}
+	}, LOCKACK => act => sub {
+		my $act = shift;
+		my $link = $bylock{$act->{lockid}};
+		return unless $link;
+		my $exp = $act->{expire} or return; # TODO unlock
+		if ($exp < $expire[$$link]) {
+			$expire[$$link] = $exp;
+		}
+		$chan[$$link] ||= $act->{chan};
+		$ready[$$link]{$act->{src}}++;
+		return unless $link->ready();
+		my $other = $other[$$link];
+		return unless $other->ready();
+		&Janus::append({
+			type => 'LOCKED',
+			chan1 => $chan[$$link],
+			chan2 => $chan[$$other],
+		});
+		delete $bylock{$link->lockid()};
+		delete $bylock{$other->lockid()};
+		$other[$$link] = $other[$$other] = undef;
 	}, DELINK => act => sub {
 		my $act = shift;
 		my $src = $act->{src};

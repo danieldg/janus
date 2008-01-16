@@ -278,11 +278,22 @@ my %spec = (
 		dnet => 'Network',
 		name => '$',
 	},
-	LSYNC => {
+	LOCKREQ => {
+		src => 'Network',
+		dst => 'Network Channel',
+		name => '?$',
+		lockid => '$',
+	},
+	LOCKACK => {
+		src => 'Server::InterJanus Janus',
 		dst => 'Network',
-		chan => 'Channel',
-		linkto => '$',
-		linkfile => '?$',
+		chan => '?Channel',
+		expire => '?$',
+		lockid => '$',
+	},
+	LOCKED => {
+		chan1 => 'Channel',
+		chan2 => 'Channel',
 	},
 	LINK => {
 		dst => 'Channel',

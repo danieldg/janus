@@ -32,7 +32,7 @@ sub code {
 				name => $1,
 			});
 		} else {
-			if (delete $Links::reqs{$nname}{$2}{$1}) {
+			if (delete $Link::reqs{$nname}{$2}{$1}) {
 				&Janus::jmsg($nick, 'Deleted');
 			} else {
 				&Janus::jmsg($nick, 'Not found');
@@ -49,16 +49,16 @@ sub code {
 			name => $1,
 		});
 	} elsif ($args =~ /^wipe (\S+)/i) {
-		if (delete $Links::reqs{$nname}{$1}) {
+		if (delete $Link::reqs{$nname}{$1}) {
 			&Janus::jmsg($nick, 'Deleted');
 		} else {
 			&Janus::jmsg($nick, 'Not found');
 		}
 	} elsif ($args =~ /^(?:pend|pdump) *(\S+)?/i) {
 		my $list = $args =~ /^pend/i;
-		for my $net ($1 || sort keys %Links::reqs) {
+		for my $net ($1 || sort keys %Link::reqs) {
 			next if $list && !$Janus::nets{$net};
-			my $chanh = $Links::reqs{$net}{$nname} or next;
+			my $chanh = $Link::reqs{$net}{$nname} or next;
 			for my $schan (sort keys %$chanh) {
 				next if $list && linked($net, $nname, $schan, $chanh->{$schan});
 				&Janus::jmsg($nick, "$net: $schan $chanh->{$schan}");
@@ -66,9 +66,9 @@ sub code {
 		}
 		&Janus::jmsg($nick, 'End of list');
 	} elsif ( $args =~ /^linkall/i ) {
-		for my $net (sort keys %Links::reqs) {
+		for my $net (sort keys %Link::reqs) {
 			next if !$Janus::nets{$net};
-			my $chanh = $Links::reqs{$net}{$nname} or next;
+			my $chanh = $Link::reqs{$net}{$nname} or next;
 			for my $schan (sort keys %$chanh) {
 				next if linked($net, $nname, $schan, $chanh->{$schan});
 				&Janus::append(+{
@@ -85,8 +85,8 @@ sub code {
 	} elsif ($args =~ /^(?:list|dump) *(\S+)?/i) {
 		my %chans;
 		my $list = $args =~ /^list/i;
-		for my $net ($1 || sort keys %{$Links::reqs{$nname}}) {
-			my $chanh = $Links::reqs{$nname}{$net} or next;
+		for my $net ($1 || sort keys %{$Link::reqs{$nname}}) {
+			my $chanh = $Link::reqs{$nname}{$net} or next;
 			for my $schan (keys %$chanh) {
 				next if $list && linked($nname, $net, $schan, $chanh->{$schan});
 				$chans{$schan} .= ' '.$net;

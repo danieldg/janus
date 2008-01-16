@@ -65,11 +65,14 @@ my @topicts  :Persist(topicts)  :Arg(topicts)  :Get(topicts);
 my @topicset :Persist(topicset) :Arg(topicset) :Get(topicset);
 my @mode     :Persist(mode)                    :Get(all_modes);
 
-my @names    :Persist(names); # channel's name on the various networks
-my @nets     :Persist(nets);  # networks this channel is shared to
+my @names    :Persist(names);  # channel's name on the various networks
+my @nets     :Persist(nets);   # networks this channel is shared to
 
-my @nicks    :Persist(nicks); # all nicks on this channel
-my @nmode    :Persist(nmode); # modes of those nicks
+my @locker   :Persist(locker); # Lock ID of the currently held lock, or undef
+my @lockts   :Persist(lockts); # Time the lock will expire
+
+my @nicks    :Persist(nicks);  # all nicks on this channel
+my @nmode    :Persist(nmode);  # modes of those nicks
 
 =item $chan->nets()
 
@@ -178,6 +181,7 @@ sub _modecpy {
 sub _link_into {
 	my($src,$chan) = @_;
 	my %dstnets = %{$nets[$$chan]};
+	delete $locker[$$src];
 	print "Link into ($$src -> $$chan):";
 	for my $id (keys %{$nets[$$src]}) {
 		print " $id";
@@ -324,6 +328,18 @@ sub del_remoteonly {
 	}
 }
 
+sub can_lock {
+	my $chan = shift;
+	return 1 unless $locker[$$chan];
+	if ($lockts[$$chan] < $Janus::time) {
+		print "Stealing expired lock from $locker[$$chan]\n";
+		return 1;
+	} else {
+		print "Lock held by $locker[$$chan]\n";
+		return 0;
+	}
+}
+
 &Janus::hook_add(
 	JOIN => act => sub {
 		my $act = $_[0];
@@ -405,54 +421,41 @@ sub del_remoteonly {
 				$topicset[$$chan] = 'janus';
 			}
 		}
-	}, LSYNC => check => sub {
+	}, LOCKREQ => check => sub {
 		my $act = shift;
-		my $chan = $act->{chan};
-		my $dchan = $Janus::gchans{$keyname[$$chan]};
-		for my $nid (keys %{$nets[$$chan]}) {
-			my $net = $nets[$$chan]{$nid};
-			my $kn = $net->gid().$names[$$chan]{$nid};
-			my $kc = $Janus::gchans{$kn};
+		my $net = $act->{dst};
+		return undef unless $net->isa('LocalNetwork');
+		my $chan = $net->chan($act->{name}, 1) or return 1;
+		$act->{dst} = $chan;
+		return 0;
+	}, LOCKREQ => act => sub {
+		my $act = shift;
+		my $chan = $act->{dst};
+		return unless $chan->isa('Channel');
 
-			if ($dchan) {
-				# we should already know everything here...
-				return 1 unless $kc;
-				if ($kc ne $dchan) {
-					print "Can't deal with an imported merge! $$chan, $$dchan, $$kc\n";
-					print join ' ', map $_->gid(), values %{$nets[$$chan]};
-					print "\n";
-					print join ' ', map $_->gid(), values %{$nets[$$dchan]};
-					print "\n";
-					print join ' ', map $_->gid(), values %{$nets[$$kc]};
-					print "\n";
-					return 1;
-				}
-			} else {
-				# we should not know anything about this channel
-				return 1 if $kc;
-				print "WARN: Importing a merge to a nonexistant channel!\n" unless $net->jlink();
-			}
+		if ($chan->can_lock()) {
+			$locker[$$chan] = $act->{lockid};
+			$lockts[$$chan] = $Janus::time + 60;
+			&Janus::append(+{
+				type => 'LOCKACK',
+				src => $Janus::server,
+				dst => $act->{src},
+				lockid => $act->{lockid},
+				chan => $chan,
+				expire => ($Janus::time + 40),
+			});
+		} else {
+			&Janus::append(+{
+				type => 'LOCKACK',
+				src => $Janus::server,
+				dst => $act->{src},
+				lockid => $act->{lockid},
+			});
 		}
-		$act->{chan} = $dchan if $dchan;
-		$chan = undef;
-		print "Should dealloc above\n" if $dchan;
-		undef;
-	}, LSYNC => act => sub {
+	}, LOCKED => act => sub {
 		my $act = shift;
-		if ($act->{dst}->jlink()) {
-			print "Not linking here\n";
-			return;
-		}
-		my $chan1 = $act->{dst}->chan($act->{linkto},1);
-		my $chan2 = $act->{chan};
-	
-		# This is the atomic creation of the merged channel. Everyone else
-		# just gets a copy of the channel created here and send out the 
-		# events required to merge into it.
-		# 
-		# At this (LSYNC) stage, however, there shall be NO modification of the
-		# original channel(s), since it is still possible to abort until the
-		# LINK action is executed
+		my $chan1 = $act->{chan1};
+		my $chan2 = $act->{chan2};
 
 		for my $id (keys %{$nets[$$chan1]}) {
 			my $exist = $nets[$$chan2]{$id};
@@ -602,7 +605,7 @@ sub del_remoteonly {
 				my $nick = $nicks[$$split]{$nid} = $nicks[$$chan]{$nid};
 				# need to insert the nick into the split off channel before the delink
 				# PART is sent, because code is allowed to assume a PARTed nick was actually
-				# in the channel it is parting from; this also keeps the channel from being 
+				# in the channel it is parting from; this also keeps the channel from being
 				# prematurely removed from the list.
 				&Janus::append(+{
 					type => 'PART',

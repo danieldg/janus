@@ -6,7 +6,7 @@ use strict;
 use warnings;
 use Listener;
 use Connection;
-use Links;
+use Link;
 
 our $VERSION;
 my $reload = $VERSION;
