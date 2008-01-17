@@ -434,7 +434,6 @@ sub str {
 				except => $net,
 				nojlink => 1,
 			};
-			$act->{sendto} = [ $chan->sendto($act, $net) ];
 			&Janus::append($act);
 		}
 	}, KILL => cleanup => sub {

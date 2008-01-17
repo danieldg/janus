@@ -287,8 +287,6 @@ sub send {
 			my $type = $act->{type};
 			if (exists $toirc{$type}) {
 				push @{$sendq[$$net]}, $toirc{$type}->($net, $act);
-			} else {
-				debug "Unknown action type '$type'";
 			}
 		} else {
 			push @{$sendq[$$net]}, $act;
