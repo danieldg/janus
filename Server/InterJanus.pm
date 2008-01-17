@@ -9,7 +9,7 @@ use warnings;
 
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
-my $IJ_PROTO = 1.4;
+my $IJ_PROTO = 1.5;
 
 my @sendq :Persist('sendq');
 my @id    :Persist('id')    :Arg(id) :Get(id);
