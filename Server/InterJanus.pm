@@ -142,8 +142,9 @@ sub parse {
 			$act->{type} = 'JNETLINK';
 			return $act;
 		}
-		# TODO this might be better done by a JNETSPLIT
-		delete $Janus::ijnets{$id};
+		if ($Janus::ijnets{$id} && $Janus::ijnets{$id} eq $ij) {
+			delete $Janus::ijnets{$id};
+		}
 	}
 	return ();
 }
