@@ -1300,6 +1300,7 @@ sub cmd2 {
 		my $new = $act->{net};
 		if ($net eq $new) {
 			# first link to the net
+			print "First link, introducing all servers\n";
 			my @out;
 			for my $ij (values %Janus::ijnets) {
 				next unless $ij->is_linked();

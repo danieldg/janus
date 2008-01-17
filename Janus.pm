@@ -571,6 +571,12 @@ if ($RELEASE) {
 		my $net = $act->{net};
 		my $id = $net->id();
 		$ijnets{$id} = $net;
+	}, JNETSPLIT => check => sub {
+		my $act = shift;
+		my $net = $act->{net};
+		my $eq = $ijnets{$net->id()};
+		return 1 if $eq && $eq ne $net;
+		undef;
 	}, JNETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
