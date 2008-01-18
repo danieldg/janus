@@ -40,8 +40,11 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 				msg => 'Killed',
 			});
 		}
-		&Connection::abort();
-		print "Trying to die!\n";
+		print "Will exit in 1 second\n";
+		&Janus::schedule(+{
+			delay => 1,
+			code => sub { exit },
+		});
 	},
 }, {
 	cmd => 'restart',

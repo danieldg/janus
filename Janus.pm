@@ -559,6 +559,8 @@ if ($RELEASE) {
 	}, NETSPLIT => jparse => sub {
 		my $act = shift;
 		delete $act->{netsplit_quit};
+		my $net = $act->{net};
+		return 1 unless $net->jlink() && $net->jlink() eq $act->{except};
 		undef;
 	}, NETSPLIT => act => sub {
 		my $act = shift;
