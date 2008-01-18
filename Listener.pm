@@ -22,7 +22,11 @@ sub init_pending {
 			SSL_key_file => $conf->{keyfile},
 			SSL_cert_file => $conf->{certfile},
 		);
-		$sock->accept_SSL();
+		if ($sock->isa('IO::Socket::SSL')) {
+			$sock->accept_SSL();
+		} else {
+			print "ERROR: cannot initiate SSL pend on $id[$$self]\n";
+		}
 	}
 	$net;
 }
