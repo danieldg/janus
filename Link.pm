@@ -204,7 +204,7 @@ sub unlock {
 		return if $snet->jlink();
 
 		my $sname = $snet->name();
-		my $scname = $chan->str($snet) || $act->{split}->str($snet);
+		my $scname = lc($chan->str($snet) || $act->{split}->str($snet));
 		if ($snet eq $act->{net}) {
 			# delink own network: delete all outgoing requests
 			for my $net ($chan->nets()) {
