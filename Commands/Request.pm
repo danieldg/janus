@@ -60,8 +60,11 @@ sub code {
 			next if $list && !$Janus::nets{$net};
 			my $chanh = $Link::reqs{$net}{$nname} or next;
 			for my $schan (sort keys %$chanh) {
-				next if $list && linked($net, $nname, $schan, $chanh->{$schan});
-				&Janus::jmsg($nick, "$net: $schan $chanh->{$schan}");
+				my $ifo = $chanh->{$schan};
+				my $dchan = ref $ifo ? $ifo->{dst} : $ifo;
+				next if $list && linked($net, $nname, $schan, $dchan);
+				&Janus::jmsg($nick, "$net: $schan $dchan".
+					(ref $ifo ? " by $ifo->{nick} on ".gmtime($ifo->{time}) : ''));
 			}
 		}
 		&Janus::jmsg($nick, 'End of list');
@@ -70,14 +73,18 @@ sub code {
 			next if !$Janus::nets{$net};
 			my $chanh = $Link::reqs{$net}{$nname} or next;
 			for my $schan (sort keys %$chanh) {
-				next if linked($net, $nname, $schan, $chanh->{$schan});
+				my $ifo = $chanh->{$schan};
+				my $dchan = ref $ifo ? $ifo->{dst} : $ifo;
+				next if linked($net, $nname, $schan, $dchan);
 				&Janus::append(+{
 					type => 'LINKREQ',
 					src => $nick,
 					dst => $Janus::nets{$net},
 					net => $nick->homenet(),
 					slink => $schan,
-					dlink => $chanh->{$schan},
+					dlink => $dchan,
+					reqby => $nick->realhostmask(),
+					reqtime => $Janus::time,
 				});
 			}
 		}
@@ -88,9 +95,11 @@ sub code {
 		for my $net ($1 || sort keys %{$Link::reqs{$nname}}) {
 			my $chanh = $Link::reqs{$nname}{$net} or next;
 			for my $schan (keys %$chanh) {
-				next if $list && linked($nname, $net, $schan, $chanh->{$schan});
+				my $ifo = $chanh->{$schan};
+				my $dchan = ref $ifo ? $ifo->{dst} : $ifo;
+				next if $list && linked($nname, $net, $schan, $dchan);
 				$chans{$schan} .= ' '.$net;
-				$chans{$schan} .= $chanh->{$schan} unless $schan eq $chanh->{$schan};
+				$chans{$schan} .= $dchan unless $schan eq $dchan;
 			}
 		}
 		for my $chan (sort keys %chans) {

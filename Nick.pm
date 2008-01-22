@@ -183,6 +183,17 @@ sub info {
 	$info[$$nick]{$_[1]};
 }
 
+=item $nick->realhostmask()
+
+The real nick!user@host of the user (i.e. not vhost)
+
+=cut
+
+sub realhostmask {
+	my $n = $_[0];
+	$homenick[$$n].'!'.$info[$$n]{ident}.'@'.$info[$$n]{host};
+}
+
 =item $nick->rejoin($chan)
 
 Connecting to all networks that the given channel is on

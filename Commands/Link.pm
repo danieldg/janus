@@ -56,6 +56,8 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			slink => $cname1,
 			dlink => $cname2,
 			override => $nick->has_mode('oper'),
+			reqby => $nick->realhostmask(),
+			reqtime => $Janus::time,
 		});
 		&Janus::jmsg($nick, "Link request sent");
 	}

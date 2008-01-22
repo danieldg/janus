@@ -272,6 +272,8 @@ my %spec = (
 		dlink => '$',
 		linkfile => '?$',
 		override => '?$',
+		reqby => '?$',
+		reqtime => '?$',
 	},
 	REQDEL => {
 		snet => 'Network',

@@ -8,7 +8,11 @@ use Persist;
 our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 our %reqs;
-# {requestor}{destination}{src-channel} = dst-channel
+# {requestor}{destination}{src-channel} = {
+#  src => src-channel [? if ever useful]
+#  dst => dst-channel
+#  mask => nick!ident@host of requestor
+#  time => unix timestamp of request
 
 our %bylock;
 # lockid => Link
@@ -80,13 +84,16 @@ sub unlock {
 			next unless $bychan;
 			my $dnet = $Janus::nets{$nname} or next;
 			keys %$bychan;
-			while (my($src,$dst) = each %$bychan) {
+			while (my($src,$ifo) = each %$bychan) {
+				$ifo = { dst => $ifo } unless ref $ifo;
 				push @acts, +{
 					type => 'LINKREQ',
 					net => $net,
 					dst => $dnet,
 					slink => $src,
-					dlink => $dst,
+					dlink => $ifo->{dst},
+					reqby => $ifo->{nick},
+					reqtime => $ifo->{time},
 					linkfile => 1,
 				};
 			}
@@ -102,13 +109,16 @@ sub unlock {
 				next if $net->jlink();
 				my $bychan = $reqs{$net->name()}{$lto->name()};
 				keys %$bychan;
-				while (my($src,$dst) = each %$bychan) {
+				while (my($src,$ifo) = each %$bychan) {
+					$ifo = { dst => $ifo } unless ref $ifo;
 					push @acts, +{
 						type => 'LINKREQ',
 						net => $net,
 						dst => $lto,
 						slink => $src,
-						dlink => $dst,
+						dlink => $ifo->{dst},
+						reqby => $ifo->{nick},
+						reqtime => $ifo->{time},
 						linkfile => $ij->is_linked(),
 					};
 				}
@@ -120,7 +130,11 @@ sub unlock {
 		my $snet = $act->{net};
 		my $dnet = $act->{dst};
 		print "Link request: ";
-		$reqs{$snet->name()}{$dnet->name()}{lc $act->{slink}} = $act->{dlink};
+		$reqs{$snet->name()}{$dnet->name()}{lc $act->{slink}} = {
+			dst => $act->{dlink},
+			nick => $act->{reqby},
+			'time' => $act->{reqtime},
+		};
 		if ($dnet->jlink() || $dnet->isa('Interface')) {
 			print "dst non-local\n";
 			return;
@@ -130,6 +144,7 @@ sub unlock {
 			return;
 		}
 		my $recip = $reqs{$dnet->name()}{$snet->name()}{lc $act->{dlink}};
+		$recip = $recip->{dst} if ref $recip;
 		unless ($recip) {
 			print "saved in list\n";
 			return;
@@ -201,7 +216,6 @@ sub unlock {
 		my $chan = $act->{dst};
 		return unless $src && $src->isa('Nick');
 		my $snet = $src->homenet();
-		return if $snet->jlink();
 
 		my $sname = $snet->name();
 		my $scname = lc($chan->str($snet) || $act->{split}->str($snet));
