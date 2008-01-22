@@ -476,6 +476,14 @@ sub kicked {
 		}
 		();
 	},
+	ERROR => sub {
+		my $net = shift;
+		return +{
+			type => 'NETSPLIT',
+			net => $net,
+			msg => $_[-1],
+		};
+	},
 	# misc
 	'001' => sub {
 		my $net = shift;
