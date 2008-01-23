@@ -947,7 +947,7 @@ $moddef{CORE} = {
 			}
 			return @out;
 		} else {
-			return $net->cmd2($act->{from}, NICK => $act->{to}, $nick->ts());
+			return $net->cmd2($act->{from}, NICK => $act->{to});
 		}
 	}, NICK => sub {
 		my($net,$act) = @_;
