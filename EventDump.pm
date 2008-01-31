@@ -115,32 +115,6 @@ my %to_ij = (
 	}, NICK => sub {
 		send_hdr(@_,qw/dst nick/) . '>';
 	},
-	InterJanus => \&ssend,
-	CHATOPS => \&ssend,
-	DELINK => \&ssend,
-	JLINKED => \&ssend,
-	JNETLINK => \&ssend,
-	JNETSPLIT => \&ssend,
-	JOIN => \&ssend,
-	KICK => \&ssend,
-	KILL => \&ssend,
-	LINKED => \&ssend,
-	LINKREQ => \&ssend,
-	LOCKREQ => \&ssend,
-	MODE => \&ssend,
-	MSG => \&ssend,
-	NETSPLIT => \&ssend,
-	NICKINFO => \&ssend,
-	PART => \&ssend,
-	PING => \&ssend,
-	PONG => \&ssend,
-	QUIT => \&ssend,
-	TIMESYNC => \&ssend,
-	TOPIC => \&ssend,
-	TSREPORT => \&ssend,
-	UMODE => \&ssend,
-	UNLOCK => \&ssend,
-	WHOIS => \&ssend,
 );
 
 sub debug_send {
@@ -161,7 +135,7 @@ sub dump_act {
 		if (exists $to_ij{$type}) {
 			push @out, $to_ij{$type}->($ij, $act);
 		} else {
-			print "EventDump: unknown action type '$type'\n";
+			push @out, ssend($ij, $act);
 		}
 	}
 	grep $_, @out; #remove blank lines
