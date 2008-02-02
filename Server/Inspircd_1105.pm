@@ -871,10 +871,12 @@ $moddef{CORE} = {
 	GLOADMODULE => sub {
 		my $net = shift;
 		$net->module_add($_[2]);
+		();
 	},
 	GUNLOADMODULE => sub {
 		my $net = shift;
 		$net->module_remove($_[2]);
+		();
 	},
   }, acts => {
 	JNETLINK => sub {
