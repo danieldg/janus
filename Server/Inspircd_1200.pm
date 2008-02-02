@@ -863,6 +863,16 @@ $moddef{CORE} = {
 		();
 	},
 	TIMESET => \&ignore,
+
+# from m_globalload.so, included so that dynamic module loading always works
+	GLOADMODULE => sub {
+		my $net = shift;
+		$net->module_add($_[2]);
+	},
+	GUNLOADMODULE => sub {
+		my $net = shift;
+		$net->module_remove($_[2]);
+	},
   }, acts => {
 	NETLINK => sub {
 		my($net,$act) = @_;

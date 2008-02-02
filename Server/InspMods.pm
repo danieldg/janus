@@ -133,17 +133,9 @@ mdef 'm_dnsbl.so';
 mdef 'm_filter.so', cmds => { FILTER => \&ignore };
 mdef 'm_filter_pcre.so', cmds => { FILTER => \&ignore };
 mdef 'm_foobar.so';
-mdef 'm_globalload.so', cmds => { 
-	GLOADMODULE => sub {
-		my $net = shift;
-		$net->module_add($_[2]);
-	},
-	GUNLOADMODULE => sub {
-		my $net = shift;
-		$net->module_remove($_[2]);
-	},
-	GRELOADMODULE => \&ignore,
-};
+# hack: G(UN)LOADMODULE cmds are in core so that m_globalload can be
+# loaded and used without needing to split janus
+mdef 'm_globalload.so', cmds => { GRELOADMODULE => \&ignore };
 mdef 'm_globops.so',
 	cmds => { GLOBOPS => \&ignore },
 	acts => { CHATOPS => sub {
