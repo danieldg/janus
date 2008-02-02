@@ -625,27 +625,32 @@ $moddef{CORE} = {
 	}, CAPAB => sub {
 		my $net = shift;
 		if ($_[2] eq 'MODULES') {
-			$net->module_add($_) for split /,/, $_[-1];
+			$capabs[$$net]{' MOD'}{$_}++ for split /,/, $_[-1];
 		} elsif ($_[2] eq 'CAPABILITIES') {
 			$_ = $_[3];
 			while (s/^\s*(\S+)=(\S+)//) {
 				$capabs[$$net]{$1} = $2;
 			}
 		} elsif ($_[2] eq 'END') {
-			# yep, we lie about all this.
+			# actually process what information we got
+			my $modl = delete $capabs[$$net]{' MOD'} || {};
+			$net->module_add($_) for keys %$modl;
+			$net->process_capabs();
+
+			# and then lie to match it
 			my $mods = join ',', sort grep /so$/, $net->all_modules();
 			my $capabs = join ' ', sort map {
 				my($k,$v) = ($_, $capabs[$$net]{$_});
 				$k = undef if $k eq 'CHALLENGE'; # TODO generate our own challenge and use SHA256 passwords
 				$k ? "$k=$v" : ();
 			} keys %{$capabs[$$net]};
+
 			my @out = 'INIT';
 			push @out, 'CAPAB MODULES '.$1 while $mods =~ s/(.{1,495})(,|$)//;
 			push @out, 'CAPAB CAPABILITIES :'.$1 while $capabs =~ s/(.{1,450})( |$)//;
 			push @out, 'CAPAB END';
 			push @out, $net->cmd1(SERVER => $net->cparam('linkname'), $net->cparam('sendpass'), 0, $net, 'Janus Network Link');
 			$net->send(\@out);
-			$net->process_capabs();
 		} # ignore START and any others
 		();
 	}, ERROR => sub {
@@ -1058,11 +1063,9 @@ $moddef{CORE} = {
 	},
 }};
 
-$moddef{$_} = $Server::InspMods::modules{$_} for keys %Server::InspMods::modules;
-
 sub find_module {
 	my($net,$name) = @_;
-	$moddef{$name};
+	$moddef{$name} || $Server::InspMods::modules{$capabs[$$net]{PROTOCOL}}{$name};
 }
 
 1;
