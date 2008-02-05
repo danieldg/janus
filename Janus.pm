@@ -239,7 +239,7 @@ sub _mod_hook {
 		eval {
 #			print "MOD_HOOK $type $lvl $mod\n";
 			my $r = $hook->{$mod}->(@args);
-			$rv = $r if defined $r;
+			$rv = $r if $r;
 			1;
 		} or do {
 			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod: $@");
