@@ -959,7 +959,7 @@ $moddef{CORE} = {
 				my $mode = join '', map {
 					$chan->has_nmode($_, $nick) ? ($txt2pfx[$$net]{$_} || '') : ''
 				} qw/n_voice n_halfop n_op n_admin n_owner/;
-				push @out, $net->cmd1(FJOIN => $chan, $chan->ts(), $mode.','.$nick->str($net));
+				push @out, $net->ncmd(FJOIN => $chan, $chan->ts(), $mode.','.$nick->str($net));
 			}
 			return @out;
 		} else {
@@ -1003,7 +1003,7 @@ $moddef{CORE} = {
 		if ($act->{mode}) {
 			$mode .= ($txt2pfx[$$net]{$_} || '') for keys %{$act->{mode}};
 		}
-		$net->cmd1(FJOIN => $chan, $chan->ts(), $mode.','.$net->_out($act->{src}));
+		$net->ncmd(FJOIN => $chan, $chan->ts(), $mode.','.$net->_out($act->{src}));
 	}, PART => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, PART => $act->{dst}, $act->{msg});

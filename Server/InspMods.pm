@@ -111,6 +111,7 @@ mdef 'm_conn_join.so';
 mdef 'm_conn_umodes.so';
 mdef 'm_conn_waitpong.so';
 mdef 'm_connflood.so';
+mdef 'm_commonchans.so';
 mdef 'm_customtitle.so';
 mdef 'm_cycle.so';
 mdef 'm_dccallow.so', cmds => { DCCALLOW => \&ignore };
