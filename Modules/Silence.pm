@@ -14,6 +14,7 @@ sub service {
 	return 1 if $srv =~ /^stats\./;
 	return 1 if $srv =~ /^service.*\..*\./;
 	return 1 if $srv =~ /^defender.*\..*\./;
+	# TODO allow this to be user-specified, probably in network block
 }
 
 &Janus::hook_add(
@@ -21,6 +22,7 @@ sub service {
 		my $act = shift;
 		my $src = $act->{src};
 		my $dst = $act->{dst};
+		return 1 if $act->{msgtype} eq '439' || $act->{msgtype} eq '931';
 		return undef unless $src->isa('Nick') && $dst->isa('Nick');
 		return 1 if service($src);
 		return 1 if service($dst);
