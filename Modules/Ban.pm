@@ -5,71 +5,42 @@ use Persist;
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
+my %bans;
 
-my @regex  :Persist(regex);
-my @expr   :Persist(expr)   :Arg(expr)   :Get(expr);
-my @setter :Persist(setter) :Arg(setter) :Get(setter);
-my @expire :Persist(expire) :Arg(expire) :Get(expire);
-my @reason :Persist(reason) :Arg(reason) :Get(reason);
-
-my @bans   :PersistAs(Network,bans);
-
-sub find {
-	my($net, $iexpr) = @_;
-	for my $ban (@{$bans[$$net]}) {
-		$expr[$$ban] eq $iexpr and return $ban;
-	}
-	undef;
-}
-
-sub _init {
-	my($ban,$args) = @_;
-	my $net = $args->{net};
-	push @{$bans[$$net]}, $ban;
-
-	local $_ = $ban->expr();
-	unless (s/^~//) { # all expressions starting with a ~ are raw perl regexes
-		s/(\W)/\\$1/g;
-		s/_/[ _]/g;  # _ matches space or _
-		s/\\\?/./g;  # ? matches one char
-		s/\\\*/.*/g; # * matches any chars
-	}
-	$regex[$$ban] = qr/^$_$/i; # compile the regex now for faster matching later
-}
+&Janus::save_vars(bans => \%bans);
 
 sub banlist {
 	my $net = shift;
-	my $list = $bans[$$net];
+	my $list = $bans{$net->name()};
 	return () unless $list;
 	my @good;
 	for my $ban (@$list) {
-		my $exp = $expire[$$ban];
+		my $exp = $ban->{expire};
 		unless ($exp && $exp < $Janus::time) {
 			push @good, $ban;
 		}
 	}
-	$bans[$$net] = \@good;
+	$bans{$net->name()} = \@good;
 	@good;
 }
 
-sub delete {
-	my $ban = shift;
-	$expire[$$ban] = 1;
+sub re {
+	my($x,$i) = @_;
+	$x =~ s/(\W)/\\$1/g;
+	$x =~ s/\\\*/.*/g;
+	$x =~ s/\\\?/./g;
+	$i =~ /^$x$/;
 }
 
 sub match {
-	my($ban,@v) = @_;
-	if (@v == 1 && ref $v[0]) {
-		my $nick = shift @v;
-		my $head = $nick->homenick().'!'.$nick->info('ident').'@';
-		my $tail = '%'.$nick->homenet()->name().':'.$nick->info('name');
-		push @v, $head . $nick->info('host') . $tail;
-		push @v, $head . $nick->info('vhost') . $tail;
-		push @v, $head . $nick->info('ip') . $tail;
-	}
-	for my $mask (@v) {
-		return 1 if $mask =~ /$regex[$$ban]/;
+	my($ban,$nick) = @_;
+	my($n,$i,$h,$t) = $ban->{expr} =~ /(.*)\!(.*)\@(.*)\%(.*)/ or return 0;
+	return 0 unless re($n, $nick->homenick());
+	return 0 unless re($i, $nick->info('ident'));
+	return 0 unless re($t, $nick->homenet()->name());
+	for (qw/host vhost ip/) {
+		my $hm = $nick->info($_) or next;
+		return 1 if re($h,$hm);
 	}
 	return 0;
 }
@@ -87,9 +58,8 @@ my %timespec = (
 	cmd => 'ban',
 	help => 'Manages Janus bans (bans remote users)',
 	details => [
-		'Bans are matched against nick!ident@host%netid:name on any remote joins to a shared channel',
-		'Expressions are either a string with * and ? being wildcards, or ~ followed by',
-		'any perl regex which matches the entire string',
+		'Bans are matched against nick!ident@host%netid on any remote joins to a shared channel',
+		'Syntax is the same as a standard IRC ban',
 		'Expiration can be of the form 1y1w3d4h5m6s, or just # of seconds, or 0 for a permanent ban',
 		" \002ban list\002                      List all active janus bans on your network",
 		" \002ban add\002 expr length reason    Add a ban (applied to new users only)",
@@ -106,16 +76,16 @@ my %timespec = (
 		if ($cmd =~ /^l/i) {
 			my $c = 0;
 			for my $ban (@list) {
-				my $expire = $ban->expire() ? 
-					'expires in '.($ban->expire() - $Janus::time).'s ('.gmtime($ban->expire()) .')' :
+				my $expire = $ban->{expire} ? 
+					'expires in '.($ban->{expire} - $Janus::time).'s ('.gmtime($ban->{expire}) .')' :
 					'does not expire';
 				$c++;
-				&Janus::jmsg($nick, $c.' '.$ban->expr().' - set by '.$ban->setter().", $expire - ".$ban->reason());
+				&Janus::jmsg($nick, $c.' '.$ban->{expr}.' - set by '.$ban->{setter}.", $expire - ".$ban->{reason});
 			}
 			&Janus::jmsg($nick, 'No bans defined') unless @list;
 		} elsif ($cmd =~ /^k?a/i) {
 			unless ($arg[2]) {
-				&Janus::jmsg($nick, 'Use: ban add $expr $duration $reason');
+				&Janus::jmsg($nick, 'Use: ban add expression duration reason');
 				return;
 			}
 			local $_ = $arg[1];
@@ -131,20 +101,20 @@ my %timespec = (
 			} else { 
 				$t = 0;
 			}
-			my $ban = Modules::Ban->new(
-				net => $net,
+			my $ban = {
 				expr => $arg[0],
 				expire => $t,
 				reason => $reason,
 				setter => $nick->homenick(),
-			);
+			};
+			push @{$bans{$net->name()}}, $ban;
 			if ($cmd =~ /^a/i) {
 				&Janus::jmsg($nick, 'Ban added');
 			} else {
 				my $c = 0;
 				for my $n ($net->all_nicks()) {
 					next if $n->homenet() eq $net;
-					next unless $ban->match($n);
+					next unless match($ban,$n);
 					&Janus::append(+{
 						type => 'KILL',
 						dst => $n,
@@ -159,8 +129,8 @@ my %timespec = (
 			for (@arg) {
 				my $ban = /^\d+$/ ? $list[$_ - 1] : find($net,$_);
 				if ($ban) {
-					&Janus::jmsg($nick, 'Ban '.$ban->expr().' removed');
-					$ban->delete();
+					&Janus::jmsg($nick, 'Ban '.$ban->{expr}.' removed');
+					$ban->{expire} = 1;
 				} else {
 					&Janus::jmsg($nick, "Could not find ban $_ - use ban list to see a list of all bans");
 				}
@@ -174,43 +144,20 @@ my %timespec = (
 		my $nick = $act->{dst};
 		my $net = $act->{net};
 		return undef if $net->jlink();
+		return undef if $nick->has_mode('oper');
 
 		for my $ban (banlist($net)) {
-			next unless $ban->match($nick);
+			next unless match($ban,$nick);
 
 			&Janus::append(+{
 				type => 'KILL',
 				dst => $nick,
 				net => $net,
-				msg => "Banned by ".$net->netname().": $reason[$$ban]",
+				msg => "Banned by ".$net->netname().": $ban->{reason}",
 			});
 			return 1;
 		}
 		undef;
-	}, XLINE => check => sub {
-		my $act = shift;
-		my $net = $act->{dst};
-		return 1 unless $net->param('translate_bans');
-		return undef;
-	}, XLINE => act => sub {
-		my $act = shift;
-		warn "TODO!";
-		return;
-		my $net = $act->{dst};
-		my $expr = 'NOMATCH'; # "$nick!$ident\@$host\%*";
-		if ($act->{action} eq '+') {
-			Modules::Ban->new(
-				net => $net,
-				expr => $expr,
-				reason => $act->{reason},
-				expire => ($act->{expire} || 0),
-				setter => $act->{setter},
-			);
-		} else {
-			my $ban = find($expr);
-			return unless $ban;
-			$ban->delete();
-		}
 	},
 );
 
