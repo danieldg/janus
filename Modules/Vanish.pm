@@ -135,6 +135,17 @@ my %timespec = (
 			return 1;
 		}
 		undef;
+	}, MSG => check => sub {
+		my $act = shift;
+		my $src = $act->{src} or return undef;
+		my $dst = $act->{dst} or return undef;
+		if ($src->isa('Nick') && $dst->isa('Channel')) {
+			return undef if $act->{sendto};
+			my @to = $dst->sendto($act);
+			my @really = grep { $src->is_on($_) } @to;
+			$act->{sendto} = \@really if @really != @to;
+		}
+		undef;
 	},
 );
 
