@@ -55,6 +55,23 @@ sub guess_pre {
 		}
 	},
 }, {
+	cmd => 'showtopic',
+	help => 'Shows the current intended topic of a channel',
+	details => [
+		"\002SHOWTOPIC\002 #channel - shows the intended topic of the channel on your network",
+	],
+	code => sub {
+		my($nick,$args) = @_;
+		my $hn = $nick->homenet();
+		return &Janus::jmsg($nick, 'Local command only') unless $hn->isa('LocalNetwork');
+		$args =~ /^(#\S*)/i or return &Janus::jmsg($nick, 'Syntax: SHOWMODE [raw] #chan');
+		my $cname = $1;
+		my $chan = $hn->chan($cname,0);
+		return &Janus::jmsg($nick, 'That channel does not exist') unless $chan;
+		my $top = $chan->topic();
+		&Janus::jmsg($nick, $cname . ' ' . $top);
+	},
+}, {
 	cmd => 'setmode',
 	help => 'Sets a mode by its long name',
 	details => [
