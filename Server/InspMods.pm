@@ -425,7 +425,7 @@ mdef 'm_swhois.so', metadata => {
 		return +{
 			type => 'NICKINFO',
 			src => $net->item($_[0]),
-			dst => $_[2],
+			dst => $nick,
 			item => 'swhois',
 			value => $_[4],
 		};
@@ -433,10 +433,11 @@ mdef 'm_swhois.so', metadata => {
 }, cmds => {
 	SWHOIS => sub {
 		my $net = shift;
+		my $nick = $net->mynick($_[2]) or return ();
 		return +{
 			type => 'NICKINFO',
 			src => $net->item($_[0]),
-			dst => $_[2],
+			dst => $nick,
 			item => 'swhois',
 			value => $_[3],
 		};
