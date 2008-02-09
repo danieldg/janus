@@ -448,6 +448,8 @@ sub nickact {
 		$dst = $net->nick($_[2]);
 	}
 
+	return () unless $dst;
+
 	if ($dst->homenet() eq $net) {
 		my %a = (
 			type => 'NICKINFO',
