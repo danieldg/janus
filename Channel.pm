@@ -423,10 +423,15 @@ sub can_lock {
 	}, LOCKREQ => check => sub {
 		my $act = shift;
 		my $net = $act->{dst};
-		return undef unless $net->isa('LocalNetwork');
-		my $chan = $net->chan($act->{name}, 1) or return 1;
-		$act->{dst} = $chan;
-		return 0;
+		if ($net->isa('LocalNetwork')) {
+			my $chan = $net->chan($act->{name}, 1) or return 1;
+			$act->{dst} = $chan;
+		} elsif ($net->isa('Network')) {
+			my $kn = $net->gid().$act->{name};
+			my $chan = $Janus::gchans{$kn};
+			$act->{dst} = $chan if $chan;
+		}
+		return undef;
 	}, LOCKREQ => act => sub {
 		my $act = shift;
 		my $chan = $act->{dst};
