@@ -333,16 +333,28 @@ $moddef{CORE} = {
 			};
 		} @m };
 
-		my $nick = Nick->new(%nick);
-		my($good, @out) = $net->nick_collide($_[3], $nick);
-		if ($good) {
+		my @out;
+		my $nick = $net->nick($_[3]);
+		if ($nick) {
+			# collided. Inspircd 1.1 method: kill them all!
+			push @out, +{
+                type => 'RECONNECT',
+                dst => $nick,
+                net => $net,
+                killed => 1,
+                nojlink => 1,
+            };
+			$net->send($net->cmd1(KILL => $_[3], 'Nick collision'));
+		} else {
+			$nick = Nick->new(%nick);
+			$net->nick_collide($_[3], $nick);
+			# ignore return of _collide as we already checked
 			push @out, +{
 				type => 'NEWNICK',
 				dst => $nick,
 			};
-		} else {
-			$net->send($net->cmd1(KILL => $_[3], 'hub.janus (Nick collision)'));
 		}
+
 		@out;
 	}, OPERTYPE => sub {
 		my $net = shift;
