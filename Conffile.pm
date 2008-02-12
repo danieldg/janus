@@ -1,4 +1,4 @@
-# Copyright (C) 2007 Daniel De Graaf
+# Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
 package Conffile;
 use IO::Handle;
@@ -7,11 +7,6 @@ use warnings;
 use Listener;
 use Connection;
 use Link;
-
-our $VERSION;
-my $reload = $VERSION;
-($VERSION) = '$Rev$' =~ /(\d+)/;
-$VERSION = 1 unless $VERSION; # make sure reloads act as such
 
 our $conffile;
 our %netconf;
@@ -113,7 +108,6 @@ sub connect_net {
 	my($nick,$id) = @_;
 	my $nconf = $netconf{$id};
 	return if !$nconf || exists $Janus::nets{$id} || exists $Janus::ijnets{$id};
-	print "Connecting $id\n";
 	if ($id =~ /^LISTEN:/) {
 		# FIXME this is not the best way to find it, plus we can never stop listening
 		for my $pl (values %Connection::queues) {
@@ -130,6 +124,7 @@ sub connect_net {
 			&Janus::err_jmsg($nick, "Could not listen on port $nconf->{addr}: $!");
 		}
 	} elsif ($nconf->{autoconnect}) {
+		print "Autoconnecting $id\n";
 		my $type = 'Server::'.$nconf->{type};
 		unless (&Janus::load($type)) {
 			&Janus::err_jmsg($nick, "Error creating $type network $id: $@");
@@ -162,6 +157,10 @@ sub rehash {
 	read_conf $nick;
 	connect_net $nick,$_ for keys %netconf;
 	&Janus::jmsg($nick,'Rehashed');
+}
+
+sub autoconnect {
+	connect_net undef,$_ for keys %netconf;
 }
 
 &Janus::hook_add(
@@ -277,6 +276,10 @@ sub rehash {
 	RUN => act => sub {
 		do $netconf{set}{save};
 		connect_net undef,$_ for keys %netconf;
+		&Janus::schedule({
+			repeat => 30,
+			code => \&autoconnect,
+		});
 	},
 );
 
