@@ -47,6 +47,10 @@ sub jlink {
 	$_[0];
 }
 
+sub send {
+	ij_send(@_);
+}
+
 sub ij_send {
 	my $ij = shift;
 	my @out = $ij->dump_act(@_);
