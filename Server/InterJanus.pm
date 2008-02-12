@@ -14,31 +14,6 @@ my $IJ_PROTO = 1.5;
 my @sendq :Persist('sendq');
 my @id    :Persist('id')    :Arg(id) :Get(id);
 my @auth  :Persist('auth')  :Get(is_linked);
-my @pong  :Persist('ponged');
-
-sub pongcheck {
-	my $p = shift;
-	my $ij = $p->{ij};
-	if ($ij && !isweak($p->{ij})) {
-		warn "Reference is strong! Weakening";
-		weaken($p->{ij});
-	}
-	unless ($ij && defined $id[$$ij]) {
-		delete $p->{repeat};
-		&Conffile::connect_net(undef, $p->{id});
-		return;
-	}
-	my $last = $pong[$$ij];
-	if ($last + 90 <= $Janus::time) {
-		print "PING TIMEOUT!\n";
-		&Janus::delink($ij, 'Ping timeout');
-		&Conffile::connect_net(undef, $p->{id});
-		delete $p->{ij};
-		delete $p->{repeat};
-	} elsif ($last + 29 <= $Janus::time) {
-		$ij->ij_send({ type => 'PING'  });
-	}
-}
 
 sub str {
 	warn;
@@ -48,16 +23,6 @@ sub str {
 sub intro {
 	my($ij,$nconf) = @_;
 	$sendq[$$ij] = '';
-
-	$pong[$$ij] = $Janus::time;
-	my $pinger = {
-		repeat => 30,
-		ij => $ij,
-		id => $nconf->{id},
-		code => \&pongcheck,
-	};
-	weaken($pinger->{ij});
-	&Janus::schedule($pinger);
 
 	$ij->ij_send(+{
 		type => 'InterJanus',
@@ -98,7 +63,6 @@ sub dump_sendq {
 
 sub parse {
 	my $ij = shift;
-	$pong[$$ij] = $Janus::time;
 	local $_ = $_[0];
 	my $selfid = $id[$$ij] || 'NEW';
 	print "     IN\@$selfid  $_\n";

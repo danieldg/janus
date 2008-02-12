@@ -8,16 +8,18 @@ use integer;
 use IO::Select;
 use IO::Socket::SSL;
 use Scalar::Util qw(tainted);
-our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 our %queues;
+# net number => [ socket, recv, send, net, try_recv, try_send, ping ]
+our $lping;
+$lping ||= 100;
 
 my $tblank = ``;
 print "WARNING: not running in taint mode\n" unless tainted($tblank);
 
 sub add {
 	my($sock, $net) = @_;
-	my $q = [ $sock, $tblank, '', $net, 0, 1 ];
+	my $q = [ $sock, $tblank, '', $net, 0, 1, $Janus::time ];
 	if ($net->isa('Listener')) {
 		@$q[1,2,4,5] = ($tblank, undef, 1, 0);
 	}
@@ -57,6 +59,7 @@ sub readable {
 		}
 		$$l[1] = $recvq;
 		$$l[4] = 1 if $$l[4]; #reset SSL error counter
+		$$l[6] = $Janus::time;
 	} else {
 		my $net = $$l[3] or return;
 		if ($sock->isa('IO::Socket::SSL')) {
@@ -126,6 +129,22 @@ sub run_sendq {
 	&_syswrite;
 }
 
+sub pingall {
+	my $minpong = shift;
+	my $timeout = $minpong - 60;
+	my @all = values %queues;
+	for my $q (@all) {
+		my($net,$last) = @$q[3,6];
+		next if $net->isa('Listener');
+		if ($last < $timeout) {
+			&Janus::delink($net, 'Socket write failure ('.$!.')');
+		} elsif ($last < $minpong) {
+			$net->send(+{ type => 'PING' });
+		}
+		# otherwise, the net is quite nicely active
+	}
+}
+
 sub timestep {
 	my($r,$w,$e) = IO::Select->select(
 			IO::Select->new(grep { $_->[4] } values %queues),
@@ -136,6 +155,10 @@ sub timestep {
 	readable $_ for @$r;
 
 	&Janus::timer();
+	if ($lping + 30 < $Janus::time) {
+		pingall $lping + 5;
+		$lping = $Janus::time;
+	}
 
 	run_sendq $_ for values %queues;
 

@@ -252,7 +252,6 @@ sub intro {
 sub parse {
 	my ($net, $line) = @_;
 	debug "\e[0;32m     IN@".$net->name().' '. $line;
-	$net->pong();
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
 	push @args, $msg if defined $msg;
