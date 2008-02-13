@@ -89,7 +89,7 @@ sub pmsg {
 		$janus = Nick->new(
 			net => $int,
 			nick => $inick,
-			ts => ($main::uptime - 1000000000),
+			ts => ($^T - 1000000000),
 			info => {
 				ident => ($Conffile::netconf{set}{janus_ident} || 'janus'),
 				host => ($Conffile::netconf{set}{janus_rhost} || 'services.janus'),
@@ -145,7 +145,7 @@ sub pmsg {
 				[ 311, $src->info('ident'), $src->info('vhost'), '*', $src->info('name') ],
 				[ 312, 'janus.janus', "Janus Interface" ],
 				[ 319, join ' ', map { $_->is_on($net) ? $_->str($net) : () } $janus->all_chans() ],
-				[ 317, 0, $main::uptime, 'seconds idle, signon time'],
+				[ 317, 0, $^T, 'seconds idle, signon time'],
 				[ 318, 'End of /WHOIS list' ],
 			);
 			&Janus::append(map +{
