@@ -70,11 +70,7 @@ sub acl_ok {
 		delete $nact{src};
 		my $net = delete $nact{except};
 		map tr/+-/-+/, @{$nact{dirs}};
-		if ($net->jlink()) {
-			$net->jlink()->ij_send(\%nact);
-		} else {
-			$net->send(\%nact);
-		}
+		$net->send(\%nact);
 		1;
 	}, KICK => check => sub {
 		my $act = shift;

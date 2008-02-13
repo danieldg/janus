@@ -20,4 +20,10 @@ sub all_chans {
 	values %cbyid;
 }
 
+sub send {
+	my $net = shift;
+	my $ij = $net->jlink();
+	$ij->send(@_);
+}
+
 1;

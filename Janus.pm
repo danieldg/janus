@@ -292,7 +292,7 @@ sub _send {
 	}
 	unless ($act->{nojlink}) {
 		for my $ij (values %jlink) {
-			$ij->ij_send($act);
+			$ij->send($act);
 		}
 	}
 	for my $net (values %real) {

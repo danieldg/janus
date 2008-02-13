@@ -24,7 +24,7 @@ sub intro {
 	my($ij,$nconf) = @_;
 	$sendq[$$ij] = '';
 
-	$ij->ij_send(+{
+	$ij->send(+{
 		type => 'InterJanus',
 		version => $IJ_PROTO,
 		id => $Janus::name,
@@ -48,10 +48,6 @@ sub jlink {
 }
 
 sub send {
-	ij_send(@_);
-}
-
-sub ij_send {
 	my $ij = shift;
 	my @out = $ij->dump_act(@_);
 	print "    OUT\@$id[$$ij]  $_\n" for @out;
@@ -80,7 +76,7 @@ sub parse {
 	warn "bad line: $_[0]" unless /^\s*>\s*$/;
 	$act->{except} = $ij;
 	if ($act->{type} eq 'PING') {
-		$ij->ij_send({ type => 'PONG' });
+		$ij->send({ type => 'PONG' });
 	} elsif ($auth[$$ij]) {
 		return $act;
 	} elsif ($act->{type} eq 'InterJanus') {
@@ -122,16 +118,16 @@ sub parse {
 		my $act = shift;
 		my $ij = $act->{net};
 		for my $net (values %Janus::nets) {
-			$ij->ij_send(+{
+			$ij->send(+{
 				type => 'NETLINK',
 				net => $net,
 			});
-			$ij->ij_send(+{
+			$ij->send(+{
 				type => 'LINKED',
 				net => $net,
 			}) if $net->is_synced();
 		}
-		$ij->ij_send(+{
+		$ij->send(+{
 			type => 'JLINKED',
 		});
 	}
