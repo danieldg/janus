@@ -8,8 +8,6 @@ use Carp;
 use Nick;
 use Modes;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 =head1 Channel
 
 Object representing a set of linked channels
@@ -92,6 +90,7 @@ Returns true if the nick has the given mode in the channel (n_* modes)
 
 sub has_nmode {
 	my($chan, $mode, $nick) = @_;
+	$mode =~ s/^n_// and carp "Stripping deprecated n_ prefix";
 	$nmode[$$chan]{$nick->lid()}{$mode};
 }
 
@@ -170,11 +169,9 @@ sub _mergenet {
 sub _modecpy {
 	my($chan, $src) = @_;
 	for my $txt (keys %{$mode[$$src]}) {
-		if ($txt =~ /^l/) {
-			$mode[$$chan]{$txt} = [ @{$mode[$$src]{$txt}} ];
-		} else {
-			$mode[$$chan]{$txt} = $mode[$$src]{$txt};
-		}
+		my $m = $mode[$$src]{$txt};
+		$m = [ @$m ] if ref $m;
+		$mode[$$chan]{$txt} = $m;
 	}
 }
 
@@ -381,7 +378,7 @@ sub can_lock {
 		for my $i (@{$act->{mode}}) {
 			my $pm = shift @dirs;
 			my $arg = shift @args;
-			my $t = substr $i, 0, 1;
+			my $t = $Modes::mtype{$i} || '?';
 			if ($t eq 'n') {
 				unless (ref $arg && $arg->isa('Nick')) {
 					warn "$i without nick arg!";

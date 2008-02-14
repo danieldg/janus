@@ -899,7 +899,11 @@ sub srvname {
 				/^([*~@%+]*)(.+)/ or warn;
 				my $nmode = $1;
 				my $nick = $net->mynick($2) or next;
-				my %mh = map { tr/*~@%+/qaohv/; $net->cmode2txt($_) => 1 } split //, $nmode;
+				my %mh = map {
+					tr/*~@%+/qaohv/;
+					$_ = $net->cmode2txt($_);
+					/n_(.*)/ ? ($1 => 1) : ();
+				} split //, $nmode;
 				push @acts, +{
 					type => 'JOIN',
 					src => $nick,
@@ -1347,8 +1351,8 @@ sub cmd2 {
 			for my $chan (@{$act->{reconnect_chans}}) {
 				next unless $chan->is_on($net);
 				my $mode = '';
-				$chan->has_nmode($_, $nick) and $mode .= $net->txt2cmode($_)
-					for qw/n_voice n_halfop n_op n_admin n_owner/;
+				$chan->has_nmode($_, $nick) and $mode .= $net->txt2cmode("n_$_")
+					for qw/voice halfop op admin owner/;
 				$mode =~ tr/qaohv/*~@%+/;
 				push @out, $net->cmd1(SJOIN => $net->sjb64($chan->ts()), $chan, $mode.$nick->str($net));
 			}
@@ -1365,7 +1369,7 @@ sub cmd2 {
 		}
 		my $sj = '';
 		if ($act->{mode}) {
-			$sj .= $net->txt2cmode($_) for keys %{$act->{mode}};
+			$sj .= $net->txt2cmode("n_$_") for keys %{$act->{mode}};
 		}
 		$sj =~ tr/qaohv/*~@%+/;
 		return () unless $act->{src}->is_on($net);

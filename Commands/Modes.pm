@@ -6,14 +6,6 @@ use warnings;
 use Data::Dumper;
 use Modes;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
-sub guess_pre {
-	my($chan, $m) = @_;
-	return "l_$m" if $m eq 'ban' || $m eq 'except' || $m eq 'invex';
-	return "v_$m";
-}
-
 &Janus::command_add({
 	cmd => 'showmode',
 	help => 'Shows the current intended modes of a channel',
@@ -37,14 +29,14 @@ sub guess_pre {
 			my $modeh = $chan->all_modes() or return;
 			my $out = $cname;
 			for my $mk (sort keys %$modeh) {
+				my $t = $Modes::mtype{$mk};
 				my $mv = $modeh->{$mk};
-				$mk =~ /^(.)_(.+)/ or warn $mk;
-				if ($1 eq 'r') {
-					$out .= ' '.$2.('+'x($mv - 1));
-				} elsif ($1 eq 'v') {
-					$out .= ' '.$2.'='.$mv;
-				} elsif ($1 eq 'l') {
-					$out .= join ' ', '', $2.'={', @$mv, '}';
+				if ($t eq 'r') {
+					$out .= ' '.$mk.('+'x($mv - 1));
+				} elsif ($t eq 'v') {
+					$out .= ' '.$mk.'='.$mv;
+				} elsif ($t eq 'l') {
+					$out .= join ' ', '', $mk.'={', @$mv, '}';
 				}
 			}
 			&Janus::jmsg($nick, $1) while $out =~ s/(.{,450}) //;
@@ -91,30 +83,34 @@ sub guess_pre {
 		}
 		my(@modes,@args,@dirs);
 		for (split /\s+/, $args) {
-			if (/^-([^=]+)(?:=(.+))?$/) {
-				if (length $2) {
-					unshift @modes, 'l_'.$1;
-					unshift @args, $2;
-					unshift @dirs, '-';
+			/^([-+]+)([^=]+)(?:=(.+))?$/ or do {
+				&Janus::jmsg($nick, "Invalid mode $_");
+				return;
+			};
+			my($d,$txt,$v) = ($1,$2,$3);
+			my $type = $Modes::mtype{$txt} or do {
+				&Janus::jmsg($nick, "Unknown mode $txt");
+				return;
+			};
+			if ($type eq 'r') {
+				if ($d =~ /-+/) {
+					$v = $chan->get_mode($txt);
+					$d = '-';
 				} else {
-					for my $pfx (qw/r v/) {
-						my $m = $chan->get_mode($pfx.'_'.$1);
-						next unless defined $m;
-						unshift @modes, $pfx.'_'.$1;
-						unshift @args, $m;
-						unshift @dirs, '-';
-					}
+					$v = length $d;
+					$d = '+';
 				}
-			} elsif (/^(\++)([^=]+)$/) {
-				unshift @modes, 'r_'.$2;
-				unshift @args, length($1);
-				unshift @dirs, '+';
-			} elsif (/^\+?([^-+=]+)=(.+)$/) {
-				my $pre = guess_pre($chan, $1);
-				unshift @modes, $pre;
-				unshift @args, $2;
-				unshift @dirs, '+';
 			}
+			if ($type eq 'v' && $d eq '-') {
+				$v = $chan->get_mode($txt);
+			}
+			if (length $d > 1 || !defined $v) {
+				&Janus::jmsg($nick, "Invalid mode $_");
+				return;
+			}
+			unshift @dirs, $d;
+			unshift @modes, $txt;
+			unshift @args, $v;
 		}
 		if (@dirs) {
 			&Janus::append(+{

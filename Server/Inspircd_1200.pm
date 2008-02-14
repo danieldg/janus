@@ -432,7 +432,10 @@ $moddef{CORE} = {
 			$nm =~ /(?:(.*),)?(\S+)$/ or next;
 			my $nmode = $1;
 			my $nick = $net->mynick($2) or next;
-			my %mh = map { $pfx2txt[$$net]{$_} => 1 } split //, $nmode;
+			my %mh = map {
+				$_ = $pfx2txt[$$net]{$_};
+				/n_(.*)/ ? ($1 => 1) : ();
+			} split //, $nmode;
 			push @acts, +{
 				type => 'JOIN',
 				src => $nick,
@@ -954,8 +957,8 @@ $moddef{CORE} = {
 			for my $chan (@{$act->{reconnect_chans}}) {
 				next unless $chan->is_on($net);
 				my $mode = join '', map {
-					$chan->has_nmode($_, $nick) ? ($txt2pfx[$$net]{$_} || '') : ''
-				} qw/n_voice n_halfop n_op n_admin n_owner/;
+					$chan->has_nmode($_, $nick) ? ($txt2pfx[$$net]{"n_$_"} || '') : ''
+				} qw/voice halfop op admin owner/;
 				push @out, $net->cmd1(FJOIN => $chan, $chan->ts(), $mode.','.$nick->str($net));
 			}
 			return @out;
@@ -998,7 +1001,7 @@ $moddef{CORE} = {
 		}
 		my $mode = '';
 		if ($act->{mode}) {
-			$mode .= ($txt2pfx[$$net]{$_} || '') for keys %{$act->{mode}};
+			$mode .= ($txt2pfx[$$net]{"n_$_"} || '') for keys %{$act->{mode}};
 		}
 		$net->cmd1(FJOIN => $chan, $chan->ts(), $mode.','.$net->_out($act->{src}));
 	}, PART => sub {
