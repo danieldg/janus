@@ -19,17 +19,12 @@ BEGIN {
 use Janus;
 use POSIX 'setsid';
 
-our $VERSION = '(J)v'.join '', '$Rev$' =~ /(\d+)/;
-our $uptime = time;
+our $VERSION = '1.10';
 
 my $args = @ARGV && $ARGV[0] =~ /^-/ ? shift : '';
 
 unless ($args =~ /d/) {
-	my $log = 'log/'.time;
-	umask 022;
 	open STDIN, '/dev/null' or die $!;
-	open STDOUT, '>', $log or die $!;
-	open STDERR, '>&', \*STDOUT or die $!;
 	my $pid = fork;
 	die $! unless defined $pid;
 	if ($pid) {

@@ -93,14 +93,18 @@ my %to_ij = (
 		my $out = send_hdr(@_) . ' net=<s';
 		$out .= $act->{net}->to_ij($ij);
 		$out . '>>';
-	}, LSYNC => sub {
+	}, LOCKACK => sub {
 		my($ij, $act) = @_;
-		my $out = send_hdr(@_, qw/dst linkto/) . ' chan=<c';
-		$out .= $act->{chan}->to_ij($ij);
-		$out . '>>';
+		if ($act->{chan}) {
+			my $out = send_hdr(@_, qw/src dst expire lockid/) . ' chan=<c';
+			$out .= $act->{chan}->to_ij($ij);
+			$out . '>>';
+		} else {
+			&ssend;
+		}
 	}, LINK => sub {
 		my($ij, $act) = @_;
-		my $out = send_hdr(@_, qw/chan1 chan2/) . ' dst=<c';
+		my $out = send_hdr(@_) . ' dst=<c';
 		$out .= $act->{dst}->to_ij($ij);
 		$out . '>>';
 	}, CONNECT => sub {
@@ -111,30 +115,6 @@ my %to_ij = (
 	}, NICK => sub {
 		send_hdr(@_,qw/dst nick/) . '>';
 	},
-	InterJanus => \&ssend,
-	CHATOPS => \&ssend,
-	DELINK => \&ssend,
-	JLINKED => \&ssend,
-	JNETLINK => \&ssend,
-	JNETSPLIT => \&ssend,
-	JOIN => \&ssend,
-	KICK => \&ssend,
-	KILL => \&ssend,
-	LINKED => \&ssend,
-	LINKREQ => \&ssend,
-	MODE => \&ssend,
-	MSG => \&ssend,
-	NETSPLIT => \&ssend,
-	NICKINFO => \&ssend,
-	PART => \&ssend,
-	PING => \&ssend,
-	PONG => \&ssend,
-	QUIT => \&ssend,
-	TIMESYNC => \&ssend,
-	TOPIC => \&ssend,
-	TSREPORT => \&ssend,
-	UMODE => \&ssend,
-	WHOIS => \&ssend,
 );
 
 sub debug_send {
@@ -155,7 +135,7 @@ sub dump_act {
 		if (exists $to_ij{$type}) {
 			push @out, $to_ij{$type}->($ij, $act);
 		} else {
-			print "EventDump: unknown action type '$type'\n";
+			push @out, ssend($ij, $act);
 		}
 	}
 	grep $_, @out; #remove blank lines

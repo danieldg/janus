@@ -71,7 +71,6 @@ sub intro {
 sub parse {
 	my ($net, $line) = @_;
 	debug "\e[0;32m     IN@".$net->name().' '. $line;
-	$net->pong();
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
 	push @args, $msg if defined $msg;
@@ -173,8 +172,7 @@ sub process_capabs {
 	# MAXGECOS=128 -TODO
 	# MAXAWAY=200 - TODO
 	# IP6NATIVE=1 IP6SUPPORT=1 - we currently require IPv6 support, and claim to be native because we're cool like that :)
-	# PROTOCOL=1105 - TODO verify =1105 for insp1.1 or =4000 for unreal4, and split on their
-	#                 differences (as they split from one another)
+	# PROTOCOL=1105
 	# PREFIX=(qaohv)~&@%+
 	local $_ = $capabs[$$net]{PREFIX};
 	my(%p2t,%t2p);
@@ -315,7 +313,7 @@ $moddef{CORE} = {
 				src => $nick,
 				dst => $nick,
 				nick => $_[2],
-				nickts => (@_ == 4 ? $_[3] : time),
+				nickts => (@_ == 4 ? $_[3] : $Janus::time),
 			};
 		}
 		my $ip = $_[8];
@@ -343,16 +341,28 @@ $moddef{CORE} = {
 			};
 		} @m };
 
-		my $nick = Nick->new(%nick);
-		my($good, @out) = $net->nick_collide($_[3], $nick);
-		if ($good) {
+		my @out;
+		my $nick = $net->nick($_[3]);
+		if ($nick) {
+			# collided. Inspircd 1.1 method: kill them all!
+			push @out, +{
+                type => 'RECONNECT',
+                dst => $nick,
+                net => $net,
+                killed => 1,
+                nojlink => 1,
+            };
+			$net->send($net->cmd1(KILL => $_[3], 'Nick collision'));
+		} else {
+			$nick = Nick->new(%nick);
+			$net->nick_collide($_[3], $nick);
+			# ignore return of _collide as we already checked
 			push @out, +{
 				type => 'NEWNICK',
 				dst => $nick,
 			};
-		} else {
-			$net->send($net->cmd1(KILL => $_[3], 'hub.janus (Nick collision)'));
 		}
+
 		@out;
 	}, OPERTYPE => sub {
 		my $net = shift;
@@ -438,7 +448,10 @@ $moddef{CORE} = {
 			$nm =~ /(?:(.*),)?(\S+)$/ or next;
 			my $nmode = $1;
 			my $nick = $net->mynick($2) or next;
-			my %mh = map { $pfx2txt[$$net]{$_} => 1 } split //, $nmode;
+			my %mh = map {
+				$_ = $pfx2txt[$$net]{$_};
+				/n_(.*)/ ? ($1 => 1) : ();
+			} split //, $nmode;
 			push @acts, +{
 				type => 'JOIN',
 				src => $nick,
@@ -494,7 +507,7 @@ $moddef{CORE} = {
 		}
 	}, REMSTATUS => sub {
 		my $net = shift;
-		my $chan = $net->chan($_[2]);
+		my $chan = $net->chan($_[2]) or return ();
 		return +{
 			type => 'TIMESYNC',
 			src => $net,
@@ -519,7 +532,7 @@ $moddef{CORE} = {
 			type => 'TOPIC',
 			src => $net->item($_[0]),
 			dst => $net->chan($_[2]),
-			topicts => time,
+			topicts => $Janus::time,
 			topicset => $_[0],
 			topic => $_[-1],
 		};
@@ -544,7 +557,7 @@ $moddef{CORE} = {
 	}, SVSPART => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
-		my $chan = $net->chan($_[3]);
+		my $chan = $net->chan($_[3]) or return ();
 		$net->send({
 			type => 'PART',
 			src => $nick,
@@ -566,7 +579,7 @@ $moddef{CORE} = {
 		unless ($auth[$$net]) {
 			if ($_[3] eq $net->cparam('recvpass')) {
 				$auth[$$net] = 1;
-				$net->send(['INIT', 'BURST '.time, $net->ncmd(VERSION => 'Janus')]);
+				$net->send(['INIT', 'BURST '.$Janus::time, $net->ncmd(VERSION => 'Janus')]);
 			} else {
 				$net->send(['INIT', 'ERROR :Bad password']);
 			}
@@ -629,27 +642,32 @@ $moddef{CORE} = {
 	}, CAPAB => sub {
 		my $net = shift;
 		if ($_[2] eq 'MODULES') {
-			$net->module_add($_) for split /,/, $_[-1];
+			$capabs[$$net]{' MOD'}{$_}++ for split /,/, $_[-1];
 		} elsif ($_[2] eq 'CAPABILITIES') {
 			$_ = $_[3];
 			while (s/^\s*(\S+)=(\S+)//) {
 				$capabs[$$net]{$1} = $2;
 			}
 		} elsif ($_[2] eq 'END') {
-			# yep, we lie about all this.
+			# actually process what information we got
+			my $modl = delete $capabs[$$net]{' MOD'} || {};
+			$net->module_add($_) for keys %$modl;
+			$net->process_capabs();
+
+			# and then lie to match it
 			my $mods = join ',', sort grep /so$/, $net->all_modules();
 			my $capabs = join ' ', sort map {
 				my($k,$v) = ($_, $capabs[$$net]{$_});
 				$k = undef if $k eq 'CHALLENGE'; # TODO generate our own challenge and use SHA256 passwords
 				$k ? "$k=$v" : ();
 			} keys %{$capabs[$$net]};
+
 			my @out = 'INIT';
 			push @out, 'CAPAB MODULES '.$1 while $mods =~ s/(.{1,495})(,|$)//;
 			push @out, 'CAPAB CAPABILITIES :'.$1 while $capabs =~ s/(.{1,450})( |$)//;
 			push @out, 'CAPAB END';
 			push @out, $net->cmd1(SERVER => $net->cparam('linkname'), $net->cparam('sendpass'), 0, 'Janus Network Link');
 			$net->send(\@out);
-			$net->process_capabs();
 		} # ignore START and any others
 		();
 	}, ERROR => sub {
@@ -660,7 +678,6 @@ $moddef{CORE} = {
 			msg => 'ERROR: '.$_[-1],
 		};
 	},
-	PONG => \&ignore, # already got ->ponged() above
 	VERSION => \&ignore,
 	ADDLINE => sub {
 		my $net = shift;
@@ -699,8 +716,8 @@ $moddef{CORE} = {
 				ltype => $type,
 				mask => $_[2],
 				setter => $_[0],
-				settime => time,
-				expire => ($dur ? time + $dur : 0),
+				settime => $Janus::time,
+				expire => ($dur ? $Janus::time + $dur : 0),
 				reason => $_[4],
 			};
 		}
@@ -864,36 +881,83 @@ $moddef{CORE} = {
 		};
 	}, TIME => sub {
 		my $net = shift;
-		$net->send($net->cmd2(@_[2,1,0,3], time)) if @_ == 4;
+		$net->send($net->cmd2(@_[2,1,0,3], $Janus::time)) if @_ == 4;
 		();
 	},
 	TIMESET => \&ignore,
+
+# from m_globalload.so, included so that dynamic module loading always works
+	GLOADMODULE => sub {
+		my $net = shift;
+		$net->module_add($_[2]);
+		();
+	},
+	GUNLOADMODULE => sub {
+		my $net = shift;
+		$net->module_remove($_[2]);
+		();
+	},
   }, acts => {
-	NETLINK => sub {
+	JNETLINK => sub {
 		my($net,$act) = @_;
 		my $new = $act->{net};
+		my $jid = $new->id().'.janus';
+		($net->ncmd(SERVER => $jid, '*', 1, 'Inter-Janus link'),
+		 $net->cmd2($jid, VERSION => 'Interjanus'));
+	}, NETLINK => sub {
+		my($net,$act) = @_;
+		my $new = $act->{net};
+		my @out;
 		if ($net eq $new) {
-			my @out;
+			for my $ij (values %Janus::ijnets) {
+				next unless $ij->is_linked();
+				my $jid = $ij->id().'.janus';
+				push @out, $net->ncmd(SERVER => $jid, '*', 1, 'Inter-Janus link');
+				push @out, $net->cmd2($jid, VERSION => 'Interjanus');
+			}
 			for my $id (keys %Janus::nets) {
 				my $new = $Janus::nets{$id};
 				next if $new->isa('Interface') || $new eq $net;
+				my $jl = $new->jlink();
+				if ($jl) {
+					push @out, $net->cmd2($jl->id().'.janus', SERVER =>
+						$new->jname(), '*', 2, $new->netname());
+					push @out, $net->cmd2($new->jname(), VERSION => 'Remote Janus Server');
+				} else {
+					push @out, $net->ncmd(SERVER => $new->jname(), '*', 1, $new->netname());
+					push @out, $net->cmd2($new->jname(), VERSION => 'Remote Janus Server: '.ref $new);
+				}
+			}
+		} else {
+			my $jl = $new->jlink();
+			if ($jl) {
+				push @out, $net->cmd2($jl->id().'.janus', SERVER =>
+					$new->jname(), '*', 2, $new->netname());
+				push @out, $net->cmd2($new->jname(), VERSION => 'Remote Janus Server');
+			} else {
 				push @out, $net->ncmd(SERVER => $new->jname(), '*', 1, $new->netname());
 				push @out, $net->cmd2($new->jname(), VERSION => 'Remote Janus Server: '.ref $new);
 			}
-			return @out;
+			push @out, $net->ncmd(OPERNOTICE => "Janus network ".$new->name().'	('.$new->netname().") is now linked");
 		}
-		return (
-			$net->ncmd(SERVER => $new->jname(), '*', 1, $new->netname()),
-			$net->ncmd(OPERNOTICE => "Janus network ".$new->name().' ('.$new->netname().") is now linked"),
-			$net->cmd2($new->jname(), VERSION => 'Remote Janus Server: '.ref $new),
-		);
+		return @out;
 	}, NETSPLIT => sub {
 		my($net,$act) = @_;
+		return () if $act->{netsplit_quit};
 		my $gone = $act->{net};
 		my $msg = $act->{msg} || 'Excessive Core Radiation';
 		return (
 			$net->ncmd(OPERNOTICE => "Janus network ".$gone->name().' ('.$gone->netname().") has delinked: $msg"),
 			$net->ncmd(SQUIT => $gone->jname(), $msg),
+		);
+	}, JNETSPLIT => sub {
+		my($net,$act) = @_;
+		my $gone = $act->{net};
+		my $jid = $gone->id().'.janus';
+		my $msg = $act->{msg} || 'Excessive Core Radiation';
+		return (
+			$net->ncmd(OPERNOTICE => 'InterJanus network '.$gone->id()." has delinked: $msg"),
+			$net->ncmd(SQUIT => $jid, $msg),
 		);
 	}, CONNECT => sub {
 		my($net,$act) = @_;
@@ -912,13 +976,13 @@ $moddef{CORE} = {
 			for my $chan (@{$act->{reconnect_chans}}) {
 				next unless $chan->is_on($net);
 				my $mode = join '', map {
-					$chan->has_nmode($_, $nick) ? ($txt2pfx[$$net]{$_} || '') : ''
-				} qw/n_voice n_halfop n_op n_admin n_owner/;
-				push @out, $net->cmd1(FJOIN => $chan, $chan->ts(), $mode.','.$nick->str($net));
+					$chan->has_nmode($_, $nick) ? ($txt2pfx[$$net]{"n_$_"} || '') : ''
+				} qw/voice halfop op admin owner/;
+				push @out, $net->ncmd(FJOIN => $chan, $chan->ts(), $mode.','.$nick->str($net));
 			}
 			return @out;
 		} else {
-			return $net->cmd2($act->{from}, NICK => $act->{to}, $nick->ts());
+			return $net->cmd2($act->{from}, NICK => $act->{to});
 		}
 	}, NICK => sub {
 		my($net,$act) = @_;
@@ -961,9 +1025,9 @@ $moddef{CORE} = {
 		}
 		my $mode = '';
 		if ($act->{mode}) {
-			$mode .= ($txt2pfx[$$net]{$_} || '') for keys %{$act->{mode}};
+			$mode .= ($txt2pfx[$$net]{"n_$_"} || '') for keys %{$act->{mode}};
 		}
-		$net->cmd1(FJOIN => $chan, $chan->ts(), $mode.','.$net->_out($act->{src}));
+		$net->ncmd(FJOIN => $chan, $chan->ts(), $mode.','.$net->_out($act->{src}));
 	}, PART => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, PART => $act->{dst}, $act->{msg});
@@ -1089,11 +1153,10 @@ $moddef{CORE} = {
 	},
 }};
 
-$moddef{$_} = $Server::InspMods::modules{$_} for keys %Server::InspMods::modules;
 
 sub find_module {
 	my($net,$name) = @_;
-	$moddef{$name};
+	$moddef{$name} || $Server::InspMods::modules{$capabs[$$net]{PROTOCOL}}{$name};
 }
 
 1;

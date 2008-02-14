@@ -252,7 +252,6 @@ sub intro {
 sub parse {
 	my ($net, $line) = @_;
 	debug "\e[0;32m     IN@".$net->name().' '. $line;
-	$net->pong();
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
 	push @args, $msg if defined $msg;
@@ -287,8 +286,6 @@ sub send {
 			my $type = $act->{type};
 			if (exists $toirc{$type}) {
 				push @{$sendq[$$net]}, $toirc{$type}->($net, $act);
-			} else {
-				debug "Unknown action type '$type'";
 			}
 		} else {
 			push @{$sendq[$$net]}, $act;
@@ -393,25 +390,6 @@ sub _connect_ifo {
 	}
 	unless ($ip eq '*' || length $ip == 8 || length $ip == 24) {
 		warn "Dropping NICKIP to avoid crashing unreal!";
-		$ip = $nick->info('ip');
-		print "$ip\n";
-		if ($ip =~ /^[0-9.]+$/) {
-			$ip =~ s/(\d+)\.?/sprintf '%08b', $1/eg; #convert to binary
-			print "$ip\n";
-			$ip .= '0000=='; # base64 uses up 36 bits, so add 4 from the 32...
-			$ip =~ s/([01]{6})/substr $textip_table, oct("0b$1"), 1/eg;
-			print "$ip\n";
-		} elsif ($ip =~ /^[0-9a-f:]+$/) {
-			$ip .= ':';
-			$ip =~ s/::/:::/ while $ip =~ /::/ && $ip !~ /(.*:){8}/;
-			print "$ip\n";
-			# fully expanded IPv6 address, with an additional : at the end
-			$ip =~ s/([0-9a-f]*):/sprintf '%016b', hex $1/eg;
-			$ip .= '0000==';
-			print "$ip\n";
-			$ip =~ s/([01]{6})/substr $textip_table, oct("0b$1"), 1/eg;
-			print "$ip\n";
-		}
 		$ip = '*';
 	}
 	my @out;
@@ -446,6 +424,8 @@ sub nickact {
 		$src = $net->item($_[0]);
 		$dst = $net->nick($_[2]);
 	}
+
+	return () unless $dst;
 
 	if ($dst->homenet() eq $net) {
 		my %a = (
@@ -652,7 +632,7 @@ sub srvname {
 				src => $nick,
 				dst => $nick,
 				nick => $_[2],
-				nickts => (@_ == 4 ? $net->sjbint($_[3]) : time),
+				nickts => (@_ == 4 ? $net->sjbint($_[3]) : $Janus::time),
 			};
 		}
 		# NICKv2 introduction
@@ -892,7 +872,11 @@ sub srvname {
 				/^([*~@%+]*)(.+)/ or warn;
 				my $nmode = $1;
 				my $nick = $net->mynick($2) or next;
-				my %mh = map { tr/*~@%+/qaohv/; $net->cmode2txt($_) => 1 } split //, $nmode;
+				my %mh = map {
+					tr/*~@%+/qaohv/;
+					$_ = $net->cmode2txt($_);
+					/n_(.*)/ ? ($1 => 1) : ();
+				} split //, $nmode;
 				push @acts, +{
 					type => 'JOIN',
 					src => $nick,
@@ -1274,6 +1258,7 @@ sub cmd2 {
 		my $new = $act->{net};
 		if ($net eq $new) {
 			# first link to the net
+			print "First link, introducing all servers\n";
 			my @out;
 			for my $ij (values %Janus::ijnets) {
 				next unless $ij->is_linked();
@@ -1338,8 +1323,8 @@ sub cmd2 {
 			for my $chan (@{$act->{reconnect_chans}}) {
 				next unless $chan->is_on($net);
 				my $mode = '';
-				$chan->has_nmode($_, $nick) and $mode .= $net->txt2cmode($_)
-					for qw/n_voice n_halfop n_op n_admin n_owner/;
+				$chan->has_nmode($_, $nick) and $mode .= $net->txt2cmode("n_$_")
+					for qw/voice halfop op admin owner/;
 				$mode =~ tr/qaohv/*~@%+/;
 				push @out, $net->cmd1(SJOIN => $net->sjb64($chan->ts()), $chan, $mode.$nick->str($net));
 			}
@@ -1356,7 +1341,7 @@ sub cmd2 {
 		}
 		my $sj = '';
 		if ($act->{mode}) {
-			$sj .= $net->txt2cmode($_) for keys %{$act->{mode}};
+			$sj .= $net->txt2cmode("n_$_") for keys %{$act->{mode}};
 		}
 		$sj =~ tr/qaohv/*~@%+/;
 		return () unless $act->{src}->is_on($net);
@@ -1470,8 +1455,6 @@ sub cmd2 {
 		my $chan = $act->{dst}->str($net);
 		return () if $act->{linkfile};
 		[ FLOAT_ALL => $net->cmd1(GLOBOPS => "Channel $chan linked") ];
-	}, LSYNC => sub {
-		();
 	}, LINKREQ => sub {
 		my($net,$act) = @_;
 		my $src = $act->{net};

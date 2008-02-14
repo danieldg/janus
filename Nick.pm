@@ -51,7 +51,7 @@ sub _init {
 	$homenick[$$nick] = $ifo->{nick};
 	$nets[$$nick] = { $$net => $net };
 	$nick[$$nick] = $ifo->{nick};
-	$ts[$$nick] = $ifo->{ts} || time;
+	$ts[$$nick] = $ifo->{ts} || $Janus::time;
 	$info[$$nick] = $ifo->{info} || {};
 	$mode[$$nick] = $ifo->{mode} || {};
 	# prevent mode bouncing
@@ -171,6 +171,17 @@ be for use only by that local network
 sub info {
 	my $nick = $_[0];
 	$info[$$nick]{$_[1]};
+}
+
+=item $nick->realhostmask()
+
+The real nick!user@host of the user (i.e. not vhost)
+
+=cut
+
+sub realhostmask {
+	my $n = $_[0];
+	$homenick[$$n].'!'.$info[$$n]{ident}.'@'.$info[$$n]{host};
 }
 
 =item $nick->rejoin($chan)

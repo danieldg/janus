@@ -4,10 +4,9 @@ package Channel;
 use strict;
 use warnings;
 use Persist;
+use Carp;
 use Nick;
 use Modes;
-
-our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 =head1 Channel
 
@@ -84,6 +83,7 @@ Returns true if the nick has the given mode in the channel (n_* modes)
 
 sub has_nmode {
 	my($chan, $mode, $nick) = @_;
+	$mode =~ s/^n_// and carp "Stripping deprecated n_ prefix";
 	$nmode[$$chan]{$nick->lid()}{$mode};
 }
 
@@ -128,11 +128,9 @@ sub _destroy {
 sub _modecpy {
 	my($chan, $src) = @_;
 	for my $txt (keys %{$mode[$$src]}) {
-		if ($txt =~ /^l/) {
-			$mode[$$chan]{$txt} = [ @{$mode[$$src]{$txt}} ];
-		} else {
-			$mode[$$chan]{$txt} = $mode[$$src]{$txt};
-		}
+		my $m = $mode[$$src]{$txt};
+		$m = [ @$m ] if ref $m;
+		$mode[$$chan]{$txt} = $m;
 	}
 }
 
@@ -170,10 +168,7 @@ sub is_on {
 }
 
 sub sendto {
-	my($chan,$act,$except) = @_;
-	my %n = %Janus::nets;
-	delete $n{$$except} if $except;
-	values %n;
+	values %Janus::nets;
 }
 
 =item $chan->part($nick)
@@ -238,7 +233,7 @@ sub unhook_destroyed {
 		for my $i (@{$act->{mode}}) {
 			my $pm = shift @dirs;
 			my $arg = shift @args;
-			my $t = substr $i, 0, 1;
+			my $t = $Modes::mtype{$i} || '?';
 			if ($t eq 'n') {
 				unless (ref $arg && $arg->isa('Nick')) {
 					warn "$i without nick arg!";
@@ -268,7 +263,7 @@ sub unhook_destroyed {
 		my $act = $_[0];
 		my $chan = $act->{dst};
 		$topic[$$chan] = $act->{topic};
-		$topicts[$$chan] = $act->{topicts} || time;
+		$topicts[$$chan] = $act->{topicts} || $Janus::time;
 		$topicset[$$chan] = $act->{topicset};
 		unless ($topicset[$$chan]) {
 			if ($act->{src} && $act->{src}->isa('Nick')) {

@@ -84,16 +84,16 @@ sub pmsg {
 			net => $int,
 		});
 
-		my $inick = $Conffile::netconf{set}{janus} || 'janus';
+		my $inick = $Conffile::netconf{set}{janus_nick} || 'janus';
 
 		$janus = Nick->new(
 			net => $int,
 			nick => $inick,
-			ts => ($main::uptime - 1000000000),
+			ts => ($^T - 1000000000),
 			info => {
-				ident => 'janus',
-				host => 'services.janus',
-				vhost => 'services',
+				ident => ($Conffile::netconf{set}{janus_ident} || 'janus'),
+				host => ($Conffile::netconf{set}{janus_rhost} || 'services.janus'),
+				vhost => ($Conffile::netconf{set}{janus_host} || 'service'),
 				name => 'Janus Control Interface',
 				opertype => 'Janus Service',
 				_is_janus => 1,

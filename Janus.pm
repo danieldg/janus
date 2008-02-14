@@ -20,6 +20,8 @@ Primary event multiplexer and module loader/unloader
 our $name;       # Name of this server
 our $server;     # Message target/source: this server
 our $global;     # Message target: all servers
+our $time;       # Current server timestamp, used to avoid extra calls to time()
+$time ||= time;
 
 our %nets;       # by network tag
 our %nicks;
@@ -235,7 +237,7 @@ sub _mod_hook {
 		eval {
 #			print "MOD_HOOK $type $lvl $mod\n";
 			my $r = $hook->{$mod}->(@args);
-			$rv = $r if defined $r;
+			$rv = $r if $r;
 			1;
 		} or do {
 			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod: $@");
@@ -285,7 +287,7 @@ sub _send {
 	}
 	unless ($act->{nojlink}) {
 		for my $ij (values %jlink) {
-			$ij->ij_send($act);
+			$ij->send($act);
 		}
 	}
 	for my $net (values %real) {
@@ -437,7 +439,7 @@ All other fields are available for use in passing additional arguments to the su
 
 sub schedule {
 	for my $event (@_) {
-		my $t = time;
+		my $t = $time;
 		$t = $event->{time} if $event->{time} && $event->{time} > $t;
 		$t += $event->{repeat} if $event->{repeat};
 		$t += $event->{delay} if $event->{delay};
@@ -487,21 +489,21 @@ sub in_command {
 }
 
 sub timer {
-	my $now = time;
-	return if $now == $last_check;
+	$time = time;
+	return if $time == $last_check;
 	my @q;
-	for ($last_check .. $now) {
+	for ($last_check .. $time) {
 		# yes it will hit some times twice... that is needed if events with delay=0 are
 		# added to the queue in the same second, but after the queue has already run
 		push @q, @{delete $tqueue{$_}} if exists $tqueue{$_};
 	}
-	$last_check = $now;
+	$last_check = $time;
 	for my $event (@q) {
 		unshift @qstack, [];
 		$event->{code}->($event);
 		_runq(shift @qstack);
 		if ($event->{repeat}) {
-			my $t = $now + $event->{repeat};
+			my $t = $time + $event->{repeat};
 			push @{$tqueue{$t}}, $event;
 		}
 	}
@@ -546,6 +548,8 @@ if ($RELEASE) {
 	}, NETSPLIT => jparse => sub {
 		my $act = shift;
 		delete $act->{netsplit_quit};
+		my $net = $act->{net};
+		return 1 unless $net->jlink() && $net->jlink() eq $act->{except};
 		undef;
 	}, NETSPLIT => act => sub {
 		my $act = shift;
@@ -553,6 +557,12 @@ if ($RELEASE) {
 		my $id = $net->name();
 		delete $gnets{$net->gid()};
 		delete $nets{$id};
+	}, JNETSPLIT => check => sub {
+		my $act = shift;
+		my $net = $act->{net};
+		my $eq = $ijnets{$net->id()};
+		return 1 if $eq && $eq ne $net;
+		undef;
 	}, module => READ => sub {
 		$_[0] =~ /([0-9A-Za-z_:]+)/;
 		my $mod = $1;

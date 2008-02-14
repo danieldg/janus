@@ -11,13 +11,30 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 	acl => 1,
 	code => sub {
 		my($nick,$arg) = @_;
-		my @mods = grep { $Janus::modules{$_} == 2 } keys %Janus::modules;
+		my @mods = sort grep { $Janus::modules{$_} == 2 } keys %Janus::modules;
 		for my $mod (@mods) {
 			print "Reload $mod:\n";
 			&Janus::reload($mod);
 		}
 		&Janus::jmsg($nick, 'All modules reloaded');
 	}
+}, {
+	cmd => 'svnup',
+	help => 'Runs "svn up"',
+	acl => 1,
+	code => sub {
+		my $nick = shift;
+		my $p = fork;
+		return &Janus::jmsg($nick, 'Failed') unless defined $p && $p >= 0;
+		return if $p;
+		do { exec 'svn', 'up'; };
+		# failed, try avoiding the SSL destructors
+		exec '/bin/false';
+		# why are we still alive?
+		exit 1;
+	}
 });
+
+$SIG{CHLD} = 'IGNORE';
 
 1;

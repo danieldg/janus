@@ -16,7 +16,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			src => $nick->homenet(),
 			dst => $nick,
 			msgtype => 'NOTICE',
-			msg => "Janus server time: ".time,
+			msg => "Janus server time: ".$Janus::time,
 		}, {
 			type => 'TSREPORT',
 			src => $nick,

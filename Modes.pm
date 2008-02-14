@@ -5,7 +5,21 @@ use Persist;
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
+our %mtype = ();
+
+$mtype{$_} = 'n' for qw/voice halfop op admin owner/;
+$mtype{$_} = 'l' for qw/ban except invex badwords/;
+$mtype{$_} = 'v' for qw/
+	flood flood3.2 forward joinlimit key
+	kicknorejoin limit nickflood
+/;
+$mtype{$_} = 'r' for qw/
+	auditorium badword blockcaps chanhide colorblock
+	ctcpblock invite moderated mustjoin noinvite
+	nokick noknock nooperover norenick noticeblock
+	oper operadmin opernetadm opersvsadm reginvite
+	register regmoderated sslonly topic
+/;
 
 =head1 IRC Mode utilities
 
@@ -42,7 +56,6 @@ sub from_irc {
 			$arg = shift;
 		} elsif ($type eq 's') {
 			# "s" modes are emulated as "v" modes in janus
-			$txt =~ s/s/v/;
 			if ($pm eq '+') {
 				$arg = shift;
 			} else {
@@ -61,7 +74,7 @@ sub from_irc {
 			warn "Invalid mode text $txt for mode $_ in network $net";
 			next;
 		}
-		push @modes, $txt;
+		push @modes, substr $txt, 2;
 		push @args, $arg;
 		push @dirs, $pm;
 	}
@@ -97,41 +110,40 @@ sub to_multi {
 	my @args;
 	while (@modin) {
 		my($txt,$arg,$dir) = (shift @modin, shift @argin, shift @dirin);
-		my $out = $txt =~ /^[nlv]/;
-		my $char = $net->txt2cmode($txt);
-		if (!defined $char && $txt =~ /^v(.*)/) {
-			my $alt = 's'.$1;
-			$char = $net->txt2cmode($alt);
+		my $type = $mtype{$txt};
+		my $out = ($type ne 'r');
+
+		my $char = $net->txt2cmode($type.'_'.$txt);
+		if (!defined $char && $type eq 'v') {
+			# maybe this is an s-type rather than a v-type command?
+			$char = $net->txt2cmode('s_'.$txt);
 			$out = 0 if $dir eq '-' && defined $char;
 		}
 		
-		if (!defined $char && $txt =~ /^r(.*)/) {
-			# tristate mode?
-			my $m = $1;
-			if ($arg > 2) {
-				warn "Capping tristate mode $txt=$arg down to 2";
-				$arg = 2;
-			}
-			my $alt = 't'.$arg.$m;
-			$char = $net->txt2cmode($alt);
-			if ($dir eq '-' || !defined $char) {
-				# also add the other half of the tristate
-				$alt = 't'.(2-$arg).$m;
-				my $add = $net->txt2cmode($alt);
-				$char .= $add if defined $add;
+		if (!defined $char && $type eq 'r') {
+			# maybe a tristate mode?
+			my $ar1 = $net->txt2cmode('t1_'.$txt);
+			my $ar2 = $net->txt2cmode('t2_'.$txt);
+			if ($ar1 && $ar2) {
+				$char .= $ar1 if $arg & 1;
+				$char .= $ar2 if $arg & 2;
+			} elsif ($ar1 || $ar2) {
+				# only one of the two available; use it
+				$char = ($ar1 || $ar2);
 			}
 		}
 
 		if (defined $char && $char ne '') {
 			$count++;
-			$len += 2 + ($out ? 1 + length $arg : 0);
+			$len++ if $dir ne $pm;
+			$len += length($char) + ($out ? 1 + length $arg : 0);
 			if ($count > $maxm || $len > $maxl) {
 				push @out, [ $mode, @args ];
 				$pm = '';
 				$mode = '';
 				@args = ();
 				$count = 1;
-				$len = 2 + ($out ? 1 + length $arg : 0);
+				$len = 1 + length($char) + ($out ? 1 + length $arg : 0);
 			}
 			$mode .= $dir if $dir ne $pm;
 			$mode .= $char;
@@ -156,7 +168,8 @@ sub delta {
 	my %add = $chan2 ? %{$chan2->all_modes()} : ();
 	my(@modes, @args, @dirs);
 	for my $txt (keys %current) {
-		if ($txt =~ /^l/) {
+		my $type = $mtype{$txt};
+		if ($type eq 'l') {
 			my %torm = map { $_ => 1 } @{$current{$txt}};
 			if (exists $add{$txt}) {
 				for my $i (@{$add{$txt}}) {
@@ -192,7 +205,8 @@ sub delta {
 		delete $add{$txt};
 	}
 	for my $txt (keys %add) {
-		if ($txt =~ /^l/) {
+		my $type = $mtype{$txt};
+		if ($type eq 'l') {
 			for my $i (@{$add{$txt}}) {
 				push @modes, $txt;
 				push @dirs, '+';
@@ -224,7 +238,8 @@ sub merge {
 	$allmodes{$_}++ for keys %m1;
 	$allmodes{$_}++ for keys %m2;
 	for my $txt (keys %allmodes) {
-		if ($txt =~ /^l/) {
+		my $type = $mtype{$txt};
+		if ($type eq 'l') {
 			my %m;
 			if (exists $m1{$txt}) {
 				$m{$_} = 1 for @{$m1{$txt}};

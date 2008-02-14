@@ -1,0 +1,27 @@
+IRC::register ("Send Janus Notice To Server Tab! v1.0 by EmErgE", "1.0", "", "");
+IRC::print("Send Janus Notice To Server Tab! v1.0 loaded.");
+Xchat::hook_print("Notice", "sendmynotice");
+
+sub sendmynotice {
+        my $nick="$_[0][0]";
+        my $message="$_[0][1]";
+        my $server = get_server_tab()
+                or return EAT_NONE;
+        Xchat::set_context( $server->{context} );
+        if ( "$nick" eq "janus" ) {
+                Xchat::emit_print("Notice","janus",$message);
+                return Xchat::EAT_ALL;
+        }
+        else { return EAT_NONE; }
+}
+
+sub get_server_tab {
+        my $current =  Xchat::get_info('server');
+        for( Xchat::get_list('channels') ) {
+                if( $_->{type} == 1 # server tab type
+                and $_->{server} eq $current ) { # find family server tab
+                        return $_;
+                }
+        }
+        return; # nada
+}

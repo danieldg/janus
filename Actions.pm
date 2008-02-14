@@ -142,6 +142,7 @@ my %spec = (
 		id => '$',
 		rid => '$',
 		net => 'Server::InterJanus',
+		ts => '$',
 		sendto => '=$Janus::global= Janus @',
 	},
 	NETLINK => {
@@ -271,22 +272,37 @@ my %spec = (
 		dlink => '$',
 		linkfile => '?$',
 		override => '?$',
+		reqby => '?$',
+		reqtime => '?$',
 	},
 	REQDEL => {
 		snet => 'Network',
 		dnet => 'Network',
 		name => '$',
 	},
-	LSYNC => {
+	LOCKREQ => {
+		src => 'Network',
+		dst => 'Network Channel',
+		name => '?$',
+		lockid => '$',
+	},
+	LOCKACK => {
+		src => 'Server::InterJanus Janus',
 		dst => 'Network',
-		chan => 'Channel',
-		linkto => '$',
-		linkfile => '?$',
+		chan => '?Channel',
+		expire => '?$',
+		lockid => '$',
+	},
+	LOCKED => {
+		chan1 => 'Channel',
+		chan2 => 'Channel',
+	},
+	UNLOCK => {
+		dst => 'Channel',
+		lockid => '$',
 	},
 	LINK => {
 		dst => 'Channel',
-		chan1 => '?Channel',
-		chan2 => '?Channel',
 		linkfile => '?$',
 	},
 	DELINK => {
