@@ -56,6 +56,7 @@ sub ready {
 
 sub unlock {
 	my $link = shift;
+	delete $bylock{$lock[$$link]};
 	return unless $chan[$$link];
 	&Janus::append({
 		type => 'UNLOCK',
@@ -175,7 +176,6 @@ sub unlock {
 	}, LOCKACK => act => sub {
 		my $act = shift;
 		my $link = $bylock{$act->{lockid}};
-		my $exp = $act->{expire};
 		unless ($link) {
 			# is it our lock?
 			$act->{lockid} =~ /(.+):\d+/;
@@ -188,20 +188,23 @@ sub unlock {
 			});
 			return;
 		}
-		if (!$exp) {
-			# failed to lock. TODO try again later
-			$link->unlock();
-			$other[$$link]->unlock();
-			return;
-		}
+		my $exp = $act->{expire} || 0;
+		my $other = $other[$$link];
 		if ($exp < $expire[$$link]) {
 			$expire[$$link] = $exp;
+		} else {
+			$exp = $expire[$$link];
+		}
+		$exp = $expire[$$other] if $expire[$$other] < $exp;
+		if ($exp < $Janus::time) {
+			print "Lock ".$link->lockid()." & ".$other->lockid()." failed\n";
+			$link->unlock();
+			$other->unlock();
+			return;
 		}
 		$chan[$$link] ||= $act->{chan};
 		$ready[$$link]{$act->{src}}++;
-		return unless $link->ready();
-		my $other = $other[$$link];
-		return unless $other->ready();
+		return unless $link->ready() && $other->ready();
 		&Janus::append({
 			type => 'LOCKED',
 			chan1 => $chan[$$link],
