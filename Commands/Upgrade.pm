@@ -6,7 +6,7 @@ use warnings;
 use POSIX;
 
 sub fexec {
-	exec @_;
+	do { exec @_; };
 	POSIX::_exit(1);
 }
 
