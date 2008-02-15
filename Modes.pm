@@ -241,13 +241,13 @@ sub merge {
 		my $type = $mtype{$txt};
 		if ($type eq 'l') {
 			my %m;
-			if (exists $m1{$txt}) {
-				$m{$_} = 1 for @{$m1{$txt}};
+			if (ref $m1{$txt}) {
+				defined and $m{$_} = 1 for @{$m1{$txt}};
 			}
-			if (exists $m2{$txt}) {
-				$m{$_} = 1 for @{$m2{$txt}};
+			if (ref $m2{$txt}) {
+				defined and $m{$_} = 1 for @{$m2{$txt}};
 			}
-			$mset->{$txt} = [ keys %m ];
+			$mset->{$txt} = [ keys %m ] if %m;
 		} else {
 			if (defined $m1{$txt}) {
 				if (defined $m2{$txt} && $m1{$txt} ne $m2{$txt}) {
