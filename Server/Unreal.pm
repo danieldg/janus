@@ -1456,7 +1456,7 @@ sub cmd2 {
 		my $mode = '';
 		for my $ltxt (@{$act->{mode}}) {
 			my($d,$txt) = $ltxt =~ /([-+])(.+)/ or warn $ltxt;
-			next if $skip_umode{$txt};
+			next if $skip_umode{$txt} || !$txt2umode{$txt};
 			next if $txt eq 'hideoper' && !$net->param('show_roper');
 			if ($pm ne $d) {
 				$pm = $d;
