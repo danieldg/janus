@@ -540,8 +540,8 @@ sub delink {
 =cut
 
 # was this checked out from somewhere?
-my $has_git = (`git 2>/dev/null`) ? 1 : 0;
-my $has_svn = (`svn 2>/dev/null`) ? 1 : 0;
+my $has_git = (`git 2>&1`) ? 1 : 0;
+my $has_svn = (`svn 2>&1`) ? 1 : 0;
 
 if ($RELEASE) {
 	open my $rcs, ".rel-$RELEASE" or warn "Cannot open release checksum file!";
