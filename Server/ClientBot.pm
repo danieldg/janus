@@ -527,11 +527,11 @@ sub kicked {
 		return () if lc $_[7] eq lc $self[$$net];
 		my @out = $net->cli_hostintro($_[7], $_[4], $_[5], $n);
 		my %mode;
-		$mode{n_owner} = 1 if $_[8] =~ /~/;
-		$mode{n_admin} = 1 if $_[8] =~ /&/;
-		$mode{n_op} = 1 if $_[8] =~ /\@/;
-		$mode{n_halfop} = 1 if $_[8] =~ /\%/;
-		$mode{n_voice} = 1 if $_[8] =~ /\+/;
+		$mode{owner} = 1 if $_[8] =~ /~/;
+		$mode{admin} = 1 if $_[8] =~ /&/;
+		$mode{op} = 1 if $_[8] =~ /\@/;
+		$mode{halfop} = 1 if $_[8] =~ /\%/;
+		$mode{voice} = 1 if $_[8] =~ /\+/;
 		push @out, +{
 			type => 'JOIN',
 			src => $net->nick($_[7]),

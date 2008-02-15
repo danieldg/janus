@@ -21,7 +21,7 @@ use Modes;
 		my($raw,$cname) = ($1,$2);
 		my $chan = $hn->chan($cname,0);
 		return &Janus::jmsg($nick, 'That channel does not exist') unless $chan;
-		unless ($chan->has_nmode(n_owner => $nick) || $nick->has_mode('oper')) {
+		unless ($chan->has_nmode(owner => $nick) || $nick->has_mode('oper')) {
 			&Janus::jmsg($nick, "You must be a channel owner or oper to use this command");
 			return;
 		}
@@ -29,7 +29,7 @@ use Modes;
 			my $modeh = $chan->all_modes() or return;
 			my $out = $cname;
 			for my $mk (sort keys %$modeh) {
-				my $t = $Modes::mtype{$mk};
+				my $t = $Modes::mtype{$mk} || '?';
 				my $mv = $modeh->{$mk};
 				if ($t eq 'r') {
 					$out .= ' '.$mk.('+'x($mv - 1));
@@ -37,6 +37,8 @@ use Modes;
 					$out .= ' '.$mk.'='.$mv;
 				} elsif ($t eq 'l') {
 					$out .= join ' ', '', $mk.'={', @$mv, '}';
+				} else {
+					print "$mk:$mv - ?\n";
 				}
 			}
 			&Janus::jmsg($nick, $1) while $out =~ s/(.{,450}) //;
@@ -77,7 +79,7 @@ use Modes;
 		my $cname = $1;
 		my $chan = $hn->chan($cname,0);
 		return &Janus::jmsg($nick, 'That channel does not exist') unless $chan;
-		unless ($chan->has_nmode(n_owner => $nick) || $nick->has_mode('oper')) {
+		unless ($chan->has_nmode(owner => $nick) || $nick->has_mode('oper')) {
 			&Janus::jmsg($nick, "You must be a channel owner or oper to use this command");
 			return;
 		}

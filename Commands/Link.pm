@@ -43,7 +43,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			&Janus::jmsg($nick, "Cannot find channel $cname1");
 			return;
 		};
-		unless ($chan1->has_nmode(n_owner => $nick) || $nick->has_mode('oper')) {
+		unless ($chan1->has_nmode(owner => $nick) || $nick->has_mode('oper')) {
 			&Janus::jmsg($nick, "You must be a channel owner to use this command");
 			return;
 		}
@@ -83,7 +83,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			&Janus::jmsg($nick, "Cannot find channel $cname");
 			return;
 		};
-		unless ($nick->has_mode('oper') || $chan->has_nmode(n_owner => $nick)) {
+		unless ($nick->has_mode('oper') || $chan->has_nmode(owner => $nick)) {
 			&Janus::jmsg($nick, "You must be a channel owner to use this command");
 			return;
 		}
