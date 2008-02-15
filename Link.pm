@@ -154,6 +154,13 @@ sub unlock {
 			print "not syncing to avoid races\n";
 			return;
 		}
+		my $kn1 = $snet->gid().$act->{slink};
+		my $kn2 = $dnet->gid().$act->{dlink};
+		if ($Janus::gchans{$kn1} && $Janus::gchans{$kn2} &&
+			$Janus::gchans{$kn1} eq $Janus::gchans{$kn2}) {
+			print "already linked\n";
+			return;
+		}
 		if ($act->{override} || $recip eq 'any' || lc $recip eq lc $act->{slink}) {
 			print "linking!\n";
 			my $link1 = Link->new();
@@ -172,6 +179,8 @@ sub unlock {
 				name => $act->{dlink},
 				lockid => $link2->lockid(),
 			});
+		} else {
+			print "name mismatch\n";
 		}
 	}, LOCKACK => act => sub {
 		my $act = shift;
