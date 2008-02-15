@@ -1,4 +1,4 @@
-# Copyright (C) 2007 Daniel De Graaf
+# Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Server::InterJanus;
@@ -7,9 +7,7 @@ use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
-my $IJ_PROTO = 1.5;
+my $IJ_PROTO = 1.6;
 
 my @sendq :Persist('sendq');
 my @id    :Persist('id')    :Arg(id) :Get(id);
@@ -68,7 +66,7 @@ sub parse {
 	print "     IN\@$selfid  $_\n";
 
 	s/^\s*<([^ >]+)// or do {
-		print "Invalid line: $_";
+		print "Invalid IJ line\n";
 		return ();
 	};
 	my $act = { type => $1 };
@@ -81,7 +79,7 @@ sub parse {
 		return $act;
 	} elsif ($act->{type} eq 'InterJanus') {
 		if ($id[$$ij] && $act->{id} ne $id[$$ij]) {
-			print "Unexpected ID reply $act->{id} from IJ $id[$$ij]\n"
+			&Janus::err_jmsg(undef, "Unexpected ID reply $act->{id} from IJ $id[$$ij]");
 		} else {
 			$id[$$ij] = $act->{id};
 		}
@@ -89,17 +87,17 @@ sub parse {
 		my $id = $id[$$ij];
 		my $nconf = $Conffile::netconf{$id};
 		if ($act->{version} ne $IJ_PROTO) {
-			print "Unsupported InterJanus version $act->{version}\n";
+			&Janus::err_jmsg(undef, "Unsupported InterJanus version $act->{version} (local $IJ_PROTO)");
 		} elsif ($Janus::name ne $act->{rid}) {
-			print "Unexpected connection: remote was trying to connect to $act->{rid}\n";
+			&Janus::err_jmsg(undef, "Unexpected connection: remote was trying to connect to $act->{rid}");
 		} elsif (!$nconf) {
-			print "Unknown InterJanus server $id\n";
+			&Janus::err_jmsg(undef, "Unknown InterJanus server $id");
 		} elsif ($act->{pass} ne $nconf->{recvpass}) {
-			print "Failed authorization\n";
+			&Janus::err_jmsg(undef, "Failed authorization");
 		} elsif ($Janus::ijnets{$id} && $Janus::ijnets{$id} ne $ij) {
-			print "Already connected\n";
+			&Janus::err_jmsg(undef, "Already connected");
 		} elsif ($ts_delta >= 20) {
-			print "Clocks are too far off (delta=$ts_delta here=$Janus::time there=$act->{ts})\n";
+			&Janus::err_jmsg(undef, "Clocks are too far off (delta=$ts_delta here=$Janus::time there=$act->{ts})");
 		} else {
 			$auth[$$ij] = 1;
 			$act->{net} = $ij;
