@@ -115,37 +115,35 @@ sub to_multi {
 
 		my $char = $net->txt2cmode($type.'_'.$txt);
 		if (!defined $char && $type eq 'v') {
-			my $alt = 's_'.$txt;
-			$char = $net->txt2cmode($alt);
+			# maybe this is an s-type rather than a v-type command?
+			$char = $net->txt2cmode('s_'.$txt);
 			$out = 0 if $dir eq '-' && defined $char;
 		}
 		
 		if (!defined $char && $type eq 'r') {
 			# maybe a tristate mode?
-			if ($arg > 2) {
-				warn "Capping tristate mode $txt=$arg down to 2";
-				$arg = 2;
-			}
-			my $alt = 't'.$arg.'_'.$txt;
-			$char = $net->txt2cmode($alt);
-			if ($dir eq '-' || !defined $char) {
-				# also add the other half of the tristate
-				$alt = 't'.(2-$arg).'_'.$txt;
-				my $add = $net->txt2cmode($alt);
-				$char .= $add if defined $add;
+			my $ar1 = $net->txt2cmode('t1_'.$txt);
+			my $ar2 = $net->txt2cmode('t2_'.$txt);
+			if ($ar1 && $ar2) {
+				$char .= $ar1 if $arg & 1;
+				$char .= $ar2 if $arg & 2;
+			} elsif ($ar1 || $ar2) {
+				# only one of the two available; use it
+				$char = ($ar1 || $ar2);
 			}
 		}
 
 		if (defined $char && $char ne '') {
 			$count++;
-			$len += 2 + ($out ? 1 + length $arg : 0);
+			$len++ if $dir ne $pm;
+			$len += length($char) + ($out ? 1 + length $arg : 0);
 			if ($count > $maxm || $len > $maxl) {
 				push @out, [ $mode, @args ];
 				$pm = '';
 				$mode = '';
 				@args = ();
 				$count = 1;
-				$len = 2 + ($out ? 1 + length $arg : 0);
+				$len = 1 + length($char) + ($out ? 1 + length $arg : 0);
 			}
 			$mode .= $dir if $dir ne $pm;
 			$mode .= $char;
