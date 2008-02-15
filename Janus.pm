@@ -4,11 +4,10 @@ package Janus;
 use strict;
 use warnings;
 use Carp 'cluck';
+use Digest::SHA1;
 
 # set only on released versions
 our $RELEASE;
-
-our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 =head1 Janus
 
@@ -540,6 +539,10 @@ sub delink {
 
 =cut
 
+# was this checked out from somewhere?
+my $has_git = (`git 2>/dev/null`) ? 1 : 0;
+my $has_svn = (`svn 2>/dev/null`) ? 1 : 0;
+
 if ($RELEASE) {
 	open my $rcs, ".rel-$RELEASE" or warn "Cannot open release checksum file!";
 	while (<$rcs>) {
@@ -598,51 +601,50 @@ if ($RELEASE) {
 		my $mod = $1;
 		my $fn = $mod.'.pm';
 		$fn =~ s#::#/#g;
-		return unless -f $fn;
 		my $ver = '?';
-		no warnings 'exec';
-		my $csum = '';
-		my $sha = `sha1sum $fn 2>/dev/null`;
-		if ($sha && $sha =~ /^(.{8})(.{32})/) {
+
+		my $sha1 = Digest::SHA1->new();
+		if ($_[1]) {
+			$sha1->addfile($_[1]);
+			seek $_[1], 0, 0;
+		} else {
+			open my $fh, '<', $fn or return;
+			$sha1->addfile($fh);
+			close $fh;
+		}
+		my $csum = $sha1->hexdigest();
+		if ($csum =~ /^(.{8})/) {
 			$ver = 'x'.$1;
-			$csum = $1.$2;
 			no strict 'refs';
 			no warnings 'once';
 			${$mod.'::SHA_UID'} = $1;
-		} else {
-			$sha = `sha1 $fn 2>/dev/null`;
-			if ($sha =~ / = (.{8})(.{32})/) {
-				$ver = 'x'.$1;
-				$csum = $1.$2;
-				no strict 'refs';
-				no warnings 'once';
-				${$mod.'::SHA_UID'} = $1;
-			} else {
-				print "Cannot checksum module - check that you have sha1sum installed\n";
-			}
 		}
-		my $git = `git rev-parse --verify HEAD 2>/dev/null`;
-		if ($git) {
-			unless (`git diff-index HEAD $fn`) {
-				# this file is not modified from the current head
-				`git rev-parse HEAD` =~ /^(.{8})/;
-				$ver = 'g'.$1;
-				# ok, we have the ugly name... now look for a tag
-				`git name-rev --tags --name-only HEAD` =~ /^(.*?)(?:^0)?$/;
-				my $tag = $1;
-				if ($tag ne 'undefined' && $tag !~ /~/) {
-					# we are actually on this tag
+		if ($has_git) {
+			my $git = `git rev-parse --verify HEAD 2>/dev/null`;
+			if ($git) {
+				unless (`git diff-index HEAD $fn`) {
+					# this file is not modified from the current head
+					`git rev-parse HEAD` =~ /^(.{8})/;
+					$ver = 'g'.$1;
+					# ok, we have the ugly name... now look for a tag
+					`git name-rev --tags --name-only HEAD` =~ /^(.*?)(?:^0)?$/;
+					my $tag = $1;
+					if ($tag ne 'undefined' && $tag !~ /~/) {
+						# we are actually on this tag
 					$ver = 't'.$tag;
+					}
 				}
 			}
 		}
-		my $svn = `svn info $fn 2>/dev/null`;
-		if ($svn) {
-			unless (`svn st $fn`) {
-				if ($svn =~ /Revision: (\d+)/) {
-					$ver = 'r'.$1;
-				} else {
-					warn "Cannot parse `svn info` output for $mod ($fn)";
+		if ($has_svn) {
+			my $svn = `svn info $fn 2>/dev/null`;
+			if ($svn) {
+				unless (`svn st $fn`) {
+					if ($svn =~ /Revision: (\d+)/) {
+						$ver = 'r'.$1;
+					} else {
+						warn "Cannot parse `svn info` output for $mod ($fn)";
+					}
 				}
 			}
 		}
