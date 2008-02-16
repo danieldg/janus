@@ -137,12 +137,7 @@ Basic descriptions and checking of all internal janus actions
 
 my %spec = (
 	JNETLINK => {
-		pass => '$',
-		version => '$',
-		id => '$',
-		rid => '$',
 		net => 'Server::InterJanus',
-		ts => '$',
 		sendto => '=$Janus::global= Janus @',
 	},
 	NETLINK => {

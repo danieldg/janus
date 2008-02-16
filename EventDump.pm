@@ -93,6 +93,11 @@ my %to_ij = (
 		my $out = send_hdr(@_) . ' net=<s';
 		$out .= $act->{net}->to_ij($ij);
 		$out . '>>';
+	}, JNETLINK => sub {
+		my($ij, $act) = @_;
+		my $out = send_hdr(@_, ' net=<j';
+		$out .= $act->{net}->to_ij($ij);
+		$out . '>>';
 	}, LOCKACK => sub {
 		my($ij, $act) = @_;
 		if ($act->{chan}) {
@@ -196,6 +201,18 @@ my %v_type; %v_type = (
 		}
 		delete $h->{jlink};
 		RemoteNetwork->new(jlink => $ij, %$h);
+	}, '<j' => sub {
+		my $ij = shift;
+		my $h = {};
+		s/^<j// or warn;
+		$ij->kv_pairs($h);
+		s/^>// or warn;
+		if ($Janus::ijnets{$h->{id}}) {
+			&Janus::delink($ij, "InterJanus network name collision: IJ network $h->{id} already exists");
+			return undef;
+		}
+		# TODO construct an object here
+		undef;
 	}, '<c' => sub {
 		my $ij = shift;
 		my $h = {};

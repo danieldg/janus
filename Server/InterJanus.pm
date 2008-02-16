@@ -9,13 +9,23 @@ use warnings;
 
 my $IJ_PROTO = 1.6;
 
-my @sendq :Persist('sendq');
-my @id    :Persist('id')    :Arg(id) :Get(id);
-my @auth  :Persist('auth')  :Get(is_linked);
+my @sendq  :Persist(sendq);
+my @id     :Persist(id)     :Arg(id)     :Get(id);
+my @auth   :Persist(auth)                :Get(is_linked);
+my @parent :Persist(parent) :Arg(parent) :Get(parent);
 
 sub str {
 	warn;
 	"";
+}
+
+# for sending out some other IJ
+sub to_ij {
+	my($net, $ij) = @_;
+	my $out;
+	$out .= ' id='.$ij->ijstr($id[$$net]);
+	$out .= ' parent='.$ij->ijstr($parent[$$net]);
+	$out;
 }
 
 sub intro {
@@ -102,6 +112,7 @@ sub parse {
 			$auth[$$ij] = 1;
 			$act->{net} = $ij;
 			$act->{type} = 'JNETLINK';
+			delete $act->{$_} for qw/pass version ts id rid/;
 			return $act;
 		}
 		if ($Janus::ijnets{$id} && $Janus::ijnets{$id} eq $ij) {
