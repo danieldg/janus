@@ -3,7 +3,6 @@
 package Commands::Chat;
 use strict;
 use warnings;
-our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 &Janus::command_add({
 	cmd => 'chatto',
@@ -22,7 +21,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			type => 'CHATOPS',
 			src => $nick,
 			msg => $msg,
-			sendto => ($1 eq '*' ? $Janus::server : [ $net ]),
+			sendto => ($1 eq '*' ? $Janus::global : [ $net ]),
 		});
 	},
 });

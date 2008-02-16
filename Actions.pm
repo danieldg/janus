@@ -154,7 +154,7 @@ my %spec = (
 	},
 	BURST => {
 		net => 'Network',
-		sendto => '=$Janus::server= Janus @',
+		sendto => '=$RemoteJanus::self= RemoteJanus @',
 	},
 	NETSPLIT => {
 		net => 'Network',
@@ -282,7 +282,7 @@ my %spec = (
 		lockid => '$',
 	},
 	LOCKACK => {
-		src => 'Server::InterJanus Janus',
+		src => 'RemoteJanus',
 		dst => 'Network',
 		chan => '?Channel',
 		expire => '?$',
@@ -341,8 +341,8 @@ my %default = (
 	type => '$',
 	src => '?Nick Network',
 	dst => '?Nick Channel Network',
-	except => '?Network Server::InterJanus',
-	sendto => '?@ Network Server::InterJanus Janus',
+	except => '?Network RemoteJanus',
+	sendto => '?@ Network RemoteJanus',
 	nojlink => '?$',
 );
 

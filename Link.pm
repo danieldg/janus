@@ -46,7 +46,7 @@ sub ready {
 	my $link = shift;
 	my $chan = $chan[$$link] or return 0;
 	for my $net ($chan->nets()) {
-		my $jl = $net->jlink() || $Janus::server;
+		my $jl = $net->jlink() || $RemoteJanus::self;
 		return 0 unless $ready[$$link]{$jl};
 	}
 	1;

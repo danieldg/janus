@@ -439,7 +439,7 @@ sub can_lock {
 			$lockts[$$chan] = $Janus::time + 60;
 			&Janus::append(+{
 				type => 'LOCKACK',
-				src => $Janus::server,
+				src => $RemoteJanus::self,
 				dst => $act->{src},
 				lockid => $act->{lockid},
 				chan => $chan,
@@ -448,7 +448,7 @@ sub can_lock {
 		} else {
 			&Janus::append(+{
 				type => 'LOCKACK',
-				src => $Janus::server,
+				src => $RemoteJanus::self,
 				dst => $act->{src},
 				lockid => $act->{lockid},
 			});
