@@ -95,7 +95,7 @@ my %to_ij = (
 		$out . '>>';
 	}, JNETLINK => sub {
 		my($ij, $act) = @_;
-		my $out = send_hdr(@_, ' net=<j';
+		my $out = send_hdr(@_, ' net=<j');
 		$out .= $act->{net}->to_ij($ij);
 		$out . '>>';
 	}, LOCKACK => sub {

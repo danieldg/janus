@@ -7,8 +7,6 @@ use Carp qw(cluck);
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 =head1 Network
 
 Object representing a network
@@ -55,7 +53,7 @@ sub lid {
 
 sub _init {
 	my $net = $_[0];
-	$gid[$$net] ||= $Janus::name.':'.$$net;
+	$gid[$$net] ||= $RemoteJanus::self->id().':'.$$net;
 	print "   NET:$$net ".ref($net)." allocated\n";
 }
 

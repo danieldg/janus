@@ -16,10 +16,8 @@ Primary event multiplexer and module loader/unloader
 =cut
 
 # PUBLIC VARS
-our $name;       # Name of this server
-our $server;     # Message target/source: this server
-our $global;     # Message target: all servers
 our $time;       # Current server timestamp, used to avoid extra calls to time()
+our $global;     # Message target: ALL servers, everywhere
 $time ||= time;
 
 our %nets;       # by network tag
@@ -704,17 +702,15 @@ _hook(module => READ => 'Janus');
 
 $modules{Janus} = 2;
 
-unless ($server) {
-	my $one = 1;
+unless ($global) {
 	my $two = 2;
-	$server = bless \$one;
 	$global = bless \$two;
-	unshift @INC, $server;
+	unshift @INC, $global;
 }
 
 sub gid {
 	my $inst = shift;
-	$$inst == 1 ? $name : '*';
+	'*';
 }
 
 # we load these modules down here because their loading uses
