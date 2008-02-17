@@ -68,7 +68,7 @@ sub code {
 			}
 		}
 		&Janus::jmsg($nick, 'End of list');
-	} elsif ( $args =~ /^linkall/i ) {
+	} elsif ($args =~ /^linkall/i) {
 		for my $net (sort keys %Link::reqs) {
 			next if !$Janus::nets{$net};
 			my $chanh = $Link::reqs{$net}{$nname} or next;
@@ -89,6 +89,28 @@ sub code {
 			}
 		}
 		&Janus::jmsg($nick, 'All pending requsts linked');
+	} elsif ($args =~ /^autolink/i) {
+		for my $net (keys %Link::reqs) {
+			next if !$Janus::nets{$net};
+			my $chanh = $Link::reqs{$net}{$nname} or next;
+			for my $schan (sort keys %$chanh) {
+				my $ifo = $chanh->{$schan};
+				my $dchan = ref $ifo ? $ifo->{dst} : $ifo;
+				next unless $Link::reqs{$nname}{$net}{$dchan};
+				next if linked($net, $nname, $schan, $dchan);
+				&Janus::append(+{
+					type => 'LINKREQ',
+					src => $nick,
+					dst => $Janus::nets{$net},
+					net => $nick->homenet(),
+					slink => $schan,
+					dlink => $dchan,
+					reqby => $nick->realhostmask(),
+					reqtime => $Janus::time,
+				});
+			}
+		}
+		&Janus::jmsg($nick, 'All pre-existing requsts linked');
 	} elsif ($args =~ /^(?:list|dump) *(\S+)?/i) {
 		my %chans;
 		my $list = $args =~ /^list/i;
@@ -122,6 +144,8 @@ my $help = [
 	" \002REQUEST DEL\002 #chan network    Delete a locally added request",
 	" \002REQUEST WIPE\002 network         Remove \002all\002 link requests for a network",
 	" \002REQUEST DUMP\002                 List all local saved channel relink requsts",
+	"Misc. Commands",
+	" \002REQUEST AUTOLINK\002             Link all channels that would be autolinked on a netsplit",
 ];
 
 &Janus::command_add({
