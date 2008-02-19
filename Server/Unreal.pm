@@ -8,8 +8,6 @@ use Persist 'Server::BaseNick';
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 my @sendq   :Persist(sendq);
 my @srvname :Persist(srvname);
 my @servers :Persist(servers);
@@ -396,8 +394,14 @@ sub _connect_ifo {
 		$ip = '*';
 	}
 	my @out;
-	push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $nick->info('host'),
-		$srv, 0, $mode, $vhost, $ip, $nick->info('name'));
+	if ($net->param('untrusted')) {
+		$vhost = 'cloak.unavailable' if $vhost eq '*';
+		push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $vhost,
+			$srv, 0, $mode, $vhost, $nick->info('name'));
+	} else {
+		push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $nick->info('host'),
+			$srv, 0, $mode, $vhost, $ip, $nick->info('name'));
+	}
 	my $whois = $nick->info('swhois');
 	push @out, $net->cmd1(SWHOIS => $nick, $whois) if defined $whois && $whois ne '';
 	my $away = $nick->info('away');
@@ -1418,6 +1422,7 @@ sub cmd2 {
 		my $type = $act->{msgtype} || 'PRIVMSG';
 		# only send things we know we should be able to get through to the client
 		return () unless $type eq 'PRIVMSG' || $type eq 'NOTICE' || $type =~ /^\d\d\d$/;
+		return () if $type eq '378' && $net->param('untrusted');
 		my @msg = ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg};
 		[ FLOAT_ALL => $net->cmd2($act->{src}, $type, ($act->{prefix} || '').$net->_out($act->{dst}), @msg) ];
 	}, WHOIS => sub {
