@@ -3,9 +3,8 @@
 package Link;
 use strict;
 use warnings;
+use integer;
 use Persist;
-
-our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 our %reqs;
 # {requestor}{destination}{src-channel} = {
@@ -18,11 +17,16 @@ our %bylock;
 # lockid => Link
 
 our $lockmax;
+
+# Emergency shutoff switch for retries
+our $abort;
+
 my @lock   :Persist(lockid) :Get(lockid);
 my @chan   :Persist(chan);
 my @ready  :Persist(ready);
 my @expire :Persist(expire);
 my @other  :Persist(other)  :Arg(other);
+my @origin :Persist(origin) :Arg(origin);
 
 sub _init {
 	my $link = shift;
@@ -130,6 +134,8 @@ sub unlock {
 		my $act = shift;
 		my $snet = $act->{net};
 		my $dnet = $act->{dst};
+		# don't let people request reflexive links
+		return if $snet eq $dnet;
 		print "Link request: ";
 		$reqs{$snet->name()}{$dnet->name()}{lc $act->{slink}} = {
 			dst => $act->{dlink},
@@ -163,8 +169,8 @@ sub unlock {
 		}
 		if ($act->{override} || $recip eq 'any' || lc $recip eq lc $act->{slink}) {
 			print "linking!\n";
-			my $link1 = Link->new();
-			my $link2 = Link->new(other => $link1);
+			my $link1 = Link->new(origin => $act);
+			my $link2 = Link->new(origin => $act, other => $link1);
 			$other[$$link1] = $link2;
 			&Janus::append(+{
 				type => 'LOCKREQ',
@@ -209,6 +215,22 @@ sub unlock {
 			print "Lock ".$link->lockid()." & ".$other->lockid()." failed\n";
 			$link->unlock();
 			$other->unlock();
+
+			# Retry linking a few times; this is needed because channel locking
+			# will prevent links when syncing more than one network to a channel
+			# which has an inter-janus member.
+
+			my $relink = $origin[$$link];
+			$relink->{linkfile}++;
+			$relink->{linkfile} = 3 if $relink->{linkfile} < 3;
+			# linkfile, if 3 or greater, is the retry count
+			&Janus::schedule(+{
+				# randomize the delay to try to avoid collisions
+				delay => (10 + int(rand(10))),
+				code => sub {
+					&Janus::append($relink);
+				}
+			}) unless $relink->{linkfile} > 20 || $abort;
 			return;
 		}
 		$chan[$$link] ||= $act->{chan};

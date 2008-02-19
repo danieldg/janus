@@ -3,7 +3,6 @@
 package Commands::Request;
 use strict;
 use warnings;
-our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 sub linked {
 	my($snn, $dnn, $schan, $dchan) = @_;
