@@ -45,7 +45,7 @@ sub readable {
 		return unless $sock;
 		$net = $net->init_pending($sock, $peer);
 		return unless $net;
-		$queues{$$net} = [ $sock, $tblank, '', $net, 1, 0 ];
+		$queues{$$net} = [ $sock, $tblank, '', $net, 1, 0, $Janus::time ];
 		return;
 	}
 
