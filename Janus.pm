@@ -269,8 +269,12 @@ sub _send {
 		next unless $net;
 		if ($net->isa('Janus')) {
 			$_->jlink() or $real{$_} = $_ for values %nets;
-			if ($$net == 2) {
-				$jlink{$_} = $_ for values %ijnets;
+			$jlink{$_} = $_ for values %ijnets;
+		} elsif ($net->isa('RemoteJanus')) {
+			if ($net eq $RemoteJanus::self) {
+				$_->jlink() or $real{$_} = $_ for values %nets;
+			} else {
+				$jlink{$net} = $net;
 			}
 		} else {
 			my $ij = $net->jlink();

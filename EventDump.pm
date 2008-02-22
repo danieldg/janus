@@ -8,8 +8,6 @@ use Nick;
 use Channel;
 use RemoteNetwork;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 my %toirc;
 
 my $INST = do {
@@ -55,10 +53,10 @@ sub ijstr {
 		return ($$ij ? 'c:' : "c($$itm):").$itm->keyname();
 	} elsif ($itm->isa('Network')) {
 		return 's:'.$itm->gid();
-	} elsif ($itm->isa('Server::InterJanus')) {
+	} elsif ($itm->isa('RemoteJanus')) {
 		return 'j:'.$itm->id();
 	} elsif ($itm->isa('Janus')) {
-		return 'j:'.$itm->gid();
+		return 'j:*';
 	}
 	warn "Unknown object $itm";
 	return '""';

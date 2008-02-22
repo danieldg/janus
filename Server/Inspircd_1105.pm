@@ -906,6 +906,7 @@ $moddef{CORE} = {
 		if ($net eq $new) {
 			for my $ij (values %Janus::ijnets) {
 				next unless $ij->is_linked();
+				next if $ij eq $RemoteJanus::self;
 				my $jid = $ij->id().'.janus';
 				push @out, $net->ncmd(SERVER => $jid, '*', 1, 'Inter-Janus link');
 				push @out, $net->cmd2($jid, VERSION => 'Interjanus');
