@@ -263,40 +263,45 @@ sub _send {
 	} else {
 		@to = $act->{dst}->sendto($act);
 	}
-	my(%real, %jlink);
-		# hash to remove duplicates
+	my(%sockto); # hash to remove duplicates
 	for my $net (@to) {
 		next unless $net;
 		if ($net->isa('Janus')) {
-			$_->jlink() or $real{$_} = $_ for values %nets;
-			$jlink{$_} = $_ for values %ijnets;
+			$sockto{$_} = $_ for values %nets;
 		} elsif ($net->isa('RemoteJanus')) {
 			if ($net eq $RemoteJanus::self) {
-				$_->jlink() or $real{$_} = $_ for values %nets;
+				$_->jlink() or $sockto{$_} = $_ for values %nets;
 			} else {
-				$jlink{$net} = $net;
+				$sockto{$net} = $net;
 			}
 		} else {
-			my $ij = $net->jlink();
-			if (defined $ij) {
-				$jlink{$ij} = $ij;
-			} else {
-				$real{$net} = $net;
+			$sockto{$net} = $net;
+		}
+	}
+	my $again = 1;
+	while ($again) {
+		$again = 0;
+		my @some = values %sockto;
+		for my $net (@some) {
+			if ($net->isa('RemoteJanus') && $net->parent()) {
+				my $p = $net->parent();
+				delete $sockto{$net};
+				$sockto{$p} = $p;
+				$again++;
+			} elsif ($net->isa('Network') && $net->jlink()) {
+				my $j = $net->jlink();
+				delete $sockto{$net};
+				$sockto{$j} = $j;
+				$again++;
 			}
 		}
 	}
-#	print "DBG: Sending to ".join(' ',keys %jlink, keys %real)."\n";
+
 	if ($act->{except} && !($act->{dst} && $act->{dst} eq $act->{except})) {
-		my $e = $act->{except};
-		delete $real{$e};
-		delete $jlink{$e};
+		delete $sockto{$act->{except}};
 	}
-	unless ($act->{nojlink}) {
-		for my $ij (values %jlink) {
-			$ij->send($act);
-		}
-	}
-	for my $net (values %real) {
+	for my $net (values %sockto) {
+		next if $act->{nojlink} && $net->isa('RemoteJanus');
 		$net->send($act);
 	}
 }

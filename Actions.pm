@@ -137,7 +137,7 @@ Basic descriptions and checking of all internal janus actions
 
 my %spec = (
 	JNETLINK => {
-		net => 'Server::InterJanus',
+		net => 'RemoteJanus',
 		sendto => '=$Janus::global= Janus @',
 	},
 	NETLINK => {

@@ -7,7 +7,7 @@ use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
 
-my $IJ_PROTO = 1.6;
+my $IJ_PROTO = 1.7;
 
 my @sendq  :Persist(sendq);
 my @auth   :Persist(auth)                :Get(is_linked);
@@ -22,7 +22,7 @@ sub to_ij {
 	my($net, $ij) = @_;
 	my $out;
 	$out .= ' id='.$ij->ijstr($net->id());
-	$out .= ' parent='.$ij->ijstr($net->parent());
+	$out .= ' parent='.$ij->ijstr($net->parent() || $RemoteJanus::self);
 	$out;
 }
 
