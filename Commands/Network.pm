@@ -3,7 +3,6 @@
 package Commands::Network;
 use strict;
 use warnings;
-our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 &Janus::command_add({
 	cmd => 'rehash',
@@ -104,9 +103,6 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			return;
 		};
 		$nconf->{autoconnect} = $onoff;
-		if ($onoff) {
-			&Conffile::connect_net($nick, $id);
-		}
 		&Janus::jmsg($nick, 'Done');
 	},
 }, {
