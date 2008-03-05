@@ -8,8 +8,6 @@ use Persist 'Server::BaseNick';
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 my @sendq   :Persist(sendq);
 my @srvname :Persist(srvname);
 my @servers :Persist(servers);
@@ -627,7 +625,7 @@ sub srvname {
 # User Operations
 	NICK => sub {
 		my $net = shift;
-		if (@_ < 10) {
+		if (@_ < 7) {
 			# Nick Change
 			my $nick = $net->mynick($_[0]) or return ();
 			return +{

@@ -631,7 +631,7 @@ sub srvname {
 # User Operations
 	NICK => sub {
 		my $net = shift;
-		if (@_ < 10) {
+		if (@_ < 7) {
 			# Nick Change
 			my $nick = $net->mynick($_[0]) or return ();
 			return +{
