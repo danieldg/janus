@@ -11,8 +11,6 @@ use Persist 'Server::BaseNick', 'Server::ModularNetwork', 'Server::InspMods';
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 my @sendq     :Persist(sendq);
 my @servers   :Persist(servers);
 my @serverdsc :Persist(serverdsc);
@@ -776,7 +774,7 @@ $moddef{CORE} = {
 		if ($_[2] =~ /^\$/) {
 			# server broadcast message. No action; these are confined to source net
 			return ();
-		} elsif ($_[2] =~ /(.?)(#\S*)/) {
+		} elsif ($_[2] =~ /([^#]?)(#\S*)/) {
 			# channel message, possibly to a mode prefix
 			return {
 				type => 'MSG',
