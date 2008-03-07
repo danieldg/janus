@@ -5,6 +5,7 @@ use strict;
 use warnings;
 use integer;
 use Persist;
+use Scalar::Util qw(weaken);
 
 our %reqs;
 # {requestor}{destination}{src-channel} = {
@@ -172,6 +173,8 @@ sub unlock {
 			my $link1 = Link->new(origin => $act);
 			my $link2 = Link->new(origin => $act, other => $link1);
 			$other[$$link1] = $link2;
+			weaken($other[$$link1]);
+			weaken($other[$$link2]);
 			&Janus::append(+{
 				type => 'LOCKREQ',
 				src => $dnet,
