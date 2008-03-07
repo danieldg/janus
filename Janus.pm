@@ -631,11 +631,11 @@ if ($RELEASE) {
 					`git rev-parse HEAD` =~ /^(.{8})/;
 					$ver = 'g'.$1;
 					# ok, we have the ugly name... now look for a tag
-					`git name-rev --tags --name-only HEAD` =~ /^(.*?)(?:^0)?$/;
+					`git name-rev --tags HEAD` =~ /^HEAD (.*?)(?:^0)?$/;
 					my $tag = $1;
-					if ($tag ne 'undefined' && $tag !~ /~/) {
+					if ($tag && $tag ne 'undefined' && $tag !~ /~/) {
 						# we are actually on this tag
-					$ver = 't'.$tag;
+						$ver = 't'.$tag;
 					}
 				}
 			}
