@@ -4,6 +4,7 @@ package Conffile;
 use IO::Handle;
 use strict;
 use warnings;
+use integer;
 use Listener;
 use Connection;
 use Link;
@@ -160,7 +161,22 @@ sub rehash {
 }
 
 sub autoconnect {
-	connect_net undef,$_ for keys %netconf;
+	for my $id (keys %netconf) {
+		if ($id =~ /^LISTEN/) {
+			connect_net undef,$id;
+		} elsif (!$netconf{$id}{autoconnect} || exists $Janus::nets{$id} || exists $Janus::ijnets{$id}) {
+			$netconf{$id}{backoff} = 0;
+		} else {
+			my $item = 2 * $netconf{$id}{backoff}++;
+			my $rt = int sqrt $item;
+			if ($item == $rt * ($rt + 1)) {
+				print "Backoff $item - Connecting\n";
+				connect_net undef,$id;
+			} else {
+				print "Backoff: $item != ".$rt*($rt+1)."\n";
+			}
+		}
+	}
 }
 
 &Janus::hook_add(
@@ -278,7 +294,7 @@ sub autoconnect {
 		connect_net undef,$_ for keys %netconf;
 		&Janus::schedule({
 			repeat => 30,
-			code => \&autoconnect,
+			code => sub { &Conffile::autoconnect; }, # to allow reloads
 		});
 	},
 );
