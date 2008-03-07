@@ -103,6 +103,7 @@ use warnings;
 			return;
 		};
 		$nconf->{autoconnect} = $onoff;
+		$nconf->{backoff} = 0;
 		&Janus::jmsg($nick, 'Done');
 	},
 }, {
