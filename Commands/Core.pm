@@ -4,7 +4,6 @@ package Commands::Core;
 use strict;
 use warnings;
 use integer;
-our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 &Janus::command_add({
 	cmd => 'info',

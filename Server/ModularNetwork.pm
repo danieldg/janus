@@ -6,8 +6,6 @@ use Persist 'LocalNetwork';
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 my @modules   :Persist(modules);   # {module} => definition - List of active modules
 my @meta      :Persist(meta);      # key => sub{} for METADATA command
 my @fromirc   :Persist(fromirc);   # command => sub{} for IRC commands

@@ -3,7 +3,6 @@
 package Commands::Chat;
 use strict;
 use warnings;
-our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 &Janus::command_add({
 	cmd => 'chatto',

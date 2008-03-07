@@ -4,8 +4,6 @@ package Modules::Signals;
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 $SIG{HUP} = sub {
 	&Janus::schedule({
 		code => sub {

@@ -8,8 +8,6 @@ use Carp;
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 sub ignore { () }
 
 our %modules = ();

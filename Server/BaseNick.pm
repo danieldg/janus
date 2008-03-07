@@ -8,8 +8,6 @@ use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 my @nicks  :Persist(nicks);
 
 sub _init {

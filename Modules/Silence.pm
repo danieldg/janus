@@ -4,8 +4,6 @@ package Modules::Silence;
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 sub service {
 	my $n = shift;
 	my $srv = $n->info('home_server');

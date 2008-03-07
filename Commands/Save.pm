@@ -4,7 +4,6 @@ package Commands::Save;
 use strict;
 use warnings;
 use Data::Dumper;
-our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 &Janus::command_add({
 	cmd => 'save',

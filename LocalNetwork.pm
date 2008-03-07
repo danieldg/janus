@@ -8,8 +8,6 @@ use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 my @cparms :Persist(cparms); # currently active parameters
 my @chans  :Persist(chans);
 

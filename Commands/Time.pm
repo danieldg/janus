@@ -3,7 +3,6 @@
 package Commands::Time;
 use strict;
 use warnings;
-our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 &Janus::command_add({
 	cmd => 'alltime',

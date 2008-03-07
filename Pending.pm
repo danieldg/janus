@@ -6,8 +6,6 @@ use warnings;
 use Persist;
 use Connection;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 my @buffer   :Persist('buffer');
 my @delegate :Persist('delegate');
 my @peer     :Persist('peer')    :Arg('peer');

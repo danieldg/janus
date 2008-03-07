@@ -6,8 +6,6 @@ use warnings;
 use Attribute::Handlers;
 use Persist::Field;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 our %vars;
 
 our %init_args;

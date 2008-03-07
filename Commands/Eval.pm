@@ -5,8 +5,6 @@ use strict;
 use warnings;
 use Data::Dumper;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 &Janus::command_add({
 	cmd => 'eeval',
 	# nope. Not existing
@@ -21,7 +19,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		my @r = eval $expr;
 		@r = $@ if $@ && !@r;
 		if (@r) {
-			$_ = Data::Dumper::Dumper(\@r);
+			$_ = eval { Data::Dumper::Dumper(\@r); };
 			s/\n//g;
 			&Janus::jmsg($nick, $_);
 		}

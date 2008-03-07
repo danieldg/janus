@@ -6,8 +6,6 @@ use warnings;
 use Persist 'SocketHandler';
 use Pending;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 my @id :Persist(id) :Arg(id) :Get(id);
 
 sub init_pending {

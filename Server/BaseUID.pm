@@ -8,8 +8,6 @@ use strict;
 use warnings;
 use integer;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 my @next_uid :Persist(nextuid);
 my @nick2uid :Persist(nickuid);
 my @uids     :Persist(uids);

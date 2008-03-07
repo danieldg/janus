@@ -6,8 +6,6 @@ use warnings;
 use Data::Dumper;
 use Modes;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 &Janus::command_add({
 	cmd => 'dump',
 	help => 'Dumps current janus internal state to a file',

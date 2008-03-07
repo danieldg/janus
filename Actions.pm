@@ -3,8 +3,7 @@
 package Actions;
 use strict;
 use warnings;
-
-our($VERSION) = '$Rev$' =~ /(\d+)/;
+use integer;
 
 # item => Class
 #   multiple classes space separated

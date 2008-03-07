@@ -5,8 +5,6 @@ use strict;
 use warnings;
 use Persist;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 my @homes :PersistAs(Channel, homenets);
 
 &Janus::command_add({

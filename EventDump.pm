@@ -8,8 +8,6 @@ use Nick;
 use Channel;
 use RemoteNetwork;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 my %toirc;
 
 my $INST = do {

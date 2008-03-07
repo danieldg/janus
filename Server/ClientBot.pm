@@ -11,8 +11,6 @@ use Scalar::Util 'weaken';
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 my @sendq     :Persist(sendq);
 my @self      :Persist(mynick);
 my @kicks     :Persist(kicks); # $kicks[$$net]{$lid}{$channel} = 1 for a rejoin enabled
