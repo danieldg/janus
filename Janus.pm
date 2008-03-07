@@ -580,7 +580,11 @@ if ($RELEASE) {
 		my $act = shift;
 		my $net = $act->{net};
 		my $eq = $ijnets{$net->id()};
-		return 1 if $eq && $eq ne $net;
+		if ($eq && $eq ne $net) {
+			print "ERROR: JNETSPLIT on already split network\n";
+			&Connection::reassign($net, undef);
+			return 1;
+		}
 		undef;
 	}, JNETSPLIT => act => sub {
 		my $act = shift;
