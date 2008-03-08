@@ -164,7 +164,7 @@ sub from_irc {
 	$cmd = $fromirc[$$net]{$cmd} || $cmd if $cmd && !ref $cmd; # allow one layer of indirection
 	unless ($cmd && ref $cmd) {
 		$net->send($net->cmd2($Interface::janus, OPERNOTICE => "Unknown command $cmd, janus is possibly desynced"));
-		print "Unknown command '$cmd'\n";
+		&Debug::err_in($net, "Unknown command '$cmd'");
 		return ();
 	}
 	$cmd->(@_);
@@ -192,7 +192,7 @@ sub to_irc {
 for my $net (values %Janus::nets) {
 	next unless $net->isa(__PACKAGE__);
 	my @mods = keys %{$modules[$$net]};
-	print "Reloading module definitions for $net\n";
+	&Debug::info("Reloading module definitions for $net");
 	for my $mod (@mods) {
 		$net->module_remove($mod);
 		$net->module_add($mod);

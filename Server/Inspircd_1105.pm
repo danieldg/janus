@@ -35,10 +35,6 @@ sub nicklen {
 	($capabs[$$net]{NICKMAX} || 32) - 1;
 }
 
-sub debug {
-	print @_, "\e[0m\n";
-}
-
 sub str {
 	my $net = shift;
 	$net->jname();
@@ -59,7 +55,7 @@ sub intro {
 # parse one line of input
 sub parse {
 	my ($net, $line) = @_;
-	debug "\e[0;32m     IN@".$net->name().' '. $line;
+	&Debug::netin(@_);
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
 	push @args, $msg if defined $msg;
@@ -105,7 +101,7 @@ sub dump_sendq {
 		$auth[$$net] = 3 if $auth[$$net] == 2;
 	}
 	$q =~ s/\n+/\r\n/g;
-	print "\e[0;34m    OUT@".$net->name().' '.$_."\e[0m\n" for split /\r\n/, $q;
+	&Debug::netout($net, $_) for split /\r\n/, $q;
 	$q;
 }
 
@@ -606,7 +602,7 @@ $moddef{CORE} = {
 				$sgone{$_} = 1 if $sgone{$servers[$$net]{$_}};
 			}
 		}
-		print 'Lost servers: '.join(' ', sort keys %sgone)."\n";
+		&Debug::info('Lost servers: '.join(' ', sort keys %sgone));
 		delete $servers[$$net]{$_} for keys %sgone;
 		delete $serverdsc[$$net]{$_} for keys %sgone;
 
@@ -744,7 +740,7 @@ $moddef{CORE} = {
 				sendto => [ $net ],
 			};
 		} else {
-			print "Ignoring SVSNICK on already tagged nick\n";
+			&Debug::warn_in($net, "Ignoring SVSNICK on already tagged nick");
 			return ();
 		}
 	},
@@ -1008,7 +1004,7 @@ $moddef{CORE} = {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
 		if ($act->{src}->homenet() eq $net) {
-			print "ERR: Trying to force channel join remotely (".$act->{src}->gid().$chan->str($net).")\n";
+			&Debug::err("Trying to force channel join remotely (".$act->{src}->gid().$chan->str($net).")");
 			return ();
 		}
 		my $mode = '';

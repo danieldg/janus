@@ -1,7 +1,8 @@
-# Copyright (C) 2007 Daniel De Graaf
+# Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Server::BaseUID;
+use Debug;
 use LocalNetwork;
 use Persist 'LocalNetwork';
 use strict;
@@ -53,12 +54,12 @@ sub mynick {
 	my($net, $name) = @_;
 	my $nick = $uids[$$net]{uc $name};
 	unless ($nick) {
-		print "UID '$name' does not exist; ignoring\n";
+		&Debug::warn_in($net, "UID '$name' does not exist; ignoring");
 		return undef;
 	}
 	if ($nick->homenet() ne $net) {
-		print "UID '$name' is from network '".$nick->homenet()->name().
-			"' but was sourced from network '".$net->name()."'\n";
+		&Debug::err_in($net, "UID '$name' is from network '".$nick->homenet()->name().
+			"' but was sourced locally");
 		return undef;
 	}
 	return $nick;
@@ -67,7 +68,7 @@ sub mynick {
 sub nick {
 	my($net, $name) = @_;
 	return $uids[$$net]{uc $name} if $uids[$$net]{uc $name};
-	print "UID '$name' does not exist; ignoring\n" unless $_[2];
+	&Debug::warn_in($net, "UID '$name' does not exist; ignoring") unless $_[2];
 	undef;
 }
 
@@ -76,7 +77,7 @@ sub register_nick {
 	my($net, $new, $new_uid) = @_;
 	$uids[$$net]{uc $new_uid} = $new;
 	$gid2uid[$$net]{$new->gid()} = $new_uid;
-	print "Registering $new_uid as $new\n";
+	&Debug::info("Registering $new_uid as $new");
 	my $name = $new->str($net);
 	my $old_uid = delete $nick2uid[$$net]{lc $name};
 	unless ($old_uid) {
@@ -154,7 +155,7 @@ sub request_newnick {
 	my($net, $nick, $reqnick, $tagged) = @_;
 	my $given = _request_nick(@_);
 	my $uid = $net->next_uid($nick->homenet());
-	print "Registering $nick as uid $uid and nick $given\n";
+	&Debug::info("Registering $nick as uid $uid and nick $given");
 	$uids[$$net]{uc $uid} = $nick;
 	$nick2uid[$$net]{lc $given} = $uid;
 	$gid2uid[$$net]{$nick->gid()} = $uid;

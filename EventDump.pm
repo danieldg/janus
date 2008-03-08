@@ -10,7 +10,7 @@ use RemoteNetwork;
 
 my %toirc;
 
-my $INST = do {
+our $INST ||= do {
 	my $no;
 	bless \$no;
 };
