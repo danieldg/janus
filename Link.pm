@@ -218,6 +218,7 @@ sub unlock {
 			print "Lock ".$link->lockid()." & ".$other->lockid()." failed\n";
 			$link->unlock();
 			$other->unlock();
+			$other[$$link] = $other[$$other] = undef;
 
 			# Retry linking a few times; this is needed because channel locking
 			# will prevent links when syncing more than one network to a channel
