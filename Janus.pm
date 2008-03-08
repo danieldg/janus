@@ -319,16 +319,11 @@ sub _run {
 	if (_mod_hook('ALL', validate => $act)) {
 		my $err = $act->{ERR} || 'unknown error';
 		$err =~ s/\n//;
-		print "Validate hook [$err] on";
-		eval {
-			&EventDump::debug_send($act);
-			1;
-		} or print "[ERR2: $@]\n";
+		&Debug::hook_err($act, "Validate hook [$err]");
 		return;
 	}
 	if (_mod_hook($act->{type}, check => $act)) {
-		print "Check hook stole";
-		&EventDump::debug_send($act);
+		&Debug::hook_err($act, "Check hook stole");
 		return;
 	}
 	_hook($act->{type}, act => $act);
@@ -411,7 +406,7 @@ sub err_jmsg {
 	for my $v (@_) {
 		local $_ = $v; # don't use $v directly as it's read-only
 		s/\n/ /g;
-		print STDERR "$_\n";
+		&Debug::err($_);
 		if ($dst) {
 			&Janus::append(+{
 				type => 'MSG',
@@ -587,7 +582,7 @@ if ($RELEASE) {
 		my $net = $act->{net};
 		my $eq = $ijnets{$net->id()};
 		if ($eq && $eq ne $net) {
-			print "ERROR: JNETSPLIT on already split network\n";
+			&Debug::err("JNETSPLIT on already split network");
 			&Connection::reassign($net, undef);
 			return 1;
 		}
@@ -730,6 +725,7 @@ sub gid {
 # we load these modules down here because their loading uses
 # some of the subs defined above
 eval q[
+	use Debug;
 	use Connection;
 	use EventDump;
 	1;

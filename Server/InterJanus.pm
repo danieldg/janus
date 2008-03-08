@@ -38,7 +38,7 @@ sub intro {
 
 sub _destroy {
 	my $net = $_[0];
-	&Debug::alloc("IJNET:$$net $id[$$net] deallocated");
+	&Debug::alloc($net, 0);
 }
 
 sub jlink {

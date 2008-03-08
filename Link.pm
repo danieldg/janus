@@ -4,6 +4,7 @@ package Link;
 use strict;
 use warnings;
 use integer;
+use Debug;
 use Persist;
 use Scalar::Util qw(weaken);
 
@@ -42,11 +43,11 @@ sub _init {
 			$other[$$l] = undef if $l;
 		}
 	});
-	print "Link $$link alloc'd\n";
+	&Debug::alloc($link, 1);
 }
 
 sub _destroy {
-	print "Link ${$_[0]} dealloc'd\n";
+	&Debug::alloc($_[0], 0);
 }
 
 sub ready {
@@ -137,39 +138,38 @@ sub unlock {
 		my $dnet = $act->{dst};
 		# don't let people request reflexive links
 		return if $snet eq $dnet;
-		print "Link request: ";
 		$reqs{$snet->name()}{$dnet->name()}{lc $act->{slink}} = {
 			dst => $act->{dlink},
 			nick => $act->{reqby},
 			'time' => $act->{reqtime},
 		};
 		if ($dnet->jlink() || $dnet->isa('Interface')) {
-			print "dst non-local\n";
+			&Debug::info("Link request: dst non-local");
 			return;
 		}
 		unless ($dnet->is_synced()) {
-			print "dst not ready\n";
+			&Debug::info("Link request: dst not ready");
 			return;
 		}
 		my $recip = $reqs{$dnet->name()}{$snet->name()}{lc $act->{dlink}};
 		$recip = $recip->{dst} if ref $recip;
 		unless ($recip) {
-			print "saved in list\n";
+			&Debug::info("Link request: saved in list");
 			return;
 		}
 		if ($act->{linkfile} && $act->{linkfile} == 2) {
-			print "not syncing to avoid races\n";
+			&Debug::info("Link request: not syncing to avoid races");
 			return;
 		}
 		my $kn1 = $snet->gid().$act->{slink};
 		my $kn2 = $dnet->gid().$act->{dlink};
 		if ($Janus::gchans{$kn1} && $Janus::gchans{$kn2} &&
 			$Janus::gchans{$kn1} eq $Janus::gchans{$kn2}) {
-			print "already linked\n";
+			&Debug::info("Link request: already linked");
 			return;
 		}
 		if ($act->{override} || $recip eq 'any' || lc $recip eq lc $act->{slink}) {
-			print "linking!\n";
+			&Debug::info("Link request: linking!");
 			my $link1 = Link->new(origin => $act);
 			my $link2 = Link->new(origin => $act, other => $link1);
 			$other[$$link1] = $link2;
@@ -189,7 +189,7 @@ sub unlock {
 				lockid => $link2->lockid(),
 			});
 		} else {
-			print "name mismatch\n";
+			&Debug::info("Link request: name mismatch");
 		}
 	}, LOCKACK => act => sub {
 		my $act = shift;
@@ -215,7 +215,7 @@ sub unlock {
 		}
 		$exp = $expire[$$other] if $expire[$$other] < $exp;
 		if ($exp < $Janus::time) {
-			print "Lock ".$link->lockid()." & ".$other->lockid()." failed\n";
+			&Debug::info("Lock ".$link->lockid()." & ".$other->lockid()." failed");
 			$link->unlock();
 			$other->unlock();
 			$other[$$link] = $other[$$other] = undef;

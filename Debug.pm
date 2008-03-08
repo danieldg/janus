@@ -35,10 +35,19 @@ sub warn_in {
 	print "\e[35m \@$name $msg\e[m\n";
 }
 
+sub warn {
+	return unless $warn;
+	print "\e[35mWARN: $_[0]\e[m\n";
+}
+
 sub err_in {
 	my($src, $msg) = @_;
 	my $name = $EventDump::INST->ijstr($src);
 	print "\e[31m \@$name $msg\e[m\n";
+}
+
+sub usrerr {
+	print "\e[31m$_[0]\e[m\n";
 }
 
 sub err {
@@ -47,12 +56,25 @@ sub err {
 
 sub alloc {
 	return unless $alloc;
-	print " $_[0]\n";
+	my($obj,$dir) = (shift,shift);
+	print ' '.ref($obj).":$$obj ",
+		join(' ', ($dir ? 'allocated' : 'deallocated'), @_), "\n";
 }
 
 sub info {
 	return unless $info;
 	print " $_[0]\n";
+}
+
+sub hook_err {
+	my($act, $msg) = @_;
+	print "\e[35m$msg ";
+	eval {
+		&EventDump::debug_send($act);
+		1;
+	} or do {
+		print "[ERR2: $@]\e[0m\n";
+	};
 }
 
 1;

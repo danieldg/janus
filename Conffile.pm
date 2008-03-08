@@ -31,7 +31,7 @@ sub read_conf {
 		s/\s*$//;
 		next if /^\s*(#|$)/;
 		s/^\s*(\S+)\s*// or do {
-			print "Error in line $. of config file\n";
+			&Debug::usrerr("Line $. of config file could not be parsed");
 			next;
 		};
 		my $type = $1;
@@ -116,7 +116,7 @@ sub connect_net {
 			next unless $n->isa('Listener');
 			return if $n->id() eq $id;
 		}
-		print "Listening on $nconf->{addr}\n";
+		&Debug::info("Listening on $nconf->{addr}");
 		my $sock = $inet{listn}->($nconf);
 		if ($sock) {
 			my $list = Listener->new(id => $id, conf => $nconf);
@@ -125,7 +125,7 @@ sub connect_net {
 			&Janus::err_jmsg($nick, "Could not listen on port $nconf->{addr}: $!");
 		}
 	} elsif ($nconf->{autoconnect}) {
-		print "Autoconnecting $id\n";
+		&Debug::info("Autoconnecting $id");
 		my $type = 'Server::'.$nconf->{type};
 		unless (&Janus::load($type)) {
 			&Janus::err_jmsg($nick, "Error creating $type network $id: $@");
@@ -133,7 +133,7 @@ sub connect_net {
 			my $net = &Persist::new($type, id => $id);
 			# this is equivalent to $type->new(id => \$id) but without using eval
 
-			print "Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}\n";
+			&Debug::info("Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}");
 
 			my $sock = $inet{conn}->($nconf);
 
@@ -170,10 +170,10 @@ sub autoconnect {
 			my $item = 2 * $netconf{$id}{backoff}++;
 			my $rt = int sqrt $item;
 			if ($item == $rt * ($rt + 1)) {
-				print "Backoff $item - Connecting\n";
+				&Debug::info("Backoff $item - Connecting");
 				connect_net undef,$id;
 			} else {
-				print "Backoff: $item != ".$rt*($rt+1)."\n";
+				&Debug::info("Backoff: $item != ".$rt*($rt+1));
 			}
 		}
 	}

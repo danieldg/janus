@@ -363,7 +363,7 @@ for my $type (keys %spec) {
 	my $check = $spec{$itm};
 	unless ($check) {
 		return undef if $itm eq 'RAW';
-		print "Unknown action type $itm\n";
+		&Debug::hook_err($act, "Unknown action type");
 		return undef;
 	}
 	KEY: for my $k (keys %$check) {
@@ -393,7 +393,7 @@ for my $type (keys %spec) {
 	delete $act->{ERR};
 	for my $k (keys %$act) {
 		next if exists $check->{$k};
-		print "Warning: unknown key $k in action $itm\n";
+		&Debug::warn("unknown key $k in action $itm");
 	}
 	undef;
 });

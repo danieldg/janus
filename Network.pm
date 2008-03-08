@@ -54,7 +54,7 @@ sub lid {
 sub _init {
 	my $net = $_[0];
 	$gid[$$net] ||= $Janus::name.':'.$$net;
-	print "   NET:$$net ".ref($net)." allocated\n";
+	&Debug::alloc($net, 1);
 }
 
 sub _set_name {
@@ -81,7 +81,7 @@ sub to_ij {
 
 sub _destroy {
 	my $net = $_[0];
-	print "   NET:$$net ".ref($net).' '.$netname[$$net]." deallocated\n";
+	&Debug::alloc($net, 0, $netname[$$net]);
 }
 
 sub str {
@@ -118,9 +118,9 @@ sub id {
 			};
 		}
 		&Janus::insert_full(@clean);
-		print "Nick deallocation start\n";
+		&Debug::info("Nick deallocation start");
 		@clean = ();
-		print "Nick deallocation end\n";
+		&Debug::info("Nick deallocation end");
 		for my $chan ($net->all_chans()) {
 			warn "Channel not on network!" unless $chan->is_on($net);
 			push @clean, +{
@@ -134,9 +134,9 @@ sub id {
 			};
 		}
 		&Janus::insert_full(@clean);
-		print "Channel deallocation start\n";
+		&Debug::info("Channel deallocation start");
 		@clean = ();
-		print "Channel deallocation end\n";
+		&Debug::info("Channel deallocation end");
 	},
 );
 

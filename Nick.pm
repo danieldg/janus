@@ -64,7 +64,7 @@ sub _init {
 	$mode[$$nick] = $ifo->{mode} || {};
 	# prevent mode bouncing
 	$mode[$$nick]{oper} = 1 if $mode[$$nick]{service};
-	print "   NICK:$$nick $homenick[$$nick] allocated\n";
+	&Debug::alloc($nick, 1, $homenick[$$nick]);
 }
 
 sub to_ij {
@@ -82,7 +82,7 @@ sub to_ij {
 
 sub _destroy {
 	my $n = $_[0];
-	print "   NICK:$$n $homenick[$$n] deallocated\n";
+	&Debug::alloc($n, 0, $homenick[$$n]);
 }
 
 # send to all but possibly one network for NICKINFO
@@ -250,7 +250,7 @@ sub _netclean {
 	for my $cn (keys %{$chans[$$nick]}) {
 		my $chan = $chans[$$nick]{$cn};
 		unless ($chan->is_on($home)) {
-			print "Found nick $$nick on delinked channel $$chan\n";
+			&Debug::err("Found nick $$nick on delinked channel $$chan");
 			delete $chans[$$nick]{$cn};
 			next;
 		}
