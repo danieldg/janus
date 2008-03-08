@@ -66,6 +66,8 @@ sub parse {
 	();
 }
 
+sub send { }
+
 sub dump_sendq { '' }
 
 1;
