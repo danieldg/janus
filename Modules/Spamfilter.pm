@@ -4,8 +4,6 @@ package Modules::Spamfilter;
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 &Janus::hook_add(
 	MSG => check => sub {
 		my $act = shift;

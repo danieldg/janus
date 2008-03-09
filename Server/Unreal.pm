@@ -1,14 +1,13 @@
 # Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
 package Server::Unreal;
+use Debug;
 use Nick;
 use Modes;
 use Server::BaseNick;
 use Persist 'Server::BaseNick';
 use strict;
 use warnings;
-
-our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 my @sendq   :Persist(sendq);
 my @srvname :Persist(srvname);
@@ -229,10 +228,6 @@ my $textip_table = join '', 'A'..'Z','a'..'z', 0 .. 9, '+/';
 
 sub nicklen { 30 }
 
-sub debug {
-	print @_, "\e[0m\n";
-}
-
 sub str {
 	my $net = shift;
 	$net->jname();
@@ -251,7 +246,7 @@ sub intro {
 # parse one line of input
 sub parse {
 	my ($net, $line) = @_;
-	debug "\e[0;32m     IN@".$net->name().' '. $line;
+	&Debug::netin(@_);
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
 	push @args, $msg if defined $msg;
@@ -273,7 +268,7 @@ sub parse {
 	}
 	return $net->nick_msg(@args) if $cmd =~ /^\d+$/;
 	unless (exists $fromirc{$cmd}) {
-		debug "Unknown command '$cmd'";
+		&Debug::err_in($net, "Unknown command '$cmd'");
 		return ();
 	}
 	$fromirc{$cmd}->($net,@args);
@@ -336,7 +331,7 @@ sub dump_sendq {
 		}
 	}
 	$sendq[$$net] = [];
-	debug "\e[0;34m    OUT@".$net->name().' '.$_ for split /[\r\n]+/, $q;
+	&Debug::netout($net, $_) for split /[\r\n]+/, $q;
 	$q;
 }
 
@@ -396,8 +391,14 @@ sub _connect_ifo {
 		$ip = '*';
 	}
 	my @out;
-	push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $nick->info('host'),
-		$srv, 0, $mode, $vhost, $ip, $nick->info('name'));
+	if ($net->param('untrusted')) {
+		$vhost = 'cloak.unavailable' if $vhost eq '*';
+		push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $vhost,
+			$srv, 0, $mode, $vhost, $nick->info('name'));
+	} else {
+		push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $nick->info('host'),
+			$srv, 0, $mode, $vhost, $ip, $nick->info('name'));
+	}
 	my $whois = $nick->info('swhois');
 	push @out, $net->cmd1(SWHOIS => $nick, $whois) if defined $whois && $whois ne '';
 	my $away = $nick->info('away');
@@ -627,7 +628,7 @@ sub srvname {
 # User Operations
 	NICK => sub {
 		my $net = shift;
-		if (@_ < 10) {
+		if (@_ < 7) {
 			# Nick Change
 			my $nick = $net->mynick($_[0]) or return ();
 			return +{
@@ -793,7 +794,7 @@ sub srvname {
 				sendto => [ $net ],
 			};
 		} else {
-			print "Ignoring SVSNICK on already tagged nick\n";
+			&Debug::err_in($net, "Ignoring SVSNICK on already tagged nick\n");
 			return ();
 		}
 	}, UMODE2 => sub {
@@ -1009,7 +1010,7 @@ sub srvname {
 		my $snum = $net->sjb64((@_ > 5          ? $_[4] :
 				($desc =~ s/^U\d+-\S+-(\d+) //) ? $1    : 0), 1);
 
-		print "Server $_[2] [\@$snum] added from $src\n";
+		&Debug::info("Server $_[2] [\@$snum] added from $src");
 		$servers[$$net]{$name} = {
 			parent => lc $src,
 			hops => $_[3],
@@ -1051,7 +1052,7 @@ sub srvname {
 				$sgone{$_} = 1 if $sgone{$servers[$$net]{$_}{parent}};
 			}
 		}
-		print 'Lost servers: '.join(' ', sort keys %sgone)."\n";
+		&Debug::info('Lost servers: '.join(' ', sort keys %sgone));
 		delete $srvname[$$net]{$servers[$$net]{$_}{numeric}} for keys %sgone;
 		delete $servers[$$net]{$_} for keys %sgone;
 
@@ -1088,12 +1089,8 @@ sub srvname {
 			type => 'LINKED',
 			net => $net,
 		};
-	}, PROTOCTL => sub {
-		my $net = shift;
-		shift;
-		print join ' ', @_, "\n";
-		();
 	},
+	PROTOCTL => \&todo,
 	EOS => \&ignore,
 	ERROR => sub {
 		my $net = shift;
@@ -1286,7 +1283,7 @@ sub cmd2 {
 		my $new = $act->{net};
 		if ($net eq $new) {
 			# first link to the net
-			print "First link, introducing all servers\n";
+			&Debug::info("First link, introducing all servers");
 			my @out;
 			for my $ij (values %Janus::ijnets) {
 				next unless $ij->is_linked();
@@ -1364,7 +1361,7 @@ sub cmd2 {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
 		if ($act->{src}->homenet() eq $net) {
-			print 'ERR: Trying to force channel join remotely ('.$act->{src}->gid().$chan->str($net).")\n";
+			&Debug::err('Trying to force channel join remotely ('.$act->{src}->gid().$chan->str($net).")");
 			return ();
 		}
 		my $sj = '';
@@ -1418,6 +1415,7 @@ sub cmd2 {
 		my $type = $act->{msgtype} || 'PRIVMSG';
 		# only send things we know we should be able to get through to the client
 		return () unless $type eq 'PRIVMSG' || $type eq 'NOTICE' || $type =~ /^\d\d\d$/;
+		return () if $type eq '378' && $net->param('untrusted');
 		my @msg = ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg};
 		[ FLOAT_ALL => $net->cmd2($act->{src}, $type, ($act->{prefix} || '').$net->_out($act->{dst}), @msg) ];
 	}, WHOIS => sub {

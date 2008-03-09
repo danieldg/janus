@@ -50,7 +50,7 @@ eval {
 	1 while &Connection::timestep();
 	1;
 } || do {
-	print "Aborting, error=$@\n";
+	&Debug::err("Aborting, error=$@");
 	my %all;
 	for my $net (values %Janus::nets) {
 		$net = $net->jlink() if $net->jlink();
@@ -61,4 +61,4 @@ eval {
 
 &Janus::insert_full(+{ type => 'TERMINATE' });
 
-print "All networks disconnected. Goodbye!\n";
+&Debug::info("All networks disconnected. Goodbye!\n");

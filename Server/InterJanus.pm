@@ -51,7 +51,7 @@ sub jlink {
 sub send {
 	my $ij = shift;
 	my @out = $ij->dump_act(@_);
-	print "    OUT\@".$ij->id()."  $_\n" for @out;
+	&Debug::netout($ij, $_) for @out;
 	$sendq[$$ij] .= join '', map "$_\n", @out;
 }
 
@@ -63,13 +63,12 @@ sub dump_sendq {
 }
 
 sub parse {
+	&Debug::netin(@_);
 	my $ij = shift;
 	local $_ = $_[0];
-	my $selfid = $ij->id() || 'NEW';
-	print "     IN\@$selfid  $_\n";
 
 	s/^\s*<([^ >]+)// or do {
-		print "Invalid IJ line\n";
+		&Debug::err_in($ij, "Invalid IJ line\n");
 		return ();
 	};
 	my $act = { type => $1 };

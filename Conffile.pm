@@ -4,6 +4,7 @@ package Conffile;
 use IO::Handle;
 use strict;
 use warnings;
+use integer;
 use Listener;
 use Connection;
 use RemoteJanus;
@@ -31,7 +32,7 @@ sub read_conf {
 		s/\s*$//;
 		next if /^\s*(#|$)/;
 		s/^\s*(\S+)\s*// or do {
-			print "Error in line $. of config file\n";
+			&Debug::usrerr("Line $. of config file could not be parsed");
 			next;
 		};
 		my $type = $1;
@@ -114,7 +115,7 @@ sub connect_net {
 			next unless $n->isa('Listener');
 			return if $n->id() eq $id;
 		}
-		print "Listening on $nconf->{addr}\n";
+		&Debug::info("Listening on $nconf->{addr}");
 		my $sock = $inet{listn}->($nconf);
 		if ($sock) {
 			my $list = Listener->new(id => $id, conf => $nconf);
@@ -123,7 +124,7 @@ sub connect_net {
 			&Janus::err_jmsg($nick, "Could not listen on port $nconf->{addr}: $!");
 		}
 	} elsif ($nconf->{autoconnect}) {
-		print "Autoconnecting $id\n";
+		&Debug::info("Autoconnecting $id");
 		my $type = 'Server::'.$nconf->{type};
 		unless (&Janus::load($type)) {
 			&Janus::err_jmsg($nick, "Error creating $type network $id: $@");
@@ -131,7 +132,7 @@ sub connect_net {
 			my $net = &Persist::new($type, id => $id);
 			# this is equivalent to $type->new(id => \$id) but without using eval
 
-			print "Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}\n";
+			&Debug::info("Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}");
 
 			my $sock = $inet{conn}->($nconf);
 
@@ -159,7 +160,22 @@ sub rehash {
 }
 
 sub autoconnect {
-	connect_net undef,$_ for keys %netconf;
+	for my $id (keys %netconf) {
+		if ($id =~ /^LISTEN/) {
+			connect_net undef,$id;
+		} elsif (!$netconf{$id}{autoconnect} || exists $Janus::nets{$id} || exists $Janus::ijnets{$id}) {
+			$netconf{$id}{backoff} = 0;
+		} else {
+			my $item = 2 * $netconf{$id}{backoff}++;
+			my $rt = int sqrt $item;
+			if ($item == $rt * ($rt + 1)) {
+				&Debug::info("Backoff $item - Connecting");
+				connect_net undef,$id;
+			} else {
+				&Debug::info("Backoff: $item != ".$rt*($rt+1));
+			}
+		}
+	}
 }
 
 &Janus::hook_add(
@@ -277,7 +293,7 @@ sub autoconnect {
 		connect_net undef,$_ for keys %netconf;
 		&Janus::schedule({
 			repeat => 30,
-			code => \&autoconnect,
+			code => sub { &Conffile::autoconnect; }, # to allow reloads
 		});
 	},
 );

@@ -4,7 +4,7 @@ package Connection;
 use strict;
 use warnings;
 use integer;
-
+use Debug;
 use IO::Select;
 use IO::Socket::SSL;
 use Scalar::Util qw(tainted);
@@ -63,14 +63,14 @@ sub readable {
 	} else {
 		my $net = $$l[3] or return;
 		if ($sock->isa('IO::Socket::SSL')) {
-			print "SSL read error @#$$net: ".$sock->errstr()."\n";
+			&Debug::warn_in($net, "SSL read error: ".$sock->errstr());
 			if ($sock->errstr() eq SSL_WANT_READ) {
 				# we were trying to read, and want another read: act just like reading
 				# half of a line, i.e. return and wait for the next incoming blob
 				return unless $$l[4]++ > 30;
 				# However, if we have had more than 30 errors, assume something else is wrong
 				# and bail out.
-				print "Bailing out!\n";
+				&Debug::info("Bailing out!");
 			} elsif ($sock->errstr() eq SSL_WANT_WRITE) {
 				# since are waiting for a write, we do NOT want to come back when reads
 				# are available, at least not until we have unblocked a write.
@@ -78,7 +78,7 @@ sub readable {
 				return;
 			}
 		} else {
-			print "Delink #$$net from failed read: $!\n";
+			&Debug::err_in($net, "Delink from failed read: $!");
 		}
 		&Janus::delink($net, 'Socket read failure ('.$!.')');
 	}
@@ -94,7 +94,7 @@ sub _syswrite {
 		$$l[5] = 1 if $len < length $sendq;
 	} else {
 		if ($sock->isa('IO::Socket::SSL')) {
-			print "SSL write error @#$$net: ".$sock->errstr()."\n";
+			&Debug::warn_in($net, "SSL write error: ".$sock->errstr());
 			if ($sock->errstr() eq SSL_WANT_READ) {
 				@$l[4,5] = (1,0);
 				return;
@@ -103,7 +103,7 @@ sub _syswrite {
 				return;
 			}
 		} else {
-			print "Delink from failed write: $!\n";
+			&Debug::err_in($net, "Delink from failed write: $!");
 		}
 		&Janus::delink($net, 'Socket write failure ('.$!.')');
 	}
@@ -178,7 +178,7 @@ sub _cleanup {
 	NETSPLIT => act => \&_cleanup,
 	JNETSPLIT => act => \&_cleanup,
 	TERMINATE => cleanup => sub {
-		print "Queues remain at termination: ".join(' ', keys %queues)."\n" if %queues;
+		&Debug::err("Queues remain at termination: ".join(' ', keys %queues)."\n") if %queues;
 		%queues = ();
 	},
 );

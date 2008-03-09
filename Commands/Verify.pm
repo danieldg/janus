@@ -4,8 +4,6 @@ package Commands::Verify;
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 &Janus::command_add({
 	cmd => 'verify',
 	acl => 1,

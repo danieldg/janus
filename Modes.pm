@@ -251,15 +251,15 @@ sub merge {
 		} else {
 			if (defined $m1{$txt}) {
 				if (defined $m2{$txt} && $m1{$txt} ne $m2{$txt}) {
-					print "Merging $txt: using $m1{$txt} over $m2{$txt}\n";
+					&Debug::info("Merging $txt: using $m1{$txt} over $m2{$txt}");
 				} elsif (defined $m2{$txt}) {
-					print "Merging $txt: using $m1{$txt} by agreement\n";
+					&Debug::info("Merging $txt: using $m1{$txt} by agreement");
 				} else {
-					print "Merging $txt: using m1=$m1{$txt} by default\n";
+					&Debug::info("Merging $txt: using m1=$m1{$txt} by default");
 				}
 				$mset->{$txt} = $m1{$txt};
 			} else {
-				print "Merging $txt: using m2=$m2{$txt} by default\n";
+				&Debug::info("Merging $txt: using m2=$m2{$txt} by default");
 				$mset->{$txt} = $m2{$txt};
 			}
 		}

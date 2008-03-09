@@ -8,8 +8,6 @@ use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 my @cparms :Persist(cparms); # currently active parameters
 my @chans  :Persist(chans);
 
@@ -78,7 +76,7 @@ sub all_chans {
 			for my $cn (keys %{$chans[$$net]}) {
 				my $chan = $chans[$$net]{$cn};
 				unless ($chan->is_on($net)) {
-					print "Channel $cn=$$chan not on network $$net as it claims\n";
+					&Debug::err("Channel $cn=$$chan not on network $$net as it claims");
 					delete $chans[$$net]{$cn};
 					next;
 				}

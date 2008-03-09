@@ -5,8 +5,6 @@ use strict;
 use warnings;
 use Persist;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 my @unfiltered :PersistAs(Nick,unfilter);
 
 &Janus::command_add(+{

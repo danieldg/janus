@@ -6,8 +6,6 @@ use warnings;
 use Persist;
 use Connection;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 my @buffer   :Persist('buffer');
 my @delegate :Persist('delegate');
 my @peer     :Persist('peer')    :Arg('peer');
@@ -15,7 +13,7 @@ my @peer     :Persist('peer')    :Arg('peer');
 sub _init {
 	my $net = shift;
 	my($addr,$port) = $Conffile::inet{addr}->($peer[$$net]);
-	print "Pending connection #$$net from $addr:$port\n";
+	&Debug::alloc($net, 1, "from $addr:$port");
 }
 
 sub id {
@@ -37,7 +35,7 @@ sub parse {
 				my $type = 'Server::'.$nconf->{type};
 				&Janus::load($type) or next;
 				$rnet = &Persist::new($type, id => $id);
-				print "Shifting new connection #$$pnet to $type network $id\n";
+				&Debug::info("Shifting new connection #$$pnet to $type network $id");
 				$rnet->intro($nconf, $peer[$$pnet]);
 				&Janus::insert_full({
 					type => 'NETLINK',
@@ -56,7 +54,7 @@ sub parse {
 	} elsif ($line =~ /^<InterJanus /) {
 		&Janus::load('Server::InterJanus');
 		my $ij = Server::InterJanus->new();
-		print "Shifting new connection #$$pnet to InterJanus link\n";
+		&Deubg::info("Shifting new connection #$$pnet to InterJanus link");
 		my @out = $ij->parse($line);
 		if (@out && $out[0]{type} eq 'JNETLINK') {
 			&Connection::reassign($pnet, $ij);
@@ -67,6 +65,8 @@ sub parse {
 	}
 	();
 }
+
+sub send { }
 
 sub dump_sendq { '' }
 

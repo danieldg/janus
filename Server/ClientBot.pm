@@ -11,8 +11,6 @@ use Scalar::Util 'weaken';
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 my @sendq     :Persist(sendq);
 my @self      :Persist(mynick);
 my @kicks     :Persist(kicks); # $kicks[$$net]{$lid}{$channel} = 1 for a rejoin enabled
@@ -23,10 +21,6 @@ my %toirc;
 sub _init {
 	my $net = shift;
 	$sendq[$$net] = [];
-}
-
-sub debug {
-	print @_, "\e[0m\n";
 }
 
 sub ignore { () }
@@ -129,7 +123,7 @@ sub cli_hostintro {
 sub parse {
 	my ($net, $line) = @_;
 	my @out;
-	debug "\e[0;32m     IN@".$net->name().' '. $line;
+	&Debug::netin(@_);
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
 	push @args, $msg if defined $msg;
@@ -144,7 +138,7 @@ sub parse {
 	my $cmd = $args[1];
 	$cmd = $fromirc{$cmd} || $cmd;
 	unless (ref $cmd) {
-		debug "Unknown command '$cmd'";
+		&Debug::err_in($net, "Unknown command '$cmd'");
 		return ();
 	}
 	push @out, $cmd->($net,@args);
@@ -170,7 +164,7 @@ sub dump_sendq {
 	my $q = join "\n", @{$sendq[$$net]}, '';
 	$q =~ s/\n+/\r\n/g;
 	$sendq[$$net] = [];
-	debug "\e[0;34m    OUT@".$net->name().' '.$_ for split /\r\n/, $q;
+	&Debug::netout($net, $_) for split /\r\n/, $q;
 	$q;
 }
 
@@ -255,14 +249,14 @@ sub nicklen { 40 }
 		}
 		if ($m eq 'Q') {
 			my $qpass = $net->param('qauth') || '';
-			print "WARNING: Bad qauth syntax $qpass\n" unless $qpass && $qpass =~ /^\s*\S+\s+\S+\s*$/;
+			&Debug::err_in($net, "Bad qauth syntax $qpass") unless $qpass && $qpass =~ /^\s*\S+\s+\S+\s*$/;
 			'PRIVMSG Q@CServe.quakenet.org :AUTH '.$qpass;
 		} elsif ($m eq 'ns') {
 			my $pass = $net->param('nspass') || ''; 
-			print "WARNING: Bad nickserv password $pass\n" unless $pass;
+			&Debug::err_in($net, "Bad nickserv password $pass") unless $pass;
 			"PRIVMSG NickServ :IDENTIFY $pass";
 		} else {
-			print "Unknown identify method $m\n";
+			&Debug::err_in($net, "Unknown identify method $m");
 			();
 		}
 	},	
@@ -298,7 +292,7 @@ sub pm_not {
 						method => 'ns',
 					};
 				} elsif ($_[3] =~ /wrong\spassword/ ) {
-					print "Wrong password mentioned in the config file.";
+					&Debug::err("Wrong password mentioned in the config file.");
 				}
 			} elsif (uc $_[0] eq 'Q' && $_[3] =~ /registered/i ) {
 				return +{

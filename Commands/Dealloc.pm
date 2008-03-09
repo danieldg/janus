@@ -4,7 +4,6 @@ package Commands::Dealloc;
 use strict;
 use warnings;
 use Scalar::Util qw(blessed weaken);
-our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 sub rweak;
 

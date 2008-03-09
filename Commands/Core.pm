@@ -4,7 +4,6 @@ package Commands::Core;
 use strict;
 use warnings;
 use integer;
-our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 &Janus::command_add({
 	cmd => 'info',
@@ -73,7 +72,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 		return &Janus::jmsg($nick, "Invalid module name") unless $name =~ /^([0-9_A-Za-z:]+)$/;
 		my $n = $1;
 		if (&Janus::reload($n)) {
-			&Janus::err_jmsg($nick, "Module $n reloaded");
+			&Janus::jmsg($nick, "Module $n reloaded");
 		} else {
 			my $err = $@ || $!;
 			$err =~ s/\n/ /g;
@@ -91,7 +90,7 @@ our($VERSION) = '$Rev$' =~ /(\d+)/;
 			return;
 		}
 		&Janus::unload($name);
-		&Janus::err_jmsg($nick, "Module $name unloaded");
+		&Janus::jmsg($nick, "Module $name unloaded");
 	}
 });
 

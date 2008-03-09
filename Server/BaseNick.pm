@@ -1,4 +1,4 @@
-# Copyright (C) 2007 Daniel De Graaf
+# Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Server::BaseNick;
@@ -7,8 +7,6 @@ use Persist 'LocalNetwork';
 use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
-
-our($VERSION) = '$Rev$' =~ /(\d+)/;
 
 my @nicks  :Persist(nicks);
 
@@ -21,12 +19,12 @@ sub mynick {
 	my($net, $name) = @_;
 	my $nick = $nicks[$$net]{lc $name};
 	unless ($nick) {
-		print "Nick '$name' does not exist; ignoring\n";
+		&Debug::warn_in($net, "Nick '$name' does not exist; ignoring");
 		return undef;
 	}
 	if ($nick->homenet() ne $net) {
-		print "Nick '$name' is from network '".$nick->homenet()->name().
-			"' but was sourced from network '".$net->name()."'\n";
+		&Debug::err_in($net, "Nick '$name' is from network '".$nick->homenet()->name().
+			"' but was sourced locally");
 		return undef;
 	}
 	return $nick;
@@ -35,7 +33,7 @@ sub mynick {
 sub nick {
 	my($net, $name) = @_;
 	return $nicks[$$net]{lc $name} if $nicks[$$net]{lc $name};
-	print "Nick '$name' does not exist; ignoring\n" unless $_[2];
+	&Debug::warn_in($net, "Nick '$name' does not exist; ignoring") unless $_[2];
 	undef;
 }
 

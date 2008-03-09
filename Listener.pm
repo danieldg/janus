@@ -6,8 +6,6 @@ use warnings;
 use Persist 'SocketHandler';
 use Pending;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 my @id :Persist(id) :Arg(id) :Get(id);
 
 sub init_pending {
@@ -25,7 +23,7 @@ sub init_pending {
 		if ($sock->isa('IO::Socket::SSL')) {
 			$sock->accept_SSL();
 		} else {
-			print "ERROR: cannot initiate SSL pend on $id[$$self]\n";
+			&Debug::err("cannot initiate SSL pend on $id[$$self]");
 		}
 	}
 	$net;

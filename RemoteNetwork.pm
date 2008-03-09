@@ -6,8 +6,6 @@ use Persist 'Network';
 use strict;
 use warnings;
 
-our($VERSION) = '$Rev$' =~ /(\d+)/;
-
 sub all_nicks { 
 	my $net = shift;
 	grep { $_->is_on($net) } values %Janus::gnicks;

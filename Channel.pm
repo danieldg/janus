@@ -146,16 +146,16 @@ sub _init {
 			$Janus::gchans{$kn} = $c unless $Janus::gchans{$kn};
 			$keyname[$$c] = $kn; # it just has to be one of them
 		}
-		print "ERROR: Constructing unkeyed channel!\n" unless $keyname[$$c];
+		&Debug::err("Constructing unkeyed channel!") unless $keyname[$$c];
 	}
 	my $n = join ',', map { $_.$names[$$c]{$_} } keys %{$names[$$c]};
-	print "   CHAN:$$c $n allocated\n";
+	&Debug::alloc($c, 1, $n);
 }
 
 sub _destroy {
 	my $c = $_[0];
 	my $n = join ',', map { $_.$names[$$c]{$_} } keys %{$names[$$c]};
-	print "   CHAN:$$c $n deallocated\n";
+	&Debug::alloc($c, 0, $n);
 }
 
 sub _mergenet {
@@ -178,18 +178,19 @@ sub _modecpy {
 sub _link_into {
 	my($src,$chan) = @_;
 	my %dstnets = %{$nets[$$chan]};
-	print "Link into ($$src -> $$chan):";
+	my $dbg = "Link into ($$src -> $$chan):";
 	for my $id (keys %{$nets[$$src]}) {
-		print " $id";
+		$dbg .= " $id";
 		my $net = $nets[$$src]{$id};
 		my $name = $names[$$src]{$id};
 		$Janus::gchans{$net->gid().$name} = $chan;
 		delete $dstnets{$id};
 		next if $net->jlink();
-		print '+';
+		$dbg .= '+';
 		$net->replace_chan($name, $chan);
 	}
-	print "\n";
+	&Debug::info($dbg);
+
 	my $modenets = [ values %{$nets[$$src]} ];
 	my $joinnets = [ values %dstnets ];
 
@@ -219,6 +220,10 @@ sub _link_into {
 
 	for my $nid (keys %{$nicks[$$src]}) {
 		my $nick = $nicks[$$src]{$nid};
+		unless ($nick->homenet()) {
+			&Debug::err("nick $$nick in channel $$src but should be gone");
+			next;
+		}
 		$nicks[$$chan]{$nid} = $nick;
 
 		my $mode = $nmode[$$src]{$nid};
@@ -328,10 +333,10 @@ sub can_lock {
 	my $chan = shift;
 	return 1 unless $locker[$$chan];
 	if ($lockts[$$chan] < $Janus::time) {
-		print "Stealing expired lock from $locker[$$chan]\n";
+		&Debug::info("Stealing expired lock from $locker[$$chan]");
 		return 1;
 	} else {
-		print "Lock on #$$chan held by $locker[$$chan] until $lockts[$$chan]\n";
+		&Debug::info("Lock on #$$chan held by $locker[$$chan] until $lockts[$$chan]");
 		return 0;
 	}
 }
@@ -465,7 +470,7 @@ sub can_lock {
 		for my $id (keys %{$nets[$$chan1]}) {
 			my $exist = $nets[$$chan2]{$id};
 			next unless $exist;
-			print "Cannot link: this channel would be in $id twice";
+			&Debug::info("Cannot link: this channel would be in $id twice");
 			&Janus::jmsg($act->{src}, "Cannot link: this channel would be in $id twice");
 			return;
 		}
@@ -478,7 +483,7 @@ sub can_lock {
 		# the unified channel
 
 		if ($tsctl > 0) {
-			print "Channel 1 wins TS\n";
+			&Debug::info("Channel 1 wins TS");
 			&Janus::append(+{
 				type => 'TIMESYNC',
 				dst => $chan2,
@@ -487,7 +492,7 @@ sub can_lock {
 				wipe => 1,
 			});
 		} elsif ($tsctl < 0) {
-			print "Channel 2 wins TS\n";
+			&Debug::info("Channel 2 wins TS");
 			&Janus::append(+{
 				type => 'TIMESYNC',
 				dst => $chan1,
@@ -496,7 +501,7 @@ sub can_lock {
 				wipe => 1,
 			});
 		} else {
-			print "No TS conflict\n";
+			&Debug::info("No TS conflict");
 		}
 
 		my $chan = Channel->new(merge => $keyname[$$chan1]);
@@ -558,18 +563,18 @@ sub can_lock {
 		my $chan = $act->{dst};
 		my $net = $act->{net};
 		my %nets = %{$nets[$$chan]};
-		print "Delink channel $$chan which is currently on: ", join ' ', keys %nets,"\n";
+		&Debug::info("Delink channel $$chan which is currently on: ", join ' ', keys %nets);
 		if (scalar keys %nets <= 1) {
-			print "Cannot delink: channel $$chan is not shared\n";
+			&Debug::warn("Cannot delink: channel $$chan is not shared");
 			return 1;
 		}
 		unless (exists $nets{$$net}) {
-			print "Cannot delink: channel $$chan is not on network #$$net\n";
+			&Debug::warn("Cannot delink: channel $$chan is not on network #$$net");
 			return 1;
 		}
 		unless ($chan->can_lock()) {
 			return undef if $act->{netsplit_quit};
-			print "Cannot delink: channel $$chan is locked by $locker[$$chan]\n";
+			&Debug::warn("Cannot delink: channel $$chan is locked by $locker[$$chan]");
 			return 1;
 		}
 		undef;
@@ -586,7 +591,7 @@ sub can_lock {
 			if (@onets && $onets[0]) {
 				$keyname[$$chan] = $onets[0]->gid().$names[$$chan]{$onets[0]->lid()};
 			} else {
-				print "BAD: no new keyname in DELINK of $$chan\n";
+				&Debug::err("no new keyname in DELINK of $$chan");
 			}
 		}
 		my $split = Channel->new(

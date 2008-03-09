@@ -3,8 +3,10 @@
 package Link;
 use strict;
 use warnings;
+use integer;
+use Debug;
 use Persist;
-
+use Scalar::Util qw(weaken);
 our %reqs;
 # {requestor}{destination}{src-channel} = {
 #  src => src-channel [? if ever useful]
@@ -16,11 +18,16 @@ our %bylock;
 # lockid => Link
 
 our $lockmax;
+
+# Emergency shutoff switch for retries
+our $abort;
+
 my @lock   :Persist(lockid) :Get(lockid);
 my @chan   :Persist(chan);
 my @ready  :Persist(ready);
 my @expire :Persist(expire);
 my @other  :Persist(other)  :Arg(other);
+my @origin :Persist(origin) :Arg(origin);
 
 sub _init {
 	my $link = shift;
@@ -35,11 +42,11 @@ sub _init {
 			$other[$$l] = undef if $l;
 		}
 	});
-	print "Link $$link alloc'd\n";
+	&Debug::alloc($link, 1);
 }
 
 sub _destroy {
-	print "Link ${$_[0]} dealloc'd\n";
+	&Debug::alloc($_[0], 0);
 }
 
 sub ready {
@@ -128,42 +135,45 @@ sub unlock {
 		my $act = shift;
 		my $snet = $act->{net};
 		my $dnet = $act->{dst};
-		print "Link request: ";
+		# don't let people request reflexive links
+		return if $snet eq $dnet;
 		$reqs{$snet->name()}{$dnet->name()}{lc $act->{slink}} = {
 			dst => $act->{dlink},
 			nick => $act->{reqby},
 			'time' => $act->{reqtime},
 		};
 		if ($dnet->jlink() || $dnet->isa('Interface')) {
-			print "dst non-local\n";
+			&Debug::info("Link request: dst non-local");
 			return;
 		}
 		unless ($dnet->is_synced()) {
-			print "dst not ready\n";
+			&Debug::info("Link request: dst not ready");
 			return;
 		}
 		my $recip = $reqs{$dnet->name()}{$snet->name()}{lc $act->{dlink}};
 		$recip = $recip->{dst} if ref $recip;
 		unless ($recip) {
-			print "saved in list\n";
+			&Debug::info("Link request: saved in list");
 			return;
 		}
 		if ($act->{linkfile} && $act->{linkfile} == 2) {
-			print "not syncing to avoid races\n";
+			&Debug::info("Link request: not syncing to avoid races");
 			return;
 		}
 		my $kn1 = $snet->gid().$act->{slink};
 		my $kn2 = $dnet->gid().$act->{dlink};
 		if ($Janus::gchans{$kn1} && $Janus::gchans{$kn2} &&
 			$Janus::gchans{$kn1} eq $Janus::gchans{$kn2}) {
-			print "already linked\n";
+			&Debug::info("Link request: already linked");
 			return;
 		}
 		if ($act->{override} || $recip eq 'any' || lc $recip eq lc $act->{slink}) {
-			print "linking!\n";
-			my $link1 = Link->new();
-			my $link2 = Link->new(other => $link1);
+			&Debug::info("Link request: linking!");
+			my $link1 = Link->new(origin => $act);
+			my $link2 = Link->new(origin => $act, other => $link1);
 			$other[$$link1] = $link2;
+			weaken($other[$$link1]);
+			weaken($other[$$link2]);
 			&Janus::append(+{
 				type => 'LOCKREQ',
 				src => $dnet,
@@ -178,7 +188,7 @@ sub unlock {
 				lockid => $link2->lockid(),
 			});
 		} else {
-			print "name mismatch\n";
+			&Debug::info("Link request: name mismatch");
 		}
 	}, LOCKACK => act => sub {
 		my $act = shift;
@@ -204,9 +214,26 @@ sub unlock {
 		}
 		$exp = $expire[$$other] if $expire[$$other] < $exp;
 		if ($exp < $Janus::time) {
-			print "Lock ".$link->lockid()." & ".$other->lockid()." failed\n";
+			&Debug::info("Lock ".$link->lockid()." & ".$other->lockid()." failed");
 			$link->unlock();
 			$other->unlock();
+			$other[$$link] = $other[$$other] = undef;
+
+			# Retry linking a few times; this is needed because channel locking
+			# will prevent links when syncing more than one network to a channel
+			# which has an inter-janus member.
+
+			my $relink = $origin[$$link];
+			$relink->{linkfile}++;
+			$relink->{linkfile} = 3 if $relink->{linkfile} < 3;
+			# linkfile, if 3 or greater, is the retry count
+			&Janus::schedule(+{
+				# randomize the delay to try to avoid collisions
+				delay => (10 + int(rand(10))),
+				code => sub {
+					&Janus::append($relink);
+				}
+			}) unless $relink->{linkfile} > 20 || $abort;
 			return;
 		}
 		$chan[$$link] ||= $act->{chan};

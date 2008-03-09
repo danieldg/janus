@@ -220,6 +220,9 @@ sub _hook {
 			$hook->{$mod}->(@args);
 			1;
 		} or do {
+			unless ($lvl eq 'die') {
+				_hook(ALL => 'die', $mod, $@, @args);
+			}
 			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod: $@");
 		};
 	}
@@ -239,6 +242,9 @@ sub _mod_hook {
 			$rv = $r if $r;
 			1;
 		} or do {
+			unless ($lvl eq 'die') {
+				_hook(ALL => 'die', $mod, $@, @args);
+			}
 			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod: $@");
 		};
 	}
@@ -320,16 +326,11 @@ sub _run {
 	if (_mod_hook('ALL', validate => $act)) {
 		my $err = $act->{ERR} || 'unknown error';
 		$err =~ s/\n//;
-		print "Validate hook [$err] on";
-		eval {
-			&EventDump::debug_send($act);
-			1;
-		} or print "[ERR2: $@]\n";
+		&Debug::hook_err($act, "Validate hook [$err]");
 		return;
 	}
 	if (_mod_hook($act->{type}, check => $act)) {
-		print "Check hook stole";
-		&EventDump::debug_send($act);
+		&Debug::hook_err($act, "Check hook stole");
 		return;
 	}
 	_hook($act->{type}, act => $act);
@@ -412,7 +413,7 @@ sub err_jmsg {
 	for my $v (@_) {
 		local $_ = $v; # don't use $v directly as it's read-only
 		s/\n/ /g;
-		print STDERR "$_\n";
+		&Debug::err($_);
 		if ($dst) {
 			&Janus::append(+{
 				type => 'MSG',
@@ -474,7 +475,7 @@ sub in_socket {
 		}
 		1;
 	} or do {
-		print "$line\n";
+		_hook(ALL => 'die', $@, @_);
 		&Janus::err_jmsg(undef, "Unchecked exception in parsing: $@");
 	};
 }
@@ -493,7 +494,7 @@ sub in_command {
 		$csub->($nick, $text);
 		1;
 	} or do {
-		print "Unchecked exception: CMD=$cmd $text N=$$nick ERR=$@\n";
+		_hook(ALL => 'die', $@, @_);
 		&Janus::err_jmsg(undef, "Unchecked exception in janus command '$cmd': $@");
 	};
 	_runq(shift @qstack);
@@ -587,7 +588,11 @@ if ($RELEASE) {
 		my $act = shift;
 		my $net = $act->{net};
 		my $eq = $ijnets{$net->id()};
-		return 1 if $eq && $eq ne $net;
+		if ($eq && $eq ne $net) {
+			&Debug::err("JNETSPLIT on already split network");
+			&Connection::reassign($net, undef);
+			return 1;
+		}
 		undef;
 	}, JNETSPLIT => act => sub {
 		my $act = shift;
@@ -634,11 +639,11 @@ if ($RELEASE) {
 					`git rev-parse HEAD` =~ /^(.{8})/;
 					$ver = 'g'.$1;
 					# ok, we have the ugly name... now look for a tag
-					`git name-rev --tags --name-only HEAD` =~ /^(.*?)(?:^0)?$/;
+					`git name-rev --tags HEAD` =~ /^HEAD (.*?)(?:^0)?$/;
 					my $tag = $1;
-					if ($tag ne 'undefined' && $tag !~ /~/) {
+					if ($tag && $tag ne 'undefined' && $tag !~ /~/) {
 						# we are actually on this tag
-					$ver = 't'.$tag;
+						$ver = 't'.$tag;
 					}
 				}
 			}
@@ -725,6 +730,7 @@ sub gid {
 # we load these modules down here because their loading uses
 # some of the subs defined above
 eval q[
+	use Debug;
 	use Connection;
 	use EventDump;
 	1;
