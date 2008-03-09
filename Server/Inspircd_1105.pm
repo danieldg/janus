@@ -928,7 +928,7 @@ $moddef{CORE} = {
 				push @out, $net->ncmd(SERVER => $new->jname(), '*', 1, $new->netname());
 				push @out, $net->cmd2($new->jname(), VERSION => 'Remote Janus Server: '.ref $new);
 			}
-			push @out, $net->ncmd(OPERNOTICE => "Janus network ".$new->name().'	('.$new->netname().") is now linked");
+			push @out, $net->ncmd(OPERNOTICE => "Janus network ".$new->name().' ('.$new->netname().") is now linked");
 		}
 		return @out;
 	}, NETSPLIT => sub {

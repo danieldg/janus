@@ -598,6 +598,17 @@ if ($RELEASE) {
 		my $act = shift;
 		my $net = $act->{net};
 		delete $ijnets{$net->id()};
+		my @alljnets = values %ijnets;
+		for my $snet (@alljnets) {
+			next unless $snet->parent() && $net eq $snet->parent();
+			&Janus::insert_full(+{
+				type => 'JNETSPLIT',
+				net => $snet,
+				msg => $act->{msg},
+				netsplit_quit => 1,
+				nojlink => 1,
+			});
+		}
 		my @allnets = values %nets;
 		for my $snet (@allnets) {
 			next unless $snet->jlink() && $net eq $snet->jlink();
@@ -606,6 +617,7 @@ if ($RELEASE) {
 				net => $snet,
 				msg => $act->{msg},
 				netsplit_quit => 1,
+				nojlink => 1,
 			});
 		}
 	}, module => READ => sub {
