@@ -14,6 +14,7 @@ use warnings;
 my @sendq     :Persist(sendq);
 my @servers   :Persist(servers);
 my @serverdsc :Persist(serverdsc);
+my @next_uid  :Persist(nextuid);
 
 my @auth      :Persist(auth); # 0/undef = unauth connection; 1 = authed, in burst; 2 = after burst
 my @capabs    :Persist(capabs);
@@ -103,6 +104,31 @@ sub dump_sendq {
 	$q =~ s/\n+/\r\n/g;
 	&Debug::netout($net, $_) for split /\r\n/, $q;
 	$q;
+}
+
+my @letters = ('A' .. 'Z', 0 .. 9);
+
+sub net2uid {
+	return '00J' if @_ == 2 && $_[0] eq $_[1];
+	my $srv = $_[-1];
+	return '00J' if $srv->isa('Interface') || $srv->isa('Janus');
+	my $res = ($$srv / 36) . $letters[$$srv % 36] . 'J';
+	warn 'you have too many servers' if length $res > 3;
+		# maximum of 360. Can be increased if 'J' is modified too
+	$res;
+}
+
+sub next_uid {
+	my($net, $srv) = @_;
+	my $pfx = net2uid($srv);
+	my $number = $next_uid[$$net]{$pfx}++;
+	my $uid = '';
+	for (1..6) {
+		$uid = $letters[$number % 36].$uid;
+		$number /= 36;
+	}
+	warn if $number; # wow, you had 2 billion users on this server?
+	$pfx.$uid;
 }
 
 sub _connect_ifo {

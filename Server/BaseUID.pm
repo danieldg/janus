@@ -9,35 +9,9 @@ use strict;
 use warnings;
 use integer;
 
-my @next_uid :Persist(nextuid);
 my @nick2uid :Persist(nickuid);
 my @uids     :Persist(uids);
 my @gid2uid  :Persist(giduid);
-
-my @letters = ('A' .. 'Z', 0 .. 9);
-
-sub net2uid {
-	return '00J' if @_ == 2 && $_[0] eq $_[1];
-	my $srv = $_[-1];
-	return '00J' if $srv->isa('Interface') || $srv->isa('Janus');
-	my $res = ($$srv / 36) . $letters[$$srv % 36] . 'J';
-	warn 'you have too many servers' if length $res > 3;
-		# maximum of 360. Can be increased if 'J' is modified too
-	$res;
-}
-
-sub next_uid {
-	my($net, $srv) = @_;
-	my $pfx = net2uid($srv);
-	my $number = $next_uid[$$net]{$pfx}++;
-	my $uid = '';
-	for (1..6) {
-		$uid = $letters[$number % 36].$uid;
-		$number /= 36;
-	}
-	warn if $number; # wow, you had 2 billion users on this server?
-	$pfx.$uid;
-}
 
 sub _init {
 	my $net = shift;
@@ -91,7 +65,7 @@ sub register_nick {
 		# this is a ghosting nick, we REVERSE the normal timestamping
 		$tsctl = -$tsctl;
 	}
-	
+
 	my @rv;
 	if ($tsctl >= 0) {
 		$nick2uid[$$net]{lc $name} = $new_uid;
@@ -135,7 +109,7 @@ sub _request_nick {
 
 	my $tagre = $net->param('force_tag');
 	$tagged = 1 if $tagre && $given =~ /$tagre/;
-		
+
 	if ($tagged) {
 		my $tagsep = $net->param('tag_prefix');
 		$tagsep = '/' unless defined $tagsep;
