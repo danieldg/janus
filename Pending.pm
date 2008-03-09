@@ -54,7 +54,7 @@ sub parse {
 	} elsif ($line =~ /^<InterJanus /) {
 		&Janus::load('Server::InterJanus');
 		my $ij = Server::InterJanus->new();
-		&Deubg::info("Shifting new connection #$$pnet to InterJanus link");
+		&Debug::info("Shifting new connection #$$pnet to InterJanus link");
 		my @out = $ij->parse($line);
 		if (@out && $out[0]{type} eq 'JNETLINK') {
 			&Connection::reassign($pnet, $ij);
