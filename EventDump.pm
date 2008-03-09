@@ -119,9 +119,7 @@ sub debug_send {
 	my $ij = $INST;
 	for my $act (@_) {
 		my $type = $act->{type};
-		print "\e[0;33m    ACTION ";
-		print ssend($ij, $act);
-		print "\e[0m\n";
+		&Debug::action(ssend($ij, $act));
 	}
 }
 

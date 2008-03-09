@@ -4,11 +4,7 @@ package Debug;
 use strict;
 use warnings;
 
-our($init, $IO, $alloc, $info, $warn);
-
-unless ($init) {
-	($init, $IO, $alloc, $info, $warn) = (1,1,1,1,1);
-}
+our($IO, $action, $alloc, $info, $warn) = (1,1,1,1,1);
 
 sub netin {
 	return unless $IO;
@@ -66,15 +62,21 @@ sub info {
 	print " $_[0]\n";
 }
 
+sub action {
+	return unless $action;
+	print "\e[33m   ACTION $_[0]\e[m\n";
+}
+
 sub hook_err {
 	my($act, $msg) = @_;
 	print "\e[35m$msg ";
 	eval {
-		&EventDump::debug_send($act);
+		print $EventDump::INST->ssend($act);
 		1;
 	} or do {
-		print "[ERR2: $@]\e[0m\n";
+		print "[ERR2: $@]"
 	};
+	print "\e[0m\n";
 }
 
 1;
