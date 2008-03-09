@@ -327,7 +327,7 @@ $moddef{CORE} = {
 		} @m };
 
 		my @out;
-		my $nick = $net->nick($_[3]);
+		my $nick = $net->nick($_[3], 1);
 		if ($nick) {
 			# collided. Inspircd 1.1 method: kill them all!
 			push @out, +{
