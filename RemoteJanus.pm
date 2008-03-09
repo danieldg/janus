@@ -17,9 +17,13 @@ sub _id {
 	$id[${$_[0]}] = $_[1];
 }
 
+sub _init {
+	&Debug::alloc($_[0], 1);
+}
+
 sub _destroy {
 	my $net = $_[0];
-	print "  IJNET:$$net $id[$$net] deallocated\n";
+	&Debug::alloc($net, 0, $id[$$net]);
 }
 
 &Janus::hook_add(

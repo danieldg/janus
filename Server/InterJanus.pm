@@ -118,6 +118,7 @@ sub parse {
 	JNETLINK => act => sub {
 		my $act = shift;
 		my $ij = $act->{net};
+		return unless $ij->isa(__PACKAGE__);
 		for my $net (values %Janus::nets) {
 			$ij->send(+{
 				type => 'NETLINK',
