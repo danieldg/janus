@@ -53,13 +53,13 @@ sub err {
 sub alloc {
 	return unless $alloc;
 	my($obj,$dir) = (shift,shift);
-	print ' '.ref($obj).":$$obj ",
-		join(' ', ($dir ? 'allocated' : 'deallocated'), @_), "\n";
+	print "\e[36m  ".ref($obj).":$$obj ",
+		join(' ', ($dir ? 'allocated' : 'deallocated'), @_), "\e[m\n";
 }
 
 sub info {
 	return unless $info;
-	print " $_[0]\n";
+	print "\e[36m $_[0]\e[m\n";
 }
 
 sub action {
