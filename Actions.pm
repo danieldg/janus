@@ -148,7 +148,7 @@ my %spec = (
 		sendto => '=$Janus::global= Janus @',
 	},
 	JLINKED => {
-		except => 'Server::InterJanus',
+		except => 'RemoteJanus',
 		sendto => '=$Janus::global= Janus @',
 	},
 	BURST => {
@@ -162,7 +162,7 @@ my %spec = (
 		sendto => '=$Janus::global= Janus @',
 	},
 	JNETSPLIT => {
-		net => 'Server::InterJanus',
+		net => 'RemoteJanus',
 		msg => '$',
 		sendto => '=$Janus::global= Janus @',
 	},

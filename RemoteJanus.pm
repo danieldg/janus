@@ -17,6 +17,15 @@ sub _id {
 	$id[${$_[0]}] = $_[1];
 }
 
+# for sending out some other IJ
+sub to_ij {
+	my($net, $ij) = @_;
+	my $out;
+	$out .= ' id='.$ij->ijstr($id[$$net]);
+	$out .= ' parent='.$ij->ijstr($parent[$$net] || $RemoteJanus::self);
+	$out;
+}
+
 sub _init {
 	&Debug::alloc($_[0], 1);
 }
@@ -24,6 +33,10 @@ sub _init {
 sub _destroy {
 	my $net = $_[0];
 	&Debug::alloc($net, 0, $id[$$net]);
+}
+
+sub jlink {
+	$_[0]->parent();
 }
 
 &Janus::hook_add(

@@ -17,15 +17,6 @@ sub str {
 	"";
 }
 
-# for sending out some other IJ
-sub to_ij {
-	my($net, $ij) = @_;
-	my $out;
-	$out .= ' id='.$ij->ijstr($net->id());
-	$out .= ' parent='.$ij->ijstr($net->parent() || $RemoteJanus::self);
-	$out;
-}
-
 sub intro {
 	my($ij,$nconf) = @_;
 	$sendq[$$ij] = '';
@@ -119,6 +110,13 @@ sub parse {
 		my $act = shift;
 		my $ij = $act->{net};
 		return unless $ij->isa(__PACKAGE__);
+		for my $net (values %Janus::ijnets) {
+			next if $net eq $ij || $net eq $RemoteJanus::self;
+			$ij->send(+{
+				type => 'JNETLINK',
+				net => $net,
+			});
+		}
 		for my $net (values %Janus::nets) {
 			$ij->send(+{
 				type => 'NETLINK',

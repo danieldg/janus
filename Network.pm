@@ -74,6 +74,7 @@ sub to_ij {
 	my $out = '';
 	$out .= ' gid='.$ij->ijstr($net->gid());
 	$out .= ' id='.$ij->ijstr($net->name());
+	$out .= ' jlink='.$ij->ijstr($net->jlink() || $RemoteJanus::self);
 	$out .= ' netname='.$ij->ijstr($net->netname());
 	$out .= ' numeric='.$ij->ijstr($net->numeric());
 	$out;
