@@ -33,7 +33,7 @@ sub warn_in {
 
 sub warn {
 	return unless $warn;
-	print "\e[35mWARN: $_[0]\e[m\n";
+	print "\e[35mWARN: @_\e[m\n";
 }
 
 sub err_in {
@@ -43,11 +43,11 @@ sub err_in {
 }
 
 sub usrerr {
-	print "\e[31m$_[0]\e[m\n";
+	print "\e[31m@_\e[m\n";
 }
 
 sub err {
-	print "\e[31mERR: $_[0]\e[m\n";
+	print "\e[31mERR: @_\e[m\n";
 }
 
 sub alloc {
@@ -59,12 +59,12 @@ sub alloc {
 
 sub info {
 	return unless $info;
-	print "\e[36m $_[0]\e[m\n";
+	print "\e[36m @_\e[m\n";
 }
 
 sub action {
 	return unless $action;
-	print "\e[33m   ACTION $_[0]\e[m\n";
+	print "\e[33m   ACTION @_\e[m\n";
 }
 
 sub hook_err {
