@@ -14,9 +14,9 @@ use warnings;
 	acl => 1,
 	code => sub {
 		my($nick,$msg) = @_;
-		$msg =~ s/^(\S+) // or return;
+		$msg =~ s/^(\S+) // or return &Janus::jmsg($nick, "Syntax: \002CHATTO\002 network message");
 		my $net = $Janus::nets{$1};
-		return unless $net || $1 eq '*';
+		return &Janus::jmsg($nick, "Could not find that network") unless $net || $1 eq '*';
 		&Janus::append(+{
 			type => 'CHATOPS',
 			src => $nick,
