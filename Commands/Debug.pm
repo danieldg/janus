@@ -6,6 +6,24 @@ use warnings;
 use Data::Dumper;
 use Modes;
 
+sub dump_all_globals {
+	my %rv;
+	for my $pkg (@_) {
+		my $ns = do { no strict 'refs'; \%{$pkg.'::'} };
+		next unless $ns;
+		for my $var (keys %$ns) {
+			next if $var =~ /:/; # perl internal variable
+			my $scv = *{$ns->{$var}}{SCALAR};
+			my $arv = *{$ns->{$var}}{ARRAY};
+			my $hsv = *{$ns->{$var}}{HASH};
+			$rv{'$'.$pkg.'::'.$var} = $$scv if $scv && defined $$scv;
+			$rv{'@'.$pkg.'::'.$var} = $arv  if $arv && scalar @$arv;
+			$rv{'%'.$pkg.'::'.$var} = $hsv  if $hsv && scalar keys %$hsv;
+		}
+	}
+	\%rv;
+}
+
 sub dump_now {
 	# workaround for a bug in Data::Dumper that only allows one "new" socket per dump
 	for (values %Connection::queues) {
@@ -16,10 +34,9 @@ sub dump_now {
 	my @all = (
 		\%Janus::gnicks,
 		\%Janus::gchans,
-		\%Janus::nets,
-		\%Janus::ijnets,
 		\%Janus::gnets,
-		\%Connection::queues,
+		\%Janus::ijnets,
+		dump_all_globals(grep { $_ ne 'Persist' } keys %Janus::modules),
 		&Persist::dump_all_refs(),
 		@_,
 	);

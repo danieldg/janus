@@ -261,7 +261,7 @@ sub cmd2 {
 	$out;
 }
 
-my %moddef;
+our %moddef = ();
 $moddef{CAPAB_HALFOP} = {
 	cmode => {
 		h => 'n_halfop',
