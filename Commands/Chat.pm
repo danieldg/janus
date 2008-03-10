@@ -21,7 +21,7 @@ use warnings;
 			type => 'CHATOPS',
 			src => $nick,
 			msg => $msg,
-			sendto => ($1 eq '*' ? $Janus::server : [ $net ]),
+			sendto => ($1 eq '*' ? $Janus::global : [ $net ]),
 		});
 	},
 });

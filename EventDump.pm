@@ -53,10 +53,10 @@ sub ijstr {
 		return ($$ij ? 'c:' : "c($$itm):").$itm->keyname();
 	} elsif ($itm->isa('Network')) {
 		return 's:'.$itm->gid();
-	} elsif ($itm->isa('Server::InterJanus')) {
+	} elsif ($itm->isa('RemoteJanus')) {
 		return 'j:'.$itm->id();
 	} elsif ($itm->isa('Janus')) {
-		return 'j:'.$itm->gid();
+		return 'j:*';
 	}
 	warn "Unknown object $itm";
 	return '""';
@@ -89,6 +89,11 @@ my %to_ij = (
 		my($ij, $act) = @_;
 		return '' if !$act->{net} || $act->{net}->isa('Interface');
 		my $out = send_hdr(@_) . ' net=<s';
+		$out .= $act->{net}->to_ij($ij);
+		$out . '>>';
+	}, JNETLINK => sub {
+		my($ij, $act) = @_;
+		my $out = send_hdr(@_) . ' net=<j';
 		$out .= $act->{net}->to_ij($ij);
 		$out . '>>';
 	}, LOCKACK => sub {
@@ -135,6 +140,12 @@ sub dump_act {
 		}
 	}
 	grep $_, @out; #remove blank lines
+}
+
+sub jparent {
+	my($ij, $net) = @_;
+	$net = $net->parent() while $net && $net ne $ij;
+	$net;
 }
 
 my %v_type; %v_type = (
@@ -190,8 +201,28 @@ my %v_type; %v_type = (
 			&Janus::delink($ij, "InterJanus network name collision: network $h->{id} already exists");
 			return undef;
 		}
-		delete $h->{jlink};
-		RemoteNetwork->new(jlink => $ij, %$h);
+		unless (jparent($ij, $h->{jlink})) {
+			&Janus::delink($ij, "Network misintroduction: $h->{jlink} invalid");
+			return undef;
+		}
+		RemoteNetwork->new(%$h);
+	}, '<j' => sub {
+		my $ij = shift;
+		my $h = {};
+		s/^<j// or warn;
+		$ij->kv_pairs($h);
+		s/^>// or warn;
+		my $id = $h->{id};
+		my $parent = $h->{parent};
+		if ($Janus::ijnets{$id}) {
+			&Janus::delink($ij, "InterJanus network name collision: IJ network $h->{id} already exists");
+			return undef;
+		}
+		unless (jparent($ij, $parent)) {
+			&Janus::delink($ij, "InterJanus network misintroduction: Parent $parent invalid");
+			return undef;
+		}
+		RemoteJanus->new(parent => $parent, id => $id);
 	}, '<c' => sub {
 		my $ij = shift;
 		my $h = {};
@@ -208,7 +239,7 @@ my %v_type; %v_type = (
 		$ij->kv_pairs($h);
 		s/^>// or warn;
 		return undef unless ref $h->{net} &&
-			$h->{net}->isa('RemoteNetwork') && $h->{net}->jlink() eq $ij;
+			$h->{net}->isa('RemoteNetwork') && jparent($ij, $h->{net}->jlink());
 		$Janus::gnicks{$h->{gid}} || Nick->new(%$h);
 	},
 );

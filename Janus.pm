@@ -16,10 +16,8 @@ Primary event multiplexer and module loader/unloader
 =cut
 
 # PUBLIC VARS
-our $name;       # Name of this server
-our $server;     # Message target/source: this server
-our $global;     # Message target: all servers
 our $time;       # Current server timestamp, used to avoid extra calls to time()
+our $global;     # Message target: ALL servers, everywhere
 $time ||= time;
 
 our %nets;       # by network tag
@@ -271,36 +269,45 @@ sub _send {
 	} else {
 		@to = $act->{dst}->sendto($act);
 	}
-	my(%real, %jlink);
-		# hash to remove duplicates
+	my(%sockto); # hash to remove duplicates
 	for my $net (@to) {
 		next unless $net;
 		if ($net->isa('Janus')) {
-			$_->jlink() or $real{$_} = $_ for values %nets;
-			if ($$net == 2) {
-				$jlink{$_} = $_ for values %ijnets;
+			$sockto{$_} = $_ for values %nets;
+		} elsif ($net->isa('RemoteJanus')) {
+			if ($net eq $RemoteJanus::self) {
+				$_->jlink() or $sockto{$_} = $_ for values %nets;
+			} else {
+				$sockto{$net} = $net;
 			}
 		} else {
-			my $ij = $net->jlink();
-			if (defined $ij) {
-				$jlink{$ij} = $ij;
-			} else {
-				$real{$net} = $net;
+			$sockto{$net} = $net;
+		}
+	}
+	my $again = 1;
+	while ($again) {
+		$again = 0;
+		my @some = values %sockto;
+		for my $net (@some) {
+			if ($net->isa('RemoteJanus') && $net->parent()) {
+				my $p = $net->parent();
+				delete $sockto{$net};
+				$sockto{$p} = $p;
+				$again++;
+			} elsif ($net->isa('Network') && $net->jlink()) {
+				my $j = $net->jlink();
+				delete $sockto{$net};
+				$sockto{$j} = $j;
+				$again++;
 			}
 		}
 	}
-#	print "DBG: Sending to ".join(' ',keys %jlink, keys %real)."\n";
+
 	if ($act->{except} && !($act->{dst} && $act->{dst} eq $act->{except})) {
-		my $e = $act->{except};
-		delete $real{$e};
-		delete $jlink{$e};
+		delete $sockto{$act->{except}};
 	}
-	unless ($act->{nojlink}) {
-		for my $ij (values %jlink) {
-			$ij->send($act);
-		}
-	}
-	for my $net (values %real) {
+	for my $net (values %sockto) {
+		next if $act->{nojlink} && $net->isa('RemoteJanus');
 		$net->send($act);
 	}
 }
@@ -564,7 +571,7 @@ if ($RELEASE) {
 		my $act = shift;
 		delete $act->{netsplit_quit};
 		my $net = $act->{net};
-		return 1 unless $net->jlink() && $net->jlink() eq $act->{except};
+		return 1 unless $net && $net->jlink() && $net->jlink() eq $act->{except};
 		undef;
 	}, NETSPLIT => act => sub {
 		my $act = shift;
@@ -591,6 +598,17 @@ if ($RELEASE) {
 		my $act = shift;
 		my $net = $act->{net};
 		delete $ijnets{$net->id()};
+		my @alljnets = values %ijnets;
+		for my $snet (@alljnets) {
+			next unless $snet->parent() && $net eq $snet->parent();
+			&Janus::insert_full(+{
+				type => 'JNETSPLIT',
+				net => $snet,
+				msg => $act->{msg},
+				netsplit_quit => 1,
+				nojlink => 1,
+			});
+		}
 		my @allnets = values %nets;
 		for my $snet (@allnets) {
 			next unless $snet->jlink() && $net eq $snet->jlink();
@@ -599,6 +617,7 @@ if ($RELEASE) {
 				net => $snet,
 				msg => $act->{msg},
 				netsplit_quit => 1,
+				nojlink => 1,
 			});
 		}
 	}, module => READ => sub {
@@ -709,17 +728,15 @@ _hook(module => READ => 'Janus');
 
 $modules{Janus} = 2;
 
-unless ($server) {
-	my $one = 1;
+unless ($global) {
 	my $two = 2;
-	$server = bless \$one;
 	$global = bless \$two;
-	unshift @INC, $server;
+	unshift @INC, $global;
 }
 
 sub gid {
 	my $inst = shift;
-	$$inst == 1 ? $name : '*';
+	'*';
 }
 
 # we load these modules down here because their loading uses

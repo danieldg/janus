@@ -136,12 +136,7 @@ Basic descriptions and checking of all internal janus actions
 
 my %spec = (
 	JNETLINK => {
-		pass => '$',
-		version => '$',
-		id => '$',
-		rid => '$',
-		net => 'Server::InterJanus',
-		ts => '$',
+		net => 'RemoteJanus',
 		sendto => '=$Janus::global= Janus @',
 	},
 	NETLINK => {
@@ -153,12 +148,12 @@ my %spec = (
 		sendto => '=$Janus::global= Janus @',
 	},
 	JLINKED => {
-		except => 'Server::InterJanus',
+		except => 'RemoteJanus',
 		sendto => '=$Janus::global= Janus @',
 	},
 	BURST => {
 		net => 'Network',
-		sendto => '=$Janus::server= Janus @',
+		sendto => '=$RemoteJanus::self= RemoteJanus @',
 	},
 	NETSPLIT => {
 		net => 'Network',
@@ -167,7 +162,7 @@ my %spec = (
 		sendto => '=$Janus::global= Janus @',
 	},
 	JNETSPLIT => {
-		net => 'Server::InterJanus',
+		net => 'RemoteJanus',
 		msg => '$',
 		sendto => '=$Janus::global= Janus @',
 	},
@@ -286,7 +281,7 @@ my %spec = (
 		lockid => '$',
 	},
 	LOCKACK => {
-		src => 'Server::InterJanus Janus',
+		src => 'RemoteJanus',
 		dst => 'Network',
 		chan => '?Channel',
 		expire => '?$',
@@ -345,8 +340,8 @@ my %default = (
 	type => '$',
 	src => '?Nick Network',
 	dst => '?Nick Channel Network',
-	except => '?Network Server::InterJanus',
-	sendto => '?@ Network Server::InterJanus Janus',
+	except => '?Network RemoteJanus',
+	sendto => '?@ Network RemoteJanus',
 	nojlink => '?$',
 );
 

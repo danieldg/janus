@@ -7,7 +7,6 @@ use integer;
 use Debug;
 use Persist;
 use Scalar::Util qw(weaken);
-
 our %reqs;
 # {requestor}{destination}{src-channel} = {
 #  src => src-channel [? if ever useful]
@@ -32,7 +31,7 @@ my @origin :Persist(origin) :Arg(origin);
 
 sub _init {
 	my $link = shift;
-	my $id = $Janus::name.':'.++$lockmax;
+	my $id = $RemoteJanus::self->id().':'.++$lockmax;
 	$lock[$$link] = $id;
 	$expire[$$link] = $Janus::time + 61;
 	$bylock{$id} = $link;
@@ -54,7 +53,7 @@ sub ready {
 	my $link = shift;
 	my $chan = $chan[$$link] or return 0;
 	for my $net ($chan->nets()) {
-		my $jl = $net->jlink() || $Janus::server;
+		my $jl = $net->jlink() || $RemoteJanus::self;
 		return 0 unless $ready[$$link]{$jl};
 	}
 	1;
@@ -197,7 +196,7 @@ sub unlock {
 		unless ($link) {
 			# is it our lock?
 			$act->{lockid} =~ /(.+):\d+/;
-			return unless $1 eq $Janus::name;
+			return unless $1 eq $RemoteJanus::self->id();
 			# unlock. We didn't actually need it.
 			&Janus::append({
 				type => 'UNLOCK',

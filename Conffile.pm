@@ -7,6 +7,7 @@ use warnings;
 use integer;
 use Listener;
 use Connection;
+use RemoteJanus;
 use Link;
 
 our $conffile;
@@ -84,12 +85,10 @@ sub read_conf {
 	}
 	close $conf;
 	if ($newconf{set}{name}) {
-		if ($Janus::name) {
+		if ($RemoteJanus::self) {
 			&Janus::err_jmsg($nick, "You must restart the server to change the name")
-				if $Janus::name ne $newconf{set}{name};
-			$newconf{set}{name} = $Janus::name;
-		} else {
-			$Janus::name = $newconf{set}{name};
+				if $RemoteJanus::self->id() ne $newconf{set}{name};
+			$newconf{set}{name} = $RemoteJanus::self->id();
 		}
 	} else {
 		&Janus::err_jmsg($nick, "Server name not set! You need set block with a 'name' entry");

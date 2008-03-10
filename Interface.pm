@@ -54,9 +54,6 @@ sub pmsg {
 			if ($rto) {
 				$act->{sendto} = $rto;
 				return 0;
-			} elsif ($1 ne $Janus::name) {
-				&Janus::jmsg($src, "Cannot find remote network $1");
-				return 1;
 			}
 		}
 		my $cmd = s/^\s*(\S+)\s*// ? lc $1 : 'unk';

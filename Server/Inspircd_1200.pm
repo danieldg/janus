@@ -256,7 +256,7 @@ sub _out {
 		warn "This channel message must have been misrouted: ".$itm->keyname()
 			unless $itm->is_on($net);
 		return $itm->str($net);
-	} elsif ($itm->isa('Network')) {
+	} elsif ($itm->isa('Network') || $itm->isa('RemoteJanus')) {
 		return $net->net2uid($itm);
 	} else {
 		warn "Unknown item $itm";
@@ -914,6 +914,7 @@ $moddef{CORE} = {
 		if ($net eq $new) {
 			for my $ij (values %Janus::ijnets) {
 				next unless $ij->is_linked();
+				next if $ij eq $RemoteJanus::self;
 				my $jid = $ij->id().'.janus';
 				push @out, $net->ncmd(SERVER => $jid, '*', 1, $ij, 'Inter-Janus link');
 				push @out, $net->cmd2($ij, VERSION => 'Interjanus');

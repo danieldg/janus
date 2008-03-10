@@ -2,16 +2,15 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Server::InterJanus;
-use Persist 'EventDump';
+use Persist 'EventDump','RemoteJanus';
 use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
 
-my $IJ_PROTO = 1.6;
+my $IJ_PROTO = 1.7;
 
-my @sendq :Persist('sendq');
-my @id    :Persist('id')    :Arg(id) :Get(id);
-my @auth  :Persist('auth')  :Get(is_linked);
+my @sendq  :Persist(sendq);
+my @auth   :Persist(auth)                :Get(is_linked);
 
 sub str {
 	warn;
@@ -25,7 +24,7 @@ sub intro {
 	$ij->send(+{
 		type => 'InterJanus',
 		version => $IJ_PROTO,
-		id => $Janus::name,
+		id => $RemoteJanus::self->id(),
 		rid => $nconf->{id},
 		pass => $nconf->{sendpass},
 		ts => $Janus::time,
@@ -34,11 +33,6 @@ sub intro {
 	# will end up being 1 after a successful authorization. If we were listening,
 	# then to get here we must have already authorized, so change it to 2.
 	$auth[$$ij] = $auth[$$ij] ? 2 : 0;
-}
-
-sub _destroy {
-	my $net = $_[0];
-	&Debug::alloc($net, 0);
 }
 
 sub jlink {
@@ -77,17 +71,17 @@ sub parse {
 	} elsif ($auth[$$ij]) {
 		return $act;
 	} elsif ($act->{type} eq 'InterJanus') {
-		if ($id[$$ij] && $act->{id} ne $id[$$ij]) {
-			&Janus::err_jmsg(undef, "Unexpected ID reply $act->{id} from IJ $id[$$ij]");
+		if ($ij->id() && $act->{id} ne $ij->id()) {
+			&Janus::err_jmsg(undef, "Unexpected ID reply $act->{id} from IJ ".$ij->id());
 		} else {
-			$id[$$ij] = $act->{id};
+			$ij->_id($act->{id});
 		}
 		my $ts_delta = abs($Janus::time - $act->{ts});
-		my $id = $id[$$ij];
+		my $id = $ij->id();
 		my $nconf = $Conffile::netconf{$id};
 		if ($act->{version} ne $IJ_PROTO) {
 			&Janus::err_jmsg(undef, "Unsupported InterJanus version $act->{version} (local $IJ_PROTO)");
-		} elsif ($Janus::name ne $act->{rid}) {
+		} elsif ($RemoteJanus::self->id() ne $act->{rid}) {
 			&Janus::err_jmsg(undef, "Unexpected connection: remote was trying to connect to $act->{rid}");
 		} elsif (!$nconf) {
 			&Janus::err_jmsg(undef, "Unknown InterJanus server $id");
@@ -101,6 +95,7 @@ sub parse {
 			$auth[$$ij] = 1;
 			$act->{net} = $ij;
 			$act->{type} = 'JNETLINK';
+			delete $act->{$_} for qw/pass version ts id rid/;
 			return $act;
 		}
 		if ($Janus::ijnets{$id} && $Janus::ijnets{$id} eq $ij) {
@@ -114,6 +109,14 @@ sub parse {
 	JNETLINK => act => sub {
 		my $act = shift;
 		my $ij = $act->{net};
+		return unless $ij->isa(__PACKAGE__);
+		for my $net (values %Janus::ijnets) {
+			next if $net eq $ij || $net eq $RemoteJanus::self;
+			$ij->send(+{
+				type => 'JNETLINK',
+				net => $net,
+			});
+		}
 		for my $net (values %Janus::nets) {
 			$ij->send(+{
 				type => 'NETLINK',
