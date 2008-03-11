@@ -79,4 +79,18 @@ sub hook_err {
 	print "\e[0m\n";
 }
 
+sub hook_info {
+	return unless $info;
+	my($act, $msg) = @_;
+	print "\e[36m $msg ";
+	eval {
+		print $EventDump::INST->ssend($act);
+		print "\e[0m\n";
+		1;
+	} or do {
+		print "\e[m\n";
+		&Debug::err("hook_info failed: $@");
+	};
+}
+
 1;

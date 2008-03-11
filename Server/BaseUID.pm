@@ -51,13 +51,15 @@ sub register_nick {
 	my($net, $new, $new_uid) = @_;
 	$uids[$$net]{uc $new_uid} = $new;
 	$gid2uid[$$net]{$new->gid()} = $new_uid;
-	&Debug::info("Registering $new_uid as $new");
+	&Debug::info("Registering $new_uid for nick #$$new");
 	my $name = $new->str($net);
 	my $old_uid = delete $nick2uid[$$net]{lc $name};
 	unless ($old_uid) {
 		$nick2uid[$$net]{lc $name} = $new_uid;
 		return ();
 	}
+
+	# TODO is this collision code too inspircd-specific? It may need to be moved
 	my $old = $uids[$$net]{uc $old_uid} or warn;
 	my $tsctl = $old->ts() <=> $new->ts();
 
@@ -129,7 +131,7 @@ sub request_newnick {
 	my($net, $nick, $reqnick, $tagged) = @_;
 	my $given = _request_nick(@_);
 	my $uid = $net->next_uid($nick->homenet());
-	&Debug::info("Registering $nick as uid $uid and nick $given");
+	&Debug::info("Registering nick #$$nick as uid $uid with nick $given");
 	$uids[$$net]{uc $uid} = $nick;
 	$nick2uid[$$net]{lc $given} = $uid;
 	$gid2uid[$$net]{$nick->gid()} = $uid;

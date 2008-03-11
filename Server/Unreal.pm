@@ -550,7 +550,7 @@ sub _parse_umode {
 			# adjusts the services TS - which is restricted to the local network
 		} else {
 			my $txt = $umode2txt{$_} or do {
-				warn "Unknown umode '$_'";
+				&Debug::warn_in($net, "Unknown umode '$_'");
 				next;
 			};
 			if ($txt eq 'vhost') {
@@ -573,7 +573,7 @@ sub _parse_umode {
 	if ($vh_pre != $vh_post) {
 		if ($vh_post > 1) {
 			#invalid
-			warn "Ignoring extraneous umode +t";
+			&Debug::info("Ignoring extraneous umode +t");
 		} else {
 			my $vhost = $vh_post ? $nick->info('chost') : $nick->info('host');
 			push @out,{
@@ -656,12 +656,12 @@ sub srvname {
 		);
 		if (@_ >= 12) {
 			my @m = split //, $_[9];
-			warn unless '+' eq shift @m;
+			&Debug::warn_in($net, "Invalid NICKv2") unless '+' eq shift @m;
 			$nick{mode} = +{ map {
 				if (exists $umode2txt{$_}) {
 					$umode2txt{$_} => 1
 				} else {
-					warn "Unknown umode '$_'";
+					&Debug::warn_in($net, "Unknown umode '$_'");
 					();
 				}
 			} @m };
@@ -685,7 +685,7 @@ sub srvname {
 					s/(.{16})/sprintf '%x:', oct "0b$1"/eg;
 					s/:[^:]*$//;
 				} else {
-					warn "Unknown protocol address in use";
+					&Debug::warn_in($net, "Unknown protocol address in use");
 				}
 			}
 			$nick{info}{ip} = $_;
@@ -782,7 +782,7 @@ sub srvname {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
 		if ($nick->homenet eq $net) {
-			warn "Misdirected SVSNICK!";
+			&Debug::warn_in($net, "Misdirected SVSNICK!");
 			return ();
 		} elsif (lc $nick->homenick eq lc $_[2]) {
 			return +{
@@ -1243,14 +1243,14 @@ sub _out {
 		return $itm->str($net) if $itm->is_on($net);
 		return $itm->homenet()->jname();
 	} elsif ($itm->isa('Channel')) {
-		warn "This channel message must have been misrouted: ".$itm->keyname()
+		&Debug::err("This channel message must have been misrouted: ".$itm->keyname())
 			unless $itm->is_on($net);
 		return $itm->str($net);
 	} elsif ($itm->isa('Network')) {
 		return $net->cparam('linkname') if $itm eq $net;
 		return $itm->jname();
 	} else {
-		warn "Unknown item $itm";
+		&Debug::warn("Unknown item $itm");
 		$net->cparam('linkname');
 	}
 }

@@ -204,7 +204,7 @@ sub _parse_umode {
 			$pm = $_;
 		} else {
 			my $txt = $net->umode2txt($_) or do {
-				warn "Unknown umode '$_'";
+				&Debug::warn_in($net, "Unknown umode '$_'");
 				next;
 			};
 			push @mode, $pm.$txt;
@@ -227,14 +227,14 @@ sub _out {
 		return $itm->str($net) if $itm->is_on($net);
 		return $itm->homenet()->jname();
 	} elsif ($itm->isa('Channel')) {
-		warn "This channel message must have been misrouted: ".$itm->keyname()
+		&Debug::err_in($net, "This channel message must have been misrouted: ".$itm->keyname())
 			unless $itm->is_on($net);
 		return $itm->str($net);
 	} elsif ($itm->isa('Network')) {
 		return $net->cparam('linkname') if $net eq $itm;
 		return $itm->jname();
 	} else {
-		warn "Unknown item $itm";
+		&Debug::warn_in($net, "Unknown item $itm");
 		$net->cparam('linkname');
 	}
 }
@@ -321,7 +321,7 @@ $moddef{CORE} = {
 		$nick{mode} = +{ map {
 			my $t = $net->umode2txt($_);
 			defined $t ? ($t => 1) : do {
-				warn "Unknown umode '$_'";
+				&Debug::warn_in($net, "Unknown umode '$_'");
 				();
 			};
 		} @m };
@@ -728,7 +728,7 @@ $moddef{CORE} = {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
 		if ($nick->homenet eq $net) {
-			warn "Misdirected SVSNICK!";
+			&Debug::warn_in($net, "Misdirected SVSNICK!");
 			return ();
 		} elsif (lc $nick->homenick eq lc $_[2]) {
 			return +{

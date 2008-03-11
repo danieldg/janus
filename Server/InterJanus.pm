@@ -64,7 +64,7 @@ sub parse {
 	};
 	my $act = { type => $1 };
 	$ij->kv_pairs($act);
-	warn "bad line: $_[0]" unless /^\s*>\s*$/;
+	&Debug::err_in($ij, "bad line: $_[0]") unless /^\s*>\s*$/;
 	$act->{except} = $ij;
 	if ($act->{type} eq 'PING') {
 		$ij->send({ type => 'PONG' });

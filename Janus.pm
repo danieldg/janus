@@ -330,7 +330,7 @@ sub _run {
 		return;
 	}
 	if (_mod_hook($act->{type}, check => $act)) {
-		&Debug::hook_err($act, "Check hook stole");
+		&Debug::hook_info($act, "Check hook stole");
 		return;
 	}
 	_hook($act->{type}, act => $act);

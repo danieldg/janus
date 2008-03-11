@@ -4,6 +4,7 @@ package Modes;
 use Persist;
 use strict;
 use warnings;
+use Carp;
 
 our %mtype = ();
 
@@ -65,13 +66,13 @@ sub from_irc {
 			if ($txt =~ s/^t(\d+)/r/) {
 				$arg = $1;
 			} else {
-				warn "Invalid mode text $txt for mode $_ in network $net";
+				&Debug::warn_in($net, "Invalid mode text $txt for mode $_ in network $net");
 				next;
 			}
 		} elsif ($type eq 'r') {
 			$arg = 1;
 		} else {
-			warn "Invalid mode text $txt for mode $_ in network $net";
+			&Debug::warn_in($net, "Invalid mode text $txt for mode $_ in network $net");
 			next;
 		}
 		push @modes, substr $txt, 2;
@@ -91,7 +92,7 @@ net must implement txt2cmode(), which must return undef for unknown modes
 
 sub to_irc {
 	my @m = to_multi(@_);
-	warn "to_irc cannot handle overlong mode" if @m > 1;
+	carp "to_irc cannot handle overlong mode" if @m > 1;
 	@m ? @{$m[0]} : ();
 }
 
