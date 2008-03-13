@@ -40,6 +40,7 @@ unless ($args =~ /d/) {
 
 $| = 1;
 $SIG{PIPE} = 'IGNORE';
+$SIG{CHLD} = 'IGNORE';
 
 &Janus::load($_) or die for qw(Conffile Interface Actions Commands::Core);
 

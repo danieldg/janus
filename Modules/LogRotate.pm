@@ -6,6 +6,7 @@ use warnings;
 use POSIX qw(strftime);
 
 our $event;
+our $logname;
 
 sub rotate {
 	my $log = 'log/';
@@ -19,11 +20,20 @@ sub rotate {
 	umask 022;
 	open STDOUT, '>', $log or die $!;
 	open STDERR, '>&', \*STDOUT or die $!;
+
+	if ($logname && -f $logname && $Conffile::netconf{set}{oldlog}) {
+		fork or do {
+			{ exec $Conffile::netconf{set}{oldlog}, $logname; }
+			POSIX::_exit(1);
+		};
+	}
+	$logname = $log;
 }
 
 unless ($event) {
+	my $time = $Conffile::netconf{set}{logrotate} || 86400;
 	$event = {
-		repeat => 86400,
+		repeat => $time,
 		code => sub {
 			my $s = shift;
 			return unless $s->{repeat};
@@ -31,8 +41,8 @@ unless ($event) {
 		}
 	};
 	&Janus::schedule($event);
+	rotate;
 }
 
-&Janus::hook_add('INIT' => act => \&rotate);
 
 1;

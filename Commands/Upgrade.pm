@@ -65,6 +65,4 @@ sub fexec {
 	}
 });
 
-$SIG{CHLD} = 'IGNORE';
-
 1;
