@@ -308,7 +308,12 @@ sub _send {
 	}
 	for my $net (values %sockto) {
 		next if $act->{nojlink} && $net->isa('RemoteJanus');
-		$net->send($act);
+		eval {
+			$net->send($act);
+			1;
+		} or do {
+			_hook(ALL => 'die', $@, $net, $act);
+		};
 	}
 }
 
