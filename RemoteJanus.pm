@@ -39,6 +39,10 @@ sub jlink {
 	$_[0]->parent();
 }
 
+sub is_linked {
+	1;
+}
+
 &Janus::hook_add(
 	'INIT' => act => sub {
 		$self = RemoteJanus->new(id => $Conffile::netconf{set}{name});
