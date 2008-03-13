@@ -10,6 +10,7 @@ use Server::InspMods;
 use Persist 'Server::BaseUID', 'Server::ModularNetwork', 'Server::InspMods';
 use strict;
 use warnings;
+use integer;
 
 my @sendq     :Persist(sendq);
 my @servers   :Persist(servers);
