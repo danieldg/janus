@@ -469,12 +469,14 @@ sub in_socket {
 	return unless $src;
 	eval {
 		my @act = $src->parse($line);
-		my $parse_hook = $src->isa('Network');
+		my $parse_hook = $src->isa('Network') ? 'parse' : 'jparse';
 		for my $act (@act) {
 			$act->{except} = $src unless exists $act->{except};
 			unshift @qstack, [];
-			unless (_mod_hook($act->{type}, ($parse_hook ? 'parse' : 'jparse'), $act)) {
+			unless (_mod_hook($act->{type}, $parse_hook, $act)) {
 				_run($act);
+			} else {
+				&Debug::hook_info($act, "$parse_hook hook stole");
 			}
 			_runq(shift @qstack);
 		}
@@ -576,7 +578,7 @@ if ($RELEASE) {
 		my $act = shift;
 		delete $act->{netsplit_quit};
 		my $net = $act->{net};
-		return 1 unless $net && $net->jlink() && $net->jlink() eq $act->{except};
+		return 1 unless $net && $net->jlink() && &EventDump::jparent($act->{except}, $net->jlink());
 		undef;
 	}, NETSPLIT => act => sub {
 		my $act = shift;
