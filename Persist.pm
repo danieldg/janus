@@ -52,7 +52,7 @@ sub import {
 	my $pkg = caller;
 	{
 		no strict 'refs';
-		push @{$pkg.'::ISA'}, @_, $self;
+		@{$pkg.'::ISA'} = (@_, $self);
 	}
 }
 

@@ -196,6 +196,7 @@ sub autoconnect {
 				1;
 			] or die "Could not load IPv6 socket code: $@";
 			%Conffile::inet = (
+				type => 'IPv6',
 				listn => eval q[ sub {
 					my $nconf = shift;
 					my $addr = $nconf->{addr};
@@ -245,6 +246,7 @@ sub autoconnect {
 				1;
 			] or die "Could not load IPv4 socket code: $@";
 			%Conffile::inet = (
+				type => 'IPv4',
 				listn => eval q[ sub {
 					my $nconf = shift;
 					my $addr = $nconf->{addr};

@@ -7,7 +7,7 @@ use Server::BaseNick;
 use Server::ModularNetwork;
 use Server::InspMods;
 
-use Persist 'Server::BaseNick', 'Server::ModularNetwork', 'Server::InspMods';
+use Persist 'Server::BaseNick', 'Server::ModularNetwork';
 use strict;
 use warnings;
 

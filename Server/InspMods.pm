@@ -2,8 +2,6 @@
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Server::InspMods;
-use LocalNetwork;
-use Persist 'LocalNetwork';
 use Carp;
 use strict;
 use warnings;

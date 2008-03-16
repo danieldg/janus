@@ -7,7 +7,7 @@ use Server::BaseUID;
 use Server::ModularNetwork;
 use Server::InspMods;
 
-use Persist 'Server::BaseUID', 'Server::ModularNetwork', 'Server::InspMods';
+use Persist 'Server::BaseUID', 'Server::ModularNetwork';
 use strict;
 use warnings;
 use integer;
