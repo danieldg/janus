@@ -655,14 +655,11 @@ if ($RELEASE) {
 			if ($git) {
 				unless (`git diff-index HEAD $fn`) {
 					# this file is not modified from the current head
-					`git rev-parse HEAD` =~ /^(.{8})/;
-					$ver = 'g'.$1;
 					# ok, we have the ugly name... now look for a tag
-					`git name-rev --tags HEAD` =~ /^HEAD (.*?)(?:^0)?$/;
-					my $tag = $1;
-					if ($tag && $tag ne 'undefined' && $tag !~ /~/) {
-						# we are actually on this tag
-						$ver = 't'.$tag;
+					if (`git describe --tags` =~ /^(v.*?)(?:-g[0-9a-fA-F]+)?$/) {
+						$ver = $1;
+					} elsif (`git rev-parse HEAD` =~ /^(.{8})/) {
+						$ver = 'g'.$1;
 					}
 				}
 			}
