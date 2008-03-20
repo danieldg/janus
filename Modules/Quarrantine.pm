@@ -95,10 +95,24 @@ sub acl_ok {
 		my $khome = $kicked->homenet();
 		return undef if $khome eq $net; # I can't stop you kicking your own users
 
-		# TODO claim over jlink is... maybe not a good idea
-		return undef if $khome->jlink() && &EventDump::jparent($net, $khome->jlink());
+		# TODO bouncing a kick of a remote user by a remote user is a bad idea, but
+		# should probably still be prevented. This requires sync of claims.
+		return undef if &EventDump::jparent($net, $khome->jlink());
 
 		my $chan = $act->{dst};
+		if ($net->isa('RemoteJanus')) {
+			# we have to resync network memberships.
+			# If we send connects that we don't need to, it won't matter as
+			# they will just be dropped.
+			for my $rnet ($chan->nets()) {
+				next unless &EventDump::jparent($net, $rnet->jlink());
+				$net->send(+{
+					type => 'CONNECT',
+					dst => $kicked,
+					net => $rnet,
+				});
+			}
+		}
 		$net->send(+{
 			type => 'JOIN',
 			src => $kicked,
