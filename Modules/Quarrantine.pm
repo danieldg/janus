@@ -5,13 +5,32 @@ use strict;
 use warnings;
 use Persist;
 
-my @homes :PersistAs(Channel, homenets);
+my @cache :PersistAs(Channel, cache);
+our %claim;
+
+&Janus::save_vars(claim => \%claim);
+
+sub resolve {
+	my $chan = shift;
+	return $cache[$$chan] if defined $cache[$$chan];
+
+	my @list;
+	for my $net ($chan->nets()) {
+		my $nn = $net->name();
+		my $name = $chan->str($net);
+		my $reg = $claim{$nn}{$name};
+		push @list, $nn if $reg;
+	}
+
+	$cache[$$chan] = join ',', @list; # and return it
+}
+
 
 &Janus::command_add({
 	cmd => 'claim',
 	help => 'Claim network ownership of a channel',
 	details => [
-		"Syntax: \002CLAIM\002 #channel net[,net,net...]",
+		"Syntax: \002CLAIM\002 #channel [network]",
 		"Claims network ownership for a channel. Opers and services outside these",
 		"networks cannot make mode changes or kicks to this channel.",
 		'-',
@@ -22,24 +41,18 @@ my @homes :PersistAs(Channel, homenets);
 	code => sub {
 		my $nick = shift;
 		my($cname, $nname) = $_[0] =~ /(#\S*)(?: (\S+))?/;
-		$nname ||= $nick->homenet()->name();
 		my $chan = $nick->homenet()->chan($cname) or return;
-		my $oldhomes = $homes[$$chan];
-		if ($oldhomes) {
-			my($claimed, $mine) = (0,0);
-			for (split /,/, $oldhomes) {
-				$claimed++ if $Janus::nets{$_};
-				$mine++ if $nick->homenet()->name() eq $_;
-			}
-			if ($claimed && !$mine) {
-				&Janus::jmsg($nick, "Someone from one of the following networks must run this command: $oldhomes");
-				return;
-			}
+		if ($nname) {
+			my $off = ($nname =~ s/^-//);
+			return &Janus::jmsg($nick, "Network not found") unless $Janus::nets{$nname};
+			$claim{$nname}{$cname} = 1;
+			delete $claim{$nname}{$cname} if $off;
+			delete $cache[$$chan];
+			&Janus::jmsg($nick, "Done");
+		} else {
+			my $nets = resolve($chan);
+			&Janus::jmsg($nick, "Channel $cname is claimed by: $nets");
 		}
-		$nname = undef if $nname eq 'none' || $nname eq 'unset' || $nname eq 'janus';
-		$homes[$$chan] = $nname;
-		$nname ||= 'unset';
-		&Janus::jmsg($nick, "The owner of $cname is now $nname");
 	},
 });
 
@@ -47,13 +60,15 @@ sub acl_ok {
 	my $act = shift;
 	my $src = $act->{src} or return 1;
 	my $chan = $act->{dst};
-	my $home = $homes[$$chan] or return 1;
+	my $home = resolve($chan) or return 1;
 	my $snet = $src->isa('Network') ? $src : $src->homenet();
 	$snet->name() eq $_ and return 1 for split /,/, $home;
 	if ($src->isa('Nick')) {
-		# TODO this is not a true operoverride check, just makes sure
-		# acting users have >= halfop
-		for (qw/n_owner n_admin n_op n_halfop/) {
+		# this is not a true operoverride check, just makes sure acting users
+		# have >= halfop. This is really good enough, if you have halfop you
+		# have a trust relationship with chanops, and they can remove it when
+		# it is abused.
+		for (qw/owner admin op halfop/) {
 			return 1 if $chan->has_nmode($_, $src);
 		}
 	}
@@ -73,32 +88,38 @@ sub acl_ok {
 	}, KICK => check => sub {
 		my $act = shift;
 		return undef if acl_ok($act);
-		my $src = $act->{src};
-		my $snet = $src->isa('Network') ? $src : $src->homenet();
 		return undef if $act->{nojlink}; # this is a slight hack, prevents reverting kills
-		return undef if $snet->jlink();
+		my $net = $act->{except};
+
 		my $kicked = $act->{kickee};
-		return undef if $kicked->homenet() eq $snet; # I can't stop you kicking your own users
+		my $khome = $kicked->homenet();
+		return undef if $khome eq $net; # I can't stop you kicking your own users
+
+		# TODO claim over jlink is... maybe not a good idea
+		return undef if $khome->jlink() && &EventDump::jparent($net, $khome->jlink());
+
 		my $chan = $act->{dst};
-		$snet->send(+{
+		$net->send(+{
 			type => 'JOIN',
 			src => $kicked,
 			dst => $chan,
 			mode => $chan->get_nmode($kicked),
 		});
 		1;
-	}, LINK => cleanup => sub {
+	}, TOPIC => check => sub {
 		my $act = shift;
-		my %owns;
-		for my $k (qw/chan1 chan2/) {
-			my $ch = $act->{$k};
-			next unless $ch;
-			my $hs = $homes[$$ch];
-			next unless $hs;
-			$owns{$_}++ for split /,/, $hs;
-		}
-		return unless %owns;
-		$homes[${$act->{dst}}] = join ',', sort keys %owns;
+		return undef if acl_ok($act);
+		my $net = $act->{except};
+		my $chan = $act->{dst};
+		return undef unless $chan->get_mode('topic'); # allow if not +t
+		$net->send(+{
+			type => 'TOPIC',
+			dst => $chan,
+			topic => $chan->topic(),
+			topicts => $chan->topicts(),
+			topicset => $chan->topicset(),
+		});
+		1;
 	},
 );
 

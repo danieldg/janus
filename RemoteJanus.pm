@@ -43,6 +43,12 @@ sub is_linked {
 	1;
 }
 
+sub send {
+	my $ij = shift;
+	$ij = $parent[$$ij];
+	$ij->send(@_);
+}
+
 &Janus::hook_add(
 	'INIT' => act => sub {
 		$self = RemoteJanus->new(id => $Conffile::netconf{set}{name});
