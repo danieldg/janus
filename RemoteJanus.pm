@@ -49,6 +49,13 @@ sub send {
 	$ij->send(@_);
 }
 
+sub jparent {
+	my($self, $net) = @_;
+	$net = $net->jlink() if $net->isa('Network');
+	$net = $net->parent() while $net && $$net != $$self;
+	$net ? 1 : 0;
+}
+
 &Janus::hook_add(
 	'INIT' => act => sub {
 		$self = RemoteJanus->new(id => $Conffile::netconf{set}{name});

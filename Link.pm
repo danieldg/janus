@@ -112,7 +112,7 @@ sub unlock {
 		my @acts;
 		for my $lto (@nets) {
 			for my $net (values %Janus::nets) {
-				next if $net->jlink();
+				next if $ij->jparent($net->jlink());
 				my $bychan = $reqs{$net->name()}{$lto->name()};
 				keys %$bychan;
 				while (my($src,$ifo) = each %$bychan) {

@@ -578,7 +578,7 @@ if ($RELEASE) {
 		my $act = shift;
 		delete $act->{netsplit_quit};
 		my $net = $act->{net};
-		return 1 unless $net && $net->jlink() && &EventDump::jparent($act->{except}, $net->jlink());
+		return 1 unless $net && $act->{except}->jparent($net->jlink());
 		undef;
 	}, NETSPLIT => act => sub {
 		my $act = shift;

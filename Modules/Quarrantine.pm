@@ -90,22 +90,22 @@ sub acl_ok {
 		return undef if acl_ok($act);
 		return undef if $act->{nojlink}; # this is a slight hack, prevents reverting kills
 		my $net = $act->{except};
+		my $chan = $act->{dst};
 
 		my $kicked = $act->{kickee};
 		my $khome = $kicked->homenet();
 		return undef if $khome eq $net; # I can't stop you kicking your own users
 
-		# TODO bouncing a kick of a remote user by a remote user is a bad idea, but
-		# should probably still be prevented. This requires sync of claims.
-		return undef if &EventDump::jparent($net, $khome->jlink());
-
-		my $chan = $act->{dst};
 		if ($net->isa('RemoteJanus')) {
+			# TODO bouncing a kick of a remote user by a remote user is a bad idea, but
+			# should probably still be prevented. This requires sync of claims.
+			return undef if $net->jparent($khome->jlink());
+
 			# we have to resync network memberships.
 			# If we send connects that we don't need to, it won't matter as
 			# they will just be dropped.
 			for my $rnet ($chan->nets()) {
-				next unless &EventDump::jparent($net, $rnet->jlink());
+				next unless $net->jparent($rnet->jlink());
 				$net->send(+{
 					type => 'CONNECT',
 					dst => $kicked,
