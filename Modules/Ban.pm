@@ -5,7 +5,7 @@ use Persist;
 use strict;
 use warnings;
 
-my %bans;
+our %bans;
 
 &Janus::save_vars(bans => \%bans);
 
