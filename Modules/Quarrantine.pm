@@ -30,12 +30,11 @@ sub resolve {
 	cmd => 'claim',
 	help => 'Claim network ownership of a channel',
 	details => [
-		"Syntax: \002CLAIM\002 #channel [network]",
-		"Claims network ownership for a channel. Opers and services outside these",
-		"networks cannot make mode changes or kicks to this channel.",
-		'-',
-		"Currently this is not persisted between network restarts.",
-		"Restricted to opers because of possible conflict with services.",
+		"\002CLAIM\002 #channel            Lists claims on the channel",
+		"\002CLAIM\002 #channel network    Registers the given network as allowed to operoverride",
+		"\002CLAIM\002 #channel -network   Removes the given network from the allowed list",
+		"This command claims network ownership for a channel. Unless the list is empty, only",
+		"networks on the list can have services or opers act on the channel.",
 	],
 	acl => 1,
 	code => sub {
@@ -43,8 +42,11 @@ sub resolve {
 		my($cname, $nname) = $_[0] =~ /(#\S*)(?: (\S+))?/;
 		my $chan = $nick->homenet()->chan($cname) or return;
 		if ($nname) {
+			$nname =~ s/^\+//; # leading + is optional
 			my $off = ($nname =~ s/^-//);
-			return &Janus::jmsg($nick, "Network not found") unless $Janus::nets{$nname};
+			my $dnet = $Janus::nets{$nname};
+			return &Janus::jmsg($nick, "Network not found") unless $dnet && $chan->is_on($dnet);
+			$cname = $chan->str($dnet);
 			$claim{$nname}{$cname} = 1;
 			delete $claim{$nname}{$cname} if $off;
 			delete $cache[$$chan];
