@@ -15,7 +15,8 @@ set {
 	# and if it is enabled, the IPv6 socket modules will be used
 	ipv6 1
 	# Janus nick - change this if you want a different interface nick
-	janus janus
+	# ident and host are similarly settable
+	janus_nick janus
 	# Rehash password - if set, this password is required for non-opers to
 	# rehash the configuration.
 	pass rehashdude
@@ -24,18 +25,22 @@ set {
 #	diepass killme
 
 	# Other parameters as defined by modules may be present here
-	# Example: Modules::LogRotate takes a logfile format
+	# Example: Modules::LogRotate takes a logfile format and an
+	#          action to take on old logfiles
 	datefmt %Y%m%d-%H%M%S
+	oldlog gzip
 }
 
 # Modules block: this is a list of modules which are loaded at startup.
 # Modules can also be loaded or unloaded while janus is running.
 modules {
 	Commands::Link
+	Commands::Modes
 	Commands::Network
 	Commands::Request
 	Commands::Save
 	Modules::Ban
+	Modules::LogRotate
 	Modules::Signals
 }
 
@@ -82,6 +87,7 @@ link u3 {
 }
 
 # Link block for an Unreal 4.0 or InspIRCd 1.1 server
+# (protocol details, module list, etc are autonegotiated on connect)
 link u4 {
 	type Inspircd_1105
 	linkaddr ::1
@@ -104,6 +110,6 @@ link myserver {
 	linktype plain
 	sendpass pass
 	recvpass ssap
-	netname Local InterJanus Link
+	netname That Other Server
 	autoconnect 0
 }
