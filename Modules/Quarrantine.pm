@@ -84,7 +84,22 @@ sub acl_ok {
 		my %nact = %$act;
 		delete $nact{src};
 		my $net = delete $nact{except};
-		map tr/+-/-+/, @{$nact{dirs}};
+		my $chan = $act->{dst};
+		my($m,$a,$d) = @nact{qw/mode args dirs/};
+		for my $i (0 .. $#$d) {
+			my $t = $Modes::mtype{$m->[$i]};
+			my $val = $t eq 'n' ? $chan->has_nmode($m->[$i], $a->[$i]) : $chan->get_mode($m->[$i]);
+			$d->[$i] = $val ? '+' : '-';
+			if ($t eq 'r') {
+				$a->[$i] = $val || 3;
+			} elsif ($t eq 'v') {
+				$a->[$i] = $val if $val;
+			} elsif ($t eq 'l') {
+				$val ||= [];
+				my $e = scalar grep { $a->[$i] eq $_ } @$val;
+				$d->[$i] = $e ? '+' : '-';
+			}
+		}
 		$net->send(\%nact);
 		1;
 	}, KICK => check => sub {
