@@ -72,6 +72,14 @@ my @lockts   :Persist(lockts); # Time the lock will expire
 my @nicks    :Persist(nicks);  # all nicks on this channel
 my @nmode    :Persist(nmode);  # modes of those nicks
 
+my %nmodebit = (
+	voice => 1,
+	halfop => 2,
+	op => 4,
+	admin => 8,
+	owner => 16,
+);
+
 =item $chan->nets()
 
 List of all networks this channel is on
@@ -91,12 +99,26 @@ Returns true if the nick has the given mode in the channel (n_* modes)
 sub has_nmode {
 	my($chan, $mode, $nick) = @_;
 	$mode =~ s/^n_// and carp "Stripping deprecated n_ prefix";
-	$nmode[$$chan]{$nick->lid()}{$mode};
+	my $m = $nmodebit{$mode} or do {
+		carp "Unknown nick mode $mode";
+		return 0;
+	};
+	my $n = $nmode[$$chan]{$nick->lid()} || 0;
+	$n & $m;
 }
+
+=item $chan->get_nmode($nick)
+
+Gets a hashref whose keys are the nick modes on the channel.
+
+=cut
 
 sub get_nmode {
 	my($chan, $nick) = @_;
-	$nmode[$$chan]{$nick->lid()};
+	my %m;
+	my $n = $nmode[$$chan]{$nick->lid()} || 0;
+	$n & $nmodebit{$_} and $m{$_}++ for keys %nmodebit;
+	\%m;
 }
 
 sub get_mode {
@@ -226,8 +248,7 @@ sub _link_into {
 		}
 		$nicks[$$chan]{$nid} = $nick;
 
-		my $mode = $nmode[$$src]{$nid};
-		$nmode[$$chan]{$nid} = $mode;
+		$nmode[$$chan]{$nid} = $nmode[$$src]{$nid};
 
 		$nick->rejoin($chan);
 		next if $nick->jlink() || $nick->info('_is_janus');
@@ -235,7 +256,7 @@ sub _link_into {
 			type => 'JOIN',
 			src => $nick,
 			dst => $chan,
-			mode => $nmode[$$src]{$nid},
+			mode => $src->get_nmode($nick),
 			sendto => $joinnets,
 		});
 	}
@@ -348,7 +369,10 @@ sub can_lock {
 		my $chan = $act->{dst};
 		$nicks[$$chan]{$nick->lid()} = $nick;
 		if ($act->{mode}) {
-			$nmode[$$chan]{$nick->lid()} = { %{$act->{mode}} };
+			for (keys %{$act->{mode}}) {
+				warn "Unknown mode $_" unless $nmodebit{$_};
+				$nmode[$$chan]{$nick->lid()} |= $nmodebit{$_};
+			}
 		}
 	}, PART => cleanup => sub {
 		my $act = $_[0];
@@ -389,8 +413,8 @@ sub can_lock {
 					warn "$i without nick arg!";
 					next;
 				}
-				$nmode[$$chan]{$arg->lid()}{$i} = 1 if $pm eq '+';
-				delete $nmode[$$chan]{$arg->lid()}{$i} if $pm eq '-';
+				$nmode[$$chan]{$arg->lid()} |= $nmodebit{$i}; # will ensure is defined
+				$nmode[$$chan]{$arg->lid()} &= ~$nmodebit{$i} if $pm eq '-';
 			} elsif ($t eq 'l') {
 				if ($pm eq '+') {
 					@{$mode[$$chan]{$i}} = ($arg, grep { $_ ne $arg } @{$mode[$$chan]{$i}});
