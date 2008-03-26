@@ -43,6 +43,7 @@ use Modes;
 			&Janus::jmsg($nick, $1) while $out =~ s/(.{,450}) //;
 			&Janus::jmsg($nick, $out);
 		} else {
+			return &Janus::jmsg($nick, 'Local command only') if $hn->isa('RemoteNetwork');
 			my @modes = &Modes::to_multi($hn, &Modes::delta(undef, $chan), 0, 400);
 			&Janus::jmsg($nick, join ' ', $chan->str($hn), @$_) for @modes;
 		}
@@ -121,6 +122,8 @@ use Modes;
 				dirs => \@dirs,
 			});
 			&Janus::jmsg($nick, 'Done');
+		} else {
+			&Janus::jmsg($nick, 'Nothing to do');
 		}
 	},
 });
