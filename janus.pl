@@ -23,7 +23,8 @@ our $VERSION = '1.10';
 
 my $args = @ARGV && $ARGV[0] =~ /^-/ ? shift : '';
 
-unless ($args =~ /d/) {
+unless ($^P || $args =~ /d/) {
+	# $^P is nonzero if run inside perl -d
 	open STDIN, '/dev/null' or die $!;
 	my $pid = fork;
 	die $! unless defined $pid;
