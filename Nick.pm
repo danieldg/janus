@@ -1,8 +1,9 @@
-# Copyright (C) 2007 Daniel De Graaf
+# Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
 package Nick;
 use strict;
 use warnings;
+use integer;
 use Persist;
 use Scalar::Util 'weaken';
 
@@ -40,14 +41,25 @@ my @mode     :Persist(mode);
 my @info     :Persist(info);
 my @ts       :Persist(ts) :Get(ts);
 
-my %initargs = (
-	gid => '',
-	net => '',
-	nick => '',
-	ts => '',
-	info => '',
-	mode => '',
-);
+our %umodebit = ();
+unless (%umodebit) {
+	# TODO support reloading additional definitions
+	my $i = 1;
+	# special | common | silencing | uncommon | operonly
+	for (qw/
+		oper vhost ssl registered
+		invisible wallops bot badword hide_chans
+		dcc_reject deaf_chan deaf_regpriv deaf_ctcp no_privmsg
+		colorstrip vhost_x webtv
+		service globops snomask hideoper no_kick whois_notice
+		helpop oper_local coadmin admin svs_admin netadmin
+		hiddenabusiveoper
+	/) {
+		$umodebit{$_} = $i;
+		$i *= 2;
+	}
+	warn "Too many umode bits for a scalar" if (sprintf '%x', $i) =~ /f/;
+}
 
 sub _init {
 	my($nick, $ifo) = @_;
@@ -61,9 +73,14 @@ sub _init {
 	$nicks[$$nick] = { $$net => $ifo->{nick} };
 	$ts[$$nick] = $ifo->{ts} || $Janus::time;
 	$info[$$nick] = $ifo->{info} || {};
-	$mode[$$nick] = $ifo->{mode} || {};
+	$mode[$$nick] = 0;
+	if ($ifo->{mode}) {
+		for (keys %{$ifo->{mode}}) {
+			$mode[$$nick] |= $umodebit{$_};
+		}
+	}
 	# prevent mode bouncing
-	$mode[$$nick]{oper} = 1 if $mode[$$nick]{service};
+	$mode[$$nick] |= $umodebit{oper} if $mode[$$nick] & $umodebit{service};
 	&Debug::alloc($nick, 1, $homenick[$$nick]);
 }
 
@@ -71,11 +88,16 @@ sub to_ij {
 	my($nick, $ij) = @_;
 	local $_;
 	my $out = '';
+	my $m = $mode[$$nick];
+	my %mode;
+	for (keys %umodebit) {
+		$mode{$_}++ if $m & $umodebit{$_};
+	}
 	$out .= ' gid='.$ij->ijstr($gid[$$nick]);
 	$out .= ' net='.$ij->ijstr($homenet[$$nick]);
 	$out .= ' nick='.$ij->ijstr($homenick[$$nick]);
 	$out .= ' ts='.$ij->ijstr($ts[$$nick]);
-	$out .= ' mode='.$ij->ijstr($mode[$$nick]);
+	$out .= ' mode='.$ij->ijstr(\%mode);
 	$out .= ' info=';
 	$out . $ij->ijstr($info[$$nick]);
 }
@@ -130,7 +152,11 @@ return true if the nick has the given umode
 
 sub has_mode {
 	my $nick = $_[0];
-	return $mode[$$nick]->{$_[1]};
+	my $b = $umodebit{$_[1]} or do {
+		warn "Unknown umode $_[1]";
+		return 0;
+	};
+	return $mode[$$nick] & $b;
 }
 
 =item $nick->umodes()
@@ -141,7 +167,12 @@ returns the (sorted) list of umodes that this nick has set
 
 sub umodes {
 	my $nick = $_[0];
-	return sort keys %{$mode[$$nick]};
+	my $m = $mode[$$nick];
+	my @r;
+	for (sort keys %umodebit) {
+		push @r, $_ if $m & $umodebit{$_};
+	}
+	@r;
 }
 
 =item $nick->all_chans()
@@ -368,9 +399,9 @@ sub str {
 		my $nick = $act->{dst};
 		for my $ltxt (@{$act->{mode}}) {
 			if ($ltxt =~ /\+(.*)/) {
-				$mode[$$nick]->{$1} = 1;
+				$mode[$$nick] |= $umodebit{$1};
 			} elsif ($ltxt =~ /-(.*)/) {
-				delete $mode[$$nick]->{$1};
+				$mode[$$nick] &= ~$umodebit{$1};
 			} else {
 				warn "Bad umode change $ltxt";
 			}
