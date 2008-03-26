@@ -223,7 +223,7 @@ sub _hook {
 			unless ($lvl eq 'die') {
 				_hook(ALL => 'die', $mod, $@, @args);
 			}
-			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod: $@");
+			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod");
 		};
 	}
 }
@@ -245,7 +245,7 @@ sub _mod_hook {
 			unless ($lvl eq 'die') {
 				_hook(ALL => 'die', $mod, $@, @args);
 			}
-			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod: $@");
+			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod");
 		};
 	}
 	$rv;
@@ -483,7 +483,7 @@ sub in_socket {
 		1;
 	} or do {
 		_hook(ALL => 'die', $@, @_);
-		&Janus::err_jmsg(undef, "Unchecked exception in parsing: $@");
+		&Janus::err_jmsg(undef, "Unchecked exception in parsing");
 	};
 }
 
@@ -502,7 +502,7 @@ sub in_command {
 		1;
 	} or do {
 		_hook(ALL => 'die', $@, @_);
-		&Janus::err_jmsg(undef, "Unchecked exception in janus command '$cmd': $@");
+		&Janus::err_jmsg(undef, "Unchecked exception in janus command '$cmd'");
 	};
 	_runq(shift @qstack);
 }
