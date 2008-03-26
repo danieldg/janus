@@ -1,4 +1,4 @@
-# Copyright (C) 2007 Daniel De Graaf
+# Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
 package RemoteNetwork;
 use Network;
@@ -16,6 +16,12 @@ sub all_chans {
 	my %cbyid;
 	$_->is_on($net) and $cbyid{$$_} = $_ for values %Janus::gchans;
 	values %cbyid;
+}
+
+sub chan {
+	my($net, $cname) = @_;
+	my $kn = $net->gid() . $cname;
+	$Janus::gchans{$kn};
 }
 
 sub send {

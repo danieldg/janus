@@ -16,7 +16,6 @@ use Modes;
 	code => sub {
 		my($nick,$args) = @_;
 		my $hn = $nick->homenet();
-		return &Janus::jmsg($nick, 'Local command only') unless $hn->isa('LocalNetwork');
 		$args =~ /^(raw )?(#\S*)/i or return &Janus::jmsg($nick, 'Syntax: SHOWMODE [raw] #chan');
 		my($raw,$cname) = ($1,$2);
 		my $chan = $hn->chan($cname,0);
@@ -57,7 +56,6 @@ use Modes;
 	code => sub {
 		my($nick,$args) = @_;
 		my $hn = $nick->homenet();
-		return &Janus::jmsg($nick, 'Local command only') unless $hn->isa('LocalNetwork');
 		$args =~ /^(#\S*)/i or return &Janus::jmsg($nick, 'Syntax: SHOWMODE [raw] #chan');
 		my $cname = $1;
 		my $chan = $hn->chan($cname,0);
@@ -74,7 +72,6 @@ use Modes;
 	code => sub {
 		my($nick,$args) = @_;
 		my $hn = $nick->homenet();
-		return &Janus::jmsg($nick, 'Local command only') unless $hn->isa('LocalNetwork');
 		$args =~ s/^(#\S*)\s+//i or return &Janus::jmsg($nick, 'Syntax: SETMODE #chan modes');
 		my $cname = $1;
 		my $chan = $hn->chan($cname,0);
