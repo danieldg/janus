@@ -143,6 +143,7 @@ sub _init {
 	my($c, $ifo) = @_;
 	{	no warnings 'uninitialized';
 		$mode[$$c] = $ifo->{mode} || {};
+		$nmode[$$c] = {};
 		$topicts[$$c] += 0;
 		$ts[$$c] += 0;
 		$ts[$$c] = ($Janus::time + 60) if $ts[$$c] < 1000000;
