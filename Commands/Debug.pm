@@ -11,13 +11,17 @@ sub dump_all_globals {
 	for my $pkg (@_) {
 		my $ns = do { no strict 'refs'; \%{$pkg.'::'} };
 		next unless $ns;
+		my %objarr;
+		if ($Persist::vars{$pkg}) {
+			$objarr{$_}++ for values %{$Persist::vars{$pkg}};
+		}
 		for my $var (keys %$ns) {
 			next if $var =~ /:/; # perl internal variable
 			my $scv = *{$ns->{$var}}{SCALAR};
 			my $arv = *{$ns->{$var}}{ARRAY};
 			my $hsv = *{$ns->{$var}}{HASH};
 			$rv{'$'.$pkg.'::'.$var} = $$scv if $scv && defined $$scv;
-			$rv{'@'.$pkg.'::'.$var} = $arv  if $arv && scalar @$arv;
+			$rv{'@'.$pkg.'::'.$var} = $arv  if $arv && scalar @$arv && !$objarr{$arv};
 			$rv{'%'.$pkg.'::'.$var} = $hsv  if $hsv && scalar keys %$hsv;
 		}
 	}

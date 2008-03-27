@@ -1,4 +1,4 @@
-# Copyright (C) 2007 Daniel De Graaf
+# Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
 package Persist;
 use strict;
@@ -98,7 +98,7 @@ sub new {
 		(shift @{$reuse{$pk}}) :
 		(++$max_gid{$pk});
 	my $s = bless \$n, $target;
-	
+
 	for my $pkg (@pkgs) {
 		next unless $init_args{$pkg};
 		for my $arg (keys %{$init_args{$pkg}}) {
@@ -138,6 +138,50 @@ sub Get : ATTR(ARRAY) {
 sub Arg : ATTR(ARRAY) {
 	my($pk, $sym, $var, $attr, $dat, $phase) = @_;
 	$init_args{$pk}{$dat} = $var;
+}
+
+sub _enhash {
+	my $pk = shift;
+	my $ns = do { no strict 'refs'; \%{$pk.'::'} };
+	my %h;
+	while (@_) {
+		my $v = pop;
+		if (ref $v) {
+			$h{pop @_} = $v
+		} else {
+			my $tg = $ns->{$v} or die "Undefined variable $v requested by $pk";
+			$h{$v} = *$tg{ARRAY};
+		}
+	}
+	\%h;
+}
+
+sub autoget {
+	my $pk = caller;
+	$a = _enhash($pk, @_);
+	for (keys %$a) {
+		my $var = $a->{$_};
+		no strict 'refs';
+		*{$pk.'::'.$_} = sub {
+			$var->[${$_[0]}];
+		}
+	}
+}
+
+sub autoinit {
+	my $pk = caller;
+	my $arg = _enhash($pk,@_);
+	for (keys %$arg) {
+		$init_args{$pk}{$_} = $arg->{$_};
+	}
+}
+
+sub register_vars {
+	my $pk = caller;
+	my $arg = _enhash($pk,@_);
+	for (keys %$arg) {
+		$vars{$pk}{$_} = $arg->{$_};
+	}
 }
 
 1;
