@@ -51,7 +51,7 @@ sub send {
 
 sub jparent {
 	my($self, $net) = @_;
-	$net = $net->jlink() if $net->isa('Network');
+	$net = $net->jlink() if $net && $net->isa('Network');
 	$net = $net->parent() while $net && $$net != $$self;
 	$net ? 1 : 0;
 }
