@@ -56,7 +56,7 @@ Hash of modetext => modeval (see Modes.pm)
 
 =cut
 
-my @ts       :Persist(ts)                      :Get(ts);
+my @ts       :Persist(ts)       :Arg(ts)       :Get(ts);
 my @keyname  :Persist(keyname)                 :Get(keyname);
 my @topic    :Persist(topic)    :Arg(topic)    :Get(topic);
 my @topicts  :Persist(topicts)  :Arg(topicts)  :Get(topicts);
@@ -141,10 +141,12 @@ sub to_ij {
 
 sub _init {
 	my($c, $ifo) = @_;
-	$topicts[$$c] = 0 unless $topicts[$$c];
-	$mode[$$c] = $ifo->{mode} || {};
-	$ts[$$c] = $ifo->{ts} || 0;
-	$ts[$$c] = ($Janus::time + 60) if $ts[$$c] < 1000000;
+	{	no warnings 'uninitialized';
+		$mode[$$c] = $ifo->{mode} || {};
+		$topicts[$$c] += 0;
+		$ts[$$c] += 0;
+		$ts[$$c] = ($Janus::time + 60) if $ts[$$c] < 1000000;
+	}
 	if ($ifo->{net}) {
 		my $net = $ifo->{net};
 		$keyname[$$c] = $net->gid().$ifo->{name};
@@ -335,6 +337,7 @@ sub del_remoteonly {
 	for my $net (@nets) {
 		my $ij = $net->jlink();
 		return unless $ij;
+		$ij = $ij->parent() while $ij->parent();
 		return if $cij && $cij ne $ij;
 		$cij = $ij;
 	}

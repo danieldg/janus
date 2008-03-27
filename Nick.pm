@@ -71,7 +71,7 @@ sub _init {
 	$homenick[$$nick] = $ifo->{nick};
 	$nets[$$nick] = { $$net => $net };
 	$nicks[$$nick] = { $$net => $ifo->{nick} };
-	$ts[$$nick] = $ifo->{ts} || $Janus::time;
+	$ts[$$nick] = 0 + ($ifo->{ts} || $Janus::time);
 	$info[$$nick] = $ifo->{info} || {};
 	$mode[$$nick] = 0;
 	if ($ifo->{mode}) {
@@ -375,7 +375,7 @@ sub str {
 		my $old = $homenick[$$nick];
 		my $new = $act->{nick};
 
-		$ts[$$nick] = $act->{nickts} if $act->{nickts};
+		$ts[$$nick] = 0+$act->{nickts} if $act->{nickts};
 		for my $id (keys %{$nets[$$nick]}) {
 			my $net = $nets[$$nick]->{$id};
 			next if $net->jlink();
