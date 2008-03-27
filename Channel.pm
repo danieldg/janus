@@ -242,25 +242,22 @@ sub _link_into {
 		});
 	}
 
-	for my $nid (keys %{$nicks[$$src]}) {
-		my $nick = $nicks[$$src]{$nid};
+	for my $nick (@{$nicks[$$src]}) {
 		unless ($nick->homenet()) {
 			&Debug::err("nick $$nick in channel $$src but should be gone");
 			next;
 		}
-		$nicks[$$chan]{$nid} = $nick;
+		next if $$nick == 1;
 
-		$nmode[$$chan]{$nid} = $nmode[$$src]{$nid};
-
-		$nick->rejoin($chan);
-		next if $nick->jlink() || $nick->info('_is_janus');
-		&Janus::append(+{
-			type => 'JOIN',
-			src => $nick,
-			dst => $chan,
-			mode => $src->get_nmode($nick),
-			sendto => $joinnets,
-		});
+		unless ($nick->jlink()) {
+			&Janus::append(+{
+				type => 'JOIN',
+				src => $nick,
+				dst => $chan,
+				mode => $src->get_nmode($nick),
+				sendto => $joinnets,
+			});
+		}
 	}
 }
 
@@ -272,7 +269,7 @@ return a list of all nicks on the channel
 
 sub all_nicks {
 	my $chan = $_[0];
-	return values %{$nicks[$$chan]};
+	return @{$nicks[$$chan]};
 }
 
 =item $chan->str($net)
@@ -312,9 +309,9 @@ remove records of this nick (for quitting nicks)
 
 sub part {
 	my($chan,$nick) = @_;
-	delete $nicks[$$chan]{$nick->lid()};
-	delete $nmode[$$chan]{$nick->lid()};
-	return if keys %{$nicks[$$chan]};
+	$nicks[$$chan] = [ grep { $_ != $nick } @{$nicks[$$chan]} ];
+	delete $nmode[$$chan]{$$nick};
+	return if @{$nicks[$$chan]};
 	$chan->unhook_destroyed();
 }
 
@@ -342,7 +339,7 @@ sub del_remoteonly {
 		$cij = $ij;
 	}
 	# all networks are on the same ij network. Wipe out the channel.
-	for my $nick (values %{$nicks[$$chan]}) {
+	for my $nick (@{$nicks[$$chan]}) {
 		&Janus::append({
 			type => 'PART',
 			src => $nick,
@@ -370,7 +367,7 @@ sub can_lock {
 		my $act = $_[0];
 		my $nick = $act->{src};
 		my $chan = $act->{dst};
-		$nicks[$$chan]{$nick->lid()} = $nick;
+		push @{$nicks[$$chan]}, $nick;
 		if ($act->{mode}) {
 			for (keys %{$act->{mode}}) {
 				warn "Unknown mode $_" unless $nmodebit{$_};
@@ -634,11 +631,18 @@ sub can_lock {
 		$split->_modecpy($chan);
 		$net->replace_chan($name, $split) unless $net->jlink();
 
-		for my $nid (keys %{$nicks[$$chan]}) {
-			warn "c$$chan/n$nid:no HN", next unless $nicks[$$chan]{$nid}->homenet();
-			if ($nicks[$$chan]{$nid}->homenet() eq $net) {
-				my $nick = $nicks[$$split]{$nid} = $nicks[$$chan]{$nid};
-				$nmode[$$split]{$nid} = $nmode[$$chan]{$nid};
+		my @presplit = @{$nicks[$$chan]};
+		$nicks[$$split] = [ @presplit ];
+		$nmode[$$split] = { %{$nmode[$$chan]} };
+
+		for my $nick (@presplit) {
+			# we need to insert the nick into the split off channel before the delink
+			# PART is sent, because code is allowed to assume a PARTed nick was actually
+			# in the channel it is parting from; this also keeps the channel from being
+			# prematurely removed from the list.
+
+			warn "c$$chan/n$$nick:no HN", next unless $nick->homenet();
+			if ($nick->homenet() eq $net) {
 				$nick->rejoin($split);
 				&Janus::append(+{
 					type => 'PART',
@@ -648,16 +652,10 @@ sub can_lock {
 					nojlink => 1,
 				});
 			} else {
-				my $nick = $nicks[$$split]{$nid} = $nicks[$$chan]{$nid};
-				# need to insert the nick into the split off channel before the delink
-				# PART is sent, because code is allowed to assume a PARTed nick was actually
-				# in the channel it is parting from; this also keeps the channel from being
-				# prematurely removed from the list.
 				&Janus::append(+{
 					type => 'PART',
 					src => $nick,
 					dst => $split,
-					sendto => [ $net ],
 					msg => 'Channel delinked',
 					nojlink => 1,
 				});

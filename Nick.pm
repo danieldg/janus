@@ -183,7 +183,7 @@ returns the list of all channels the nick is on
 
 sub all_chans {
 	my $nick = $_[0];
-	return values %{$chans[$$nick]};
+	return @{$chans[$$nick]};
 }
 
 =item $nick->jlink()
@@ -232,14 +232,17 @@ Connecting to all networks that the given channel is on
 
 sub rejoin {
 	my($nick,$chan) = @_;
-	my $name = $chan->str($homenet[$$nick]);
-	$chans[$$nick]{lc $name} = $chan;
+	my $hn = $homenet[$$nick];
+	my %clist;
+	$clist{lc $_->str($hn)} = $_ for @{$chans[$$nick]};
+	$clist{lc $chan->str($hn)} = $chan;
+	$chans[$$nick] = [ values %clist ];
 
 	return if $nick->jlink();
 
 	for my $net ($chan->nets()) {
 		next if $nets[$$nick]{$$net};
-		&Janus::append(+{
+		&Janus::insert_partial(+{
 			type => 'CONNECT',
 			dst => $nick,
 			net => $net,
@@ -249,8 +252,7 @@ sub rejoin {
 
 sub _part {
 	my($nick,$chan) = @_;
-	my $name = $chan->str($homenet[$$nick]);
-	delete $chans[$$nick]->{lc $name};
+	$chans[$$nick] = [ grep { $_ ne $chan } @{$chans[$$nick]} ];
 	$nick->_netclean($chan->nets());
 }
 
@@ -278,11 +280,10 @@ sub _netclean {
 	my $home = $nick->homenet();
 	my %leave = @_ ? map { $_->lid() => $_ } @_ : %{$nets[$$nick]};
 	delete $leave{$homenet[$$nick]->lid()};
-	for my $cn (keys %{$chans[$$nick]}) {
-		my $chan = $chans[$$nick]{$cn};
+	for my $chan (@{$chans[$$nick]}) {
 		unless ($chan->is_on($home)) {
 			&Debug::err("Found nick $$nick on delinked channel $$chan");
-			delete $chans[$$nick]{$cn};
+			$chans[$$nick] = [ grep { $_ ne $chan } @{$chans[$$nick]} ];
 			next;
 		}
 		for my $net ($chan->nets()) {
@@ -357,7 +358,7 @@ sub str {
 		$nicks[$$nick]{$$net} = $to;
 		
 		if ($act->{killed}) {
-			$act->{reconnect_chans} = [ values %{$chans[$$nick]} ];
+			$act->{reconnect_chans} = [ @{$chans[$$nick]} ];
 		}
 	}, NICK => check => sub {
 		my $act = shift;
@@ -409,8 +410,8 @@ sub str {
 	}, QUIT => cleanup => sub {
 		my $act = $_[0];
 		my $nick = $act->{dst};
-		for my $id (keys %{$chans[$$nick]}) {
-			my $chan = $chans[$$nick]->{$id};
+		my @clist = @{$chans[$$nick]};
+		for my $chan (@clist) {
 			$chan->part($nick);
 		}
 		for my $id (keys %{$nets[$$nick]}) {
@@ -428,19 +429,7 @@ sub str {
 		my $nick = $act->{src};
 		my $chan = $act->{dst};
 
-		my $name = $chan->str($homenet[$$nick]);
-		$chans[$$nick]->{lc $name} = $chan;
-
-		return if $homenet[$$nick]->jlink();
-		
-		for my $net ($chan->nets()) {
-			next if $nets[$$nick]{$$net};
-			&Janus::insert_partial(+{
-				type => 'CONNECT',
-				dst => $nick,
-				net => $net,
-			});
-		}
+		$nick->rejoin($chan)
 	}, PART => cleanup => sub {
 		my $act = $_[0];
 		my $nick = $act->{src};
@@ -463,7 +452,7 @@ sub str {
 				killer => $act->{src},
 			});
 		}
-		for my $chan (values %{$chans[$$nick]}) {
+		for my $chan (@{$chans[$$nick]}) {
 			next unless $chan->is_on($net);
 			my $act = {
 				type => 'KICK',
