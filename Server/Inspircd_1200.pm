@@ -110,10 +110,11 @@ sub dump_sendq {
 my @letters = ('A' .. 'Z', 0 .. 9);
 
 sub net2uid {
-	return '00J' if @_ == 2 && $_[0] eq $_[1];
+	return '0AJ' if @_ == 2 && $_[0] eq $_[1];
 	my $srv = $_[-1];
-	return '00J' if $srv->isa('Interface') || $srv->isa('Janus');
-	my $res = ($$srv / 36) . $letters[$$srv % 36] . 'J';
+	my $snum = $$srv - 2;
+	return '0AJ' if $snum <= 0; # Interface, RemoteJanus::self are #1,2
+	my $res = ($snum / 36) . $letters[$snum % 36] . 'J';
 	warn 'you have too many servers' if length $res > 3;
 		# maximum of 360. Can be increased if 'J' is modified too
 	$res;
@@ -261,7 +262,7 @@ sub _out {
 		return $net->net2uid($itm);
 	} else {
 		&Debug::err_in($net, "Unknown item $itm");
-		return '00J';
+		return '0AJ';
 	}
 }
 
