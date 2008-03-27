@@ -19,7 +19,7 @@ BEGIN {
 use Janus;
 use POSIX 'setsid';
 
-our $VERSION = '1.10';
+our $VERSION = '1.11';
 
 my $args = @ARGV && $ARGV[0] =~ /^-/ ? shift : '';
 
@@ -51,16 +51,4 @@ $SIG{CHLD} = 'IGNORE';
 eval { 
 	1 while &Connection::timestep();
 	1;
-} || do {
-	&Debug::err("Aborting, error=$@");
-	my %all;
-	for my $net (values %Janus::nets) {
-		$net = $net->jlink() if $net->jlink();
-		$all{$net} = $net;
-	}
-	&Janus::delink($_, 'aborting') for values %all;
-};
-
-&Janus::insert_full(+{ type => 'TERMINATE' });
-
-&Debug::info("All networks disconnected. Goodbye!\n");
+} ? &Debug::info("Goodbye!\n") : &Debug::err("Aborting, error=$@");

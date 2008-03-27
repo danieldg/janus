@@ -320,7 +320,6 @@ my %spec = (
 		except => '?',
 	},
 	RUN => { except => '?' },
-	TERMINATE => { except => '?' },
 	TSREPORT => {
 		src => 'Nick',
 	},

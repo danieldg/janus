@@ -100,13 +100,6 @@ sub pmsg {
 			type => 'NEWNICK',
 			dst => $janus,
 		});
-	}, TERMINATE => act => sub {
-		&Janus::append(+{
-			type => 'NETSPLIT',
-			net => $janus->homenet(),
-			msg => 'Terminated',
-		});
-		$janus = undef;
 	}, BURST => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
