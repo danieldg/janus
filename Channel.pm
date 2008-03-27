@@ -143,6 +143,7 @@ sub _init {
 	my($c, $ifo) = @_;
 	{	no warnings 'uninitialized';
 		$mode[$$c] = $ifo->{mode} || {};
+		$nicks[$$c] = [];
 		$nmode[$$c] = {};
 		$topicts[$$c] += 0;
 		$ts[$$c] += 0;

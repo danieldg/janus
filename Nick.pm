@@ -71,6 +71,7 @@ sub _init {
 	$homenick[$$nick] = $ifo->{nick};
 	$nets[$$nick] = { $$net => $net };
 	$nicks[$$nick] = { $$net => $ifo->{nick} };
+	$chans[$$nick] = [];
 	$ts[$$nick] = 0 + ($ifo->{ts} || $Janus::time);
 	$info[$$nick] = $ifo->{info} || {};
 	$mode[$$nick] = 0;
