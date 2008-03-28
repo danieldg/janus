@@ -132,6 +132,7 @@ our %tqueue;
 The given coderef will be called with a single argument, the action hashref
 
 Hooks, in order of execution:
+
   parse - possible reparse point (/msg janus *) - only for local origin
   jparse - possible reparse point - only for interjanus origin
 
@@ -144,6 +145,7 @@ Hooks, in order of execution:
   cleanup - Reference deletion
 
 validate, parse, jparse, and check hooks should return one of the tribool values:
+
   undef if the action was not modified
   0 if the action was modified (to detect duplicate hooks)
   1 if the action was rejected (should be dropped)
@@ -174,11 +176,12 @@ sub hook_add {
 Add commands (/msg janus <command> <cmdargs>). Should be called from module init
 
 Command hashref contains:
-	cmd - command name
-	code - will be executed with two arguments: ($nick, $cmdargs)
-	help - help text
-	details - arrayref of detailed help text, one line per elt
-	acl - undef/0 for all, 1 for oper-only, 2+ to be defined later
+
+  cmd - command name
+  code - will be executed with two arguments: ($nick, $cmdargs)
+  help - help text
+  details - arrayref of detailed help text, one line per elt
+  acl - undef/0 for all, 1 for oper-only, 2+ to be defined later
 
 =cut
 
@@ -195,6 +198,12 @@ sub command_add {
 		$commands{$cmd} = $h;
 	}
 }
+
+=item Janus::save_vars(varname => \%value, ...)
+
+Marks the given variables for state saving and restoring.
+
+=cut
 
 sub save_vars {
 	my $class = caller || 'Janus';

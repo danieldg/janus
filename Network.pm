@@ -93,6 +93,10 @@ sub id {
 	$_[0]->name();
 }
 
+=back
+
+=cut
+
 &Janus::hook_add(
 	LINKED => check => sub {
 		my $act = shift;
