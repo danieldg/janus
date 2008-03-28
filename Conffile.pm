@@ -109,12 +109,7 @@ sub connect_net {
 	my $nconf = $netconf{$id};
 	return if !$nconf || exists $Janus::nets{$id} || exists $Janus::ijnets{$id};
 	if ($id =~ /^LISTEN:/) {
-		# FIXME this is not the best way to find it, plus we can never stop listening
-		for my $pl (values %Connection::queues) {
-			my $n = $pl->[3] or next;
-			next unless $n->isa('Listener');
-			return if $n->id() eq $id;
-		}
+		return if $Listener::open{$id};
 		&Debug::info("Listening on $nconf->{addr}");
 		my $sock = $inet{listn}->($nconf);
 		if ($sock) {
@@ -155,14 +150,21 @@ sub connect_net {
 sub rehash {
 	my $nick = shift;
 	read_conf $nick;
+	my %toclose = %Listener::open;
+	delete $toclose{$_} for keys %netconf;
+	for my $net (values %toclose) {
+		$net->close();
+		&Connection::reassign($net, undef);
+	}
 	connect_net $nick,$_ for keys %netconf;
+
 	&Janus::jmsg($nick,'Rehashed');
 }
 
 sub autoconnect {
 	for my $id (keys %netconf) {
 		if ($id =~ /^LISTEN/) {
-			connect_net undef,$id;
+			connect_net undef,$id unless $Listener::open{$id};
 		} elsif (!$netconf{$id}{autoconnect} || exists $Janus::nets{$id} || exists $Janus::ijnets{$id}) {
 			$netconf{$id}{backoff} = 0;
 		} else {

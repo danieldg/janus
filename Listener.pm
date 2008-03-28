@@ -8,8 +8,20 @@ use Pending;
 
 our @id;
 &Persist::register_vars('id');
-&Persist::autoinit('id');
 &Persist::autoget('id');
+
+our %open;
+
+sub _init {
+	my($net, $arg) = @_;
+	my $id = $id[$$net] = $arg->{id};
+	$open{$id} = $net;
+}
+
+sub close {
+	my $net = shift;
+	delete $open{$id[$$net]};
+}
 
 sub init_pending {
 	my($self, $sock, $peer) = @_;

@@ -66,15 +66,6 @@ use warnings;
 				msg => 'Restarting...',
 			});
 		}
-		# Clean up all non-LocalNetwork items in the I/O queue
-		for my $itm (keys %Connection::queues) {
-			my $net = $Connection::queues{$itm}[3];
-			if (ref $net && $net->isa('Listener')) {
-				delete $Connection::queues{$itm};
-			}
-		}
-		# the I/O queue could possibly be empty by now; add an item to force it to stay around
-		$Connection::queues{RESTARTER} = [ undef, undef, undef, undef, 0, 0 ];
 		# sechedule the actual exec at a later time to try to send the restart netsplit message around
 		&Janus::schedule(+{
 			delay => 2,
