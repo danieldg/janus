@@ -33,9 +33,9 @@ use integer;
 		my $w = $parm =~ /(\d)/ ? $1 : 3;
 		my @mods;
 		if ($parm =~ /^j/) {
-			@mods = sort 'main', grep ref $main::INC{$_}, keys %main::INC;
+			@mods = sort 'main', grep { $main::INC{$_} !~ /^\// } keys %main::INC;
 		} elsif ($parm =~ /^o/) {
-			@mods = sort grep !ref $main::INC{$_}, keys %main::INC;
+			@mods = sort grep { $main::INC{$_} =~ /^\// } keys %main::INC;
 		} else {
 			@mods = sort('main', keys %main::INC);
 		}

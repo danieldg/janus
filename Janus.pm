@@ -111,6 +111,12 @@ sub Janus::INC {
 	$module =~ s#/#::#g;
 	_hook(module => READ => $module, $rv);
 	$modules{$module} = 1;
+	my $vname = do { no strict 'refs'; ${$module.'::VERSION_NAME'} };
+	if ($vname) {
+		$INC{$name} = $vname.'/'.$name;
+	} else {
+		$INC{$name} = 'unknown/'.$name;
+	}
 	&Janus::schedule({ code => sub {
 		$modules{$module} = 2;
 	}});
@@ -659,6 +665,18 @@ if ($RELEASE) {
 			no warnings 'once';
 			${$mod.'::SHA_UID'} = $1;
 		}
+		if ($has_svn) {
+			my $svn = `svn info $fn 2>/dev/null`;
+			if ($svn) {
+				unless (`svn st $fn`) {
+					if ($svn =~ /Revision: (\d+)/) {
+						$ver = 'r'.$1;
+					} else {
+						warn "Cannot parse `svn info` output for $mod ($fn)";
+					}
+				}
+			}
+		}
 		if ($has_git) {
 			my $git = `git rev-parse --verify HEAD 2>/dev/null`;
 			if ($git) {
@@ -669,18 +687,6 @@ if ($RELEASE) {
 						$ver = $1;
 					} elsif (`git rev-parse HEAD` =~ /^(.{8})/) {
 						$ver = 'g'.$1;
-					}
-				}
-			}
-		}
-		if ($has_svn) {
-			my $svn = `svn info $fn 2>/dev/null`;
-			if ($svn) {
-				unless (`svn st $fn`) {
-					if ($svn =~ /Revision: (\d+)/) {
-						$ver = 'r'.$1;
-					} else {
-						warn "Cannot parse `svn info` output for $mod ($fn)";
 					}
 				}
 			}
