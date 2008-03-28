@@ -47,18 +47,13 @@ sub pmsg {
 
 	return undef unless $src->isa('Nick') && $dst->isa('Nick');
 	if ($dst->info('_is_janus')) {
-		return 1 unless $act->{msgtype} eq 'PRIVMSG' && $src;
-		local $_ = $act->{msg};
-		if (s/^@(\S+)\s*//) {
+		if ($act->{msg} =~ /^@(\S+)\s*/) {
 			my $rto = $Janus::ijnets{$1};
 			if ($rto) {
 				$act->{sendto} = $rto;
-				return 0;
 			}
 		}
-		my $cmd = s/^\s*(\S+)\s*// ? lc $1 : 'unk';
-		&Janus::in_command($cmd, $src, $_);
-		return 1;
+		return 0;
 	}
 
 	unless ($src->is_on($dst->homenet())) {
@@ -156,7 +151,17 @@ sub pmsg {
 );
 
 sub parse { () }
-sub send { }
+sub send {
+	my $net = shift;
+	for my $act (@_) {
+		if ($act->{type} eq 'MSG' && $act->{msgtype} eq 'PRIVMSG') {
+			my $src = $act->{src} or next;
+			$_ = $act->{msg};
+			my $cmd = s/^\s*(?:@\S+\s+)?([^@ ]\S*)\s*// ? lc $1 : 'unk';
+			&Janus::in_command($cmd, $src, $_);
+		}
+	}
+}
 sub request_newnick { $_[2] }
 sub request_cnick { $_[2] }
 sub release_nick { }
