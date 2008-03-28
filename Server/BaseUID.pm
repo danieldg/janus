@@ -25,6 +25,10 @@ sub nick2uid {
 
 sub mynick {
 	my($net, $name) = @_;
+	if ($name !~ /^\d/) {
+		&Debug::warn_in($net, "Nick used where UID expected; converting");
+		$name = $nick2uid[$$net]{lc $name} || $name;
+	}
 	my $nick = $uids[$$net]{uc $name};
 	unless ($nick) {
 		&Debug::warn_in($net, "UID '$name' does not exist; ignoring");
@@ -40,6 +44,10 @@ sub mynick {
 
 sub nick {
 	my($net, $name) = @_;
+	if ($name !~ /^\d/) {
+		&Debug::warn_in($net, "Nick used where UID expected: converting");
+		$name = $nick2uid[$$net]{lc $name} || $name;
+	}
 	return $uids[$$net]{uc $name} if $uids[$$net]{uc $name};
 	&Debug::warn_in($net, "UID '$name' does not exist; ignoring") unless $_[2];
 	undef;
