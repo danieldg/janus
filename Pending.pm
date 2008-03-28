@@ -1,9 +1,9 @@
-# Copyright (C) 2007 Daniel De Graaf
+# Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
 package Pending;
 use strict;
 use warnings;
-use Persist;
+use Persist 'SocketHandler';
 use Connection;
 
 our(@buffer, @delegate, @peer);
@@ -14,6 +14,10 @@ sub _init {
 	my $net = shift;
 	my($addr,$port) = $Conffile::inet{addr}->($peer[$$net]);
 	&Debug::alloc($net, 1, "from $addr:$port");
+}
+
+sub DESTROY {
+	&Debug::alloc($_[0], 0);
 }
 
 sub id {
@@ -27,6 +31,7 @@ sub parse {
 	return $rnet->parse($line) if $rnet;
 
 	push @{$buffer[$$pnet]}, $line;
+	# TODO sort by incoming address not first line?
 	if ($line =~ /SERVER (\S+)/) {
 		for my $id (keys %Conffile::netconf) {
 			next if $Janus::nets{$id};
@@ -35,7 +40,7 @@ sub parse {
 				my $type = 'Server::'.$nconf->{type};
 				&Janus::load($type) or next;
 				$rnet = &Persist::new($type, id => $id);
-				&Debug::info("Shifting new connection #$$pnet to $type network $id");
+				&Debug::info("Shifting new connection #$$pnet to $type network $id (#$$rnet)");
 				$rnet->intro($nconf, $peer[$$pnet]);
 				&Janus::insert_full({
 					type => 'NETLINK',
@@ -54,9 +59,9 @@ sub parse {
 	} elsif ($line =~ /^<InterJanus /) {
 		&Janus::load('Server::InterJanus');
 		my $ij = Server::InterJanus->new();
-		&Debug::info("Shifting new connection #$$pnet to InterJanus link");
 		my @out = $ij->parse($line);
 		if (@out && $out[0]{type} eq 'JNETLINK') {
+			&Debug::info("Shifting new connection #$$pnet to InterJanus link #$$ij ".$ij->id());
 			&Connection::reassign($pnet, $ij);
 			$ij->intro($Conffile::netconf{$ij->id()}, 1);
 			return @out;
