@@ -51,6 +51,8 @@ sub pmsg {
 			my $rto = $Janus::ijnets{$1};
 			if ($rto) {
 				$act->{sendto} = $rto;
+			} else {
+				delete $act->{sendto};
 			}
 		}
 		return 0;
