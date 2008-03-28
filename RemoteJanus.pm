@@ -10,8 +10,10 @@ use integer;
 # Object representing THIS server
 our $self;
 
-my @id     :Persist(id)     :Arg(id)     :Get(id);
-my @parent :Persist(parent) :Arg(parent) :Get(parent);
+our(@id, @parent);
+&Persist::register_vars(qw(id parent));
+&Persist::autoget(qw(id parent));
+&Persist::autoinit(qw(id parent));
 
 sub _id {
 	$id[${$_[0]}] = $_[1];

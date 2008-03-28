@@ -56,21 +56,21 @@ Hash of modetext => modeval (see Modes.pm)
 
 =cut
 
-my @ts       :Persist(ts)       :Arg(ts)       :Get(ts);
-my @keyname  :Persist(keyname)                 :Get(keyname);
-my @topic    :Persist(topic)    :Arg(topic)    :Get(topic);
-my @topicts  :Persist(topicts)  :Arg(topicts)  :Get(topicts);
-my @topicset :Persist(topicset) :Arg(topicset) :Get(topicset);
-my @mode     :Persist(mode)                    :Get(all_modes);
+our(@ts, @keyname, @topic, @topicts, @topicset, @mode);
 
-my @names    :Persist(names);  # channel's name on the various networks
-my @nets     :Persist(nets);   # networks this channel is shared to
+our @names;  # channel's name on the various networks
+our @nets;   # networks this channel is shared to
 
-my @locker   :Persist(locker); # Lock ID of the currently held lock, or undef
-my @lockts   :Persist(lockts); # Time the lock will expire
+our @locker; # Lock ID of the currently held lock, or undef
+our @lockts; # Time the lock will expire
 
-my @nicks    :Persist(nicks);  # all nicks on this channel
-my @nmode    :Persist(nmode);  # modes of those nicks
+our @nicks;  # all nicks on this channel
+our @nmode;  # modes of those nicks
+
+&Persist::register_vars(qw(ts keyname topic topicts topicset mode
+	names nets locker lockts nicks nmode));
+&Persist::autoget(qw(ts keyname topic topicts topicset), all_modes => \@mode);
+&Persist::autoinit(qw(ts topic topicts topicset));
 
 my %nmodebit = (
 	voice => 1,

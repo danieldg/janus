@@ -11,10 +11,10 @@ use Scalar::Util 'weaken';
 use strict;
 use warnings;
 
-my @sendq     :Persist(sendq);
-my @self      :Persist(mynick);
-my @kicks     :Persist(kicks); # $kicks[$$net]{$lid}{$channel} = 1 for a rejoin enabled
-my @lchan     :Persist(lchan); # last channel we tried to join
+our(@sendq, @self, @kicks, @lchan);
+&Persist::register_vars(qw(sendq self kicks lchan));
+# $kicks[$$net]{$lid}{$channel} = 1 for a rejoin enabled
+# lchan = last channel we tried to join
 
 my %fromirc;
 my %toirc;

@@ -8,7 +8,8 @@ use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
 
-my @nicks  :Persist(nicks);
+our @nicks;
+&Persist::register_vars('nicks');
 
 sub _init {
 	my $net = shift;

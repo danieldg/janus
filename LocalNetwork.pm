@@ -8,8 +8,8 @@ use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
 
-my @cparms :Persist(cparms); # currently active parameters
-my @chans  :Persist(chans);
+our(@cparms, @chans); # currently active network parameters
+&Persist::register_vars(qw(cparms chans));
 
 sub _init {
 	my $net = shift;

@@ -31,15 +31,9 @@ Last nick-change timestamp of this user (to help determine collision resolution)
 
 =cut
 
-my @gid      :Persist(gid) :Get(gid);
-my @homenet  :Persist(homenet) :Get(homenet);
-my @homenick :Persist(homenick) :Get(homenick);
-my @nets     :Persist(nets);
-my @nicks    :Persist(nicks);
-my @chans    :Persist(chans);
-my @mode     :Persist(mode);
-my @info     :Persist(info);
-my @ts       :Persist(ts) :Get(ts);
+our(@gid, @homenet, @homenick, @nets, @nicks, @chans, @mode, @info, @ts);
+&Persist::register_vars(qw(gid homenet homenick nets nicks chans mode info ts));
+&Persist::autoget(qw(gid homenet homenick ts));
 
 our %umodebit = ();
 unless (%umodebit) {

@@ -9,9 +9,8 @@ use strict;
 use warnings;
 use integer;
 
-my @nick2uid :Persist(nickuid);
-my @uids     :Persist(uids);
-my @gid2uid  :Persist(giduid);
+our(@nick2uid, @uids, @gid2uid);
+&Persist::register_vars(qw(nick2uid uids gid2uid));
 
 sub _init {
 	my $net = shift;

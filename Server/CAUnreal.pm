@@ -9,10 +9,8 @@ use Persist 'Server::BaseNick';
 use strict;
 use warnings;
 
-my @sendq   :Persist(sendq);
-my @srvname :Persist(srvname);
-my @servers :Persist(servers);
-my @auth    :Persist(auth);
+our(@sendq, @srvname, @servers, @auth);
+&Persist::register_vars(qw(sendq srvname servers auth));
 
 sub _init {
 	my $net = shift;

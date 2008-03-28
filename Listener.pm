@@ -6,7 +6,10 @@ use warnings;
 use Persist 'SocketHandler';
 use Pending;
 
-my @id :Persist(id) :Arg(id) :Get(id);
+our @id;
+&Persist::register_vars('id');
+&Persist::autoinit('id');
+&Persist::autoget('id');
 
 sub init_pending {
 	my($self, $sock, $peer) = @_;

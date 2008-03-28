@@ -35,12 +35,10 @@ The unique numeric value for this network. May be deprecated at some time in the
 
 =cut
 
-my @jlink   :Persist(jlink)   :Get(jlink)   :Arg(jlink);
-my @gid     :Persist(gid)     :Get(gid)     :Arg(gid);
-my @name    :Persist(id)      :Get(name)    :Arg(id);
-my @netname :Persist(netname) :Get(netname) :Arg(netname);
-my @numeric :Persist(numeric) :Get(numeric) :Arg(numeric);
-my @synced  :Persist(synced)  :Get(is_synced);
+our(@jlink, @gid, @name, @netname, @numeric, @synced);
+&Persist::register_vars(qw(jlink gid name netname numeric synced));
+&Persist::autoget(qw(jlink gid name netname numeric), is_synced => \@synced);
+&Persist::autoinit(qw(jlink gid netname numeric), id => \@name);
 
 sub jname {
 	my $net = $_[0];

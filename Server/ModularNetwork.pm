@@ -6,15 +6,13 @@ use Persist 'LocalNetwork';
 use strict;
 use warnings;
 
-my @modules   :Persist(modules);   # {module} => definition - List of active modules
-my @meta      :Persist(meta);      # key => sub{} for METADATA command
-my @fromirc   :Persist(fromirc);   # command => sub{} for IRC commands
-my @act_hooks :Persist(act_hooks); # type => module => sub{} for Janus Action => output
+our @modules;   # {module} => definition - List of active modules
+our @meta;      # key => sub{} for METADATA command
+our @fromirc;   # command => sub{} for IRC commands
+our @act_hooks; # type => module => sub{} for Janus Action => output
 
-my @txt2cmode :Persist(txt2cmode); # quick lookup hashes for translation in/out of janus
-my @cmode2txt :Persist(cmode2txt);
-my @txt2umode :Persist(txt2umode);
-my @umode2txt :Persist(umode2txt);
+our(@txt2cmode, @cmode2txt, @txt2umode, @umode2txt); # quick lookup hashes for translation in/out of janus
+&Persist::register_vars(qw(modules meta fromirc act_hooks txt2cmode cmode2txt txt2umode umode2txt));
 
 sub module_add {
 	my($net,$name) = @_;

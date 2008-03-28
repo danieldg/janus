@@ -22,12 +22,10 @@ our $lockmax;
 # Emergency shutoff switch for retries
 our $abort;
 
-my @lock   :Persist(lockid) :Get(lockid);
-my @chan   :Persist(chan);
-my @ready  :Persist(ready);
-my @expire :Persist(expire);
-my @other  :Persist(other)  :Arg(other);
-my @origin :Persist(origin) :Arg(origin);
+our(@lock, @chan, @ready, @expire, @other, @origin);
+&Persist::register_vars(lockid => \@lock, qw(chan ready expire other origin));
+&Persist::autoget(lockid => \@lock);
+&Persist::autoinit(qw(other origin));
 
 sub _init {
 	my $link = shift;

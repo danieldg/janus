@@ -5,7 +5,8 @@ use strict;
 use warnings;
 use Persist;
 
-my @unfiltered :PersistAs(Nick,unfilter);
+our @unfiltered;
+&Persist::register_vars('Nick::unfilter', \@unfiltered);
 
 &Janus::command_add(+{
 	cmd => 'whoisfilter',

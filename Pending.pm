@@ -6,9 +6,9 @@ use warnings;
 use Persist;
 use Connection;
 
-my @buffer   :Persist('buffer');
-my @delegate :Persist('delegate');
-my @peer     :Persist('peer')    :Arg('peer');
+our(@buffer, @delegate, @peer);
+&Persist::register_vars(qw(buffer delegate peer));
+&Persist::autoinit('peer');
 
 sub _init {
 	my $net = shift;

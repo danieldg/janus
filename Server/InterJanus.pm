@@ -7,10 +7,11 @@ use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
 
-my $IJ_PROTO = 1.7;
+our $IJ_PROTO = 1.7;
 
-my @sendq  :Persist(sendq);
-my @auth   :Persist(auth)                :Get(is_linked);
+our(@sendq, @auth);
+&Persist::register_vars(qw(sendq auth));
+&Persist::autoget(is_linked => \@auth);
 
 sub str {
 	warn;

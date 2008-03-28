@@ -5,9 +5,10 @@ use strict;
 use warnings;
 use Persist;
 
-my @cache :PersistAs(Channel, cache);
+our @cache;
 our %claim;
 
+&Persist::register_vars('Channel::cache' => \@cache);
 &Janus::save_vars(claim => \%claim);
 
 sub resolve {

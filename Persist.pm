@@ -4,29 +4,12 @@ package Persist;
 use strict;
 use warnings;
 use Attribute::Handlers;
-use Persist::Field;
 
 our %vars;
 
 our %init_args;
 our %reuse;
 our %max_gid;
-
-sub Persist : ATTR(ARRAY,BEGIN) {
-	my($pk, $sym, $var, $attr, $dat, $phase) = @_;
-	my $src = $vars{$pk}{$dat} || [];
-	$vars{$pk}{$dat} = $src;
-	tie @$var, 'Persist::Field', $src;
-}
-
-sub PersistAs : ATTR(ARRAY,BEGIN) {
-	my($spk, $sym, $var, $attr, $dat, $phase) = @_;
-	my($pk, $name) = @$dat;
-	$name = $spk.'::'.$name;
-	my $src = $vars{$pk}{$name} || [];
-	$vars{$pk}{$name} = $src;
-	tie @$var, 'Persist::Field', $src;
-}
 
 sub dump_all_refs {
 	my %out;
@@ -180,7 +163,11 @@ sub register_vars {
 	my $pk = caller;
 	my $arg = _enhash($pk,@_);
 	for (keys %$arg) {
-		$vars{$pk}{$_} = $arg->{$_};
+		if (/^(.+)::([^:]+)$/) {
+			$vars{$1}{$pk.'::'.$2} = $arg->{$_};
+		} else {
+			$vars{$pk}{$_} = $arg->{$_};
+		}
 	}
 }
 

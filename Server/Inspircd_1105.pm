@@ -11,15 +11,10 @@ use Persist 'Server::BaseNick', 'Server::ModularNetwork';
 use strict;
 use warnings;
 
-my @sendq     :Persist(sendq);
-my @servers   :Persist(servers);
-my @serverdsc :Persist(serverdsc);
+our(@sendq, @servers, @serverdsc, @auth, @capabs, @txt2pfx, @pfx2txt);
+&Persist::register_vars(qw(sendq servers serverdsc auth capabs txt2pfx pfx2txt));
 
-my @auth      :Persist(auth); # 0/undef = unauth connection; 1 = authed, in burst; 2 = after burst
-my @capabs    :Persist(capabs);
-
-my @txt2pfx   :Persist(txt2pfx);
-my @pfx2txt   :Persist(pfx2txt);
+# auth: 0/undef = unauth connection; 1 = authed, in burst; 2 = after burst
 
 sub _init {
 	my $net = shift;
