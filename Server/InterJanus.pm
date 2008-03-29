@@ -72,13 +72,13 @@ sub parse {
 	} elsif ($auth[$$ij]) {
 		return $act;
 	} elsif ($act->{type} eq 'InterJanus') {
-		if ($ij->id() && $act->{id} ne $ij->id()) {
-			&Janus::err_jmsg(undef, "Unexpected ID reply $act->{id} from IJ ".$ij->id());
+		my $id = $RemoteJanus::id[$$ij];
+		if ($id && $act->{id} ne $id) {
+			&Janus::err_jmsg(undef, "Unexpected ID reply $act->{id} from IJ $id");
 		} else {
-			$ij->_id($act->{id});
+			$id = $RemoteJanus::id[$$ij] = $act->{id};
 		}
 		my $ts_delta = abs($Janus::time - $act->{ts});
-		my $id = $ij->id();
 		my $nconf = $Conffile::netconf{$id};
 		if ($act->{version} ne $IJ_PROTO) {
 			&Janus::err_jmsg(undef, "Unsupported InterJanus version $act->{version} (local $IJ_PROTO)");

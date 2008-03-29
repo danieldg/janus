@@ -15,10 +15,6 @@ our(@id, @parent);
 &Persist::autoget(qw(id parent));
 &Persist::autoinit(qw(id parent));
 
-sub _id {
-	$id[${$_[0]}] = $_[1];
-}
-
 # for sending out some other IJ
 sub to_ij {
 	my($net, $ij) = @_;

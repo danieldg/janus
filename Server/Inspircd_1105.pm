@@ -839,7 +839,7 @@ $moddef{CORE} = {
 		push @msg, $txt if defined $txt;
 		unshift @msg, undef unless $msg[0] =~ s/^://;
 
-		if ($dst->info('_is_janus')) {
+		if ($$dst == 1) {
 			# a PUSH to the janus nick. Don't send any events, for one.
 			# However, it might be something we asked about, like the MODULES output
 			if (@msg == 4 && $msg[1] eq '900' && $msg[0] && $msg[0] eq $net->cparam('server')) {
@@ -949,7 +949,7 @@ $moddef{CORE} = {
 		my $nick = $act->{dst};
 		return () if $act->{net} ne $net;
 		my @out = $net->_connect_ifo($nick);
-		push @out, $net->cmd2($nick, MODULES => $net->cparam('server')) if $nick->info('_is_janus');
+		push @out, $net->cmd2($nick, MODULES => $net->cparam('server')) if $$nick == 1;
 		@out;
 	}, RECONNECT => sub {
 		my($net,$act) = @_;

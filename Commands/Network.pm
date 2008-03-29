@@ -27,7 +27,7 @@ use warnings;
 	acl => 1,
 	code => sub {
 		my($nick,$pass) = @_;
-		unless ($nick->has_mode('oper') && $pass && $pass eq $Conffile::netconf{janus}{diepass}) {
+		unless ($nick->has_mode('oper') && $pass && $pass eq $Conffile::netconf{set}{diepass}) {
 			&Janus::jmsg($nick, "You must specify the 'diepass' password to use this command");
 			return;
 		}
@@ -54,7 +54,7 @@ use warnings;
 	acl => 1,
 	code => sub {
 		my($nick,$pass) = @_;
-		unless ($nick->has_mode('oper') && $pass && $pass eq $Conffile::netconf{janus}{diepass}) {
+		unless ($nick->has_mode('oper') && $pass && $pass eq $Conffile::netconf{set}{diepass}) {
 			&Janus::jmsg($nick, "You must specify the 'diepass' password to use this command");
 			return;
 		}
@@ -70,7 +70,7 @@ use warnings;
 		&Janus::schedule(+{
 			delay => 2,
 			code => sub {
-				exec 'perl -T janus.pl';
+				exec 'perl', '-T', 'janus.pl', @main::ARGV;
 			},
 		});
 	},

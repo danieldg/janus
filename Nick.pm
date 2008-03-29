@@ -271,7 +271,7 @@ sub _netpart {
 
 sub _netclean {
 	my $nick = shift;
-	return if $info[$$nick]{_is_janus};
+	return if $$nick == 1;
 	my $home = $nick->homenet();
 	my %leave = @_ ? map { $_->lid() => $_ } @_ : %{$nets[$$nick]};
 	delete $leave{$homenet[$$nick]->lid()};

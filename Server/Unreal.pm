@@ -349,7 +349,7 @@ sub umode_text {
 		next unless exists $txt2umode{$m};
 		$mode .= $txt2umode{$m};
 	}
-	unless ($net->param('show_roper') || $nick->info('_is_janus')) {
+	unless ($net->param('show_roper') || $$nick == 1) {
 		$mode .= 'H' if $mode =~ /o/ && $mode !~ /H/;
 	}
 	$mode . 'xt';

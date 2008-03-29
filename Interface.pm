@@ -46,7 +46,7 @@ sub pmsg {
 	return 1 if $type eq '310'; # available for help
 
 	return undef unless $src->isa('Nick') && $dst->isa('Nick');
-	if ($dst->info('_is_janus')) {
+	if ($$dst == 1) {
 		if ($act->{msg} =~ /^@(\S+)\s*/) {
 			my $rto = $Janus::ijnets{$1};
 			if ($rto) {
@@ -89,10 +89,10 @@ sub pmsg {
 				vhost => ($Conffile::netconf{set}{janus_host} || 'service'),
 				name => 'Janus Control Interface',
 				opertype => 'Janus Service',
-				_is_janus => 1,
 			},
 			mode => { oper => 1, service => 1, bot => 1 },
 		);
+		warn if $$janus != 1;
 		&Janus::append(+{
 			type => 'NEWNICK',
 			dst => $janus,
@@ -147,7 +147,9 @@ sub pmsg {
 		return 1;
 	}, CHATOPS => jparse => sub {
 		my $act = shift;
-		$act->{msg} = '[remote] '.$act->{msg} if $act->{src} eq $janus;
+		if ($act->{src} == $janus) {
+			$act->{msg} = '['.$act->{except}->id().'] '.$act->{msg};
+		}
 		undef;
 	},
 );
