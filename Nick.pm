@@ -55,7 +55,7 @@ do {
 		$i *= 2;
 	}
 	warn "Too many umode bits for a scalar" if (sprintf '%x', $i) =~ /f/;
-}
+};
 
 sub _init {
 	my($nick, $ifo) = @_;

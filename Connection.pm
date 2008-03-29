@@ -29,7 +29,7 @@ print "WARNING: not running in taint mode\n" unless tainted($tblank);
 sub add {
 	my($sock, $net) = @_;
 	my $fn = fileno $sock;
-	warn "Cannot fine fileno for $sock" unless defined $fn;
+	warn "Cannot find fileno for $sock" unless defined $fn;
 	my $q = [ $fn, $sock, $net, $tblank, '', 0, 1, $Janus::time ];
 	if ($net->isa('Listener')) {
 		@$q[RECVQ,SENDQ,TRY_R,TRY_W] = ($tblank, undef, 1, 0);
