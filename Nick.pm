@@ -5,7 +5,6 @@ use strict;
 use warnings;
 use integer;
 use Persist;
-use Scalar::Util 'weaken';
 
 =head1 Nick
 
@@ -36,9 +35,11 @@ our(@gid, @homenet, @homenick, @nets, @nicks, @chans, @mode, @info, @ts);
 &Persist::autoget(qw(gid homenet homenick ts));
 
 our %umodebit = ();
-unless (%umodebit) {
-	# TODO support reloading additional definitions
+do {
 	my $i = 1;
+	for (values %umodebit) {
+		$i = 2*$_ if $_ >= $i;
+	}
 	# special | common | silencing | uncommon | operonly
 	for (qw/
 		oper vhost ssl registered
@@ -49,6 +50,7 @@ unless (%umodebit) {
 		helpop oper_local coadmin admin svs_admin netadmin
 		hiddenabusiveoper
 	/) {
+		next if $umodebit{$_};
 		$umodebit{$_} = $i;
 		$i *= 2;
 	}

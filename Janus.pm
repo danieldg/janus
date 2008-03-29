@@ -287,14 +287,10 @@ sub _send {
 	my(%sockto); # hash to remove duplicates
 	for my $net (@to) {
 		next unless $net;
-		if ($net->isa('Janus')) {
+		if ($net == $Janus::global) {
 			$sockto{$_} = $_ for values %nets;
-		} elsif ($net->isa('RemoteJanus')) {
-			if ($net eq $RemoteJanus::self) {
-				$_->jlink() or $sockto{$_} = $_ for values %nets;
-			} else {
-				$sockto{$net} = $net;
-			}
+		} elsif ($net == $RemoteJanus::self) {
+			$_->jlink() or $sockto{$_} = $_ for values %nets;
 		} else {
 			$sockto{$net} = $net;
 		}
@@ -754,7 +750,6 @@ unless ($global) {
 }
 
 sub gid {
-	my $inst = shift;
 	'*';
 }
 

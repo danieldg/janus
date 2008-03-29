@@ -33,23 +33,24 @@ my %char2esc; $char2esc{$esc2char{$_}} = $_ for keys %esc2char;
 sub ijstr {
 	my($ij, $itm) = @_;
 	local $_;
+	my $ref = ref $itm;
 	if (!defined $itm) {
 		return '';
-	} elsif (!ref $itm) {
+	} elsif (!$ref) {
 		my $ch = join '', map { /\w/ ? $_ : '\\'.$_ } keys %char2esc;
 		$itm =~ s/([$ch])/\\$char2esc{$1}/g;
 		return '"'.$itm.'"';
-	} elsif ('ARRAY' eq ref $itm) {
+	} elsif ($ref eq 'ARRAY') {
 		my $out = '<a';
 		$out .= ' '.$ij->ijstr($_) for @$itm;
 		return $out.'>';
-	} elsif ('HASH' eq ref $itm) {
+	} elsif ($ref eq 'HASH') {
 		my $out = '<h';
 		$out .= ' '.$_.'='.$ij->ijstr($itm->{$_}) for sort keys %$itm;
 		return $out.'>';
-	} elsif ($itm->isa('Nick')) {
+	} elsif ($ref eq 'Nick') {
 		return 'n:'.$itm->gid();
-	} elsif ($itm->isa('Channel')) {
+	} elsif ($ref eq 'Channel') {
 		return ($$ij ? 'c:' : "c($$itm):").$itm->keyname();
 	} elsif ($itm->isa('Network')) {
 		return 's:'.$itm->gid();
@@ -58,7 +59,7 @@ sub ijstr {
 	} elsif ($itm->isa('Janus')) {
 		return 'j:*';
 	}
-	warn "Unknown object $itm";
+	&Debug::err("Unknown object $itm of type $ref");
 	return '""';
 }
 
@@ -168,7 +169,7 @@ my %v_type; %v_type = (
 	}, '<a' => sub {
 		my @arr;
 		s/^<a// or warn;
-		while (s/^\s+//) {
+		while (s/^ //) {
 			my $v_t = substr $_,0,1;
 			$v_t = substr $_,0,2 if $v_t eq '<';
 			push @arr, $v_type{$v_t}->(@_);

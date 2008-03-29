@@ -67,7 +67,6 @@ sub read_conf {
 			}
 			$current = {};
 			$newconf{$type} = $current;
-			$newconf{janus} = $current if $type eq 'set';
 		} elsif ($type eq '}') {
 			unless (defined $current) {
 				&Janus::err_jmsg($nick, "Extra closing brace at line $. of config file");
