@@ -141,9 +141,9 @@ sub _enhash {
 
 sub autoget {
 	my $pk = caller;
-	$a = _enhash($pk, @_);
-	for (keys %$a) {
-		my $var = $a->{$_};
+	my $arg = _enhash($pk, @_);
+	for (keys %$arg) {
+		my $var = $arg->{$_};
 		no strict 'refs';
 		*{$pk.'::'.$_} = sub {
 			$var->[${$_[0]}];

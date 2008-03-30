@@ -96,6 +96,7 @@ while (<$log>) {
 			my @out = $ij->parse($line);
 			$ij->intro($Conffile::netconf{$ij->id()}, 1);
 			&Janus::insert_full(@out);
+			&Connection::add(1, $ij);
 		}
 	} elsif (/^\e\[32m    IN\@(\S+) (.*)\e\[0?m$/) {
 		$state = IN;
@@ -118,8 +119,8 @@ while (<$log>) {
 			}
 		}
 		&Janus::insert_full($act);
-	} elsif (/^\e\[0;1mTimestamp: (\d+)\e[m$/) {
-		$Janus::timer($1);
+	} elsif (/^\e\[0;1mTimestamp: (\d+)\e\[m$/) {
+		&Janus::timer($1);
 	} else {
 		$state = NONE;
 	}
