@@ -123,12 +123,12 @@ sub connect_net {
 		unless (&Janus::load($type)) {
 			&Janus::err_jmsg($nick, "Error creating $type network $id: $@");
 		} else {
-			my $net = &Persist::new($type, id => $id);
-			# this is equivalent to $type->new(id => \$id) but without using eval
-
 			&Debug::info("Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}");
 
-			my $sock = $inet{conn}->($nconf);
+			my $sock = $inet{conn}->($nconf) or return;
+
+			my $net = &Persist::new($type, id => $id);
+			# this is equivalent to $type->new(id => \$id) but without using eval
 
 			$net->intro($nconf);
 

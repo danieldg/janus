@@ -163,7 +163,7 @@ sub _init {
 		my $names = $ifo->{names} || {};
 		$names[$$c] = {};
 		$nets[$$c] = {};
-		for my $id (keys %$names) {
+		for my $id (sort keys %$names) {
 			my $name = $names->{$id};
 			my $net = $Janus::gnets{$id} or warn next;
 			$names[$$c]{$$net} = $name;
