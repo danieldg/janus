@@ -519,7 +519,7 @@ sub in_command {
 }
 
 sub timer {
-	$time = time;
+	$time = $_[0] || time;
 	return if $time == $last_check;
 	my @q;
 	for ($last_check .. $time) {

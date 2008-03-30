@@ -12,7 +12,7 @@ sub netin {
 	my $name = 
 		$net->can('name') ? $net->name() : 
 		$net->can('id') ? $net->id() : $$net;
-	print "\e[32m    IN\@$name $line\e[0m\n";
+	print "\e[32m    IN\@$name $line\e[m\n";
 }
 
 sub netout {
@@ -21,7 +21,7 @@ sub netout {
 	my $name = 
 		$net->can('name') ? $net->name() : 
 		$net->can('id') ? $net->id() : $$net;
-	print "\e[34m   OUT\@$name $line\e[0m\n";
+	print "\e[34m   OUT\@$name $line\e[m\n";
 }
 
 sub warn_in {
@@ -76,7 +76,7 @@ sub hook_err {
 	} or do {
 		print "[ERR2: $@]"
 	};
-	print "\e[0m\n";
+	print "\e[m\n";
 }
 
 sub hook_info {
@@ -85,12 +85,24 @@ sub hook_info {
 	print "\e[36m $msg ";
 	eval {
 		print $EventDump::INST->ssend($act);
-		print "\e[0m\n";
+		print "\e[m\n";
 		1;
 	} or do {
 		print "\e[m\n";
 		&Debug::err("hook_info failed: $@");
 	};
+}
+
+our $LOG_TIME;
+
+unless ($LOG_TIME) {
+	$LOG_TIME = {
+		code => sub {
+			print "\e[0;1mTimestamp: $Janus::time\e[m\n";
+		},
+		repeat => 30,
+	};
+	&Janus::schedule($LOG_TIME);
 }
 
 1;

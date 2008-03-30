@@ -118,6 +118,8 @@ while (<$log>) {
 			}
 		}
 		&Janus::insert_full($act);
+	} elsif (/^\e\[0;1mTimestamp: (\d+)\e[m$/) {
+		$Janus::timer($1);
 	} else {
 		$state = NONE;
 	}
