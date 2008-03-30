@@ -342,6 +342,7 @@ my %default = (
 	except => '?Network RemoteJanus',
 	sendto => '?@ Network RemoteJanus',
 	nojlink => '?$',
+	IJ_RAW => '?$',
 );
 
 for my $type (keys %spec) {

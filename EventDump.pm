@@ -7,6 +7,7 @@ use Persist 'SocketHandler';
 use Nick;
 use Channel;
 use RemoteNetwork;
+use Carp;
 
 my %toirc;
 
@@ -29,6 +30,7 @@ my %esc2char = (
 	q => '"',
 );
 my %char2esc; $char2esc{$esc2char{$_}} = $_ for keys %esc2char;
+my $chlist = join '', map { /\w/ ? $_ : '\\'.$_ } keys %char2esc;
 
 sub ijstr {
 	my($ij, $itm) = @_;
@@ -37,8 +39,7 @@ sub ijstr {
 	if (!defined $itm) {
 		return '';
 	} elsif (!$ref) {
-		my $ch = join '', map { /\w/ ? $_ : '\\'.$_ } keys %char2esc;
-		$itm =~ s/([$ch])/\\$char2esc{$1}/g;
+		$itm =~ s/([$chlist])/\\$char2esc{$1}/g;
 		return '"'.$itm.'"';
 	} elsif ($ref eq 'ARRAY') {
 		my $out = '<a';
@@ -51,7 +52,7 @@ sub ijstr {
 	} elsif ($ref eq 'Nick') {
 		return 'n:'.$itm->gid();
 	} elsif ($ref eq 'Channel') {
-		return ($$ij ? 'c:' : "c($$itm):").$itm->keyname();
+		return 'c:'.$itm->keyname();
 	} elsif ($itm->isa('Network')) {
 		return 's:'.$itm->gid();
 	} elsif ($itm->isa('RemoteJanus')) {
@@ -77,7 +78,7 @@ sub ssend {
 	my($ij, $act) = @_;
 	my $out = "<$act->{type}";
 	for my $key (sort keys %$act) {
-		next if $key eq 'type' || $key eq 'except';
+		next if $key eq 'type' || $key eq 'except' || $key eq 'IJ_RAW';
 		$out .= ' '.$key.'='.$ij->ijstr($act->{$key});
 	}
 	$out.'>';
@@ -122,25 +123,33 @@ my %to_ij = (
 );
 
 sub debug_send {
-	my $ij = $INST;
 	for my $act (@_) {
-		my $type = $act->{type};
-		&Debug::action(ssend($ij, $act));
+		my $thnd = $to_ij{$act->{type}};
+		if ($thnd) {
+			&Debug::action($INST->ssend($act));
+		} else {
+			$act->{IJ_RAW} ||= $INST->ssend($act);
+			&Debug::action($act->{IJ_RAW});
+		}
 	}
 }
 
 sub dump_act {
 	my $ij = shift;
+	unless ($$ij) {
+		carp "Don't use dump_act on \$INST";
+		return ();
+	}
 	my @out;
 	for my $act (@_) {
-		my $type = $act->{type};
-		if (exists $to_ij{$type}) {
-			push @out, $to_ij{$type}->($ij, $act);
-		} else {
-			push @out, ssend($ij, $act);
+		unless ($act->{IJ_RAW}) {
+			my $thnd = $to_ij{$act->{type}};
+			my $raw = $thnd ? $thnd->($ij, $act) : $ij->ssend($act);
+			$act->{IJ_RAW} = $raw;
 		}
+		push @out, $act->{IJ_RAW};
 	}
-	grep $_, @out; #remove blank lines
+	@out;
 }
 
 my %v_type; %v_type = (

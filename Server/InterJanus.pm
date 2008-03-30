@@ -63,7 +63,7 @@ sub parse {
 		&Debug::err_in($ij, "Invalid IJ line\n");
 		return ();
 	};
-	my $act = { type => $1 };
+	my $act = { type => $1, IJ_RAW => $_[0] };
 	$ij->kv_pairs($act);
 	&Debug::err_in($ij, "bad line: $_[0]") unless /^\s*>\s*$/;
 	$act->{except} = $ij;
@@ -96,7 +96,7 @@ sub parse {
 			$auth[$$ij] = 1;
 			$act->{net} = $ij;
 			$act->{type} = 'JNETLINK';
-			delete $act->{$_} for qw/pass version ts id rid/;
+			delete $act->{$_} for qw/pass version ts id rid IJ_RAW/;
 			return $act;
 		}
 		if ($Janus::ijnets{$id} && $Janus::ijnets{$id} eq $ij) {
