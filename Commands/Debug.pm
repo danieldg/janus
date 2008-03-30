@@ -6,23 +6,28 @@ use warnings;
 use Data::Dumper;
 use Modes;
 
+our $DUMP_SEQ;
+
 sub dump_all_globals {
 	my %rv;
 	for my $pkg (@_) {
 		my $ns = do { no strict 'refs'; \%{$pkg.'::'} };
 		next unless $ns;
 		my %objarr;
-		if ($Persist::vars{$pkg}) {
+		if ($pkg eq 'Persist') {
+			$objarr{\%Persist::vars}++;
+			$objarr{\%Persist::init_args}++;
+		} elsif ($Persist::vars{$pkg}) {
 			$objarr{$_}++ for values %{$Persist::vars{$pkg}};
 		}
 		for my $var (keys %$ns) {
-			next if $var =~ /:/; # perl internal variable
+			next if $var =~ /:/ || $var eq 'ISA'; # perl internal variable
 			my $scv = *{$ns->{$var}}{SCALAR};
 			my $arv = *{$ns->{$var}}{ARRAY};
 			my $hsv = *{$ns->{$var}}{HASH};
 			$rv{'$'.$pkg.'::'.$var} = $$scv if $scv && defined $$scv;
 			$rv{'@'.$pkg.'::'.$var} = $arv  if $arv && scalar @$arv && !$objarr{$arv};
-			$rv{'%'.$pkg.'::'.$var} = $hsv  if $hsv && scalar keys %$hsv;
+			$rv{'%'.$pkg.'::'.$var} = $hsv  if $hsv && scalar keys %$hsv && !$objarr{$hsv};
 		}
 	}
 	\%rv;
@@ -34,13 +39,14 @@ sub dump_now {
 		eval { Data::Dumper::Dumper(\%Connection::queues); 1 } and last;
 	}
 
-	open my $dump, '>', "log/dump-$Janus::time" or return;
+	my $fn = 'log/dump-'.$Janus::time.'-'.++$DUMP_SEQ;
+	open my $dump, '>', $fn or return;
 	my @all = (
 		\%Janus::gnicks,
 		\%Janus::gchans,
 		\%Janus::gnets,
 		\%Janus::ijnets,
-		dump_all_globals(grep { $_ ne 'Persist' } keys %Janus::modules),
+		dump_all_globals(keys %Janus::modules),
 		&Persist::dump_all_refs(),
 		@_,
 	);
@@ -52,6 +58,7 @@ sub dump_now {
 		} and last;
 	}
 	close $dump;
+	$fn;
 }
 
 &Janus::command_add({
@@ -59,8 +66,8 @@ sub dump_now {
 	help => 'Dumps current janus internal state to a file',
 	acl => 1,
 	code => sub {
-		dump_now(@_);
-		&Janus::jmsg($_[0], 'State dumped to file log/dump-'.$Janus::time);
+		my $fn = dump_now(@_);
+		&Janus::jmsg($_[0], 'State dumped to file '.$fn);
 	},
 }, {
 	cmd => 'testdie',
