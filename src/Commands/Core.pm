@@ -72,7 +72,8 @@ use integer;
 		return &Janus::jmsg($nick, "Invalid module name") unless $name =~ /^([0-9_A-Za-z:]+)$/;
 		my $n = $1;
 		if (&Janus::reload($n)) {
-			&Janus::jmsg($nick, "Module $n reloaded");
+			my $ver = do { no strict 'refs'; ${$n.'::VERSION_NAME'} } || 'unknown';
+			&Janus::jmsg($nick, "Module $n reloaded ($ver)");
 		} else {
 			my $err = $@ || $!;
 			$err =~ s/\n/ /g;
