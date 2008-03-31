@@ -164,6 +164,7 @@ my %spec = (
 	JNETSPLIT => {
 		net => 'RemoteJanus',
 		msg => '$',
+		netsplit_quit => '?$',
 		sendto => '=$Janus::global= Janus @',
 	},
 

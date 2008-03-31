@@ -24,7 +24,10 @@ sub read_conf {
 	my %newconf;
 	my $current;
 	$conffile ||= 'janus.conf';
-	open my $conf, '<', $conffile;
+	open my $conf, '<', $conffile or do {
+		&Janus::err_jmsg($nick, "Could not open configuration file: $!");
+		return;
+	};
 	$conf->untaint(); 
 		# the configurator is assumed to have at least half a brain :)
 	while (<$conf>) {
@@ -292,7 +295,7 @@ sub autoconnect {
 		undef;
 	},
 	RUN => act => sub {
-		do $netconf{set}{save};
+		do $netconf{set}{save} if $netconf{set}{save} && -f $netconf{set}{save};
 		connect_net undef,$_ for keys %netconf;
 		&Janus::schedule({
 			repeat => 30,

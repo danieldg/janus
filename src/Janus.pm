@@ -611,7 +611,6 @@ if ($RELEASE) {
 		my $net = $act->{net};
 		my $eq = $ijnets{$net->id()};
 		if ($eq && $eq ne $net) {
-			&Debug::err("JNETSPLIT on already split network");
 			&Connection::reassign($net, undef);
 			return 1;
 		}
