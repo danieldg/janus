@@ -34,6 +34,7 @@ set {
 # Modules block: this is a list of modules which are loaded at startup.
 # Modules can also be loaded or unloaded while janus is running.
 modules {
+	Commands::Debug
 	Commands::Link
 	Commands::Modes
 	Commands::Network
@@ -68,6 +69,8 @@ link u3 {
 	linkaddr ::1
 	# Port to connect to
 	linkport 8001
+	# Source address (optional, for multihomed hosts)
+	linkbind ::1
 	# What server name is used to introduce ourselves?
 	linkname hub.janus
 	# Password which is sent
@@ -82,6 +85,8 @@ link u3 {
 	netname Test 1
 	# OPTIONAL: numeric used for the hub and for this server on other networks
 	numeric 40
+	# Force tagging on nicks matching a certain perl regex
+	force_tag ^ChanServ$
 	# Further network paramaters as defined by modules
 	send_chatops 1
 }
@@ -107,7 +112,7 @@ link myserver {
 	type InterJanus
 	linkaddr ::1
 	linkport 8009
-	linktype plain
+	linktype ssl
 	sendpass pass
 	recvpass ssap
 	netname That Other Server
