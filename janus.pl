@@ -14,9 +14,8 @@ BEGIN {
 	$ENV{PATH} = $1;
 	$ENV{SHELL} = '/bin/sh';
 	delete @ENV{'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
-	push @INC, '.';
+	do 'src/Janus.pm';
 }
-use Janus;
 use POSIX 'setsid';
 
 our $VERSION = '1.11';

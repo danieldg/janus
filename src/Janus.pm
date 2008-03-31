@@ -74,7 +74,11 @@ sub load {
 
 	my $fn = $module.'.pm';
 	$fn =~ s#::#/#g;
-	if (-f $fn && do $fn) {
+	delete $INC{$fn};
+	if (-f "src/$fn" && require $fn) {
+		my $vname = do { no strict 'refs'; ${$module.'::VERSION_NAME'} };
+		$INC{$fn} = $vname.'/'.$fn;
+
 		$modules{$module} = 2;
 		_hook(module => LOAD => $module);
 		2;
@@ -105,7 +109,7 @@ sub unload {
 
 sub Janus::INC {
 	my($self, $name) = @_;
-	open my $rv, '<', $name or return undef;
+	open my $rv, '<', 'src/'.$name or return undef;
 	my $module = $name;
 	$module =~ s/.pm$//;
 	$module =~ s#/#::#g;
@@ -641,7 +645,7 @@ if ($RELEASE) {
 	}, module => READ => sub {
 		$_[0] =~ /([0-9A-Za-z_:]+)/;
 		my $mod = $1;
-		my $fn = $mod.'.pm';
+		my $fn = 'src/'.$mod.'.pm';
 		$fn =~ s#::#/#g;
 		my $ver = '?';
 
@@ -747,6 +751,7 @@ unless ($global) {
 	my $two = 2;
 	$global = bless \$two;
 	unshift @INC, $global;
+	$INC{'Janus.pm'} = do { no strict 'refs'; $Janus::VERSION_NAME.'/Janus.pm' };
 }
 
 sub gid {
