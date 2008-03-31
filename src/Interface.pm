@@ -147,6 +147,7 @@ sub pmsg {
 		return 1;
 	}, CHATOPS => jparse => sub {
 		my $act = shift;
+		delete $act->{IJ_RAW};
 		if ($act->{src} == $janus) {
 			$act->{msg} = '['.$act->{except}->id().'] '.$act->{msg};
 		}
