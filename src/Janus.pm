@@ -74,16 +74,21 @@ sub load {
 
 	my $fn = $module.'.pm';
 	$fn =~ s#::#/#g;
+	unless (-f "src/$fn") {
+		&Debug::err("Cannot find module $module: $!");
+		$modules{$module} = 0;
+		return 0;
+	}
 	delete $INC{$fn};
-	if (-f "src/$fn" && require $fn) {
+	if (require $fn) {
 		my $vname = do { no strict 'refs'; ${$module.'::VERSION_NAME'} };
 		$INC{$fn} = $vname.'/'.$fn;
 
 		$modules{$module} = 2;
 		_hook(module => LOAD => $module);
-		2;
+		return 2;
 	} else {
-		warn "Cannot load module $module: $! $@";
+		&Debug::err("Cannot load module $module: $! $@");
 		$modules{$module} = 0;
 	}
 }
