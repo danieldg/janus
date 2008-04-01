@@ -295,7 +295,11 @@ sub autoconnect {
 		undef;
 	},
 	RUN => act => sub {
-		do $netconf{set}{save} if $netconf{set}{save} && -f $netconf{set}{save};
+		my $save = $netconf{set}{save};
+		if ($save && -f $save) {
+			$save = './'.$save unless $save =~ m#^/#;
+			do $save;
+		}
 		connect_net undef,$_ for keys %netconf;
 		&Janus::schedule({
 			repeat => 30,
