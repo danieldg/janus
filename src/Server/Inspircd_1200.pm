@@ -12,8 +12,8 @@ use strict;
 use warnings;
 use integer;
 
-our(@sendq, @servers, @serverdsc, @next_uid, @auth, @capabs, @txt2pfx, @pfx2txt);
-&Persist::register_vars(qw(sendq servers serverdsc next_uid auth capabs txt2pfx pfx2txt));
+our(@sendq, @servers, @serverdsc, @next_uid, @auth, @capabs);
+&Persist::register_vars(qw(sendq servers serverdsc next_uid auth capabs));
 
 # auth: 0/undef = unauth connection; 1 = authed, in burst; 2 = after burst
 
@@ -180,23 +180,16 @@ sub process_capabs {
 	warn "I don't know how to read protocol $capabs[$$net]{PROTOCOL}"
 		unless $capabs[$$net]{PROTOCOL} == 1200;
 
-	# PREFIX=(qaohv)~&@%+
-	local $_ = $capabs[$$net]{PREFIX};
-	my(%p2t,%t2p);
-	while (s/\((.)(.*)\)(.)/($2)/) {
-		my $txt = $net->cmode2txt($1);
-		$t2p{$txt} = $3;
-		$p2t{$3} = $txt;
-	}
-	$pfx2txt[$$net] = \%p2t;
-	$txt2pfx[$$net] = \%t2p;
+	# PREFIX=(qaohv)~&@%+ - We don't care (anymore)
 
 	# CHANMODES=Ibe,k,jl,CKMNOQRTcimnprst
 	my %split2c;
 	$split2c{substr $_,0,1}{$_} = $net->txt2cmode($_) for $net->all_cmodes();
 
 	# Without a prefix character, nick modes such as +qa appear in the "l" section
-	exists $t2p{$_} or $split2c{l}{$_} = $split2c{n}{$_} for keys %{$split2c{n}};
+	$split2c{l}{$_} = $split2c{n}{$_} for keys %{$split2c{n}};
+	$capabs[$$net]{PREFIX} =~ /\((\S+)\)\S+/ or warn;
+	delete $split2c{l}{$_} for split //, $1;
 	# tristates show up in the 4th group
 	$split2c{r}{$_} = $split2c{t}{$_} for keys %{$split2c{t}};
 
@@ -449,7 +442,7 @@ $moddef{CORE} = {
 			my $nmode = $1;
 			my $nick = $net->mynick($2) or next;
 			my %mh = map {
-				$_ = $pfx2txt[$$net]{$_};
+				$_ = $net->cmode2txt($_);
 				/n_(.*)/ ? ($1 => 1) : ();
 			} split //, $nmode;
 			push @acts, +{
@@ -974,7 +967,7 @@ $moddef{CORE} = {
 			for my $chan (@{$act->{reconnect_chans}}) {
 				next unless $chan->is_on($net);
 				my $mode = join '', map {
-					$chan->has_nmode($_, $nick) ? ($txt2pfx[$$net]{"n_$_"} || '') : ''
+					$chan->has_nmode($_, $nick) ? ($net->txt2cmode("n_$_") || '') : ''
 				} qw/voice halfop op admin owner/;
 				push @out, $net->cmd1(FJOIN => $chan, $chan->ts(), $mode.','.$nick->str($net));
 			}
@@ -1018,7 +1011,7 @@ $moddef{CORE} = {
 		}
 		my $mode = '';
 		if ($act->{mode}) {
-			$mode .= ($txt2pfx[$$net]{"n_$_"} || '') for keys %{$act->{mode}};
+			$mode .= ($net->txt2cmode("n_$_") || '') for keys %{$act->{mode}};
 		}
 		$net->cmd1(FJOIN => $chan, $chan->ts(), $mode.','.$net->_out($act->{src}));
 	}, PART => sub {
