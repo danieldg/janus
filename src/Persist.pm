@@ -3,7 +3,6 @@
 package Persist;
 use strict;
 use warnings;
-use Attribute::Handlers;
 
 our %vars;
 
@@ -88,39 +87,33 @@ sub new {
 			$init_args{$pkg}{$arg}[$n] = $args{$arg};
 		}
 	}
+	my @objid;
 	for my $pkg (@pkgs) {
 		no strict 'refs';
 		my $init = *{$pkg.'::_init'}{CODE};
-		$init->($s, \%args) if $init;
+		push @objid, $init->($s, \%args) if $init;
 	}
+	&Debug::alloc($s, 1, grep defined && !ref, @objid);
 	$s;
 }
 
 sub DESTROY {
 	my $self = shift;
 	return unless $$self;
-	$self->_destroy() if $self->can('_destroy');
 	my @pkgs = gid_find ref $self;
+	my @objid;
+	for my $pkg (@pkgs) {
+		no strict 'refs';
+		my $dest = *{$pkg.'::_destroy'}{CODE};
+		push @objid, $dest->($self) if $dest;
+	}
+	&Debug::alloc($self, 0, grep defined && !ref, @objid);
 	for my $pkg (@pkgs) {
 		for my $aref (values %{$vars{$pkg}}) {
 			delete $aref->[$$self];
 		}
 	}
 	push @{$reuse{$pkgs[0]}}, $$self;
-}
-
-sub Get : ATTR(ARRAY) {
-#	my($pk, $sym, $var, $attr, $dat, $phase) = @_;
-	my $var = $_[2];
-	no strict 'refs';
-	*{"$_[0]::$_[4]"} = sub {
-		$var->[${$_[0]}];
-	}
-}
-
-sub Arg : ATTR(ARRAY) {
-	my($pk, $sym, $var, $attr, $dat, $phase) = @_;
-	$init_args{$pk}{$dat} = $var;
 }
 
 sub _enhash {

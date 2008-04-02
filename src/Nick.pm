@@ -78,7 +78,7 @@ sub _init {
 	}
 	# prevent mode bouncing
 	$mode[$$nick] |= $umodebit{oper} if $mode[$$nick] & $umodebit{service};
-	&Debug::alloc($nick, 1, $homenick[$$nick]);
+	($gid, $homenick[$$nick]);
 }
 
 sub to_ij {
@@ -101,7 +101,7 @@ sub to_ij {
 
 sub _destroy {
 	my $n = $_[0];
-	&Debug::alloc($n, 0, $homenick[$$n]);
+	($gid[$$n], $homenick[$$n]);
 }
 
 # send to all but possibly one network for NICKINFO

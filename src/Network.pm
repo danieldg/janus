@@ -52,7 +52,6 @@ sub lid {
 sub _init {
 	my $net = $_[0];
 	$gid[$$net] ||= $RemoteJanus::self->id().':'.$$net;
-	&Debug::alloc($net, 1);
 }
 
 sub _set_name {
@@ -80,7 +79,7 @@ sub to_ij {
 
 sub _destroy {
 	my $net = $_[0];
-	&Debug::alloc($net, 0, $netname[$$net]);
+	$netname[$$net];
 }
 
 sub str {

@@ -764,11 +764,9 @@ sub gid {
 
 # we load these modules down here because their loading uses
 # some of the subs defined above
-eval q[
-	use Debug;
-	use Connection;
-	use EventDump;
-	1;
-] or die $@;
+require Debug;
+require Persist;
+require Connection;
+require EventDump;
 
 1;

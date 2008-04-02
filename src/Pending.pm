@@ -13,11 +13,7 @@ our(@buffer, @delegate, @peer);
 sub _init {
 	my $net = shift;
 	my($addr,$port) = $Conffile::inet{addr}->($peer[$$net]);
-	&Debug::alloc($net, 1, "from $addr:$port");
-}
-
-sub DESTROY {
-	&Debug::alloc($_[0], 0);
+	"from $addr:$port";
 }
 
 sub id {

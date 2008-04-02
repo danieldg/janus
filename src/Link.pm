@@ -40,11 +40,6 @@ sub _init {
 			$other[$$l] = undef if $l;
 		}
 	});
-	&Debug::alloc($link, 1);
-}
-
-sub _destroy {
-	&Debug::alloc($_[0], 0);
 }
 
 sub ready {

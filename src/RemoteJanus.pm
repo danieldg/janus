@@ -24,13 +24,8 @@ sub to_ij {
 	$out;
 }
 
-sub _init {
-	&Debug::alloc($_[0], 1);
-}
-
 sub _destroy {
-	my $net = $_[0];
-	&Debug::alloc($net, 0, $id[$$net]);
+	$id[${$_[0]}];
 }
 
 sub jlink {
