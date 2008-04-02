@@ -70,7 +70,8 @@ use warnings;
 		&Janus::schedule(+{
 			delay => 2,
 			code => sub {
-				exec 'perl', '-T', 'janus.pl', @main::ARGV;
+				my @arg = map { /(.*)/ ? $1 : () } @main::ARGV;
+				exec 'perl', '-T', 'janus.pl', @arg;
 			},
 		});
 	},
