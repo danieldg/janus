@@ -1,34 +1,120 @@
+# Janus configuration file
+#
+# This is a line-based configuation file, divided into blocks for networks
+# and other grouped settings.
+
+# Set block: settings for the janus server itself
 set {
-	ipv6 1
-	diepass verysecret
+	# Server name - set this to a single unique word. This is used to identify
+	# the server in the interjanus protocol
 	name yourserver
+	# Saved data location - this is the file which janus will load and save
+	# state (such as the list of shared channels) between runs
+	save janus.dat
+	# IPv6 support - this value is only read once at startup,
+	# and if it is enabled, the IPv6 socket modules will be used
+	ipv6 1
+	# Janus nick - change this if you want a different interface nick
+	# ident and host are similarly settable
+	janus_nick janus
+	# Rehash password - if set, this password is required for non-opers to
+	# rehash the configuration.
 	pass rehashdude
+	# This password is required for opers to be able to kill or restart the
+	# janus server. If unset, those commands are unavailable
+#	diepass killme
+
+	# Other parameters as defined by modules may be present here
+	# Example: Modules::LogRotate takes a logfile format and an
+	#          action to take on old logfiles
+	datefmt %Y%m%d-%H%M%S
+	oldlog gzip
 }
 
-link t1 {
-	type Unreal3
-	linkaddr ::1
-	linkport 8001
-	linkname hub.janus
-	sendpass pass
-	recvpass pass
+# Modules block: this is a list of modules which are loaded at startup.
+# Modules can also be loaded or unloaded while janus is running.
+modules {
+	Commands::Debug
+	Commands::Link
+	Commands::Modes
+	Commands::Network
+	Commands::Request
+	Commands::Save
+	Modules::Ban
+	Modules::LogRotate
+	Modules::Signals
+}
+
+# Listen block: janus will listen on this port for incoming server connections
+listen 8005 {
 	linktype plain
-	server irc1.testnet
-	numeric 40
-	netname Test 1
+}
+
+# SSL listen bock: requires an SSL server certificate
+listen 8006 {
+	linktype ssl
+	certfile server.cert.pem
+	keyfile server.key.pem
+}
+
+# Network link block - one block is required per network
+# link <netid>
+link u3 {
+	# Server type. This is a module in the Server package
+	type Unreal
+	# Should we try to autoconnect to this network by default?
 	autoconnect 1
+	# Address to connect to.
+	# If set::ipv6 is enabled, use ::ffff:1.2.3.4 for IPv4 addresses
+	linkaddr ::1
+	# Port to connect to
+	linkport 8001
+	# Source address (optional, for multihomed hosts)
+	linkbind ::1
+	# What server name is used to introduce ourselves?
+	linkname hub.janus
+	# Password which is sent
+	sendpass pass
+	# Password which is expected to receive
+	recvpass pass
+	# Link type: either plain or ssl
+	linktype plain
+	# Name of the remote server (used for incoming connections)
+	server irc1.testnet
+	# Long name of this network
+	netname Test 1
+	# OPTIONAL: numeric used for the hub and for this server on other networks
+	numeric 40
+	# Force tagging on nicks matching a certain perl regex
+	force_tag ^ChanServ$
+	# Further network paramaters as defined by modules
+	send_chatops 1
 }
 
-link insp {
-	type Unreal4
+# Link block for an Unreal 4.0 or InspIRCd 1.1 server
+# (protocol details, module list, etc are autonegotiated on connect)
+link u4 {
+	type Inspircd_1105
 	linkaddr ::1
-	linkport 8002
+	linkport 8003
 	linkname hub.janus
 	linktype plain
-	server irc2.testnet
+	server penguin.omega.org.za
 	sendpass pass
 	recvpass password
-	numeric 41
-	netname Insp 1
+	netname Unreal 4.0 Test Server
 	autoconnect 1
+}
+
+# Inter-janus link block
+# The link id must match the set::name of the remote server
+link myserver {
+	type InterJanus
+	linkaddr ::1
+	linkport 8009
+	linktype ssl
+	sendpass pass
+	recvpass ssap
+	netname That Other Server
+	autoconnect 0
 }

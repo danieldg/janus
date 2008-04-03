@@ -14,16 +14,16 @@ BEGIN {
 	$ENV{PATH} = $1;
 	$ENV{SHELL} = '/bin/sh';
 	delete @ENV{'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
-	push @INC, '.';
+	do './src/Janus.pm';
 }
-use Janus;
 use POSIX 'setsid';
 
-our $VERSION = '1.10';
+our $VERSION = '1.11';
 
 my $args = @ARGV && $ARGV[0] =~ /^-/ ? shift : '';
 
-unless ($args =~ /d/) {
+unless ($^P || $args =~ /d/) {
+	# $^P is nonzero if run inside perl -d
 	open STDIN, '/dev/null' or die $!;
 	my $pid = fork;
 	die $! unless defined $pid;
@@ -40,6 +40,7 @@ unless ($args =~ /d/) {
 
 $| = 1;
 $SIG{PIPE} = 'IGNORE';
+$SIG{CHLD} = 'IGNORE';
 
 &Janus::load($_) or die for qw(Bridge Conffile Interface Actions Commands::Core);
 
@@ -49,16 +50,4 @@ $SIG{PIPE} = 'IGNORE';
 eval { 
 	1 while &Connection::timestep();
 	1;
-} || do {
-	print "Aborting, error=$@\n";
-	my %all;
-	for my $net (values %Janus::nets) {
-		$net = $net->jlink() if $net->jlink();
-		$all{$net} = $net;
-	}
-	&Janus::delink($_, 'aborting') for values %all;
-};
-
-&Janus::insert_full(+{ type => 'TERMINATE' });
-
-print "All networks disconnected. Goodbye!\n";
+} ? &Debug::info("Goodbye!\n") : &Debug::err("Aborting, error=$@");
