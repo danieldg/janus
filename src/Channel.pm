@@ -59,7 +59,7 @@ Hash of modetext => modeval (see Modes.pm)
 our(@ts, @name, @topic, @topicts, @topicset, @mode, @nicks, @nmode);
 
 &Persist::register_vars(qw(ts name topic topicts topicset mode nicks nmode));
-&Persist::autoget(qw(ts name topic topicts topicset), all_modes => \@mode);
+&Persist::autoget(qw(ts topic topicts topicset), keyname => \@name, all_modes => \@mode);
 &Persist::autoinit(qw(ts topic topicts topicset));
 
 my %nmodebit = (
@@ -138,6 +138,7 @@ sub _init {
 		$ts[$$c] += 0;
 		$ts[$$c] = ($Janus::time + 60) if $ts[$$c] < 1000000;
 	}
+	$name[$$c] = $ifo->{name};
 }
 
 sub _destroy {

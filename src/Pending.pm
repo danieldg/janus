@@ -52,7 +52,6 @@ sub parse {
 				&Janus::in_socket($rnet, $l);
 			}
 		}
-			&Debug::info("Shifting new connection #$$pnet to InterJanus link #$$ij ".$ij->id());
 	}
 	();
 }

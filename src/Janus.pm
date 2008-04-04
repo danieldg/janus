@@ -598,27 +598,6 @@ if ($RELEASE) {
 		my $id = $net->name();
 		delete $gnets{$net->gid()};
 		delete $nets{$id};
-	}, JNETSPLIT => check => sub {
-		my $act = shift;
-		my $net = $act->{net};
-		my $eq = $ijnets{$net->id()};
-		if ($eq && $eq ne $net) {
-			&Connection::reassign($net, undef);
-			return 1;
-		}
-		undef;
-		my @alljnets = values %ijnets;
-		for my $snet (@alljnets) {
-			next unless $snet->parent() && $net eq $snet->parent();
-			&Janus::insert_full(+{
-				type => 'JNETSPLIT',
-				net => $snet,
-				msg => $act->{msg},
-				netsplit_quit => 1,
-				nojlink => 1,
-			});
-		}
-				nojlink => 1,
 	}, module => READ => sub {
 		$_[0] =~ /([0-9A-Za-z_:]+)/;
 		my $mod = $1;

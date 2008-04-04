@@ -7,6 +7,7 @@ use warnings;
 use integer;
 use Listener;
 use Connection;
+use RemoteJanus;
 
 our $conffile;
 our %netconf;

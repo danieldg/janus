@@ -6,6 +6,7 @@ use Persist 'SocketHandler';
 use Carp qw(cluck);
 use strict;
 use warnings;
+use RemoteJanus;
 
 =head1 Network
 

@@ -298,7 +298,7 @@ sub str {
 		my $act = $_[0];
 		my $nick = $act->{dst};
 		my $old = $homenick[$$nick];
-		my $new = $act->{nick};
+		my $to = $act->{nick};
 
 		my $from = $nick[$$nick];
 		$Janus::nicks{lc $to} = delete $Janus::nicks{lc $from};

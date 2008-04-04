@@ -1,6 +1,6 @@
 # Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
-package Server::Unreal;
+package Server::Unreal3;
 use Debug;
 use Nick;
 use Modes;

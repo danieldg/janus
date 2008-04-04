@@ -135,7 +135,7 @@ sub parse { () }
 sub send {
 	my $net = shift;
 	for my $act (@_) {
-		if ($act->{type} eq 'MSG' && $act->{msgtype} eq 'PRIVMSG') {
+		if ($act->{type} eq 'MSG' && $act->{msgtype} eq 'PRIVMSG' && $act->{dst} == $janus) {
 			my $src = $act->{src} or next;
 			$_ = $act->{msg};
 			my $cmd = s/^\s*(?:@\S+\s+)?([^@ ]\S*)\s*// ? lc $1 : 'unk';
