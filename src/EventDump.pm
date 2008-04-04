@@ -3,6 +3,7 @@
 package EventDump;
 use strict;
 use warnings;
+use SocketHandler;
 use Persist 'SocketHandler';
 use Nick;
 use Channel;
