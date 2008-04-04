@@ -7,6 +7,7 @@ use SocketHandler;
 use Persist 'SocketHandler';
 use Nick;
 use Channel;
+use RemoteNetwork;
 use Carp;
 
 my %toirc;

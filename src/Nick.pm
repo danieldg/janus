@@ -30,8 +30,8 @@ Last nick-change timestamp of this user (to help determine collision resolution)
 
 =cut
 
-our(@gid, @homenet, @homenick, @nets, @nick, @chans, @mode, @info, @ts);
-&Persist::register_vars(qw(gid homenet homenick nets nick chans mode info ts));
+our(@gid, @homenet, @homenick, @nets, @chans, @mode, @info, @ts);
+&Persist::register_vars(qw(gid homenet homenick nets chans mode info ts));
 &Persist::autoget(qw(gid homenet homenick ts));
 
 our %umodebit = ();
@@ -65,7 +65,6 @@ sub _init {
 	$homenet[$$nick] = $net;
 	$homenick[$$nick] = $ifo->{nick};
 	$nets[$$nick] = { $$net => $net };
-	$nick[$$nick] = $ifo->{nick};
 	$chans[$$nick] = [];
 	$ts[$$nick] = 0 + ($ifo->{ts} || $Janus::time);
 	$info[$$nick] = $ifo->{info} || {};
@@ -270,7 +269,7 @@ Get the nick's name on the given network
 
 sub str {
 	my($nick,$net) = @_;
-	$nick[$$nick];
+	$homenick[$$nick];
 }
 
 =back
@@ -300,9 +299,9 @@ sub str {
 		my $old = $homenick[$$nick];
 		my $to = $act->{nick};
 
-		my $from = $nick[$$nick];
+		my $from = $homenick[$$nick];
 		$Janus::nicks{lc $to} = delete $Janus::nicks{lc $from};
-		$nick[$$nick] = $to;
+		$homenick[$$nick] = $to;
 
 		$ts[$$nick] = 0+$act->{nickts} if $act->{nickts};
 		for my $id (keys %{$nets[$$nick]}) {
@@ -339,11 +338,11 @@ sub str {
 		for my $chan (@clist) {
 			$chan->part($nick);
 		}
-		delete $Janus::nicks{lc $nick[$$nick]};
+		delete $Janus::nicks{lc $homenick[$$nick]};
 	}, NEWNICK => act => sub {
 		my $act = $_[0];
 		my $nick = $act->{dst};
-		$Janus::nicks{lc $nick[$$nick]} = $nick;
+		$Janus::nicks{lc $homenick[$$nick]} = $nick;
 	}, JOIN => act => sub {
 		my $act = shift;
 		my $nick = $act->{src};
