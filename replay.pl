@@ -14,12 +14,11 @@ BEGIN {
 	$ENV{PATH} = $1;
 	$ENV{SHELL} = '/bin/sh';
 	delete @ENV{'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
-	push @INC, '.';
+	do './src/Janus.pm' or die $@;
 }
-use Janus;
 use POSIX 'setsid';
 
-our $VERSION = '1.11';
+our $VERSION = 'replay';
 
 $| = 1;
 $SIG{PIPE} = 'IGNORE';
