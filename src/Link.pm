@@ -27,6 +27,17 @@ our(@lock, @chan, @ready, @expire, @other, @origin);
 &Persist::autoget(lockid => \@lock);
 &Persist::autoinit(qw(other origin));
 
+sub _rm_lock {
+	my $itm = shift;
+	my $l = delete $bylock{$itm->{id}};
+	$other[$$l] = undef if $l;
+}
+
+sub _retry {
+	my $itm = shift;
+	&Janus::append($itm->{origin});
+}
+
 sub _init {
 	my $link = shift;
 	my $id = $RemoteJanus::self->id().':'.++$lockmax;
@@ -35,10 +46,8 @@ sub _init {
 	$bylock{$id} = $link;
 	&Janus::schedule(+{
 		delay => 61,
-		code => sub {
-			my $l = delete $bylock{$id};
-			$other[$$l] = undef if $l;
-		}
+		id => $id,
+		code => \&_rm_lock,
 	});
 }
 
@@ -222,10 +231,9 @@ sub unlock {
 			# linkfile, if 3 or greater, is the retry count
 			&Janus::schedule(+{
 				# randomize the delay to try to avoid collisions
-				delay => (10 + int(rand(10))),
-				code => sub {
-					&Janus::append($relink);
-				}
+				delay => (5 + int(rand(25))),
+				origin => $relink,
+				code => \&_retry,
 			}) unless $relink->{linkfile} > 20 || $abort;
 			return;
 		}
