@@ -12,8 +12,8 @@ use strict;
 use warnings;
 use integer;
 
-our(@sendq, @servers, @serverdsc, @next_uid, @auth, @capabs);
-&Persist::register_vars(qw(sendq servers serverdsc next_uid auth capabs));
+our(@sendq, @servers, @serverdsc, @servernum, @next_uid, @auth, @capabs);
+&Persist::register_vars(qw(sendq servers serverdsc servernum next_uid auth capabs));
 
 # auth: 0/undef = unauth connection; 1 = authed, in burst; 2 = after burst
 
@@ -181,6 +181,8 @@ sub process_capabs {
 		unless $capabs[$$net]{PROTOCOL} == 1200;
 
 	# PREFIX=(qaohv)~&@%+ - We don't care (anymore)
+	$capabs[$$net]{PREFIX} =~ /\((\S+)\)\S+/ or warn;
+	my $pfxmodes = $1;
 
 	# CHANMODES=Ibe,k,jl,CKMNOQRTcimnprst
 	my %split2c;
@@ -188,8 +190,8 @@ sub process_capabs {
 
 	# Without a prefix character, nick modes such as +qa appear in the "l" section
 	$split2c{l}{$_} = $split2c{n}{$_} for keys %{$split2c{n}};
-	$capabs[$$net]{PREFIX} =~ /\((\S+)\)\S+/ or warn;
-	delete $split2c{l}{$_} for split //, $1;
+	delete $split2c{l}{$net->cmode2txt($_)} for split //, $pfxmodes;
+
 	# tristates show up in the 4th group
 	$split2c{r}{$_} = $split2c{t}{$_} for keys %{$split2c{t}};
 
@@ -322,7 +324,7 @@ $moddef{CORE} = {
 			ts => $_[3],
 			nick => $_[4],
 			info => {
-				home_server => $_[0],
+				home_server => $servernum[$$net]{$_[0]},
 				host => $_[5],
 				vhost => $_[6],
 				ident => $_[7],
@@ -573,7 +575,6 @@ $moddef{CORE} = {
 	SERVER => sub {
 		my $net = shift;
 		unless ($auth[$$net]) {
-			# TODO record the numerics here
 			if ($_[3] eq $net->cparam('recvpass')) {
 				$auth[$$net] = 1;
 				$net->send(['INIT', 'BURST '.$Janus::time ]);
@@ -581,6 +582,7 @@ $moddef{CORE} = {
 				$net->send(['INIT', 'ERROR :Bad password']);
 			}
 			$serverdsc[$$net]{lc $_[2]} = $_[-1];
+			$servernum[$$net]{$_[5]} = $_[2];
 			return +{
 				type => 'BURST',
 				net => $net,
@@ -589,6 +591,7 @@ $moddef{CORE} = {
 			# recall parent
 			$servers[$$net]{lc $_[2]} = lc $_[0];
 			$serverdsc[$$net]{lc $_[2]} = $_[-1];
+			$servernum[$$net]{$_[5]} = $_[2];
 			return ();
 		}
 	}, SQUIT => sub {
@@ -605,9 +608,14 @@ $moddef{CORE} = {
 				$sgone{$_} = 1 if $sgone{$servers[$$net]{$_}};
 			}
 		}
-		&Debug::info('Lost servers: '.join(' ', sort keys %sgone));
-		delete $servers[$$net]{$_} for keys %sgone;
-		delete $serverdsc[$$net]{$_} for keys %sgone;
+		my @ksg = sort keys %sgone;
+		&Debug::info('Lost servers: '.join(' ', @ksg));
+		delete $servers[$$net]{$_} for @ksg;
+		delete $serverdsc[$$net]{$_} for @ksg;
+		for (keys %{$servernum[$$net]}) {
+			$sgone{$_}++ if $sgone{$servernum[$$net]{$_}};
+		}
+		delete $servernum[$$net]{$_} for keys %sgone;
 
 		my @quits;
 		for my $nick ($net->all_nicks()) {
@@ -969,7 +977,11 @@ $moddef{CORE} = {
 				my $mode = join '', map {
 					$chan->has_nmode($_, $nick) ? ($net->txt2cmode("n_$_") || '') : ''
 				} qw/voice halfop op admin owner/;
-				push @out, $net->cmd1(FJOIN => $chan, $chan->ts(), $mode.','.$nick->str($net));
+				my @cmodes = &Modes::to_multi($net, &Modes::dump($chan));
+				@cmodes = (['+']) unless @cmodes && @{$cmodes[0]};
+				warn "w00t said this wouldn't happen" if @cmodes != 1;
+
+				push @out, $net->cmd1(FJOIN => $chan, $chan->ts(), @{$cmodes[0]}, $mode.','.$nick->str($net));
 			}
 			return @out;
 		} else {
@@ -1013,7 +1025,11 @@ $moddef{CORE} = {
 		if ($act->{mode}) {
 			$mode .= ($net->txt2cmode("n_$_") || '') for keys %{$act->{mode}};
 		}
-		$net->cmd1(FJOIN => $chan, $chan->ts(), $mode.','.$net->_out($act->{src}));
+		my @cmodes = &Modes::to_multi($net, &Modes::dump($chan));
+		@cmodes = (['+']) unless @cmodes && @{$cmodes[0]};
+		warn "w00t said this wouldn't happen" if @cmodes != 1;
+
+		$net->cmd1(FJOIN => $chan, $chan->ts(), @{$cmodes[0]}, $mode.','.$net->_out($act->{src}));
 	}, PART => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, PART => $act->{dst}, $act->{msg});

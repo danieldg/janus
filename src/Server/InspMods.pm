@@ -38,7 +38,8 @@ mdef 'm_auditorium.so', cmode => { u => 'r_auditorium' };
 mdef 'm_banexception.so', cmode => { e => 'l_except' };
 mdef 'm_banredirect.so'; # this just adds syntax to channel bans
 mdef 'm_blockamsg.so';
-mdef 'm_blockcaps.so', cmode => { P => 'r_blockcaps' };
+mdef 1105, 4000, 'm_blockcaps.so', cmode => { P => 'r_blockcaps' };
+mdef 1200, 'm_blockcaps.so', cmode => { B => 'r_blockcaps' };
 mdef 'm_blockcolor.so', cmode => { c => 't2_colorblock' };
 mdef 'm_botmode.so', umode => { B => 'bot' };
 
@@ -111,6 +112,7 @@ mdef 'm_customtitle.so';
 mdef 'm_cycle.so';
 mdef 'm_dccallow.so', cmds => { DCCALLOW => \&ignore };
 mdef 'm_deaf.so', umode => { d => 'deaf_chan' };
+mdef 1200, 'm_delayjoin.so', cmode => { D => 'delayjoin' };
 mdef 'm_denychans.so';
 mdef 'm_devoice.so', cmds => {
 	DEVOICE => sub {

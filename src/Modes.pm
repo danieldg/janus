@@ -156,6 +156,26 @@ sub to_multi {
 	@out;
 }
 
+=item (modes, args, dirs) Modes::dump(chan)
+
+Returns the non-list modes of the channel
+
+=cut
+
+sub dump {
+	my $chan = shift;
+	my %modes = %{$chan->all_modes()};
+	my(@modes, @args, @dirs);
+	for my $txt (keys %modes) {
+		my $type = $mtype{$txt};
+		next if $type eq 'l';
+		push @modes, $txt;
+		push @dirs, '+';
+		push @args, $modes{$txt};
+	}
+	(\@modes, \@args, \@dirs);
+}
+
 =item (modes, args, dirs) Modes::delta(chan1, chan2)
 
 Returns the mode change required to make chan1's modes equal to
