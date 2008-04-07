@@ -764,6 +764,7 @@ $moddef{CORE} = {
 	MODULES => \&ignore,
 	ENDBURST => sub {
 		my $net = shift;
+		return () if $_[0]; # remote burst
 		return (+{
 			type => 'LINKED',
 			net => $net,
@@ -810,6 +811,7 @@ $moddef{CORE} = {
 	SNONOTICE => \&ignore,
 	WALLOPS => \&ignore,
 	RCONNECT => \&ignore,
+	MAP => \&ignore,
 	METADATA => sub {
 		my $net = shift;
 		my $key = $_[3];
