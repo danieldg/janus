@@ -174,12 +174,12 @@ sub _init {
 		}
 		&Debug::err("Constructing unkeyed channel!") unless $keyname[$$c];
 	}
-	join ',', map { $_.$names[$$c]{$_} } keys %{$names[$$c]};
+	join ',', sort map { $_.$names[$$c]{$_} } keys %{$names[$$c]};
 }
 
 sub _destroy {
 	my $c = $_[0];
-	join ',', map { $_.$names[$$c]{$_} } keys %{$names[$$c]};
+	join ',', sort map { $_.$names[$$c]{$_} } keys %{$names[$$c]};
 }
 
 sub _mergenet {

@@ -170,7 +170,7 @@ sub unlock {
 			return;
 		}
 		if ($act->{override} || $recip eq 'any' || lc $recip eq lc $act->{slink}) {
-			&Debug::info("Link request: linking!");
+			&Debug::info("Link request: linking $kn1 and $kn2");
 			my $link1 = Link->new(origin => $act);
 			my $link2 = Link->new(origin => $act, other => $link1);
 			$other[$$link1] = $link2;
