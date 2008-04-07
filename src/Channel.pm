@@ -151,12 +151,13 @@ sub _init {
 	}
 	if ($ifo->{net}) {
 		my $net = $ifo->{net};
-		$keyname[$$c] = $net->gid().$ifo->{name};
+		my $kn = lc $net->gid().$ifo->{name};
+		$keyname[$$c] = $kn;
 		$nets[$$c]{$$net} = $net;
 		$names[$$c]{$$net} = $ifo->{name};
-		$Janus::gchans{$net->gid().$ifo->{name}} = $c;
+		$Janus::gchans{$kn} = $c;
 	} elsif ($ifo->{merge}) {
-		$keyname[$$c] = $ifo->{merge};
+		$keyname[$$c] = lc $ifo->{merge};
 		$names[$$c] = {};
 		$nets[$$c] = {};
 	} else {
@@ -168,7 +169,7 @@ sub _init {
 			my $net = $Janus::gnets{$id} or warn next;
 			$names[$$c]{$$net} = $name;
 			$nets[$$c]{$$net} = $net;
-			my $kn = $net->gid().$name;
+			my $kn = lc $net->gid().$name;
 			$Janus::gchans{$kn} = $c unless $Janus::gchans{$kn};
 			$keyname[$$c] = $kn; # it just has to be one of them
 		}
@@ -207,7 +208,7 @@ sub _link_into {
 		$dbg .= " $id";
 		my $net = $nets[$$src]{$id};
 		my $name = $names[$$src]{$id};
-		$Janus::gchans{$net->gid().$name} = $chan;
+		$Janus::gchans{lc $net->gid().$name} = $chan;
 		delete $dstnets{$id};
 		next if $net->jlink();
 		$dbg .= '+';
@@ -321,7 +322,7 @@ sub unhook_destroyed {
 	for my $id (keys %{$nets[$$chan]}) {
 		my $net = $nets[$$chan]{$id};
 		my $name = $names[$$chan]{$id};
-		delete $Janus::gchans{$net->gid().$name};
+		delete $Janus::gchans{lc $net->gid().$name};
 		next if $net->jlink();
 		$net->replace_chan($name, undef);
 	}
@@ -453,7 +454,7 @@ sub can_lock {
 			my $chan = $net->chan($act->{name}, 1) or return 1;
 			$act->{dst} = $chan;
 		} elsif ($net->isa('Network')) {
-			my $kn = $net->gid().$act->{name};
+			my $kn = lc $net->gid().$act->{name};
 			my $chan = $Janus::gchans{$kn};
 			$act->{dst} = $chan if $chan;
 		}
@@ -565,7 +566,7 @@ sub can_lock {
 		my %from;
 		for my $nid (keys %{$nets[$$chan]}) {
 			my $net = $nets[$$chan]{$nid} or next;
-			my $kn = $net->gid().$names[$$chan]{$nid};
+			my $kn = lc $net->gid().$names[$$chan]{$nid};
 			my $src = $Janus::gchans{$kn} or next;
 			$from{$$src} = $src;
 		}

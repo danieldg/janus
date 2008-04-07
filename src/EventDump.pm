@@ -168,7 +168,7 @@ my %v_type; %v_type = (
 		$Janus::gnicks{$1.$2} || $Janus::gnets{$1};
 	}, 'c' => sub {
 		s/^c:([^ >]+)// or return undef;
-		$Janus::gchans{$1};
+		$Janus::gchans{lc $1};
 	}, 's' => sub {
 		s/^s:([^ >]+)// or return undef;
 		$Janus::gnets{$1};
