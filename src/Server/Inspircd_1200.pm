@@ -741,14 +741,13 @@ $moddef{CORE} = {
 		if ($nick->homenet eq $net) {
 			&Debug::warn_in($net, "Misdirected SVSNICK!");
 			return ();
-		} elsif (lc $nick->homenick eq lc $_[2]) {
+		} elsif (lc $nick->homenick eq lc $nick->str($net)) {
 			return +{
 				type => 'RECONNECT',
 				src => $net->item($_[0]),
 				dst => $nick,
 				net => $net,
 				killed => 0,
-				sendto => [ $net ],
 			};
 		} else {
 			&Debug::warn_in($net, "Ignoring SVSNICK on already tagged nick");
@@ -985,7 +984,7 @@ $moddef{CORE} = {
 			}
 			return @out;
 		} else {
-			return $net->cmd2($act->{from}, NICK => $act->{to}, $nick->ts());
+			return $net->cmd2($act->{dst}, NICK => $act->{to}, $nick->ts());
 		}
 	}, NICK => sub {
 		my($net,$act) = @_;
