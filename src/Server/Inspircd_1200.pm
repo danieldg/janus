@@ -580,6 +580,7 @@ $moddef{CORE} = {
 				$net->send(['INIT', 'BURST '.$Janus::time ]);
 			} else {
 				$net->send(['INIT', 'ERROR :Bad password']);
+				return ();
 			}
 			$serverdsc[$$net]{lc $_[2]} = $_[-1];
 			$servernum[$$net]{$_[5]} = $_[2];
@@ -588,8 +589,7 @@ $moddef{CORE} = {
 				net => $net,
 			};
 		} else {
-			# recall parent
-			$servers[$$net]{lc $_[2]} = lc $_[0];
+			$servers[$$net]{lc $_[2]} = $_[0] =~ /^\d/ ? $servernum[$$net]{$_[0]} : lc $_[0];
 			$serverdsc[$$net]{lc $_[2]} = $_[-1];
 			$servernum[$$net]{$_[5]} = $_[2];
 			return ();
@@ -764,7 +764,11 @@ $moddef{CORE} = {
 	MODULES => \&ignore,
 	ENDBURST => sub {
 		my $net = shift;
-		return () if $_[0]; # remote burst
+		if ($_[0]) {
+			my $srv = $servernum[$$net]{$_[0]};
+			return () if $servers[$$net]{lc $srv};
+			# remote burst
+		}
 		return (+{
 			type => 'LINKED',
 			net => $net,
