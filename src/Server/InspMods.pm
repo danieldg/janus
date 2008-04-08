@@ -112,7 +112,7 @@ mdef 'm_customtitle.so';
 mdef 'm_cycle.so';
 mdef 'm_dccallow.so', cmds => { DCCALLOW => \&ignore };
 mdef 'm_deaf.so', umode => { d => 'deaf_chan' };
-mdef 1200, 'm_delayjoin.so', cmode => { D => 'delayjoin' };
+mdef 1200, 'm_delayjoin.so', cmode => { D => 'r_delayjoin' };
 mdef 'm_denychans.so';
 mdef 'm_devoice.so', cmds => {
 	DEVOICE => sub {

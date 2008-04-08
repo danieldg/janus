@@ -19,7 +19,7 @@ $mtype{$_} = 'r' for qw/
 	ctcpblock invite moderated mustjoin noinvite
 	nokick noknock nooperover norenick noticeblock
 	oper operadmin opernetadm opersvsadm reginvite
-	register regmoderated sslonly topic
+	register regmoderated sslonly topic delayjoin
 /;
 
 =head1 IRC Mode utilities
