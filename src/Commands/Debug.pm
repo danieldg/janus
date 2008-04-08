@@ -35,6 +35,9 @@ sub dump_all_globals {
 
 sub dump_now {
 	my $fn = 'log/dump-'.$Janus::time.'-'.++$DUMP_SEQ;
+	while (-f $fn) {
+		$fn = 'log/dump-'.$Janus::time.'-'.++$DUMP_SEQ;
+	}
 	open my $dump, '>', $fn or return undef;
 	my $gbls = dump_all_globals(keys %Janus::modules);
 	my $objs = &Persist::dump_all_refs();
@@ -50,11 +53,14 @@ sub dump_now {
 		}
 	}
 	for my $q (@Connection::queues) {
-		$seen{'$Replay::thaw_fd->('.$q->[&Connection::FD()].')'} = $q->[&Connection::SOCK()];
+		my $sock = $q->[&Connection::SOCK()];
+		next unless ref $sock;
+		$seen{'$Replay::thaw_fd->('.$q->[&Connection::FD()].')'} = $sock;
 	}
 
 	my $dd = Data::Dumper->new([]);
 	$dd->Sortkeys(1);
+	$dd->Bless('findobj');
 	$dd->Seen(\%seen);
 
 	$dd->Names([qw(gnicks gchans gnets ijnets)])->Values([

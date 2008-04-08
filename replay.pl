@@ -20,15 +20,26 @@ use POSIX 'setsid';
 
 our $VERSION = 'replay';
 
+my $logfile = shift or do {
+	print "Use: $0 <logfile> <dumpfile>\n";
+	exit 1;
+};
+
+open my $console, '>&STDOUT' or die $!;
+open my $log, $logfile or die $!;
+
 $| = 1;
 $SIG{PIPE} = 'IGNORE';
 $SIG{CHLD} = 'IGNORE';
 
-open my $console, '>&STDOUT';
-
 &Janus::load($_) or die for qw(Conffile Interface Actions Commands::Core);
 
-open my $log, $ARGV[0];
+if ($ARGV[0]) {
+	&Janus::load('Replay') or die;
+	my($conf,$dumpfile) = (shift,shift);
+	$dumpfile = "./$dumpfile" unless $dumpfile =~ m#^/#;
+	&Replay::run($conf, $dumpfile);
+}
 
 use constant {
 	NONE => 0,
