@@ -59,7 +59,7 @@ sub parse {
 		unshift @args, undef;
 	}
 	my $cmd = $args[1];
-	unless ($auth[$$net] || $cmd eq 'CAPAB' || $cmd eq 'SERVER') {
+	unless ($auth[$$net] || $cmd eq 'CAPAB' || $cmd eq 'SERVER' || $cmd eq 'ERROR') {
 		$net->send(['INIT', 'ERROR :Not authorized yet']);
 		return ();
 	}
