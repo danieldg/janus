@@ -697,6 +697,17 @@ $moddef{CORE} = {
 			reason => $_[7],
 		};
 	},
+	DELLINE => sub {
+		my $net = shift;
+		return +{
+			type => 'XLINE',
+			dst => $net,
+			ltype => $_[2],
+			mask => $_[3],
+			setter => $_[0],
+			expire => 1,
+		};
+	},
 	GLINE => sub {
 		my $net = shift;
 		my $type = substr $_[1],0,1;
@@ -817,6 +828,11 @@ $moddef{CORE} = {
 	RCONNECT => \&ignore,
 	MAP => \&ignore,
 	METADATA => sub {
+		my $net = shift;
+		my $key = $_[3];
+		$net->do_meta($key, @_);
+	},
+	ENCAP => sub {
 		my $net = shift;
 		my $key = $_[3];
 		$net->do_meta($key, @_);
