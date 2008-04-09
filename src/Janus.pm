@@ -236,18 +236,17 @@ sub _hook {
 	my $hook = $hooks{$type}{$lvl};
 	return unless $hook;
 	
-	my @hookmods = sort keys %$hook; # working around a suspected bug in perl here
+	my @hookmods = sort keys %$hook;
 	for my $mod (@hookmods) {
-#		print "EV: ", %$hook,"\n";
 		eval {
-#			print "EV_HOOK $type $lvl $mod\n";
 			$hook->{$mod}->(@args);
 			1;
 		} or do {
+			my $err = $@;
 			unless ($lvl eq 'die') {
-				_hook(ALL => 'die', $mod, $@, @args);
+				_hook(ALL => 'die', $mod, $lvl, $err, @args);
 			}
-			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod");
+			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod: $err");
 		};
 	}
 }
@@ -261,15 +260,15 @@ sub _mod_hook {
 	my $rv = undef;
 	for my $mod (sort keys %$hook) {
 		eval {
-#			print "MOD_HOOK $type $lvl $mod\n";
 			my $r = $hook->{$mod}->(@args);
 			$rv = $r if $r;
 			1;
 		} or do {
+			my $err = $@;
 			unless ($lvl eq 'die') {
-				_hook(ALL => 'die', $mod, $@, @args);
+				_hook(ALL => 'die', $mod, $lvl, $err, @args);
 			}
-			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod");
+			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod: $err");
 		};
 	}
 	$rv;
@@ -332,7 +331,7 @@ sub _send {
 			$net->send($act);
 			1;
 		} or do {
-			_hook(ALL => 'die', $@, $net, $act);
+			_hook(ALL => 'die', 'send', $@, $net, $act);
 		};
 	}
 }
