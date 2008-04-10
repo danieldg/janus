@@ -4,7 +4,6 @@ package Janus;
 use strict;
 use warnings;
 use Carp 'cluck';
-use Digest::SHA1;
 
 # set only on released versions
 our $RELEASE;
@@ -55,7 +54,8 @@ our %commands;
 our %states;
 our %rel_csum;
 
-sub _hook; # forward since it's used in module load/unload
+my $new_sha1; # subref to one of Digest::SHA1 or Digest::SHA
+sub _hook;    # forward since it's used in module load/unload
 
 sub reload {
 	my $module = $_[0];
@@ -652,7 +652,7 @@ if ($RELEASE) {
 		$fn =~ s#::#/#g;
 		my $ver = '?';
 
-		my $sha1 = Digest::SHA1->new();
+		my $sha1 = $new_sha1->();
 		if ($_[1]) {
 			$sha1->addfile($_[1]);
 			seek $_[1], 0, 0;
@@ -745,6 +745,14 @@ if ($RELEASE) {
 		&Janus::jmsg($_[0], 'Unknown command. Use "help" to see available commands');
 	},
 });
+
+$new_sha1 = eval {
+	require Digest::SHA1;
+	sub { Digest::SHA1->new(); }
+} || eval {
+	require Digest::SHA;
+	sub { Digest::SHA->new('sha1'); }
+} || die "One of Digest::SHA1 or Digest::SHA is required to run";
 
 _hook(module => READ => 'Janus');
 
