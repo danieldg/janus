@@ -536,6 +536,7 @@ sub timer {
 		%tqueue = ();
 		$tqueue{$_ - $off} = $oq{$_} for keys %oq;
 	} elsif ($last_check < $time) {
+		&Debug::timestamp();
 		for ($last_check .. $time) {
 			# yes it will hit some times twice... that is needed if events with delay=0 are
 			# added to the queue in the same second, but after the queue has already run
