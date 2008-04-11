@@ -630,8 +630,17 @@ $moddef{CORE} = {
 		}
 		@quits;
 	}, RSQUIT => sub {
-		# TODO we should really de- and re-introduce the server after this
-		();
+		my $net = shift;
+		my $src = $net->mynick($_[0]) or return ();
+		$_[2] =~ /^(\S+)\.janus$/ or return ();
+		my $dst = $1;
+		{
+			type => 'MSG',
+			src => $src,
+			dst => $Interface::janus,
+			msgtype => 'PRIVMSG',
+			msg => "NETSPLIT $dst",
+		};
 	}, PING => sub {
 		my $net = shift;
 		my $from = $_[3] || $net->cparam('linkname');
@@ -958,7 +967,6 @@ $moddef{CORE} = {
 				push @out, $net->ncmd(SERVER => $new->jname(), '*', 1, $new, $new->netname());
 				push @out, $net->cmd2($new, VERSION => 'Remote Janus Server: '.ref $new);
 			}
-			push @out, $net->ncmd(OPERNOTICE => "Janus network ".$new->name().'	('.$new->netname().") is now linked");
 		}
 		return @out;
 	}, NETSPLIT => sub {
@@ -967,7 +975,6 @@ $moddef{CORE} = {
 		my $gone = $act->{net};
 		my $msg = $act->{msg} || 'Excessive Core Radiation';
 		return (
-			$net->ncmd(OPERNOTICE => "Janus network ".$gone->name().' ('.$gone->netname().") has delinked: $msg"),
 			$net->ncmd(SQUIT => $gone->jname(), $msg),
 		);
 	}, JNETSPLIT => sub {
@@ -976,7 +983,6 @@ $moddef{CORE} = {
 		my $jid = $gone->id().'.janus';
 		my $msg = $act->{msg} || 'Excessive Core Radiation';
 		return (
-			$net->ncmd(OPERNOTICE => 'InterJanus network '.$gone->id()." has delinked: $msg"),
 			$net->ncmd(SQUIT => $jid, $msg),
 		);
 	}, CONNECT => sub {
@@ -1141,6 +1147,7 @@ $moddef{CORE} = {
 	}, LINKREQ => sub {
 		my($net,$act) = @_;
 		my $src = $act->{net};
+		return () if $act->{linkfile};
 		$net->ncmd(OPERNOTICE => $src->netname()." would like to link $act->{slink} to $act->{dlink}");
 	}, RAW => sub {
 		my($net,$act) = @_;
