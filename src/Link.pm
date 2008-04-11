@@ -53,7 +53,7 @@ sub _init {
 
 sub ready {
 	my $link = shift;
-	my $chan = $chan[$$link] or return 0;
+	my $chan = $Janus::gchans{$chan[$$link]} or return 0;
 	for my $net ($chan->nets()) {
 		my $jl = $net->jlink() || $RemoteJanus::self;
 		return 0 unless $ready[$$link]{$jl};
@@ -64,10 +64,10 @@ sub ready {
 sub unlock {
 	my $link = shift;
 	delete $bylock{$lock[$$link]};
-	return unless $chan[$$link];
+	my $chan = $Janus::gchans{$chan[$$link]} or return;
 	&Janus::append({
 		type => 'UNLOCK',
-		dst => $chan[$$link],
+		dst => $chan,
 		lockid => $lock[$$link],
 	});
 }
@@ -237,13 +237,13 @@ sub unlock {
 			}) unless $relink->{linkfile} > 20 || $abort;
 			return;
 		}
-		$chan[$$link] ||= $act->{chan};
+		$chan[$$link] ||= $act->{chan}->keyname();
 		$ready[$$link]{$act->{src}}++;
 		return unless $link->ready() && $other->ready();
 		&Janus::append({
 			type => 'LOCKED',
-			chan1 => $chan[$$link],
-			chan2 => $chan[$$other],
+			chan1 => $Janus::gchans{$chan[$$link]},
+			chan2 => $Janus::gchans{$chan[$$other]},
 		});
 		delete $bylock{$link->lockid()};
 		delete $bylock{$other->lockid()};
