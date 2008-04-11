@@ -218,6 +218,7 @@ sub _link_into {
 
 	my $modenets = [ values %{$nets[$$src]} ];
 	my $joinnets = [ values %dstnets ];
+	my $nonets = [];
 
 	my ($mode, $marg, $dirs) = &Modes::delta($src, $chan);
 	&Janus::append(+{
@@ -250,15 +251,13 @@ sub _link_into {
 		}
 		next if $$nick == 1;
 
-		unless ($nick->jlink()) {
-			&Janus::append(+{
-				type => 'JOIN',
-				src => $nick,
-				dst => $chan,
-				mode => $src->get_nmode($nick),
-				sendto => $joinnets,
-			});
-		}
+		&Janus::append(+{
+			type => 'JOIN',
+			src => $nick,
+			dst => $chan,
+			mode => $src->get_nmode($nick),
+			sendto => ($nick->jlink() ? $nonets : $joinnets),
+		});
 	}
 }
 
