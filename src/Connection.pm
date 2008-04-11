@@ -154,17 +154,15 @@ sub run_sendq {
 }
 
 sub pingall {
-	my($minpong,$timeout) = @_;
+	my $timeout = shift;
 	my @all = @queues;
 	for my $q (@all) {
 		my($net,$last) = @$q[NET,PINGT];
 		next if ref $net eq 'Listener';
 		if ($last < $timeout) {
 			&Janus::delink($net, 'Ping Timeout');
-		} elsif ($last < $minpong) {
-			$net->send(+{ type => 'PING' });
 		} else {
-			# otherwise, the net is quite nicely active
+			$net->send(+{ type => 'PING' });
 		}
 	}
 }
@@ -188,7 +186,7 @@ sub timestep {
 	}
 
 	if ($lping + 30 < $Janus::time) {
-		pingall($lping + 5, $Janus::time - 80);
+		pingall($Janus::time - 80);
 		$lping = $Janus::time;
 	}
 
