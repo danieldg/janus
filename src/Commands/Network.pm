@@ -31,7 +31,7 @@ use warnings;
 			&Janus::jmsg($nick, "You must specify the 'diepass' password to use this command");
 			return;
 		}
-		&Commands::Save::save() if $Janus::modules{'Commands::Save'};
+		&Conffile::save();
 		for my $net (values %Janus::nets) {
 			next if $net->jlink();
 			&Janus::append(+{
@@ -59,7 +59,7 @@ use warnings;
 			&Janus::jmsg($nick, "You must specify the 'diepass' password to use this command");
 			return;
 		}
-		&Commands::Save::save() if $Janus::modules{'Commands::Save'};
+		&Conffile::save();
 		for my $net (values %Janus::nets) {
 			next if $net->jlink();
 			&Janus::append(+{
