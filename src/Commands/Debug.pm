@@ -20,6 +20,8 @@ sub dump_all_globals {
 		next unless $ns;
 		for my $var (keys %$ns) {
 			next if $var =~ /:/ || $var eq 'ISA'; # perl internal variable
+			next if ref $ns->{$var}; # Perl 5.10 constants
+
 			my $scv = *{$ns->{$var}}{SCALAR};
 			my $arv = *{$ns->{$var}}{ARRAY};
 			my $hsv = *{$ns->{$var}}{HASH};
