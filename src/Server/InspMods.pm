@@ -218,7 +218,6 @@ mdef 1200, 'm_nicklock.so', cmds => {
 			};
 		}
 		# we need to unlock and change nicks back
-		# TODO does insp1.2 still need this? It's open to races
 		my @out;
 		push @out, $net->cmd2($Interface::janus, NICKUNLOCK => $nick);
 		push @out, $net->cmd2($nick, NICK => $before) unless $before eq $_[3];

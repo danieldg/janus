@@ -1,4 +1,5 @@
 # Copyright (C) 2007-2008 Daniel De Graaf
+			# otherwise, the net is quite nicely active
 # Released under the GNU Affero General Public License v3
 package Connection;
 use strict;
@@ -185,8 +186,11 @@ sub timestep {
 		}
 	}
 
-	if ($lping + 30 < $Janus::time) {
-		pingall($Janus::time - 80);
+	if ($lping + 30 <= $Janus::time) {
+		# Ping at most once every 30 seconds
+		# Pings can be delayed up to twice this if $timeres lines up properly
+		# Therefore 95 seconds is a good timeout for the last pong message
+		pingall($Janus::time - 95);
 		$lping = $Janus::time;
 	}
 
