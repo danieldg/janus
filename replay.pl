@@ -18,6 +18,7 @@ BEGIN {
 }
 use POSIX 'setsid';
 
+our $BKPT;
 our $VERSION = 'replay';
 
 my $logfile = shift or do {
@@ -61,9 +62,13 @@ sub find_ij {
 
 sub zero { 0 }
 sub one { 1 }
-$Debug::LOG_TIME{code} = \&one;
 
 while (<$log>) {
+	if ($BKPT && $. >= $BKPT) {
+		BEGIN { print "Breakpoint on line ".(__LINE__+1)."\n"; }
+		print $console "BREAK\n";
+		$BKPT = 0;
+	}
 	if (s/^!//) {
 		print $console "EVAL: $_";
 		eval;
@@ -168,7 +173,6 @@ while (<$log>) {
 		next unless $2 eq $RemoteJanus::self->id();
 		&Janus::timer($1-40);
 	} elsif (/^\e\[0;1mTimestamp: (\d+)\e\[m$/) {
-		print "\e\[0;1mTimestamp: $1\e\[m\n";
 		&Janus::timer($1);
 	} else {
 		$state = NONE;
