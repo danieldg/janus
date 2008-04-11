@@ -186,8 +186,9 @@ sub to_irc {
 	@sendq;
 }
 
-for my $net (values %Janus::nets) {
-	next unless $net->isa(__PACKAGE__);
+sub reload_moddef {
+	my $net = shift;
+	return unless $net->isa(__PACKAGE__);
 	my @mods = keys %{$modules[$$net]};
 	&Debug::info("Reloading module definitions for $net");
 	for my $mod (@mods) {
@@ -195,5 +196,16 @@ for my $net (values %Janus::nets) {
 		$net->module_add($mod);
 	}
 }
+
+&Janus::hook_add(
+	module => LOAD => sub {
+		my $mod = shift;
+		return unless $mod =~ /^Server::/;
+		for my $net (values %Janus::nets) {
+			next unless $net->isa(__PACKAGE__);
+			$net->reload_moddef();
+		}
+	}
+);
 
 1;
