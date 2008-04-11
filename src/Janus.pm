@@ -235,7 +235,7 @@ sub _hook {
 	local $_;
 	my $hook = $hooks{$type}{$lvl};
 	return unless $hook;
-	
+
 	my @hookmods = sort keys %$hook;
 	for my $mod (@hookmods) {
 		eval {
@@ -528,12 +528,19 @@ sub in_command {
 
 sub timer {
 	$time = $_[0] || time;
-	return if $time == $last_check;
 	my @q;
-	for ($last_check .. $time) {
-		# yes it will hit some times twice... that is needed if events with delay=0 are
-		# added to the queue in the same second, but after the queue has already run
-		push @q, @{delete $tqueue{$_}} if exists $tqueue{$_};
+	if ($last_check > $time) {
+		my $off = $last_check-$time;
+		&Debug::err("Time runs backwards! From $last_check to $time; offsetting all events by $off");
+		my %oq = %tqueue;
+		%tqueue = ();
+		$tqueue{$_ - $off} = $oq{$_} for keys %oq;
+	} elsif ($last_check < $time) {
+		for ($last_check .. $time) {
+			# yes it will hit some times twice... that is needed if events with delay=0 are
+			# added to the queue in the same second, but after the queue has already run
+			push @q, @{delete $tqueue{$_}} if exists $tqueue{$_};
+		}
 	}
 	$last_check = $time;
 	for my $event (@q) {
@@ -545,6 +552,10 @@ sub timer {
 			push @{$tqueue{$t}}, $event;
 		}
 	}
+	for (1..60) {
+		return $_ if $tqueue{$time+$_};
+	}
+	return 60;
 }
 
 sub delink {

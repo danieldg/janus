@@ -22,9 +22,14 @@ our @queues;
 # net number => [ fd, IO::Socket, net, recvq, sendq, try_recv, try_send, ping ]
 our $lping;
 $lping ||= 100;
+our $timeres;
+$timeres ||= 1;
 
-my $tblank = ``;
-print "WARNING: not running in taint mode\n" unless tainted($tblank);
+our $tblank;
+unless (defined $tblank) {
+	$tblank = ``;
+	print "WARNING: not running in taint mode\n" unless tainted($tblank);
+}
 
 sub add {
 	my($sock, $net) = @_;
@@ -149,18 +154,18 @@ sub run_sendq {
 }
 
 sub pingall {
-	my $minpong = shift;
-	my $timeout = $minpong - 60;
+	my($minpong,$timeout) = @_;
 	my @all = @queues;
 	for my $q (@all) {
 		my($net,$last) = @$q[NET,PINGT];
 		next if ref $net eq 'Listener';
 		if ($last < $timeout) {
-			&Janus::delink($net, 'Socket write failure ('.$!.')');
+			&Janus::delink($net, 'Ping Timeout');
 		} elsif ($last < $minpong) {
 			$net->send(+{ type => 'PING' });
+		} else {
+			# otherwise, the net is quite nicely active
 		}
-		# otherwise, the net is quite nicely active
 	}
 }
 
@@ -171,17 +176,19 @@ sub timestep {
 		vec($w,$q->[FD],1) = 1 if $q->[TRY_W];
 	}
 
-	if (select $r, $w, undef, 1) {
+	my $fd = select $r, $w, undef, $timeres;
+
+	$timeres = &Janus::timer();
+
+	if ($fd) {
 		for my $q (@queues) {
 			writable $q if vec($w,$q->[FD],1);
 			readable $q if vec($r,$q->[FD],1);
 		}
 	}
 
-	&Janus::timer();
-
 	if ($lping + 30 < $Janus::time) {
-		pingall $lping + 5;
+		pingall($lping + 5, $Janus::time - 80);
 		$lping = $Janus::time;
 	}
 
