@@ -5,6 +5,7 @@ use strict;
 use warnings;
 use Data::Dumper;
 use Modes;
+use POSIX qw(strftime);
 
 eval {
 	&Data::Dumper::init_refaddr_format();
@@ -36,10 +37,16 @@ sub dump_all_globals {
 }
 
 sub dump_now {
-	my $fn = 'log/dump-'.$Janus::time.'-'.++$DUMP_SEQ;
-	while (-f $fn) {
-		$fn = 'log/dump-'.$Janus::time.'-'.++$DUMP_SEQ;
+	my $fmt = $Conffile::netconf{set}{datefmt};
+	my $fn = 'log/';
+	if ($fmt) {
+		$fn .= strftime $fmt, gmtime $Janus::time;
+	} else {
+		$fn .= $Janus::time;
 	}
+	1 while -f "$fn.dump".($DUMP_SEQ++);
+	$fn .= '.dump'.$DUMP_SEQ;
+
 	open my $dump, '>', $fn or return undef;
 	my $gbls = dump_all_globals(keys %Janus::modules);
 	my $objs = &Persist::dump_all_refs();
