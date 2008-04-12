@@ -64,6 +64,10 @@ sub find_ij {
 
 sub zero { 0 }
 sub one { 1 }
+my $KV = do {
+	my $u;
+	bless \$u, 'Server::InterJanus';
+};
 
 while (<$log>) {
 	if ($BKPT && $. >= $BKPT) {
@@ -78,7 +82,7 @@ while (<$log>) {
 		$state = NONE;
 		my $act = { type => 'INIT' };
 		$_ = $1;
-		$EventDump::INST->kv_pairs($act);
+		$KV->kv_pairs($act);
 		if ($conffile) {
 			$act->{args}[1] = $conffile;
 		}
@@ -128,7 +132,7 @@ while (<$log>) {
 		$state = IN;
 		my($cid,$line,$ij,$tmp) = ($1,$2,undef,{});
 		$_ = $3;
-		$EventDump::INST->kv_pairs($tmp);
+		$KV->kv_pairs($tmp);
 		die if $cid && $tmp->{id} ne $cid;
 		$ij = find_ij $tmp->{id};
 
@@ -166,7 +170,7 @@ while (<$log>) {
 		$state = IN;
 		my $act = { type => $1 };
 		my $txt = $_ = $2;
-		$EventDump::INST->kv_pairs($act);
+		$KV->kv_pairs($act);
 		unless (defined $act->{net}) {
 			# probably split an IJ net before it was introduced
 			if ($txt =~ / net=j:(\S+) /) {
