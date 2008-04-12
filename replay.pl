@@ -66,6 +66,7 @@ sub zero { 0 }
 sub one { 1 }
 my $KV = do {
 	my $u;
+	require Server::InterJanus;
 	bless \$u, 'Server::InterJanus';
 };
 

@@ -172,7 +172,7 @@ sub delink {
 	return unless $net;
 	if ($net->isa('Pending')) {
 		my $id = $net->id();
-		delete $nets{$id};
+		delete $Janus::nets{$id};
 		&Connection::reassign($net, undef);
 	} elsif ($net->isa('Server::InterJanus')) {
 		&Janus::insert_full(+{

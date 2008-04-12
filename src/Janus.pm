@@ -764,5 +764,6 @@ sub gid {
 require Debug;
 require Connection;
 require EventDump;
+require RemoteJanus;
 
 1;
