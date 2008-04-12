@@ -101,6 +101,7 @@ sub run {
 	%obj_db = ();
 	($gnicks, $gchans, $gnets, $ijnets, $global, $object, $arg) =
 		(undef, undef, undef, undef, undef, undef, undef);
+	@Connection::queues = grep { $_->[&Connection::NET] } @Connection::queues;
 
 	&Debug::info("State restored. Beginning replay.");
 }

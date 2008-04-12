@@ -53,7 +53,7 @@ sub _init {
 
 sub ready {
 	my $link = shift;
-	my $chan = $Janus::gchans{$chan[$$link]} or return 0;
+	my $chan = $Janus::gchans{$chan[$$link] || ''} or return 0;
 	for my $net ($chan->nets()) {
 		my $jl = $net->jlink() || $RemoteJanus::self;
 		return 0 unless $ready[$$link]{$jl};
@@ -86,13 +86,12 @@ sub unlock {
 		my $net = $act->{net};
 		return if $net->jlink();
 		my $bynet = $reqs{$net->name()} or return;
-		keys %$bynet; # reset iterator
 		my @acts;
-		while (my($nname,$bychan) = each %$bynet) {
-			next unless $bychan;
+		for my $nname (sort keys %$bynet) {
+			my $bychan = $bynet->{$nname} or next;
 			my $dnet = $Janus::nets{$nname} or next;
-			keys %$bychan;
-			while (my($src,$ifo) = each %$bychan) {
+			for my $src (sort keys %$bychan) {
+				my $ifo = $bychan->{$src};
 				$ifo = { dst => $ifo } unless ref $ifo;
 				push @acts, +{
 					type => 'LINKREQ',
@@ -116,8 +115,8 @@ sub unlock {
 			for my $net (values %Janus::nets) {
 				next if $ij->jparent($net->jlink());
 				my $bychan = $reqs{$net->name()}{$lto->name()};
-				keys %$bychan;
-				while (my($src,$ifo) = each %$bychan) {
+				for my $src (sort keys %$bychan) {
+					my $ifo = $bychan->{$src};
 					$ifo = { dst => $ifo } unless ref $ifo;
 					push @acts, +{
 						type => 'LINKREQ',

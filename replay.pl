@@ -14,17 +14,19 @@ BEGIN {
 	$ENV{PATH} = $1;
 	$ENV{SHELL} = '/bin/sh';
 	delete @ENV{'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
-	do './src/Janus.pm' or die $@;
 }
+do './src/Janus.pm' or die $@;
 use POSIX 'setsid';
 
 our $BKPT;
 our $VERSION = 'replay';
 
 my $logfile = shift or do {
-	print "Use: $0 <logfile> <dumpfile>\n";
+	print "Use: $0 <logfile> [<conffile> [<dumpfile>]]\n";
 	exit 1;
 };
+
+my $conffile = shift;
 
 open my $console, '>&STDOUT' or die $!;
 open my $log, $logfile or die $!;
@@ -35,11 +37,11 @@ $SIG{CHLD} = 'IGNORE';
 
 &Janus::load($_) or die for qw(Conffile Interface Actions Commands::Core);
 
-if ($ARGV[0]) {
+if ($ARGV[0] && $ARGV[0] =~ /(.+)/) {
+	my $dumpfile = $1;
 	&Janus::load('Replay') or die;
-	my($conf,$dumpfile) = (shift,shift);
 	$dumpfile = "./$dumpfile" unless $dumpfile =~ m#^/#;
-	&Replay::run($conf, $dumpfile);
+	&Replay::run($conffile, $dumpfile);
 }
 
 use constant {
@@ -65,7 +67,7 @@ sub one { 1 }
 
 while (<$log>) {
 	if ($BKPT && $. >= $BKPT) {
-		BEGIN { print "Breakpoint on line ".(__LINE__+1)."\n"; }
+		BEGIN { print "Set breakpoint on line ".(__LINE__+1)."\n"; }
 		print $console "BREAK\n";
 		$BKPT = 0;
 	}
@@ -77,6 +79,9 @@ while (<$log>) {
 		my $act = { type => 'INIT' };
 		$_ = $1;
 		$EventDump::INST->kv_pairs($act);
+		if ($conffile) {
+			$act->{args}[1] = $conffile;
+		}
 		&Janus::insert_full($act);
 
 		%Conffile::inet = (

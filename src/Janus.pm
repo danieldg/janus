@@ -126,7 +126,7 @@ sub Janus::INC {
 	} else {
 		$INC{$name} = 'unknown/'.$name;
 	}
-	&Janus::schedule({ code => sub {
+	&Janus::schedule({ desc => "auto-INC $module", code => sub {
 		$modules{$module} = 2;
 	}});
 	$rv;
