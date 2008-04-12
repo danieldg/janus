@@ -203,11 +203,19 @@ my %v_type; %v_type = (
 			# this is a NETLINK of a network we already know about.
 			# We either have a loop or a name collision. Either way, the IJ link
 			# cannot continue
-			&Janus::delink($ij, "InterJanus network name collision: network $h->{id} already exists");
+			&Janus::insert_full(+{
+				type => 'JNETSPLIT',
+				net => $ij,
+				msg => "InterJanus network name collision: network $h->{id} already exists"
+			});
 			return undef;
 		}
 		unless ($ij->jparent($h->{jlink})) {
-			&Janus::delink($ij, "Network misintroduction: $h->{jlink} invalid");
+			&Janus::insert_full(+{
+				type => 'JNETSPLIT',
+				net => $ij,
+				msg => "Network misintroduction: $h->{jlink} invalid"
+			});
 			return undef;
 		}
 		RemoteNetwork->new(%$h);
@@ -220,11 +228,19 @@ my %v_type; %v_type = (
 		my $id = $h->{id};
 		my $parent = $h->{parent};
 		if ($Janus::ijnets{$id}) {
-			&Janus::delink($ij, "InterJanus network name collision: IJ network $h->{id} already exists");
+			&Janus::insert_full(+{
+				type => 'JNETSPLIT',
+				net => $ij,
+				msg => "InterJanus network name collision: IJ network $h->{id} already exists"
+			});
 			return undef;
 		}
 		unless ($ij->jparent($parent)) {
-			&Janus::delink($ij, "InterJanus network misintroduction: Parent $parent invalid");
+			&Janus::insert_full(+{
+				type => 'JNETSPLIT',
+				net => $ij,
+				msg => "IJ Network misintroduction: $h->{jlink} invalid"
+			});
 			return undef;
 		}
 		RemoteJanus->new(parent => $parent, id => $id);

@@ -1092,8 +1092,11 @@ sub srvname {
 	EOS => \&ignore,
 	ERROR => sub {
 		my $net = shift;
-		&Janus::delink($net, 'ERROR: '.$_[-1]);
-		();
+		{
+			type => 'NETSPLIT',
+			net => $net,
+			msg => 'ERROR: '.$_[-1],
+		};
 	},
 
 # Messages

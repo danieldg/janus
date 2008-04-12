@@ -1,5 +1,4 @@
 # Copyright (C) 2007-2008 Daniel De Graaf
-			# otherwise, the net is quite nicely active
 # Released under the GNU Affero General Public License v3
 package Connection;
 use strict;
@@ -105,7 +104,7 @@ sub readable {
 		} else {
 			&Debug::err_in($net, "Delink from failed read: $!");
 		}
-		&Janus::delink($net, 'Socket read failure ('.$!.')');
+		delink($net, 'Socket read failure ('.$!.')');
 	}
 }
 
@@ -130,7 +129,7 @@ sub _syswrite {
 		} else {
 			&Debug::err_in($net, "Delink from failed write: $!");
 		}
-		&Janus::delink($net, 'Socket write failure ('.$!.')');
+		delink($net, 'Socket write failure ('.$!.')');
 	}
 }
 
@@ -161,12 +160,35 @@ sub pingall {
 		my($net,$last) = @$q[NET,PINGT];
 		next if ref $net eq 'Listener';
 		if ($last < $timeout) {
-			&Janus::delink($net, 'Ping Timeout');
+			delink($net, 'Ping Timeout');
 		} else {
 			$net->send(+{ type => 'PING' });
 		}
 	}
 }
+
+sub delink {
+	my($net,$msg) = @_;
+	return unless $net;
+	if ($net->isa('Pending')) {
+		my $id = $net->id();
+		delete $nets{$id};
+		&Connection::reassign($net, undef);
+	} elsif ($net->isa('Server::InterJanus')) {
+		&Janus::insert_full(+{
+			type => 'JNETSPLIT',
+			net => $net,
+			msg => $msg,
+		});
+	} else {
+		&Janus::insert_full(+{
+			type => 'NETSPLIT',
+			net => $net,
+			msg => $msg,
+		});
+	}
+}
+
 
 sub timestep {
 	my($r,$w) = ('','');

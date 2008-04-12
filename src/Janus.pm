@@ -559,28 +559,6 @@ sub timer {
 	return 60;
 }
 
-sub delink {
-	my($net,$msg) = @_;
-	return unless $net;
-	if ($net->isa('Pending')) {
-		my $id = $net->id();
-		delete $nets{$id};
-		&Connection::reassign($net, undef);
-	} elsif ($net->isa('Server::InterJanus')) {
-		&Janus::insert_full(+{
-			type => 'JNETSPLIT',
-			net => $net,
-			msg => $msg,
-		});
-	} else {
-		&Janus::insert_full(+{
-			type => 'NETSPLIT',
-			net => $net,
-			msg => $msg,
-		});
-	}
-}
-
 =back
 
 =cut
@@ -784,7 +762,6 @@ sub gid {
 # we load these modules down here because their loading uses
 # some of the subs defined above
 require Debug;
-require Persist;
 require Connection;
 require EventDump;
 
