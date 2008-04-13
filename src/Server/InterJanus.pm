@@ -42,7 +42,7 @@ my %v_type; %v_type = (
 		$v =~ s/\\(.)/$esc2char{$1}/g;
 		$v;
 	}, 'n' => sub {
-		s/^n:([^ >]+)(:\d+)// or return undef;
+		s/^n:([^ >]+)(:[^: >]+)// or return undef;
 		$Janus::gnicks{$1.$2} || $Janus::gnets{$1};
 	}, 'c' => sub {
 		s/^c:([^ >]+)// or return undef;

@@ -3,19 +3,13 @@
 package EventDump;
 use strict;
 use warnings;
+use integer;
 use Carp;
-
-my %toirc;
 
 our $INST ||= do {
 	my $no;
 	bless \$no;
 };
-
-sub str {
-	warn;
-	"";
-}
 
 my %esc2char = (
 	e => '\\',
@@ -80,8 +74,6 @@ sub ssend {
 	$out.'>';
 }
 
-sub ignore { (); }
-
 my %to_ij = (
 	NETLINK => sub {
 		my($ij, $act) = @_;
@@ -141,6 +133,18 @@ sub dump_act {
 		push @out, $act->{IJ_RAW};
 	}
 	@out;
+}
+
+my $seq_tbl = join '', 0..9, 'a'..'z', 'A'..'Z';
+
+sub seq2gid {
+	my $id = shift;
+	my $o = '';
+	while ($id) {
+		$o .= substr $seq_tbl, ($id % 62), 1;
+		$id /= 62;
+	}
+	$o;
 }
 
 1;

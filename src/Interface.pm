@@ -81,6 +81,7 @@ sub pmsg {
 
 		$janus = Nick->new(
 			net => $int,
+			gid => 'janus:1',
 			nick => $inick,
 			ts => ($^T - 1000000000),
 			info => {

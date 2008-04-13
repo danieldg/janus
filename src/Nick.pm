@@ -60,7 +60,7 @@ do {
 sub _init {
 	my($nick, $ifo) = @_;
 	my $net = $ifo->{net};
-	my $gid = $ifo->{gid} || $net->gid() . ':' . $$nick;
+	my $gid = $ifo->{gid} || $net->next_nickgid();
 	$gid[$$nick] = $gid;
 	$Janus::gnicks{$gid} = $nick;
 	$homenet[$$nick] = $net;
