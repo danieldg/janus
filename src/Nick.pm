@@ -275,8 +275,8 @@ sub _netclean {
 	my $nick = shift;
 	return if $$nick == 1;
 	my $home = $nick->homenet();
-	my %leave = @_ ? map { $_->lid() => $_ } @_ : %{$nets[$$nick]};
-	delete $leave{$homenet[$$nick]->lid()};
+	my %leave = @_ ? map { $$_ => $_ } @_ : %{$nets[$$nick]};
+	delete $leave{${$homenet[$$nick]}};
 	for my $chan (@{$chans[$$nick]}) {
 		unless ($chan->is_on($home)) {
 			&Debug::err("Found nick $$nick on delinked channel $$chan");
@@ -284,7 +284,7 @@ sub _netclean {
 			next;
 		}
 		for my $net ($chan->nets()) {
-			delete $leave{$net->lid()};
+			delete $leave{$$net};
 		}
 	}
 	for my $net (values %leave) {
@@ -299,17 +299,6 @@ sub _netclean {
 		}) unless $net->jlink();
 		$nick->_netpart($net);
 	}
-}
-
-=item $nick->lid()
-
-Locally unique ID for this nick (unique for the lifetime of the nick only)
-
-=cut
-
-sub lid {
-	my $nick = $_[0];
-	return $$nick;
 }
 
 =item $nick->str($net)

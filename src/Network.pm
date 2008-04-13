@@ -45,10 +45,6 @@ sub jname {
 	$name[$$net].'.janus';
 }
 
-sub lid {
-	${$_[0]};
-}
-
 sub _init {
 	my $net = $_[0];
 	$gid[$$net] ||= $RemoteJanus::self->id().':'.$$net;

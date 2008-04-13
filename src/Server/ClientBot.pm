@@ -225,7 +225,7 @@ sub nicklen { 40 }
 		&Janus::schedule(+{
 			delay => 15,
 			code => sub {
-				return unless $kicks[$$net]{$nick->lid()}{$cn};
+				return unless $kicks[$$net]{$$nick}{$cn};
 				&Janus::insert_full(+{
 					type => 'JOIN',
 					src => $nick,
@@ -233,7 +233,7 @@ sub nicklen { 40 }
 				});
 			}
 		});
-		$kicks[$$net]{$nick->lid()}{$cn} = 1;
+		$kicks[$$net]{$$nick}{$cn} = 1;
 		"KICK $cn $nn :$src $act->{msg}";
 	},
 	PING => sub {
@@ -389,7 +389,7 @@ sub kicked {
 		}
 		my $nick = $net->nick($_[0]) or return ();
 		my $chan = $net->chan($_[2]) or return ();
-		delete $kicks[$$net]{$nick->lid()}{$_[2]};
+		delete $kicks[$$net]{$$nick}{$_[2]};
 		my @out = +{
 			type => 'PART',
 			src => $nick,
@@ -414,7 +414,7 @@ sub kicked {
 		my $src = $net->nick($_[0]);
 		my $chan = $net->chan($_[2]) or return ();
 		my $victim = $net->nick($_[3]) or return ();
-		delete $kicks[$$net]{$victim->lid()}{$_[2]};
+		delete $kicks[$$net]{$$victim}{$_[2]};
 		my @out;
 		push @out, +{
 			type => 'KICK',
@@ -436,7 +436,7 @@ sub kicked {
 	QUIT => sub {
 		my $net = shift;
 		my $src = $net->nick($_[0]) or return ();
-		delete $kicks[$$net]{$src->lid()};
+		delete $kicks[$$net]{$$src};
 		return +{
 			type => 'QUIT',
 			dst => $src,
