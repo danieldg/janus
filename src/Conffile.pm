@@ -165,6 +165,8 @@ sub rehash {
 }
 
 sub autoconnect {
+	my $act = shift;
+	$act->{repeat} = 15 + int rand 45;
 	for my $id (keys %netconf) {
 		if ($id =~ /^LISTEN/) {
 			connect_net undef,$id unless $Listener::open{$id};
