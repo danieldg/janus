@@ -72,20 +72,22 @@ sub dump_now {
 	$dd->Bless('findobj');
 	$dd->Seen(\%seen);
 
-	$dd->Names([qw(gnicks gchans gnets ijnets)])->Values([
+	$dd->Names([qw(gnicks gchans gnets ijnets state listen)])->Values([
 		\%Janus::gnicks,
 		\%Janus::gchans,
 		\%Janus::gnets,
 		\%Janus::ijnets,
+		\%Janus::states,
+		\%Listener::open,
 	]);
 	$dd->Purity(1);
 	print $dump $dd->Dump();
 	$dd->Purity(0);
-	$dd->Names(['global'])->Values([$gbls]);
-	print $dump $dd->Dump();
-	$dd->Names(['object'])->Values([$objs]);
-	print $dump $dd->Dump();
-	$dd->Names(['arg'])->Values([\@_]);
+	$dd->Names([qw(global object arg)])->Values([
+		$gbls,
+		$objs,
+		\@_,
+	]);
 	print $dump $dd->Dump();
 	close $dump;
 	$fn;

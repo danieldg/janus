@@ -7,7 +7,7 @@ use integer;
 use Scalar::Util 'blessed';
 
 # reconstructed
-our($gnicks, $gchans, $gnets, $ijnets, $global, $object, $arg);
+our($gnicks, $gchans, $gnets, $ijnets, $state, $listen, $global, $object, $arg);
 
 our(%obj_db, $thaw_var, $thaw_fd);
 
@@ -99,8 +99,8 @@ sub run {
 	&Debug::info("Beginning debug deallocations");
 
 	%obj_db = ();
-	($gnicks, $gchans, $gnets, $ijnets, $global, $object, $arg) =
-		(undef, undef, undef, undef, undef, undef, undef);
+	($gnicks, $gchans, $gnets, $ijnets, $state, $listen, $global, $object, $arg) =
+		(undef, undef, undef,  undef,   undef,  undef,   undef,   undef,  undef);
 	@Connection::queues = grep { $_->[&Connection::NET] } @Connection::queues;
 
 	&Debug::info("State restored. Beginning replay.");
