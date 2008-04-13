@@ -20,7 +20,7 @@ sub all_chans {
 
 sub chan {
 	my($net, $cname) = @_;
-	my $kn = $net->gid() . $cname;
+	my $kn = lc $net->gid() . $cname;
 	$Janus::gchans{$kn};
 }
 

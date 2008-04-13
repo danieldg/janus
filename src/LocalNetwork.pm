@@ -8,8 +8,8 @@ use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
 
-our(@cparms); # currently active network parameters
-&Persist::register_vars(qw(cparms));
+our(@cparms, @nickseq);
+&Persist::register_vars(qw(cparms nickseq));
 our %chans;
 
 sub _init {
@@ -32,9 +32,10 @@ sub intro {
 	$net->_set_netname($cparms[$$net]->{netname});
 }
 
-################################################################################
-# Channel actions
-################################################################################
+sub next_nickgid {
+	my $net = shift;
+	$net->gid() . ':' . &EventDump::seq2gid(++$nickseq[$$net]);
+}
 
 sub chan {
 	my($net, $name, $new) = @_;

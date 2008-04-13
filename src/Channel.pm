@@ -93,7 +93,7 @@ sub has_nmode {
 		carp "Unknown nick mode $mode";
 		return 0;
 	};
-	my $n = $nmode[$$chan]{$nick->lid()} || 0;
+	my $n = $nmode[$$chan]{$$nick} || 0;
 	$n & $m;
 }
 
@@ -106,7 +106,7 @@ Gets a hashref whose keys are the nick modes on the channel.
 sub get_nmode {
 	my($chan, $nick) = @_;
 	my %m;
-	my $n = $nmode[$$chan]{$nick->lid()} || 0;
+	my $n = $nmode[$$chan]{$$nick} || 0;
 	$n & $nmodebit{$_} and $m{$_}++ for keys %nmodebit;
 	\%m;
 }
@@ -221,7 +221,7 @@ sub unhook_destroyed {
 		if ($act->{mode}) {
 			for (keys %{$act->{mode}}) {
 				warn "Unknown mode $_" unless $nmodebit{$_};
-				$nmode[$$chan]{$nick->lid()} |= $nmodebit{$_};
+				$nmode[$$chan]{$$nick} |= $nmodebit{$_};
 			}
 		}
 	}, PART => cleanup => sub {
@@ -263,8 +263,8 @@ sub unhook_destroyed {
 					warn "$i without nick arg!";
 					next;
 				}
-				$nmode[$$chan]{$arg->lid()} |= $nmodebit{$i}; # will ensure is defined
-				$nmode[$$chan]{$arg->lid()} &= ~$nmodebit{$i} if $pm eq '-';
+				$nmode[$$chan]{$$arg} |= $nmodebit{$i}; # will ensure is defined
+				$nmode[$$chan]{$$arg} &= ~$nmodebit{$i} if $pm eq '-';
 			} elsif ($t eq 'l') {
 				if ($pm eq '+') {
 					@{$mode[$$chan]{$i}} = ($arg, grep { $_ ne $arg } @{$mode[$$chan]{$i}});

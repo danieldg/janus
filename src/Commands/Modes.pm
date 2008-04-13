@@ -11,42 +11,44 @@ use Modes;
 	help => 'Shows the current intended modes of a channel',
 	details => [
 		"\002SHOWMODE\002 #channel - shows the intended modes of the channel on your network",
-		"\002SHOWMODE RAW\002 #channel - shows the internal (textual) modes of the channel",
 	],
 	code => sub {
 		my($nick,$args) = @_;
 		my $hn = $nick->homenet();
-		$args =~ /^(raw )?(#\S*)/i or return &Janus::jmsg($nick, 'Syntax: SHOWMODE [raw] #chan');
-		my($raw,$cname) = ($1,$2);
+		$args =~ /^(#\S*)/i or return &Janus::jmsg($nick, 'Syntax: SHOWMODE #chan');
+		my $cname = $1;
 		my $chan = $hn->chan($cname,0);
 		return &Janus::jmsg($nick, 'That channel does not exist') unless $chan;
 		unless ($chan->has_nmode(owner => $nick) || $nick->has_mode('oper')) {
 			&Janus::jmsg($nick, "You must be a channel owner or oper to use this command");
 			return;
 		}
-		if ($raw) {
-			my $modeh = $chan->all_modes() or return;
-			my $out = $cname;
-			for my $mk (sort keys %$modeh) {
-				my $t = $Modes::mtype{$mk} || '?';
-				my $mv = $modeh->{$mk};
-				if ($t eq 'r') {
-					$out .= ' '.$mk.('+'x($mv - 1));
-				} elsif ($t eq 'v') {
-					$out .= ' '.$mk.'='.$mv;
-				} elsif ($t eq 'l') {
-					$out .= join ' ', '', $mk.'={', @$mv, '}';
-				} else {
-					&Debug::err("$mk:$mv - ?\n");
-				}
-			}
-			&Janus::jmsg($nick, $1) while $out =~ s/(.{,450}) //;
-			&Janus::jmsg($nick, $out);
-		} else {
-			return &Janus::jmsg($nick, 'Local command only') if $hn->isa('RemoteNetwork');
+		if ($hn->isa('LocalNetwork')) {
 			my @modes = &Modes::to_multi($hn, &Modes::delta(undef, $chan), 0, 400);
-			&Janus::jmsg($nick, join ' ', $chan->str($hn), @$_) for @modes;
+			&Janus::jmsg($nick, join ' ', $cname, @$_) for @modes;
 		}
+		
+		my $modeh = $chan->all_modes();
+		unless ($modeh && scalar %$modeh) {
+			&Janus::jmsg($nick, "No modes set on $cname");
+			return;
+		}
+		my $out = '';
+		for my $mk (sort keys %$modeh) {
+			my $t = $Modes::mtype{$mk} || '?';
+			my $mv = $modeh->{$mk};
+			if ($t eq 'r') {
+				$out .= ' '.$mk.('+'x($mv - 1));
+			} elsif ($t eq 'v') {
+				$out .= ' '.$mk.'='.$mv;
+			} elsif ($t eq 'l') {
+				$out .= join ' ', '', $mk.'={', @$mv, '}';
+			} else {
+				&Debug::err("bad mode $mk:$mv - $t?\n");
+			}
+		}
+		&Janus::jmsg($nick, $cname.$1) while $out =~ s/(.{300,450}) / /;
+		&Janus::jmsg($nick, $cname.$out);
 	},
 }, {
 	cmd => 'showtopic',

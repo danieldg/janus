@@ -19,7 +19,7 @@ $mtype{$_} = 'r' for qw/
 	ctcpblock invite moderated mustjoin noinvite
 	nokick noknock nooperover norenick noticeblock
 	oper operadmin opernetadm opersvsadm reginvite
-	register regmoderated sslonly topic
+	register regmoderated sslonly topic delayjoin
 /;
 
 =head1 IRC Mode utilities
@@ -154,6 +154,26 @@ sub to_multi {
 	}
 	push @out, [ $mode, @args ] unless $mode =~ /^[-+]*$/;
 	@out;
+}
+
+=item (modes, args, dirs) Modes::dump(chan)
+
+Returns the non-list modes of the channel
+
+=cut
+
+sub dump {
+	my $chan = shift;
+	my %modes = %{$chan->all_modes()};
+	my(@modes, @args, @dirs);
+	for my $txt (keys %modes) {
+		my $type = $mtype{$txt};
+		next if $type eq 'l';
+		push @modes, $txt;
+		push @dirs, '+';
+		push @args, $modes{$txt};
+	}
+	(\@modes, \@args, \@dirs);
 }
 
 =item (modes, args, dirs) Modes::delta(chan1, chan2)

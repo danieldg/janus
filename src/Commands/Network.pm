@@ -31,6 +31,7 @@ use warnings;
 			&Janus::jmsg($nick, "You must specify the 'diepass' password to use this command");
 			return;
 		}
+		&Conffile::save();
 		for my $net (values %Janus::nets) {
 			next if $net->jlink();
 			&Janus::append(+{
@@ -58,6 +59,7 @@ use warnings;
 			&Janus::jmsg($nick, "You must specify the 'diepass' password to use this command");
 			return;
 		}
+		&Conffile::save();
 		for my $net (values %Janus::nets) {
 			next if $net->jlink();
 			&Janus::append(+{

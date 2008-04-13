@@ -8,6 +8,7 @@ use integer;
 use Listener;
 use Connection;
 use RemoteJanus;
+use Data::Dumper;
 
 our $conffile;
 our %netconf;
@@ -162,6 +163,8 @@ sub rehash {
 }
 
 sub autoconnect {
+	my $act = shift;
+	$act->{repeat} = 15 + int rand 45;
 	for my $id (keys %netconf) {
 		if ($id =~ /^LISTEN/) {
 			connect_net undef,$id unless $Listener::open{$id};
@@ -178,6 +181,23 @@ sub autoconnect {
 			}
 		}
 	}
+}
+
+sub save {
+	my $out = $netconf{set}{save};
+	my(@vars,@refs);
+	keys %Janus::states;
+	while (my($class,$vars) = each %Janus::states) {
+		keys %$vars;
+		while (my($var,$val) = each %$vars) {
+			push @vars, $val;
+			push @refs, '*'.$class.'::'.$var;
+		}
+	}
+	open my $f, '>', $out or return 0;
+	print $f Data::Dumper->Dump(\@vars, \@refs);
+	close $f;
+	return 1;
 }
 
 &Janus::hook_add(
@@ -302,6 +322,7 @@ sub autoconnect {
 		&Janus::schedule({
 			repeat => 30,
 			code => sub { &Conffile::autoconnect; }, # to allow reloads
+			desc => 'autoconnect',
 		});
 	},
 );

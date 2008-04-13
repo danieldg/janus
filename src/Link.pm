@@ -27,6 +27,17 @@ our(@lock, @chan, @ready, @expire, @other, @origin);
 &Persist::autoget(lockid => \@lock);
 &Persist::autoinit(qw(other origin));
 
+sub _rm_lock {
+	my $itm = shift;
+	my $l = delete $bylock{$itm->{id}};
+	$other[$$l] = undef if $l;
+}
+
+sub _retry {
+	my $itm = shift;
+	&Janus::append($itm->{origin});
+}
+
 sub _init {
 	my $link = shift;
 	my $id = $RemoteJanus::self->id().':'.++$lockmax;
@@ -35,16 +46,14 @@ sub _init {
 	$bylock{$id} = $link;
 	&Janus::schedule(+{
 		delay => 61,
-		code => sub {
-			my $l = delete $bylock{$id};
-			$other[$$l] = undef if $l;
-		}
+		id => $id,
+		code => \&_rm_lock,
 	});
 }
 
 sub ready {
 	my $link = shift;
-	my $chan = $chan[$$link] or return 0;
+	my $chan = $Janus::gchans{$chan[$$link] || ''} or return 0;
 	for my $net ($chan->nets()) {
 		my $jl = $net->jlink() || $RemoteJanus::self;
 		return 0 unless $ready[$$link]{$jl};
@@ -55,10 +64,10 @@ sub ready {
 sub unlock {
 	my $link = shift;
 	delete $bylock{$lock[$$link]};
-	return unless $chan[$$link];
+	my $chan = $Janus::gchans{$chan[$$link]} or return;
 	&Janus::append({
 		type => 'UNLOCK',
-		dst => $chan[$$link],
+		dst => $chan,
 		lockid => $lock[$$link],
 	});
 }
@@ -77,13 +86,12 @@ sub unlock {
 		my $net = $act->{net};
 		return if $net->jlink();
 		my $bynet = $reqs{$net->name()} or return;
-		keys %$bynet; # reset iterator
 		my @acts;
-		while (my($nname,$bychan) = each %$bynet) {
-			next unless $bychan;
+		for my $nname (sort keys %$bynet) {
+			my $bychan = $bynet->{$nname} or next;
 			my $dnet = $Janus::nets{$nname} or next;
-			keys %$bychan;
-			while (my($src,$ifo) = each %$bychan) {
+			for my $src (sort keys %$bychan) {
+				my $ifo = $bychan->{$src};
 				$ifo = { dst => $ifo } unless ref $ifo;
 				push @acts, +{
 					type => 'LINKREQ',
@@ -107,8 +115,8 @@ sub unlock {
 			for my $net (values %Janus::nets) {
 				next if $ij->jparent($net->jlink());
 				my $bychan = $reqs{$net->name()}{$lto->name()};
-				keys %$bychan;
-				while (my($src,$ifo) = each %$bychan) {
+				for my $src (sort keys %$bychan) {
+					my $ifo = $bychan->{$src};
 					$ifo = { dst => $ifo } unless ref $ifo;
 					push @acts, +{
 						type => 'LINKREQ',
@@ -153,15 +161,15 @@ sub unlock {
 			&Debug::info("Link request: not syncing to avoid races");
 			return;
 		}
-		my $kn1 = $snet->gid().$act->{slink};
-		my $kn2 = $dnet->gid().$act->{dlink};
+		my $kn1 = lc $snet->gid().$act->{slink};
+		my $kn2 = lc $dnet->gid().$act->{dlink};
 		if ($Janus::gchans{$kn1} && $Janus::gchans{$kn2} &&
 			$Janus::gchans{$kn1} eq $Janus::gchans{$kn2}) {
 			&Debug::info("Link request: already linked");
 			return;
 		}
 		if ($act->{override} || $recip eq 'any' || lc $recip eq lc $act->{slink}) {
-			&Debug::info("Link request: linking!");
+			&Debug::info("Link request: linking $kn1 and $kn2");
 			my $link1 = Link->new(origin => $act);
 			my $link2 = Link->new(origin => $act, other => $link1);
 			$other[$$link1] = $link2;
@@ -222,20 +230,19 @@ sub unlock {
 			# linkfile, if 3 or greater, is the retry count
 			&Janus::schedule(+{
 				# randomize the delay to try to avoid collisions
-				delay => (10 + int(rand(10))),
-				code => sub {
-					&Janus::append($relink);
-				}
+				delay => (5 + int(rand(25))),
+				origin => $relink,
+				code => \&_retry,
 			}) unless $relink->{linkfile} > 20 || $abort;
 			return;
 		}
-		$chan[$$link] ||= $act->{chan};
+		$chan[$$link] ||= $act->{chan}->keyname();
 		$ready[$$link]{$act->{src}}++;
 		return unless $link->ready() && $other->ready();
 		&Janus::append({
 			type => 'LOCKED',
-			chan1 => $chan[$$link],
-			chan2 => $chan[$$other],
+			chan1 => $Janus::gchans{$chan[$$link]},
+			chan2 => $Janus::gchans{$chan[$$other]},
 		});
 		delete $bylock{$link->lockid()};
 		delete $bylock{$other->lockid()};

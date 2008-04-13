@@ -4,7 +4,6 @@ package Janus;
 use strict;
 use warnings;
 use Carp 'cluck';
-use Digest::SHA1;
 
 # set only on released versions
 our $RELEASE;
@@ -53,7 +52,8 @@ our %commands;
 our %states;
 our %rel_csum;
 
-sub _hook; # forward since it's used in module load/unload
+my $new_sha1; # subref to one of Digest::SHA1 or Digest::SHA
+sub _hook;    # forward since it's used in module load/unload
 
 sub reload {
 	my $module = $_[0];
@@ -124,7 +124,7 @@ sub Janus::INC {
 	} else {
 		$INC{$name} = 'unknown/'.$name;
 	}
-	&Janus::schedule({ code => sub {
+	&Janus::schedule({ desc => "auto-INC $module", code => sub {
 		$modules{$module} = 2;
 	}});
 	$rv;
@@ -233,19 +233,18 @@ sub _hook {
 	local $_;
 	my $hook = $hooks{$type}{$lvl};
 	return unless $hook;
-	
-	my @hookmods = sort keys %$hook; # working around a suspected bug in perl here
+
+	my @hookmods = sort keys %$hook;
 	for my $mod (@hookmods) {
-#		print "EV: ", %$hook,"\n";
 		eval {
-#			print "EV_HOOK $type $lvl $mod\n";
 			$hook->{$mod}->(@args);
 			1;
 		} or do {
+			my $err = $@;
 			unless ($lvl eq 'die') {
-				_hook(ALL => 'die', $mod, $@, @args);
+				_hook(ALL => 'die', $mod, $lvl, $err, @args);
 			}
-			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod");
+			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod: $err");
 		};
 	}
 }
@@ -259,15 +258,15 @@ sub _mod_hook {
 	my $rv = undef;
 	for my $mod (sort keys %$hook) {
 		eval {
-#			print "MOD_HOOK $type $lvl $mod\n";
 			my $r = $hook->{$mod}->(@args);
 			$rv = $r if $r;
 			1;
 		} or do {
+			my $err = $@;
 			unless ($lvl eq 'die') {
-				_hook(ALL => 'die', $mod, $@, @args);
+				_hook(ALL => 'die', $mod, $lvl, $err, @args);
 			}
-			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod");
+			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod: $err");
 		};
 	}
 	$rv;
@@ -330,7 +329,7 @@ sub _send {
 			$net->send($act);
 			1;
 		} or do {
-			_hook(ALL => 'die', $@, $net, $act);
+			_hook(ALL => 'die', 'send', $@, $net, $act);
 		};
 	}
 }
@@ -527,12 +526,20 @@ sub in_command {
 
 sub timer {
 	$time = $_[0] || time;
-	return if $time == $last_check;
 	my @q;
-	for ($last_check .. $time) {
-		# yes it will hit some times twice... that is needed if events with delay=0 are
-		# added to the queue in the same second, but after the queue has already run
-		push @q, @{delete $tqueue{$_}} if exists $tqueue{$_};
+	if ($last_check > $time) {
+		my $off = $last_check-$time;
+		&Debug::err("Time runs backwards! From $last_check to $time; offsetting all events by $off");
+		my %oq = %tqueue;
+		%tqueue = ();
+		$tqueue{$_ - $off} = $oq{$_} for keys %oq;
+	} elsif ($last_check < $time) {
+		&Debug::timestamp();
+		for ($last_check .. $time) {
+			# yes it will hit some times twice... that is needed if events with delay=0 are
+			# added to the queue in the same second, but after the queue has already run
+			push @q, @{delete $tqueue{$_}} if exists $tqueue{$_};
+		}
 	}
 	$last_check = $time;
 	for my $event (@q) {
@@ -544,22 +551,10 @@ sub timer {
 			push @{$tqueue{$t}}, $event;
 		}
 	}
-}
-
-sub delink {
-	my($net,$msg) = @_;
-	return unless $net;
-	if ($net->isa('Pending')) {
-		my $id = $net->id();
-		delete $nets{$id};
-		&Connection::reassign($net, undef);
-	} else {
-		&Janus::insert_full(+{
-			type => 'NETSPLIT',
-			net => $net,
-			msg => $msg,
-		});
+	for (1..60) {
+		return $_ if $tqueue{$time+$_};
 	}
+	return 60;
 }
 
 =back
@@ -605,7 +600,7 @@ if ($RELEASE) {
 		$fn =~ s#::#/#g;
 		my $ver = '?';
 
-		my $sha1 = Digest::SHA1->new();
+		my $sha1 = $new_sha1->();
 		if ($_[1]) {
 			$sha1->addfile($_[1]);
 			seek $_[1], 0, 0;
@@ -699,6 +694,14 @@ if ($RELEASE) {
 	},
 });
 
+$new_sha1 = eval {
+	require Digest::SHA1;
+	sub { Digest::SHA1->new(); }
+} || eval {
+	require Digest::SHA;
+	sub { Digest::SHA->new('sha1'); }
+} || die "One of Digest::SHA1 or Digest::SHA is required to run";
+
 _hook(module => READ => 'Janus');
 
 $modules{Janus} = 2;
@@ -717,8 +720,7 @@ sub gid {
 # we load these modules down here because their loading uses
 # some of the subs defined above
 require Debug;
-require Persist;
-require Connection;
 require EventDump;
+require RemoteJanus;
 
 1;

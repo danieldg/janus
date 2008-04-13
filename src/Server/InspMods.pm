@@ -1,6 +1,5 @@
 # Copyright (C) 2007-2008 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+# Released under the GNU Affero General Public License v3
 package Server::InspMods;
 use Carp;
 use strict;
@@ -39,7 +38,8 @@ mdef 'm_auditorium.so', cmode => { u => 'r_auditorium' };
 mdef 'm_banexception.so', cmode => { e => 'l_except' };
 mdef 'm_banredirect.so'; # this just adds syntax to channel bans
 mdef 'm_blockamsg.so';
-mdef 'm_blockcaps.so', cmode => { P => 'r_blockcaps' };
+mdef 1105, 4000, 'm_blockcaps.so', cmode => { P => 'r_blockcaps' };
+mdef 1200, 'm_blockcaps.so', cmode => { B => 'r_blockcaps' };
 mdef 'm_blockcolor.so', cmode => { c => 't2_colorblock' };
 mdef 'm_botmode.so', umode => { B => 'bot' };
 
@@ -112,6 +112,7 @@ mdef 'm_customtitle.so';
 mdef 'm_cycle.so';
 mdef 'm_dccallow.so', cmds => { DCCALLOW => \&ignore };
 mdef 'm_deaf.so', umode => { d => 'deaf_chan' };
+mdef 1200, 'm_delayjoin.so', cmode => { D => 'r_delayjoin' };
 mdef 'm_denychans.so';
 mdef 'm_devoice.so', cmds => {
 	DEVOICE => sub {
@@ -217,7 +218,6 @@ mdef 1200, 'm_nicklock.so', cmds => {
 			};
 		}
 		# we need to unlock and change nicks back
-		# TODO does insp1.2 still need this? It's open to races
 		my @out;
 		push @out, $net->cmd2($Interface::janus, NICKUNLOCK => $nick);
 		push @out, $net->cmd2($nick, NICK => $before) unless $before eq $_[3];

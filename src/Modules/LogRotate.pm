@@ -21,6 +21,10 @@ sub rotate {
 	open STDOUT, '>', $log or die $!;
 	open STDERR, '>&', \*STDOUT or die $!;
 
+	if ($Janus::modules{'Commands::Debug'}) {
+		&Commands::Debug::dump_now("New log $log");
+	}
+
 	if ($logname && -f $logname && $Conffile::netconf{set}{oldlog}) {
 		fork or do {
 			{ exec $Conffile::netconf{set}{oldlog}, $logname; }

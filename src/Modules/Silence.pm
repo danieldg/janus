@@ -39,6 +39,12 @@ sub service {
 			killed => 1,
 		});
 		1;
+	}, CHATOPS => check => sub {
+		my $act = shift;
+		if ($act->{src} == $Interface::janus) {
+			return 1 if $Conffile::netconf{set}{silent};
+		}
+		undef;
 	},
 );
 

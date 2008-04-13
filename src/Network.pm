@@ -41,18 +41,18 @@ our(@jlink, @gid, @name, @netname, @numeric, @synced);
 &Persist::autoget(qw(jlink gid name netname numeric), is_synced => \@synced);
 &Persist::autoinit(qw(jlink gid netname numeric), id => \@name);
 
+our $net_gid;
+
 sub jname {
 	my $net = $_[0];
 	$name[$$net].'.janus';
 }
 
-sub lid {
-	${$_[0]};
-}
-
 sub _init {
 	my $net = $_[0];
-	$gid[$$net] ||= $RemoteJanus::self->id().':'.$$net;
+	unless ($gid[$$net]) {
+		$gid[$$net] = $RemoteJanus::self->id().':'.&EventDump::seq2gid(++$net_gid);
+	}
 }
 
 sub _set_name {

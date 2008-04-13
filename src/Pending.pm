@@ -3,6 +3,7 @@
 package Pending;
 use strict;
 use warnings;
+use SocketHandler;
 use Persist 'SocketHandler';
 use Connection;
 

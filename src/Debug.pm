@@ -93,16 +93,8 @@ sub hook_info {
 	};
 }
 
-our $LOG_TIME;
-
-unless ($LOG_TIME) {
-	$LOG_TIME = {
-		code => sub {
-			print "\e[0;1mTimestamp: $Janus::time\e[m\n";
-		},
-		repeat => 30,
-	};
-	&Janus::schedule($LOG_TIME);
+sub timestamp {
+	print "\e[0;1mTimestamp: $Janus::time\e[m\n";
 }
 
 1;

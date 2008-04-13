@@ -1,6 +1,5 @@
 # Copyright (C) 2007-2008 Daniel De Graaf
-# Released under the Affero General Public License
-# http://www.affero.org/oagpl.html
+# Released under the GNU Affero General Public License v3
 package Server::ModularNetwork;
 use Persist 'LocalNetwork';
 use strict;
@@ -17,7 +16,7 @@ our(@txt2cmode, @cmode2txt, @txt2umode, @umode2txt); # quick lookup hashes for t
 sub module_add {
 	my($net,$name) = @_;
 	my $mod = $net->find_module($name) or do {
-		$net->send($net->cmd2($Interface::janus, OPERNOTICE => 
+		$net->send($net->ncmd(OPERNOTICE =>
 			"Unknown module $name, janus may become desynced if it is used"));
 		# TODO inspircd specific
 		return;
@@ -68,7 +67,7 @@ sub module_add {
 sub module_remove {
 	my($net,$name) = @_;
 	my $mod = delete $modules[$$net]{$name} or do {
-		$net->send($net->cmd2($Interface::janus, OPERNOTICE => "Could not unload moule $name: not loaded"));
+		$net->send($net->ncmd(OPERNOTICE => "Could not unload moule $name: not loaded"));
 		return;
 	};
 	if ($mod->{cmode}) {
@@ -161,7 +160,7 @@ sub from_irc {
 	$cmd = $fromirc[$$net]{$cmd} || $cmd;
 	$cmd = $fromirc[$$net]{$cmd} || $cmd if $cmd && !ref $cmd; # allow one layer of indirection
 	unless ($cmd && ref $cmd) {
-		$net->send($net->cmd2($Interface::janus, OPERNOTICE => "Unknown command $cmd, janus is possibly desynced"));
+		$net->send($net->ncmd(OPERNOTICE => "Unknown command $cmd, janus is possibly desynced"));
 		&Debug::err_in($net, "Unknown command '$cmd'");
 		return ();
 	}
@@ -187,8 +186,9 @@ sub to_irc {
 	@sendq;
 }
 
-for my $net (values %Janus::nets) {
-	next unless $net->isa(__PACKAGE__);
+sub reload_moddef {
+	my $net = shift;
+	return unless $net->isa(__PACKAGE__);
 	my @mods = keys %{$modules[$$net]};
 	&Debug::info("Reloading module definitions for $net");
 	for my $mod (@mods) {
@@ -196,5 +196,16 @@ for my $net (values %Janus::nets) {
 		$net->module_add($mod);
 	}
 }
+
+&Janus::hook_add(
+	module => LOAD => sub {
+		my $mod = shift;
+		return unless $mod =~ /^Server::/;
+		for my $net (values %Janus::nets) {
+			next unless $net->isa(__PACKAGE__);
+			$net->reload_moddef();
+		}
+	}
+);
 
 1;

@@ -26,6 +26,7 @@ our $janus; # Janus interface bot: this module handles interactions with this bo
 
 		$janus = Nick->new(
 			net => $int,
+			gid => 'janus:1',
 			nick => $inick,
 			ts => ($^T - 1000000000),
 			info => {

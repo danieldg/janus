@@ -5,6 +5,12 @@ use strict;
 use warnings;
 use Data::Dumper;
 use Modes;
+use POSIX qw(strftime);
+
+eval {
+	&Data::Dumper::init_refaddr_format();
+	# BUG in Data::Dumper, running this is needed before using Seen
+};
 
 our $DUMP_SEQ;
 
@@ -13,50 +19,76 @@ sub dump_all_globals {
 	for my $pkg (@_) {
 		my $ns = do { no strict 'refs'; \%{$pkg.'::'} };
 		next unless $ns;
-		my %objarr;
-		if ($pkg eq 'Persist') {
-			$objarr{\%Persist::vars}++;
-			$objarr{\%Persist::init_args}++;
-		} elsif ($Persist::vars{$pkg}) {
-			$objarr{$_}++ for values %{$Persist::vars{$pkg}};
-		}
 		for my $var (keys %$ns) {
 			next if $var =~ /:/ || $var eq 'ISA'; # perl internal variable
+			next if ref $ns->{$var}; # Perl 5.10 constants
+
 			my $scv = *{$ns->{$var}}{SCALAR};
 			my $arv = *{$ns->{$var}}{ARRAY};
 			my $hsv = *{$ns->{$var}}{HASH};
+			my $cdv = *{$ns->{$var}}{CODE};
 			$rv{'$'.$pkg.'::'.$var} = $$scv if $scv && defined $$scv;
-			$rv{'@'.$pkg.'::'.$var} = $arv  if $arv && scalar @$arv && !$objarr{$arv};
-			$rv{'%'.$pkg.'::'.$var} = $hsv  if $hsv && scalar keys %$hsv && !$objarr{$hsv};
+			$rv{'@'.$pkg.'::'.$var} = $arv  if $arv && scalar @$arv;
+			$rv{'%'.$pkg.'::'.$var} = $hsv  if $hsv && scalar keys %$hsv;
+			$rv{'&'.$pkg.'::'.$var} = $cdv  if $cdv;
 		}
 	}
 	\%rv;
 }
 
 sub dump_now {
-	# workaround for a bug in Data::Dumper that only allows one "new" socket per dump
-	for (values %Connection::queues) {
-		eval { Data::Dumper::Dumper(\%Connection::queues); 1 } and last;
+	my $fmt = $Conffile::netconf{set}{datefmt};
+	my $fn = 'log/';
+	if ($fmt) {
+		$fn .= strftime $fmt, gmtime $Janus::time;
+	} else {
+		$fn .= $Janus::time;
+	}
+	1 while -f "$fn.dump".($DUMP_SEQ++);
+	$fn .= '.dump'.$DUMP_SEQ;
+
+	open my $dump, '>', $fn or return undef;
+	my $gbls = dump_all_globals(keys %Janus::modules);
+	my $objs = &Persist::dump_all_refs();
+	my %seen;
+	my @tmp = keys %$gbls;
+	for my $var (@tmp) {
+		next unless $var =~ s/^&//;
+		$seen{'*'.$var} = delete $gbls->{'&'.$var};
+	}
+	for my $pkg (keys %Persist::vars) {
+		for my $var (keys %{$Persist::vars{$pkg}}) {
+			$seen{"\$Replay::thaw_var->('$pkg','$var')"} = $Persist::vars{$pkg}{$var};
+		}
+	}
+	for my $q (@Connection::queues) {
+		my $sock = $q->[&Connection::SOCK()];
+		next unless ref $sock;
+		$seen{'$Replay::thaw_fd->('.$q->[&Connection::FD()].')'} = $sock;
 	}
 
-	my $fn = 'log/dump-'.$Janus::time.'-'.++$DUMP_SEQ;
-	open my $dump, '>', $fn or return;
-	my @all = (
+	my $dd = Data::Dumper->new([]);
+	$dd->Sortkeys(1);
+	$dd->Bless('findobj');
+	$dd->Seen(\%seen);
+
+	$dd->Names([qw(gnicks gchans gnets ijnets state listen)])->Values([
 		\%Janus::gnicks,
 		\%Janus::gchans,
 		\%Janus::gnets,
 		\%Janus::ijnets,
-		dump_all_globals(keys %Janus::modules),
-		&Persist::dump_all_refs(),
-		@_,
-	);
-	local $Data::Dumper::Sortkeys = 1;
-	for (1..10) {
-		eval {
-			print $dump Data::Dumper::Dumper(\@all);
-			1;
-		} and last;
-	}
+		\%Janus::states,
+		\%Listener::open,
+	]);
+	$dd->Purity(1);
+	print $dump $dd->Dump();
+	$dd->Purity(0);
+	$dd->Names([qw(global object arg)])->Values([
+		$gbls,
+		$objs,
+		\@_,
+	]);
+	print $dump $dd->Dump();
 	close $dump;
 	$fn;
 }
@@ -79,7 +111,10 @@ sub dump_now {
 
 &Janus::hook_add(
 	ALL => 'die' => sub {
-		dump_now(@_);
+		eval {
+			dump_now(@_);
+			1;
+		} or print "Error in dump: $@\n";
 	},
 );
 

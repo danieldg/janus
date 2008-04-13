@@ -60,7 +60,7 @@ do {
 sub _init {
 	my($nick, $ifo) = @_;
 	my $net = $ifo->{net};
-	my $gid = $ifo->{gid} || $net->gid() . ':' . $$nick;
+	my $gid = $ifo->{gid} || $net->next_nickgid();
 	$gid[$$nick] = $gid;
 	$homenet[$$nick] = $net;
 	$homenick[$$nick] = $ifo->{nick};
@@ -248,17 +248,6 @@ sub rejoin {
 sub _part {
 	my($nick,$chan) = @_;
 	$chans[$$nick] = [ grep { $_ ne $chan } @{$chans[$$nick]} ];
-}
-
-=item $nick->lid()
-
-Locally unique ID for this nick (unique for the lifetime of the nick only)
-
-=cut
-
-sub lid {
-	my $nick = $_[0];
-	return $$nick;
 }
 
 =item $nick->str($net)

@@ -12,8 +12,8 @@ use strict;
 use warnings;
 use integer;
 
-our(@sendq, @servers, @serverdsc, @next_uid, @auth, @capabs);
-&Persist::register_vars(qw(sendq servers serverdsc next_uid auth capabs));
+our(@sendq, @servers, @serverdsc, @servernum, @next_uid, @auth, @capabs);
+&Persist::register_vars(qw(sendq servers serverdsc servernum next_uid auth capabs));
 
 # auth: 0/undef = unauth connection; 1 = authed, in burst; 2 = after burst
 
@@ -59,7 +59,7 @@ sub parse {
 		unshift @args, undef;
 	}
 	my $cmd = $args[1];
-	unless ($auth[$$net] || $cmd eq 'CAPAB' || $cmd eq 'SERVER') {
+	unless ($auth[$$net] || $cmd eq 'CAPAB' || $cmd eq 'SERVER' || $cmd eq 'ERROR') {
 		$net->send(['INIT', 'ERROR :Not authorized yet']);
 		return ();
 	}
@@ -181,6 +181,8 @@ sub process_capabs {
 		unless $capabs[$$net]{PROTOCOL} == 1200;
 
 	# PREFIX=(qaohv)~&@%+ - We don't care (anymore)
+	$capabs[$$net]{PREFIX} =~ /\((\S+)\)\S+/ or warn;
+	my $pfxmodes = $1;
 
 	# CHANMODES=Ibe,k,jl,CKMNOQRTcimnprst
 	my %split2c;
@@ -188,8 +190,8 @@ sub process_capabs {
 
 	# Without a prefix character, nick modes such as +qa appear in the "l" section
 	$split2c{l}{$_} = $split2c{n}{$_} for keys %{$split2c{n}};
-	$capabs[$$net]{PREFIX} =~ /\((\S+)\)\S+/ or warn;
-	delete $split2c{l}{$_} for split //, $1;
+	delete $split2c{l}{$net->cmode2txt($_)} for split //, $pfxmodes;
+
 	# tristates show up in the 4th group
 	$split2c{r}{$_} = $split2c{t}{$_} for keys %{$split2c{t}};
 
@@ -322,7 +324,7 @@ $moddef{CORE} = {
 			ts => $_[3],
 			nick => $_[4],
 			info => {
-				home_server => $_[0],
+				home_server => $servernum[$$net]{$_[0]},
 				host => $_[5],
 				vhost => $_[6],
 				ident => $_[7],
@@ -573,22 +575,23 @@ $moddef{CORE} = {
 	SERVER => sub {
 		my $net = shift;
 		unless ($auth[$$net]) {
-			# TODO record the numerics here
 			if ($_[3] eq $net->cparam('recvpass')) {
 				$auth[$$net] = 1;
 				$net->send(['INIT', 'BURST '.$Janus::time ]);
 			} else {
 				$net->send(['INIT', 'ERROR :Bad password']);
+				return ();
 			}
 			$serverdsc[$$net]{lc $_[2]} = $_[-1];
+			$servernum[$$net]{$_[5]} = $_[2];
 			return +{
 				type => 'BURST',
 				net => $net,
 			};
 		} else {
-			# recall parent
-			$servers[$$net]{lc $_[2]} = lc $_[0];
+			$servers[$$net]{lc $_[2]} = $_[0] =~ /^\d/ ? $servernum[$$net]{$_[0]} : lc $_[0];
 			$serverdsc[$$net]{lc $_[2]} = $_[-1];
+			$servernum[$$net]{$_[5]} = $_[2];
 			return ();
 		}
 	}, SQUIT => sub {
@@ -605,9 +608,14 @@ $moddef{CORE} = {
 				$sgone{$_} = 1 if $sgone{$servers[$$net]{$_}};
 			}
 		}
-		&Debug::info('Lost servers: '.join(' ', sort keys %sgone));
-		delete $servers[$$net]{$_} for keys %sgone;
-		delete $serverdsc[$$net]{$_} for keys %sgone;
+		my @ksg = sort keys %sgone;
+		&Debug::info('Lost servers: '.join(' ', @ksg));
+		delete $servers[$$net]{$_} for @ksg;
+		delete $serverdsc[$$net]{$_} for @ksg;
+		for (keys %{$servernum[$$net]}) {
+			$sgone{$_}++ if $sgone{$servernum[$$net]{$_}};
+		}
+		delete $servernum[$$net]{$_} for keys %sgone;
 
 		my @quits;
 		for my $nick ($net->all_nicks()) {
@@ -622,8 +630,17 @@ $moddef{CORE} = {
 		}
 		@quits;
 	}, RSQUIT => sub {
-		# TODO we should really de- and re-introduce the server after this
-		();
+		my $net = shift;
+		my $src = $net->mynick($_[0]) or return ();
+		$_[2] =~ /^(\S+)\.janus$/ or return ();
+		my $dst = $1;
+		{
+			type => 'MSG',
+			src => $src,
+			dst => $Interface::janus,
+			msgtype => 'PRIVMSG',
+			msg => "NETSPLIT $dst",
+		};
 	}, PING => sub {
 		my $net = shift;
 		my $from = $_[3] || $net->cparam('linkname');
@@ -689,6 +706,17 @@ $moddef{CORE} = {
 			reason => $_[7],
 		};
 	},
+	DELLINE => sub {
+		my $net = shift;
+		return +{
+			type => 'XLINE',
+			dst => $net,
+			ltype => $_[2],
+			mask => $_[3],
+			setter => $_[0],
+			expire => 1,
+		};
+	},
 	GLINE => sub {
 		my $net = shift;
 		my $type = substr $_[1],0,1;
@@ -733,14 +761,13 @@ $moddef{CORE} = {
 		if ($nick->homenet eq $net) {
 			&Debug::warn_in($net, "Misdirected SVSNICK!");
 			return ();
-		} elsif (lc $nick->homenick eq lc $_[2]) {
+		} elsif (lc $nick->homenick eq lc $nick->str($net)) {
 			return +{
 				type => 'RECONNECT',
 				src => $net->item($_[0]),
 				dst => $nick,
 				net => $net,
 				killed => 0,
-				sendto => [ $net ],
 			};
 		} else {
 			&Debug::warn_in($net, "Ignoring SVSNICK on already tagged nick");
@@ -757,6 +784,11 @@ $moddef{CORE} = {
 	MODULES => \&ignore,
 	ENDBURST => sub {
 		my $net = shift;
+		if ($_[0]) {
+			my $srv = $servernum[$$net]{$_[0]};
+			return () if $servers[$$net]{lc $srv};
+			# remote burst
+		}
 		return (+{
 			type => 'LINKED',
 			net => $net,
@@ -803,7 +835,13 @@ $moddef{CORE} = {
 	SNONOTICE => \&ignore,
 	WALLOPS => \&ignore,
 	RCONNECT => \&ignore,
+	MAP => \&ignore,
 	METADATA => sub {
+		my $net = shift;
+		my $key = $_[3];
+		$net->do_meta($key, @_);
+	},
+	ENCAP => sub {
 		my $net = shift;
 		my $key = $_[3];
 		$net->do_meta($key, @_);
@@ -929,7 +967,6 @@ $moddef{CORE} = {
 				push @out, $net->ncmd(SERVER => $new->jname(), '*', 1, $new, $new->netname());
 				push @out, $net->cmd2($new, VERSION => 'Remote Janus Server: '.ref $new);
 			}
-			push @out, $net->ncmd(OPERNOTICE => "Janus network ".$new->name().'	('.$new->netname().") is now linked");
 		}
 		return @out;
 	}, NETSPLIT => sub {
@@ -938,7 +975,6 @@ $moddef{CORE} = {
 		my $gone = $act->{net};
 		my $msg = $act->{msg} || 'Excessive Core Radiation';
 		return (
-			$net->ncmd(OPERNOTICE => "Janus network ".$gone->name().' ('.$gone->netname().") has delinked: $msg"),
 			$net->ncmd(SQUIT => $gone->jname(), $msg),
 		);
 	}, JNETSPLIT => sub {
@@ -947,7 +983,6 @@ $moddef{CORE} = {
 		my $jid = $gone->id().'.janus';
 		my $msg = $act->{msg} || 'Excessive Core Radiation';
 		return (
-			$net->ncmd(OPERNOTICE => 'InterJanus network '.$gone->id()." has delinked: $msg"),
 			$net->ncmd(SQUIT => $jid, $msg),
 		);
 	}, CONNECT => sub {
@@ -969,11 +1004,15 @@ $moddef{CORE} = {
 				my $mode = join '', map {
 					$chan->has_nmode($_, $nick) ? ($net->txt2cmode("n_$_") || '') : ''
 				} qw/voice halfop op admin owner/;
-				push @out, $net->cmd1(FJOIN => $chan, $chan->ts(), $mode.','.$nick->str($net));
+				my @cmodes = &Modes::to_multi($net, &Modes::dump($chan));
+				@cmodes = (['+']) unless @cmodes && @{$cmodes[0]};
+				warn "w00t said this wouldn't happen" if @cmodes != 1;
+
+				push @out, $net->cmd1(FJOIN => $chan, $chan->ts(), @{$cmodes[0]}, $mode.','.$nick->str($net));
 			}
 			return @out;
 		} else {
-			return $net->cmd2($act->{from}, NICK => $act->{to}, $nick->ts());
+			return $net->cmd2($act->{dst}, NICK => $act->{to}, $nick->ts());
 		}
 	}, NICK => sub {
 		my($net,$act) = @_;
@@ -1013,7 +1052,11 @@ $moddef{CORE} = {
 		if ($act->{mode}) {
 			$mode .= ($net->txt2cmode("n_$_") || '') for keys %{$act->{mode}};
 		}
-		$net->cmd1(FJOIN => $chan, $chan->ts(), $mode.','.$net->_out($act->{src}));
+		my @cmodes = &Modes::to_multi($net, &Modes::dump($chan));
+		@cmodes = (['+']) unless @cmodes && @{$cmodes[0]};
+		warn "w00t said this wouldn't happen" if @cmodes != 1;
+
+		$net->cmd1(FJOIN => $chan, $chan->ts(), @{$cmodes[0]}, $mode.','.$net->_out($act->{src}));
 	}, PART => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, PART => $act->{dst}, $act->{msg});
@@ -1088,20 +1131,12 @@ $moddef{CORE} = {
 			# assume this is part of a WHOIS reply; discard
 			return ();
 		}
-		if (($type eq 'PRIVMSG' || $type eq 'NOTICE') && $act->{src}->isa('Nick') && $act->{src}->is_on($net)) {
+		if ($type eq 'PRIVMSG' || $type eq 'NOTICE') {
 			return $net->cmd2($act->{src}, $type, $dst, $act->{msg});
 		} elsif ($act->{dst}->isa('Nick')) {
-			# sent to a single user - it's easier to just PUSH the result
+			# sent to a single user - just PUSH the result
 			my $msg = $net->cmd2($act->{src}, $type, $dst, ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg});
 			return $net->ncmd(PUSH => $act->{dst}, $msg);
-		} elsif ($type eq 'PRIVMSG' || $type eq 'NOTICE') {
-			# main case: people speaking in -n channels; a bunch of race conditions also come here
-			# TODO this should be improved by m_janus.so if it gets written
-			my $msg = $act->{msg};
-			my $src = $act->{src};
-			$src = $src->homenick() if $src && $src->isa('Nick');
-			$msg = $msg =~ /^\001ACTION (.*?)\001?$/ ? '* '.$net->_out($src).' '.$msg : '<'.$net->_out($src).'> '.$msg;
-			$net->cmd2($Interface::janus, $type, $act->{dst}, $msg);
 		}
 	}, WHOIS => sub {
 		my($net,$act) = @_;
@@ -1112,6 +1147,7 @@ $moddef{CORE} = {
 	}, LINKREQ => sub {
 		my($net,$act) = @_;
 		my $src = $act->{net};
+		return () if $act->{linkfile};
 		$net->ncmd(OPERNOTICE => $src->netname()." would like to link $act->{slink} to $act->{dlink}");
 	}, RAW => sub {
 		my($net,$act) = @_;

@@ -22,9 +22,14 @@ our @queues;
 # net number => [ fd, IO::Socket, net, recvq, sendq, try_recv, try_send, ping ]
 our $lping;
 $lping ||= 100;
+our $timeres;
+$timeres ||= 1;
 
-my $tblank = ``;
-print "WARNING: not running in taint mode\n" unless tainted($tblank);
+our $tblank;
+unless (defined $tblank) {
+	$tblank = ``;
+	print "WARNING: not running in taint mode\n" unless tainted($tblank);
+}
 
 sub add {
 	my($sock, $net) = @_;
@@ -99,7 +104,7 @@ sub readable {
 		} else {
 			&Debug::err_in($net, "Delink from failed read: $!");
 		}
-		&Janus::delink($net, 'Socket read failure ('.$!.')');
+		delink($net, 'Socket read failure ('.$!.')');
 	}
 }
 
@@ -124,7 +129,7 @@ sub _syswrite {
 		} else {
 			&Debug::err_in($net, "Delink from failed write: $!");
 		}
-		&Janus::delink($net, 'Socket write failure ('.$!.')');
+		delink($net, 'Socket write failure ('.$!.')');
 	}
 }
 
@@ -149,20 +154,41 @@ sub run_sendq {
 }
 
 sub pingall {
-	my $minpong = shift;
-	my $timeout = $minpong - 60;
+	my $timeout = shift;
 	my @all = @queues;
 	for my $q (@all) {
 		my($net,$last) = @$q[NET,PINGT];
 		next if ref $net eq 'Listener';
 		if ($last < $timeout) {
-			&Janus::delink($net, 'Socket write failure ('.$!.')');
-		} elsif ($last < $minpong) {
+			delink($net, 'Ping Timeout');
+		} else {
 			$net->send(+{ type => 'PING' });
 		}
-		# otherwise, the net is quite nicely active
 	}
 }
+
+sub delink {
+	my($net,$msg) = @_;
+	return unless $net;
+	if ($net->isa('Pending')) {
+		my $id = $net->id();
+		delete $Janus::nets{$id};
+		&Connection::reassign($net, undef);
+	} elsif ($net->isa('Server::InterJanus')) {
+		&Janus::insert_full(+{
+			type => 'JNETSPLIT',
+			net => $net,
+			msg => $msg,
+		});
+	} else {
+		&Janus::insert_full(+{
+			type => 'NETSPLIT',
+			net => $net,
+			msg => $msg,
+		});
+	}
+}
+
 
 sub timestep {
 	my($r,$w) = ('','');
@@ -171,17 +197,22 @@ sub timestep {
 		vec($w,$q->[FD],1) = 1 if $q->[TRY_W];
 	}
 
-	if (select $r, $w, undef, 1) {
+	my $fd = select $r, $w, undef, $timeres;
+
+	$timeres = &Janus::timer();
+
+	if ($fd) {
 		for my $q (@queues) {
 			writable $q if vec($w,$q->[FD],1);
 			readable $q if vec($r,$q->[FD],1);
 		}
 	}
 
-	&Janus::timer();
-
-	if ($lping + 30 < $Janus::time) {
-		pingall $lping + 5;
+	if ($lping + 30 <= $Janus::time) {
+		# Ping at most once every 30 seconds
+		# Pings can be delayed up to twice this if $timeres lines up properly
+		# Therefore 95 seconds is a good timeout for the last pong message
+		pingall($Janus::time - 95);
 		$lping = $Janus::time;
 	}
 
@@ -190,19 +221,26 @@ sub timestep {
 	scalar @queues;
 }
 
-sub _cleanup {
-	my $act = shift;
-	my $net = $act->{net};
-
-	my $q = reassign $net, undef;
-	return if $net->jlink();
-
-	warn "Queue for network $$net was already removed" unless $q;
-}
-
 &Janus::hook_add(
-	NETSPLIT => act => \&_cleanup,
-	JNETSPLIT => act => \&_cleanup,
+	NETSPLIT => act => sub {
+		my $act = shift;
+		my $net = $act->{net};
+
+		my $q = reassign $net, undef;
+		return if $net->jlink();
+
+		warn "Queue for network $$net was already removed" unless $q;
+	}, JNETSPLIT => check => sub {
+		my $act = shift;
+		my $net = $act->{net};
+
+		my $q = reassign $net, undef;
+		warn "Queue for network $$net was already removed" unless $q;
+
+		my $eq = $Janus::ijnets{$net->id()};
+		return 1 if $eq && $eq ne $net;
+		undef;
+	}
 );
 
 1;

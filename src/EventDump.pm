@@ -3,24 +3,13 @@
 package EventDump;
 use strict;
 use warnings;
-use SocketHandler;
-use Persist 'SocketHandler';
-use Nick;
-use Channel;
-use RemoteNetwork;
+use integer;
 use Carp;
-
-my %toirc;
 
 our $INST ||= do {
 	my $no;
 	bless \$no;
 };
-
-sub str {
-	warn;
-	"";
-}
 
 my %esc2char = (
 	e => '\\',
@@ -85,8 +74,6 @@ sub ssend {
 	$out.'>';
 }
 
-sub ignore { (); }
-
 my %to_ij = (
 	NETLINK => sub {
 		my($ij, $act) = @_;
@@ -136,16 +123,11 @@ sub debug_send {
 }
 
 sub dump_act {
-	my $ij = shift;
-	unless ($$ij) {
-		carp "Don't use dump_act on \$INST";
-		return ();
-	}
 	my @out;
 	for my $act (@_) {
 		unless ($act->{IJ_RAW}) {
 			my $thnd = $to_ij{$act->{type}};
-			my $raw = $thnd ? $thnd->($ij, $act) : $ij->ssend($act);
+			my $raw = $thnd ? $thnd->($INST, $act) : ssend($INST, $act);
 			$act->{IJ_RAW} = $raw;
 		}
 		push @out, $act->{IJ_RAW};
@@ -153,111 +135,16 @@ sub dump_act {
 	@out;
 }
 
-my %v_type; %v_type = (
-	' ' => sub {
-		undef;
-	}, '>' => sub {
-		undef;
-	}, '"' => sub {
-		s/^"([^"]*)"//;
-		my $v = $1;
-		$v =~ s/\\(.)/$esc2char{$1}/g;
-		$v;
-	}, 'n' => sub {
-		s/^n:([^ >]+)(:\d+)// or return undef;
-		$Janus::gnicks{$1.$2} || $Janus::gnets{$1};
-	}, 'c' => sub {
-		s/^c:([^ >]+)// or return undef;
-		$Janus::gchans{$1};
-	}, 's' => sub {
-		s/^s:([^ >]+)// or return undef;
-		$Janus::gnets{$1};
-	}, 'j' => sub {
-		s/^j:([^ >]+)// or return undef;
-		return $Janus::global if $1 eq '*';
-		$Janus::ijnets{$1};
-	}, '<a' => sub {
-		my @arr;
-		s/^<a// or warn;
-		while (s/^ //) {
-			my $v_t = substr $_,0,1;
-			$v_t = substr $_,0,2 if $v_t eq '<';
-			push @arr, $v_type{$v_t}->(@_);
-		}
-		s/^>// or warn;
-		\@arr;
-	}, '<h' => sub {
-		my $ij = shift;
-		my $h = {};
-		s/^<h// or warn;
-		$ij->kv_pairs($h);
-		s/^>// or warn;
-		$h;
-	}, '<s' => sub {
-		my $ij = shift;
-		my $h = {};
-		s/^<s// or warn;
-		$ij->kv_pairs($h);
-		s/^>// or warn;
-		if ($Janus::gnets{$h->{gid}} || $Janus::nets{$h->{id}}) {
-			# this is a NETLINK of a network we already know about.
-			# We either have a loop or a name collision. Either way, the IJ link
-			# cannot continue
-			&Janus::delink($ij, "InterJanus network name collision: network $h->{id} already exists");
-			return undef;
-		}
-		unless ($ij->jparent($h->{jlink})) {
-			&Janus::delink($ij, "Network misintroduction: $h->{jlink} invalid");
-			return undef;
-		}
-		RemoteNetwork->new(%$h);
-	}, '<j' => sub {
-		my $ij = shift;
-		my $h = {};
-		s/^<j// or warn;
-		$ij->kv_pairs($h);
-		s/^>// or warn;
-		my $id = $h->{id};
-		my $parent = $h->{parent};
-		if ($Janus::ijnets{$id}) {
-			&Janus::delink($ij, "InterJanus network name collision: IJ network $h->{id} already exists");
-			return undef;
-		}
-		unless ($ij->jparent($parent)) {
-			&Janus::delink($ij, "InterJanus network misintroduction: Parent $parent invalid");
-			return undef;
-		}
-		RemoteJanus->new(parent => $parent, id => $id);
-	}, '<c' => sub {
-		my $ij = shift;
-		my $h = {};
-		s/^<c// or warn;
-		$ij->kv_pairs($h);
-		s/^>// or warn;
-		# this creates a new object every time because LINK will fail if we
-		# give it a cached item, and LSYNC needs to create a lot of the time
-		Channel->new(%$h);
-	}, '<n' => sub {
-		my $ij = shift;
-		my $h = {};
-		s/^<n// or warn;
-		$ij->kv_pairs($h);
-		s/^>// or warn;
-		return undef unless ref $h->{net} && $ij->jparent($h->{net}->jlink());
-		$Janus::gnicks{$h->{gid}} || Nick->new(%$h);
-	},
-);
+my $seq_tbl = join '', 0..9, 'a'..'z', 'A'..'Z';
 
-sub kv_pairs {
-	my($ij, $h) = @_;
-	while (s/^\s+(\S+)=//) {
-		my $k = $1;
-		my $v_t = substr $_,0,1;
-		$v_t = substr $_,0,2 if $v_t eq '<';
-		return warn "Cannot find v_t for: $_" unless $v_type{$v_t};
-		return warn "Duplicate key $k" if $h->{$k};
-		$h->{$k} = $v_type{$v_t}->($ij);
+sub seq2gid {
+	my $id = shift;
+	my $o = '';
+	while ($id) {
+		$o .= substr $seq_tbl, ($id % 62), 1;
+		$id /= 62;
 	}
+	$o;
 }
 
 1;

@@ -14,22 +14,35 @@ BEGIN {
 	$ENV{PATH} = $1;
 	$ENV{SHELL} = '/bin/sh';
 	delete @ENV{'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
-	push @INC, '.';
 }
-use Janus;
+do './src/Janus.pm' or die $@;
 use POSIX 'setsid';
 
-our $VERSION = '1.11';
+our $BKPT;
+our $VERSION = 'replay';
+
+my $logfile = shift or do {
+	print "Use: $0 <logfile> [<conffile> [<dumpfile>]]\n";
+	exit 1;
+};
+
+my $conffile = shift;
+
+open my $console, '>&STDOUT' or die $!;
+open my $log, $logfile or die $!;
 
 $| = 1;
 $SIG{PIPE} = 'IGNORE';
 $SIG{CHLD} = 'IGNORE';
 
-open my $console, '>&STDOUT';
-
 &Janus::load($_) or die for qw(Conffile Interface Actions Commands::Core);
 
-open my $log, $ARGV[0];
+if ($ARGV[0] && $ARGV[0] =~ /(.+)/) {
+	my $dumpfile = $1;
+	&Janus::load('Replay') or die;
+	$dumpfile = "./$dumpfile" unless $dumpfile =~ m#^/#;
+	&Replay::run($conffile, $dumpfile);
+}
 
 use constant {
 	NONE => 0,
@@ -51,9 +64,18 @@ sub find_ij {
 
 sub zero { 0 }
 sub one { 1 }
-$Debug::LOG_TIME{code} = \&one;
+my $KV = do {
+	my $u;
+	require Server::InterJanus;
+	bless \$u, 'Server::InterJanus';
+};
 
 while (<$log>) {
+	if ($BKPT && $. >= $BKPT) {
+		BEGIN { print "Set breakpoint on line ".(__LINE__+1)."\n"; }
+		print $console "BREAK\n";
+		$BKPT = 0;
+	}
 	if (s/^!//) {
 		print $console "EVAL: $_";
 		eval;
@@ -61,7 +83,10 @@ while (<$log>) {
 		$state = NONE;
 		my $act = { type => 'INIT' };
 		$_ = $1;
-		$EventDump::INST->kv_pairs($act);
+		$KV->kv_pairs($act);
+		if ($conffile) {
+			$act->{args}[1] = $conffile;
+		}
 		&Janus::insert_full($act);
 
 		%Conffile::inet = (
@@ -108,7 +133,7 @@ while (<$log>) {
 		$state = IN;
 		my($cid,$line,$ij,$tmp) = ($1,$2,undef,{});
 		$_ = $3;
-		$EventDump::INST->kv_pairs($tmp);
+		$KV->kv_pairs($tmp);
 		die if $cid && $tmp->{id} ne $cid;
 		$ij = find_ij $tmp->{id};
 
@@ -146,7 +171,7 @@ while (<$log>) {
 		$state = IN;
 		my $act = { type => $1 };
 		my $txt = $_ = $2;
-		$EventDump::INST->kv_pairs($act);
+		$KV->kv_pairs($act);
 		unless (defined $act->{net}) {
 			# probably split an IJ net before it was introduced
 			if ($txt =~ / net=j:(\S+) /) {
@@ -158,7 +183,6 @@ while (<$log>) {
 		next unless $2 eq $RemoteJanus::self->id();
 		&Janus::timer($1-40);
 	} elsif (/^\e\[0;1mTimestamp: (\d+)\e\[m$/) {
-		print "\e\[0;1mTimestamp: $1\e\[m\n";
 		&Janus::timer($1);
 	} else {
 		$state = NONE;
