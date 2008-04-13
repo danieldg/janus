@@ -221,19 +221,26 @@ sub timestep {
 	scalar @queues;
 }
 
-sub _cleanup {
-	my $act = shift;
-	my $net = $act->{net};
-
-	my $q = reassign $net, undef;
-	return if $net->jlink();
-
-	warn "Queue for network $$net was already removed" unless $q;
-}
-
 &Janus::hook_add(
-	NETSPLIT => act => \&_cleanup,
-	JNETSPLIT => act => \&_cleanup,
+	NETSPLIT => act => sub {
+		my $act = shift;
+		my $net = $act->{net};
+
+		my $q = reassign $net, undef;
+		return if $net->jlink();
+
+		warn "Queue for network $$net was already removed" unless $q;
+	}, JNETSPLIT => check => sub {
+		my $act = shift;
+		my $net = $act->{net};
+
+		my $q = reassign $net, undef;
+		warn "Queue for network $$net was already removed" unless $q;
+
+		my $eq = $Janus::ijnets{$net->id()};
+		return 1 if $eq && $eq ne $net;
+		undef;
+	}
 );
 
 1;

@@ -600,15 +600,6 @@ if ($RELEASE) {
 		my $net = $act->{net};
 		my $id = $net->id();
 		$ijnets{$id} = $net;
-	}, JNETSPLIT => check => sub {
-		my $act = shift;
-		my $net = $act->{net};
-		my $eq = $ijnets{$net->id()};
-		if ($eq && $eq ne $net) {
-			&Connection::reassign($net, undef);
-			return 1;
-		}
-		undef;
 	}, JNETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
@@ -762,7 +753,6 @@ sub gid {
 # we load these modules down here because their loading uses
 # some of the subs defined above
 require Debug;
-require Connection;
 require EventDump;
 require RemoteJanus;
 
