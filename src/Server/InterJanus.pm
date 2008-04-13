@@ -9,7 +9,7 @@ use Nick;
 use Channel;
 use RemoteNetwork;
 
-our $IJ_PROTO = 1.7;
+our $IJ_PROTO = 1.8;
 
 our(@sendq, @auth);
 &Persist::register_vars(qw(sendq auth));
@@ -129,7 +129,7 @@ my %v_type; %v_type = (
 		$ij->kv_pairs($h);
 		s/^>// or warn;
 		# this creates a new object every time because LINK will fail if we
-		# give it a cached item, and LSYNC needs to create a lot of the time
+		# give it a cached item, and LOCKACK needs to create a lot of the time
 		Channel->new(%$h);
 	}, '<n' => sub {
 		my $ij = shift;
@@ -137,7 +137,7 @@ my %v_type; %v_type = (
 		s/^<n// or warn;
 		$ij->kv_pairs($h);
 		s/^>// or warn;
-		return undef unless ref $h->{net} && $ij->jparent($h->{net}->jlink());
+		return undef unless $h->{gid} && ref $h->{net} && $ij->jparent($h->{net});
 		$Janus::gnicks{$h->{gid}} || Nick->new(%$h);
 	},
 );
