@@ -30,8 +30,8 @@ Last nick-change timestamp of this user (to help determine collision resolution)
 
 =cut
 
-our(@gid, @homenet, @homenick, @nets, @chans, @mode, @info, @ts);
-&Persist::register_vars(qw(gid homenet homenick nets chans mode info ts));
+our(@gid, @homenet, @homenick, @nets, @nicks, @chans, @mode, @info, @ts);
+&Persist::register_vars(qw(gid homenet homenick nets nicks chans mode info ts));
 &Persist::autoget(qw(gid homenet homenick ts));
 
 our %umodebit = ();
@@ -62,9 +62,11 @@ sub _init {
 	my $net = $ifo->{net};
 	my $gid = $ifo->{gid} || $net->next_nickgid();
 	$gid[$$nick] = $gid;
+	$Janus::gnicks{$gid} = $nick;
 	$homenet[$$nick] = $net;
 	$homenick[$$nick] = $ifo->{nick};
 	$nets[$$nick] = { $$net => $net };
+	$nicks[$$nick] = { $$net => $ifo->{nick} };
 	$chans[$$nick] = [];
 	$ts[$$nick] = 0 + ($ifo->{ts} || $Janus::time);
 	$info[$$nick] = $ifo->{info} || {};
@@ -258,7 +260,7 @@ Get the nick's name on the given network
 
 sub str {
 	my($nick,$net) = @_;
-	$homenick[$$nick];
+	$nicks[$$nick]{$$net};
 }
 
 =back
@@ -266,12 +268,35 @@ sub str {
 =cut
 
 &Janus::hook_add(
-	CONNECT => act => sub {
+	CONNECT => check => sub {
+		my $act = shift;
+		my $nick = $act->{dst};
+		my $net = $act->{net};
+		return 1 if exists $nets[$$nick]{$$net};
+		undef;
+	}, CONNECT => act => sub {
 		my $act = shift;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
 		$nets[$$nick]{$$net} = $net;
 		return if $net->jlink();
+
+		my $rnick = $net->request_newnick($nick, $homenick[$$nick], 0);
+		$nicks[$$nick]->{$$net} = $rnick;
+	}, RECONNECT => act => sub {
+		my $act = shift;
+		my $nick = $act->{dst};
+		my $net = $act->{net};
+		
+		delete $act->{except};
+
+		my $from = $act->{from} = $nicks[$$nick]{$$net};
+		my $to = $act->{to} = $net->request_cnick($nick, $homenick[$$nick], 1);
+		$nicks[$$nick]{$$net} = $to;
+		
+		if ($act->{killed}) {
+			$act->{reconnect_chans} = [ @{$chans[$$nick]} ];
+		}
 	}, NICK => check => sub {
 		my $act = shift;
 		my $old = lc $act->{dst}->homenick();
@@ -286,17 +311,16 @@ sub str {
 		my $act = $_[0];
 		my $nick = $act->{dst};
 		my $old = $homenick[$$nick];
-		my $to = $act->{nick};
-
-		my $from = $homenick[$$nick];
-		$Janus::nicks{lc $to} = delete $Janus::nicks{lc $from};
-		$homenick[$$nick] = $to;
+		my $new = $act->{nick};
 
 		$ts[$$nick] = 0+$act->{nickts} if $act->{nickts};
 		for my $id (keys %{$nets[$$nick]}) {
 			my $net = $nets[$$nick]->{$id};
 			next if $net->jlink();
-	
+			my $from = $nicks[$$nick]->{$id};
+			my $to = $net->request_cnick($nick, $new);
+			$nicks[$$nick]->{$id} = $to;
+
 			$act->{from}->{$id} = $from;
 			$act->{to}->{$id} = $to;
 		}
@@ -327,11 +351,16 @@ sub str {
 		for my $chan (@clist) {
 			$chan->part($nick);
 		}
-		delete $Janus::nicks{lc $homenick[$$nick]};
-	}, NEWNICK => act => sub {
-		my $act = $_[0];
-		my $nick = $act->{dst};
-		$Janus::nicks{lc $homenick[$$nick]} = $nick;
+		for my $id (keys %{$nets[$$nick]}) {
+			my $net = $nets[$$nick]->{$id};
+			next if $net->jlink();
+			my $name = $nicks[$$nick]->{$id};
+			$net->release_nick($name, $nick);
+		}
+		delete $chans[$$nick];
+		delete $nets[$$nick];
+		delete $homenet[$$nick];
+		delete $Janus::gnicks{$nick->gid()};
 	}, JOIN => act => sub {
 		my $act = shift;
 		my $nick = $act->{src};
@@ -351,7 +380,7 @@ sub str {
 	}, NETSPLIT => cleanup => sub {
 		my $act = shift;
 		my $net = $act->{net};
-		for my $n (values %Janus::nicks) {
+		for my $n (values %Janus::gnicks) {
 			delete $nets[$$n]{$$net};
 		}
 	},

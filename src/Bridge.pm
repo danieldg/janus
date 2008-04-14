@@ -30,7 +30,7 @@ use Modes;
 		my $act = shift;
 		my $net = $act->{net};
 		my @conns;
-		for my $nick (values %Janus::nicks) {
+		for my $nick (values %Janus::gnicks) {
 			next if $nick->is_on($net);
 			push @conns, {
 				type => 'CONNECT',

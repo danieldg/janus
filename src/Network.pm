@@ -6,7 +6,6 @@ use Persist 'SocketHandler';
 use Carp qw(cluck);
 use strict;
 use warnings;
-use RemoteJanus;
 
 =head1 Network
 
@@ -51,7 +50,7 @@ sub jname {
 sub _init {
 	my $net = $_[0];
 	unless ($gid[$$net]) {
-		$gid[$$net] = $RemoteJanus::self->id().':'.&EventDump::seq2gid(++$net_gid);
+		$gid[$$net] = &EventDump::seq2gid(++$net_gid);
 	}
 }
 
@@ -72,7 +71,6 @@ sub to_ij {
 	my $out = '';
 	$out .= ' gid='.$ij->ijstr($net->gid());
 	$out .= ' id='.$ij->ijstr($net->name());
-	$out .= ' jlink='.$ij->ijstr($net->jlink() || $RemoteJanus::self);
 	$out .= ' netname='.$ij->ijstr($net->netname());
 	$out .= ' numeric='.$ij->ijstr($net->numeric());
 	$out;
@@ -109,7 +107,7 @@ sub id {
 		my $net = $act->{net};
 		my $msg = 'hub.janus '.$net->jname();
 		my @clean;
-		for my $nick (values %Janus::nicks) {
+		for my $nick ($net->all_nicks()) {
 			next if $nick->homenet() ne $net;
 			push @clean, +{
 				type => 'QUIT',

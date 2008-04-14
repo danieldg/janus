@@ -20,7 +20,8 @@ our $global;     # Message target: ALL servers, everywhere
 $time ||= time;
 
 our %nets;       # by network tag
-our %nicks;
+our %gnicks;     # by guid
+our %chans;      # by name
 our %gnets;      # by guid
 
 =head2 Module loading

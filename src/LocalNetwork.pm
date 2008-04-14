@@ -10,7 +10,6 @@ use warnings;
 
 our(@cparms, @nickseq);
 &Persist::register_vars(qw(cparms nickseq));
-our %chans;
 
 sub _init {
 	my $net = shift;
@@ -39,30 +38,30 @@ sub next_nickgid {
 
 sub chan {
 	my($net, $name, $new) = @_;
-	unless (exists $chans{lc $name}) {
+	unless (exists $Janus::chans{lc $name}) {
 		return undef unless $new;
 		my $chan = Channel->new(
 			net => $net, 
 			name => $name,
 			ts => $new,
 		);
-		$chans{lc $name} = $chan;
+		$Janus::chans{lc $name} = $chan;
 	}
-	$chans{lc $name};
+	$Janus::chans{lc $name};
 }
 
 sub replace_chan {
 	my($net,$name,$new) = @_;
-	warn "replacing nonexistant channel" unless exists $chans{lc $name};
+	warn "replacing nonexistant channel" unless exists $Janus::chans{lc $name};
 	if (defined $new) {
-		$chans{lc $name} = $new;
+		$Janus::chans{lc $name} = $new;
 	} else {
-		delete $chans{lc $name};
+		delete $Janus::chans{lc $name};
 	}
 }
 
 sub all_chans {
-	values %chans;
+	values %Janus::chans;
 }
 
 1;
