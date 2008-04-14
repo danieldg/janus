@@ -26,7 +26,7 @@ use Modes;
 		my $act = shift;
 		$act->{sendto} = $Janus::global;
 		0;
-	}, NETLINK => act => sub {
+	}, NETLINK => cleanup => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		my @conns;
