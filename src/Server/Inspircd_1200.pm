@@ -1073,7 +1073,7 @@ $moddef{CORE} = {
 	}, TOPIC => sub {
 		my($net,$act) = @_;
 		my $src = $act->{src};
-		if ($src->isa('Nick') && $src->is_on($net) && !$act->{in_link}) {
+		if ($src && $src->isa('Nick') && $src->is_on($net) && !$act->{in_link}) {
 			return $net->cmd2($src, TOPIC => $act->{dst}, $act->{topic});
 		}
 		return $net->ncmd(FTOPIC => $act->{dst}, $act->{topicts}, $act->{topicset}, $act->{topic});
