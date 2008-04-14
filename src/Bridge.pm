@@ -26,12 +26,13 @@ use Modes;
 		my $act = shift;
 		$act->{sendto} = $Janus::global;
 		0;
-	}, BURST => act => sub {
+	}, NETLINK => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		my @conns;
+
 		for my $nick (values %Janus::gnicks) {
-			next if $nick->is_on($net);
+			warn if $nick->is_on($net);
 			push @conns, {
 				type => 'CONNECT',
 				dst => $nick,
