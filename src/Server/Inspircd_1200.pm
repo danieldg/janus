@@ -255,11 +255,6 @@ sub _out {
 	}
 }
 
-sub cmd1 {
-	my $net = shift;
-	$net->cmd2(undef, @_);
-}
-
 sub ncmd {
 	my $net = shift;
 	$net->cmd2($net, @_);
@@ -681,7 +676,7 @@ $moddef{CORE} = {
 			push @out, 'CAPAB MODULES '.$1 while $mods =~ s/(.{1,495})(,|$)//;
 			push @out, 'CAPAB CAPABILITIES :'.$1 while $capabs =~ s/(.{1,450})( |$)//;
 			push @out, 'CAPAB END';
-			push @out, $net->cmd1(SERVER => $net->cparam('linkname'), $net->cparam('sendpass'), 0, $net, 'Janus Network Link');
+			push @out, $net->cmd2(undef, SERVER => $net->cparam('linkname'), $net->cparam('sendpass'), 0, $net, 'Janus Network Link');
 			$net->send(\@out);
 		} # ignore START and any others
 		();
@@ -1009,7 +1004,7 @@ $moddef{CORE} = {
 				@cmodes = (['+']) unless @cmodes && @{$cmodes[0]};
 				warn "w00t said this wouldn't happen" if @cmodes != 1;
 
-				push @out, $net->cmd1(FJOIN => $chan, $chan->ts(), @{$cmodes[0]}, $mode.','.$nick->str($net));
+				push @out, $net->ncmd(FJOIN => $chan, $chan->ts(), @{$cmodes[0]}, $mode.','.$nick->str($net));
 			}
 			return @out;
 		} else {
@@ -1057,7 +1052,7 @@ $moddef{CORE} = {
 		@cmodes = (['+']) unless @cmodes && @{$cmodes[0]};
 		warn "w00t said this wouldn't happen" if @cmodes != 1;
 
-		$net->cmd1(FJOIN => $chan, $chan->ts(), @{$cmodes[0]}, $mode.','.$net->_out($act->{src}));
+		$net->ncmd(FJOIN => $chan, $chan->ts(), @{$cmodes[0]}, $mode.','.$net->_out($act->{src}));
 	}, PART => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, PART => $act->{dst}, $act->{msg});

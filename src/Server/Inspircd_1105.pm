@@ -234,11 +234,6 @@ sub _out {
 	}
 }
 
-sub cmd1 {
-	my $net = shift;
-	$net->cmd2(undef, @_);
-}
-
 sub ncmd {
 	my $net = shift;
 	$net->cmd2($net->cparam('linkname'), @_);
@@ -332,7 +327,7 @@ $moddef{CORE} = {
                 killed => 1,
                 nojlink => 1,
             };
-			$net->send($net->cmd1(KILL => $_[3], 'Nick collision'));
+			$net->send($net->ncmd(KILL => $_[3], 'Nick collision'));
 		} else {
 			$nick = Nick->new(%nick);
 			$net->nick_collide($_[3], $nick);
@@ -656,7 +651,7 @@ $moddef{CORE} = {
 			push @out, 'CAPAB MODULES '.$1 while $mods =~ s/(.{1,495})(,|$)//;
 			push @out, 'CAPAB CAPABILITIES :'.$1 while $capabs =~ s/(.{1,450})( |$)//;
 			push @out, 'CAPAB END';
-			push @out, $net->cmd1(SERVER => $net->cparam('linkname'), $net->cparam('sendpass'), 0, 'Janus Network Link');
+			push @out, $net->cmd2(undef, SERVER => $net->cparam('linkname'), $net->cparam('sendpass'), 0, 'Janus Network Link');
 			$net->send(\@out);
 		} # ignore START and any others
 		();
