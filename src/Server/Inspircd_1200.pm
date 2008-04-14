@@ -255,11 +255,6 @@ sub _out {
 	}
 }
 
-sub cmd1 {
-	my $net = shift;
-	$net->cmd2(undef, @_);
-}
-
 sub ncmd {
 	my $net = shift;
 	$net->cmd2($net, @_);
@@ -521,6 +516,7 @@ $moddef{CORE} = {
 			topicts => $_[3],
 			topicset => $_[4],
 			topic => $_[-1],
+			in_link => 1,
 		};
 	}, TOPIC => sub {
 		my $net = shift;
@@ -680,7 +676,7 @@ $moddef{CORE} = {
 			push @out, 'CAPAB MODULES '.$1 while $mods =~ s/(.{1,495})(,|$)//;
 			push @out, 'CAPAB CAPABILITIES :'.$1 while $capabs =~ s/(.{1,450})( |$)//;
 			push @out, 'CAPAB END';
-			push @out, $net->cmd1(SERVER => $net->cparam('linkname'), $net->cparam('sendpass'), 0, $net, 'Janus Network Link');
+			push @out, $net->cmd2(undef, SERVER => $net->cparam('linkname'), $net->cparam('sendpass'), 0, $net, 'Janus Network Link');
 			$net->send(\@out);
 		} # ignore START and any others
 		();
@@ -1008,7 +1004,7 @@ $moddef{CORE} = {
 				@cmodes = (['+']) unless @cmodes && @{$cmodes[0]};
 				warn "w00t said this wouldn't happen" if @cmodes != 1;
 
-				push @out, $net->cmd1(FJOIN => $chan, $chan->ts(), @{$cmodes[0]}, $mode.','.$nick->str($net));
+				push @out, $net->ncmd(FJOIN => $chan, $chan->ts(), @{$cmodes[0]}, $mode.','.$nick->str($net));
 			}
 			return @out;
 		} else {
@@ -1056,7 +1052,7 @@ $moddef{CORE} = {
 		@cmodes = (['+']) unless @cmodes && @{$cmodes[0]};
 		warn "w00t said this wouldn't happen" if @cmodes != 1;
 
-		$net->cmd1(FJOIN => $chan, $chan->ts(), @{$cmodes[0]}, $mode.','.$net->_out($act->{src}));
+		$net->ncmd(FJOIN => $chan, $chan->ts(), @{$cmodes[0]}, $mode.','.$net->_out($act->{src}));
 	}, PART => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, PART => $act->{dst}, $act->{msg});
@@ -1076,12 +1072,11 @@ $moddef{CORE} = {
 		@out;
 	}, TOPIC => sub {
 		my($net,$act) = @_;
-		if ($act->{in_link}) {
-			return $net->ncmd(FTOPIC => $act->{dst}, $act->{topicts}, $act->{topicset}, $act->{topic});
-		}
 		my $src = $act->{src};
-		$src = $Interface::janus unless $src && $src->isa('Nick') && $src->is_on($net);
-		return $net->cmd2($src, TOPIC => $act->{dst}, $act->{topic});
+		if ($src->isa('Nick') && $src->is_on($net) && !$act->{in_link}) {
+			return $net->cmd2($src, TOPIC => $act->{dst}, $act->{topic});
+		}
+		return $net->ncmd(FTOPIC => $act->{dst}, $act->{topicts}, $act->{topicset}, $act->{topic});
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
 		if ($act->{item} eq 'vhost') {

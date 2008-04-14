@@ -988,10 +988,11 @@ sub srvname {
 		);
 		if (defined $_[0]) {
 			my $src = $act{src} = $net->item($_[0]);
-			$act{topicset} = $src ? $src->str($net) : 'unknown';
+			$act{topicset} = $src ? $_[0] : 'unknown';
 		}
 		$act{topicset} = $_[3] if @_ > 4;
 		$act{topicts} = $net->sjbint($_[4]) if @_ > 5;
+		$act{in_link} = 1 unless @_ > 4 && $_[3] eq $_[0];
 		\%act;
 	},
 	INVITE => \&todo,

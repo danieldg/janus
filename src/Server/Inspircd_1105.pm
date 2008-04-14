@@ -234,11 +234,6 @@ sub _out {
 	}
 }
 
-sub cmd1 {
-	my $net = shift;
-	$net->cmd2(undef, @_);
-}
-
 sub ncmd {
 	my $net = shift;
 	$net->cmd2($net->cparam('linkname'), @_);
@@ -332,7 +327,7 @@ $moddef{CORE} = {
                 killed => 1,
                 nojlink => 1,
             };
-			$net->send($net->cmd1(KILL => $_[3], 'Nick collision'));
+			$net->send($net->ncmd(KILL => $_[3], 'Nick collision'));
 		} else {
 			$nick = Nick->new(%nick);
 			$net->nick_collide($_[3], $nick);
@@ -514,6 +509,7 @@ $moddef{CORE} = {
 			topicts => $_[3],
 			topicset => $_[4],
 			topic => $_[-1],
+			in_link => 1,
 		};
 	}, TOPIC => sub {
 		my $net = shift;
@@ -655,7 +651,7 @@ $moddef{CORE} = {
 			push @out, 'CAPAB MODULES '.$1 while $mods =~ s/(.{1,495})(,|$)//;
 			push @out, 'CAPAB CAPABILITIES :'.$1 while $capabs =~ s/(.{1,450})( |$)//;
 			push @out, 'CAPAB END';
-			push @out, $net->cmd1(SERVER => $net->cparam('linkname'), $net->cparam('sendpass'), 0, 'Janus Network Link');
+			push @out, $net->cmd2(undef, SERVER => $net->cparam('linkname'), $net->cparam('sendpass'), 0, 'Janus Network Link');
 			$net->send(\@out);
 		} # ignore START and any others
 		();
@@ -1027,12 +1023,11 @@ $moddef{CORE} = {
 		@out;
 	}, TOPIC => sub {
 		my($net,$act) = @_;
-		if ($act->{in_link}) {
-			return $net->ncmd(FTOPIC => $act->{dst}, $act->{topicts}, $act->{topicset}, $act->{topic});
-		}
 		my $src = $act->{src};
-		$src = $Interface::janus unless $src && $src->isa('Nick') && $src->is_on($net);
-		return $net->cmd2($src, TOPIC => $act->{dst}, $act->{topic});
+		if ($src->isa('Nick') && $src->is_on($net) && !$act->{in_link}) {
+			return $net->cmd2($src, TOPIC => $act->{dst}, $act->{topic});
+		}
+		return $net->ncmd(FTOPIC => $act->{dst}, $act->{topicts}, $act->{topicset}, $act->{topic});
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
 		if ($act->{item} eq 'vhost') {
