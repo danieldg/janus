@@ -514,6 +514,7 @@ $moddef{CORE} = {
 			topicts => $_[3],
 			topicset => $_[4],
 			topic => $_[-1],
+			in_link => 1,
 		};
 	}, TOPIC => sub {
 		my $net = shift;
@@ -1027,12 +1028,11 @@ $moddef{CORE} = {
 		@out;
 	}, TOPIC => sub {
 		my($net,$act) = @_;
-		if ($act->{in_link}) {
-			return $net->ncmd(FTOPIC => $act->{dst}, $act->{topicts}, $act->{topicset}, $act->{topic});
-		}
 		my $src = $act->{src};
-		$src = $Interface::janus unless $src && $src->isa('Nick') && $src->is_on($net);
-		return $net->cmd2($src, TOPIC => $act->{dst}, $act->{topic});
+		if ($src->isa('Nick') && $src->is_on($net) && !$act->{in_link}) {
+			return $net->cmd2($src, TOPIC => $act->{dst}, $act->{topic});
+		}
+		return $net->ncmd(FTOPIC => $act->{dst}, $act->{topicts}, $act->{topicset}, $act->{topic});
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
 		if ($act->{item} eq 'vhost') {

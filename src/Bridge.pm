@@ -65,7 +65,7 @@ use Modes;
 				topic => $chan->topic(),
 				topicts => $chan->topicts(),
 				topicset => $chan->topicset(),
-				in_burst => 1,
+				in_link => 1,
 			}) if defined $chan->topic();
 		}
 	},
