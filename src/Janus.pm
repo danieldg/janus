@@ -568,9 +568,9 @@ my $has_git = (`git 2>&1`) ? 1 : 0;
 my $has_svn = (`svn 2>&1`) ? 1 : 0;
 
 if ($RELEASE) {
-	open my $rcs, ".rel-$RELEASE" or warn "Cannot open release checksum file!";
+	open my $rcs, "src/.rel-$RELEASE" or warn "Cannot open release checksum file!";
 	while (<$rcs>) {
-		my($s,$f) = /(\S+)\s+(.*)/ or warn "bad line: $_";
+		my($s,$f) = /^(\S{40})\s+(.*)/ or warn "bad line: $_";
 		$rel_csum{$f} = $s;
 	}
 	close $rcs;
