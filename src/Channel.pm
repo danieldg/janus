@@ -610,11 +610,13 @@ sub can_lock {
 		delete $nets[$$chan]{$$net} or warn;
 
 		my $name = delete $names[$$chan]{$$net};
-		if ($keyname[$$chan] eq $net->gid().$name) {
+		if ($keyname[$$chan] eq lc $net->gid().$name) {
 			my @onets = grep defined, values %{$nets[$$chan]};
 			if (@onets && $onets[0]) {
 				my $net = $onets[0];
-				$keyname[$$chan] = $net->gid().$names[$$chan]{$$net};
+				my $kn = lc $net->gid().$names[$$chan]{$$net};
+				&Debug::info("Rekeying channel $keyname[$$chan] to $kn");
+				$keyname[$$chan] = $kn;
 			} else {
 				&Debug::err("no new keyname in DELINK of $$chan");
 			}
