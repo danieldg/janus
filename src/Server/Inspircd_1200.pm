@@ -198,7 +198,7 @@ sub process_capabs {
 	my $expect = join ',', map { join '', sort values %{$split2c{$_}} } qw(l v s r);
 
 	unless ($expect eq $capabs[$$net]{CHANMODES}) {
-		$net->send($net->ncmd(OPERNOTICE => 'Possible desync - CHANMODES do not match module list: '.
+		$net->send($net->ncmd(SNONOTICE => 'l', 'Possible desync - CHANMODES do not match module list: '.
 				"expected $expect, got $capabs[$$net]{CHANMODES}"));
 	}
 }
@@ -826,12 +826,12 @@ $moddef{CORE} = {
 		();
 	},
 	NOTICE => 'PRIVMSG',
-	OPERNOTICE => \&ignore,
 	MODENOTICE => \&ignore,
 	SNONOTICE => \&ignore,
 	WALLOPS => \&ignore,
 	RCONNECT => \&ignore,
 	MAP => \&ignore,
+	STATS => \&ignore,
 	METADATA => sub {
 		my $net = shift;
 		my $key = $_[3];
@@ -1143,14 +1143,14 @@ $moddef{CORE} = {
 		my($net,$act) = @_;
 		my $src = $act->{net};
 		return () if $act->{linkfile};
-		$net->ncmd(OPERNOTICE => $src->netname()." would like to link $act->{slink} to $act->{dlink}");
+		$net->ncmd(SNONOTICE => 'A', $src->netname()." would like to link $act->{slink} to $act->{dlink}");
 	}, RAW => sub {
 		my($net,$act) = @_;
 		$act->{msg};
 	}, CHATOPS => sub {
 		my($net,$act) = @_;
 		return () if $net->get_module('m_globops.so');
-		$net->ncmd(OPERNOTICE => $net->str($act->{src}).': '.$act->{msg});
+		$net->ncmd(SNONOTICE => 'A', $net->str($act->{src}).': '.$act->{msg});
 	},
 }};
 
