@@ -28,6 +28,34 @@ if ($Janus::lmode) {
 	}, RAW => act => sub {
 		my $act = shift;
 		delete $act->{except};
+	}, KILL => parse => sub {
+		my $kact = shift;
+		my $nick = $kact->{dst};
+		my $knet = $kact->{net};
+		my $hnet = $nick->homenet();
+		if ($$nick == 1) {
+			$knet->send({
+				type => 'CONNECT',
+				dst => $Interface::janus,
+				net => $knet,
+			});
+			return 1;
+		}
+		$hnet->send({
+			type => 'KILL',
+			src => $kact->{src},
+			dst => $nick,
+			net => $hnet,
+			msg => $kact->{msg},
+		});
+		&Janus::append({
+			type => 'QUIT',
+			dst => $nick,
+			killer => $kact->{src},
+			msg => $kact->{msg},
+			except => $hnet,
+		});
+		1;
 	}, XLINE => parse => sub {
 		my $act = shift;
 		$act->{sendto} = $Janus::global;
