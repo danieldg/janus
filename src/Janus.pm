@@ -20,9 +20,10 @@ our $global;     # Message target: ALL servers, everywhere
 $time ||= time;
 
 our %nets;       # by network tag
+our %ijnets;     # by name (ij tag)
+our %gnets;      # by guid
 our %gnicks;     # by guid
 our %chans;      # by name
-our %gnets;      # by guid
 
 =head2 Module loading
 
@@ -567,9 +568,9 @@ my $has_git = (`git 2>&1`) ? 1 : 0;
 my $has_svn = (`svn 2>&1`) ? 1 : 0;
 
 if ($RELEASE) {
-	open my $rcs, ".rel-$RELEASE" or warn "Cannot open release checksum file!";
+	open my $rcs, "src/.rel-$RELEASE" or warn "Cannot open release checksum file!";
 	while (<$rcs>) {
-		my($s,$f) = /(\S+)\s+(.*)/ or warn "bad line: $_";
+		my($s,$f) = /^(\S{40})\s+(.*)/ or warn "bad line: $_";
 		$rel_csum{$f} = $s;
 	}
 	close $rcs;
@@ -594,6 +595,37 @@ if ($RELEASE) {
 		my $id = $net->name();
 		delete $gnets{$net->gid()};
 		delete $nets{$id};
+	}, JNETLINK => act => sub {
+		my $act = shift;
+		my $net = $act->{net};
+		my $id = $net->id();
+		$ijnets{$id} = $net;
+	}, JNETSPLIT => act => sub {
+		my $act = shift;
+		my $net = $act->{net};
+		delete $ijnets{$net->id()};
+		my @alljnets = values %ijnets;
+		for my $snet (@alljnets) {
+			next unless $snet->parent() && $net eq $snet->parent();
+			&Janus::insert_full(+{
+				type => 'JNETSPLIT',
+				net => $snet,
+				msg => $act->{msg},
+				netsplit_quit => 1,
+				nojlink => 1,
+			});
+		}
+		my @allnets = values %nets;
+		for my $snet (@allnets) {
+			next unless $snet->jlink() && $net eq $snet->jlink();
+			&Janus::insert_full(+{
+				type => 'NETSPLIT',
+				net => $snet,
+				msg => $act->{msg},
+				netsplit_quit => 1,
+				nojlink => 1,
+			});
+		}
 	}, module => READ => sub {
 		$_[0] =~ /([0-9A-Za-z_:]+)/;
 		my $mod = $1;

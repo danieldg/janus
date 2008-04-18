@@ -63,9 +63,11 @@ sub verify {
 	my %seen;
 	for my $chan (values %Janus::gchans) {
 		next if $seen{$chan}++;
+		my $fix_kn;
 		if ($Janus::gchans{$chan->keyname()} ne $chan) {
 			print $dump "channel $$chan is not registered on its keyname\n";
 			$oops++;
+			$fix_kn = 1 if $tryfix =~ /^y/;
 		}
 		for my $net ($chan->nets()) {
 			my $rf = $Janus::gnets{$net->gid()};
@@ -82,6 +84,9 @@ sub verify {
 				if (!$rf || $rf ne $net) {
 					print $dump "channel $$chan on replaced network $$net\n";
 					$oops++;
+				} elsif ($fix_kn) {
+					$Persist::vars{Channel}{keyname}[$$chan] = lc ($net->gid().$chan->str($net));
+					$fix_kn = 0;
 				}
 			}
 		}

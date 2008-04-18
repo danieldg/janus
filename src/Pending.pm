@@ -53,6 +53,17 @@ sub parse {
 				&Janus::in_socket($rnet, $l);
 			}
 		}
+	} elsif ($line =~ /^<InterJanus /) {
+		&Janus::load('Server::InterJanus');
+		my $ij = Server::InterJanus->new();
+		my @out = $ij->parse($line);
+		if (@out && $out[0]{type} eq 'JNETLINK') {
+			&Debug::info("Shifting new connection #$$pnet to InterJanus link #$$ij ".$ij->id());
+			&Connection::reassign($pnet, $ij);
+			$ij->intro($Conffile::netconf{$ij->id()}, 1);
+			return @out;
+		}
+		&Connection::reassign($pnet, undef);
 	}
 	();
 }

@@ -93,7 +93,8 @@ sub read_conf {
 			$newconf{set}{name} = $RemoteJanus::self->id();
 		}
 	} else {
-		$Janus::name = $newconf{set}{name} = 'mirror';
+		&Janus::err_jmsg($nick, "Server name not set! You need set block with a 'name' entry");
+		return;
 	}
 	%netconf = %newconf;
 	if ($newconf{modules}) {

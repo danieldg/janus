@@ -1,0 +1,116 @@
+Janus::globals 
+	$conffile - configuration file
+	$interface - the Nick object usually named 'janus'
+	%nets(id => Network) - all networks
+	$read - IO::Select object containing all connections
+		[$sock, $recvq, $sendq, $net] - Network or InterJanus
+		[$sock] - listening socket
+Janus
+	hook_add(modulename, (type, level, sub), (type, level, sub), ...) - add hooks
+	hook_del(modulename) - delete hooks
+
+	insert(Action) - run hooks on the given action now, but put appends in this append queue
+		used to slip CONNECT events in before a JOIN, yet have local KICKs appear AFTER the
+		JOIN is sent
+	insert_full(Action) - run the full set of hooks on the action
+	append(Action) - run hooks on the given action after it is done processing
+	jmsg(dest, strings) - send notices to the given nick/msgs to given channel from the janus nick
+	
+	link(Network) - send NETLINK event + register network
+	delink(Network) - send NETSPLIT event + unregister network
+	in_local(LocalNet, Action...) - local input
+	in_janus(InterJanus, Action...) - remote input
+
+	rehash() - reload configuration
+
+Network
+	netname() - User-readable name dfor the network
+	jlink() - if defined, the InterJanus object that this network is seen
+	id() - network's tag, must be unique
+
+	to_ij(InterJanus) - serialize
+
+RemoteNet
+	no methods; exists as a placeholder
+
+LocalNet
+	connect([sock]) - set up a connection to the network or use the given sock as a connection from the network
+		returns the socket if successful, undef on failure. If given a socket, always succeeds.
+	nick(name, [allow_undef]) - returns a currently existing nick of this name, or undef if it doesn't exist (will warn)
+	nick_collide(name, Nick) - adds a new nick to the network, possibly colliding it or an existing nick of that name
+	chan(name, [new]) - returns a channel of this name, optionally creating if $new is 1
+	replace_chan(name, Channel) - replaces the channel object with another or deletes if undef
+	item(name) - return a Nick, Channel, or Network for the nick, channel, or server name given
+
+	param(key) - get named global parameter for this network
+	cparam(key) - get named connection-specific parmater for this network
+
+	request_nick(Nick, request, [force_tag]) - gives the Nick a local network name, based on the requested one
+	release_nick(nickname) - this nick is now unused
+
+	banlist() - list of ban expressions
+	get_ban(expr) - get Ban object for this ban expression
+	add_ban(Ban) - add to ban list
+	remove_ban(expr) - remove from ban list
+
+	add_req(localname, Network, remotename) - add a channel link request
+	is_req(localname, Network) - returns the channel allowed to link
+	del_req(localname, Network) - deletes the request
+
+	_modeargs(modestring, string...) - interpret an irc channel mode string into a ($modes, $args) pair
+		this uses $net->cmode2txt() to convert modes into textual form
+	_mode_interp(Action) - inverse of _modeargs on a properly produced Action
+		this uses $net->txt2cmode() to convert textual modes into mode letters
+	_nicks() - hashref of name->Nick - avoid using when possible, and never modify it
+
+Unreal (or other network implementations); subclass LocalNet
+	nicklen() - maximum nick length on this network
+	intro() - send out server introduction/password
+	parse(line) - create a list of Action objects based on a line of input
+		not all input lines must create an action
+	send(Action...) - add the given Action objects to the sendq for this network
+	dump_sendq() - empty the sendq and return it (pulled into write buffer)
+
+InterJanus 
+	id() - tag, must be unique in Network space and InterJanus space
+	parse(line) - create an Action object from the given line
+	ijstr(*) - serialize the object (short form for Nick/Channel/Network)
+	ij_send(Action) - add the given Action objects to the sendq for this network
+	dump_sendq() - empty the sendq and return it (pulled into write buffer)
+
+Channel
+	nets() - list of Network objects
+	is_on(Network) - true if this channel is on this network
+	str(LocalNetwork) - channel name
+	to_ij(InterJanus) - serialize
+	sendto(Action, except) - return list of Networks to send to
+
+	has_nmode(mode, Nick) - true if the nick has this access level
+	timesync(new_ts) - change channel timestmap
+	part(Nick) - remove records of this nick (for quitting nicks)
+
+Nick
+	id() - nick's tag, must be unique
+	to_ij(InterJanus) - serialize
+	sendto(Action, except) - return list of Networks to send to
+	is_on(Network) - true if this channel is on this network
+	str(LocalNetwork) - name
+
+	homenet() - home Network
+	homenick() - nick on home Network
+	jlink() - shortcut for homenet()->jlink()
+	has_mode(mode) - true if the nick has this umode
+	umodes() - list of all umodes
+	info(key) - information about this nick
+		Global info: host ident ip name vhost away swhois
+		Locally, more info may be defined by the home Network
+	
+	rejoin(Channel) - Channel object has changed though LINK/DELINK,
+		send new CONNECT events if needed
+	_netpart(Network) - INTERNAL USE ONLY - Janus::interface on a netsplit
+
+Ban
+	{setter} - string of the nick that set the ban
+	{reason} - reason for the ban (added when set)
+	{expire} - numerical expiration time, 0 = does not
+

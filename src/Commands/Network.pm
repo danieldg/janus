@@ -126,6 +126,34 @@ use warnings;
 			});
 		}
 	},
+}, {
+	cmd => 'list',
+	help => 'Shows a list of the linked networks and shared channels',
+	code => sub {
+		my $nick = shift;
+		my $hnet = $nick->homenet();
+		my $amsg = 'Linked Networks:';
+		my $head = join ' ', grep !($_ eq 'janus' || $_ eq $hnet->name()), sort keys %Janus::nets;
+		my %chans;
+		my $len = length($amsg) - 1;
+		for my $chan ($hnet->all_chans()) {
+			my @nets = $chan->nets();
+			next if @nets == 1;
+			my @list;
+			my $hname = lc $chan->str($hnet);
+			for my $net (@nets) {
+				next if $net eq $hnet;
+				my $oname = lc $chan->str($net);
+				push @list, $net->name().($hname eq $oname ? '' : $oname);
+			}
+			$len = length $hname if length $hname > $len;
+			$chans{$hname} = join ' ', sort @list;
+		}
+		&Janus::jmsg($nick, sprintf '%-'.($len+1).'s %s', $amsg, $head);
+		&Janus::jmsg($nick, map {
+			sprintf " %-${len}s \%s", $_, $chans{$_};
+		} sort keys %chans);
+	}
 });
 
 1;
