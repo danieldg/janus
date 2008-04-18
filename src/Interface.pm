@@ -10,6 +10,61 @@ use warnings;
 
 our $janus; # Janus interface bot: this module handles interactions with this bot
 
+sub pmsg {
+	my $act = shift;
+	my $src = $act->{src};
+	my $dst = $act->{dst};
+	my $type = $act->{msgtype};
+	return 1 unless ref $src && ref $dst;
+
+	if ($type eq '312') {
+		# server whois reply message
+		my $nick = $act->{msg}->[0];
+		if ($src->isa('Network') && ref $nick && $nick->isa('Nick')) {
+			return undef if $src->jlink();
+			&Janus::append(+{
+				type => 'MSG',
+				msgtype => 640,
+				src => $src,
+				dst => $dst,
+				msg => [
+					$nick,
+					'is connected through a Janus link. Home network: '.$src->netname().
+					'; Home nick: '.$nick->homenick(),
+				],
+			});
+		} else {
+			warn "Incorrect /whois reply: $src $nick";
+		}
+		return undef;
+	} elsif ($type eq '313') {
+		# remote oper - change message type
+		$act->{msgtype} = 641;
+		$act->{msg}->[-1] .= ' (on remote network)';
+		return 0;
+	}
+	return 1 if $type eq '310'; # available for help
+
+	return undef unless $src->isa('Nick') && $dst->isa('Nick');
+	if ($$dst == 1) {
+		if ($act->{msg} =~ /^@(\S+)\s*/) {
+			my $rto = $Janus::ijnets{$1};
+			if ($rto) {
+				$act->{sendto} = $rto;
+			} else {
+				delete $act->{sendto};
+			}
+		}
+		return 0;
+	}
+
+	unless ($src->is_on($dst->homenet())) {
+		&Janus::jmsg($src, 'You must join a shared channel to speak with remote users') if $act->{msgtype} eq 'PRIVMSG';
+		return 1;
+	}
+	undef;
+}
+
 &Janus::hook_add(
 	'INIT' => act => sub {
 		my $int = Interface->new(
@@ -51,6 +106,16 @@ our $janus; # Janus interface bot: this module handles interactions with this bo
 			dst => $act->{dst},
 			net => $act->{net},
 		});
+	},
+	MSG => parse => \&pmsg,
+	MSG => jparse => \&pmsg,
+	WHOIS => parse => sub {
+		my $act = shift;
+		my $src = $act->{src};
+		my $dst = $act->{dst};
+		return undef if $src->is_on($dst->homenet()) || $$dst == 1;
+		&Janus::jmsg($src, 'You cannot use this /whois syntax unless you are on a shared channel with the user');
+		return 1;
 	}, CHATOPS => jparse => sub {
 		my $act = shift;
 		delete $act->{IJ_RAW};
@@ -60,6 +125,23 @@ our $janus; # Janus interface bot: this module handles interactions with this bo
 		undef;
 	},
 );
+if ($Janus::lmode eq 'Link') {
+	&Janus::hook_add(
+		BURST => act => sub {
+			my $act = shift;
+			my $net = $act->{net};
+			return if $net->jlink();
+			&Janus::append(+{
+				type => 'CONNECT',
+				dst => $janus,
+				net => $net,
+			});
+		}, NETSPLIT => act => sub {
+			my $act = shift;
+			$janus->_netpart($act->{net});
+		}
+	);
+}
 
 sub parse { () }
 sub send {
@@ -70,6 +152,23 @@ sub send {
 			$_ = $act->{msg};
 			my $cmd = s/^\s*(?:@\S+\s+)?([^@ ]\S*)\s*// ? lc $1 : 'unk';
 			&Janus::in_command($cmd, $src, $_);
+		} elsif ($act->{type} eq 'WHOIS' && $act->{dst} == $janus) {
+			my $src = $act->{src} or next;
+			my $net = $src->homenet();
+			my @msgs = (
+				[ 311, $src->info('ident'), $src->info('vhost'), '*', $src->info('name') ],
+				[ 312, 'janus.janus', "Janus Interface" ],
+				[ 319, join ' ', map { $_->is_on($net) ? $_->str($net) : () } $janus->all_chans() ],
+				[ 317, 0, $^T, 'seconds idle, signon time'],
+				[ 318, 'End of /WHOIS list' ],
+			);
+			&Janus::append(map +{
+				type => 'MSG',
+				src => $net,
+				dst => $src,
+				msgtype => $_->[0], # first part of message
+				msg => [$janus, @$_[1 .. $#$_] ], # source nick, rest of message array
+			}, @msgs);
 		}
 	}
 }

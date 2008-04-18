@@ -1,10 +1,16 @@
-# Copyright (C) 2007 Daniel De Graaf
+# Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the Affero General Public License
 # http://www.affero.org/oagpl.html
 package Bridge;
 use strict;
 use warnings;
 use Modes;
+
+if ($Janus::lmode) {
+	die "Wrong link mode" unless $Janus::lmode eq 'Bridge';
+} else {
+	$Janus::lmode = 'Bridge';
+}
 
 &Janus::hook_add(
 	NEWNICK => act => sub {

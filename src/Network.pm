@@ -50,7 +50,7 @@ sub jname {
 sub _init {
 	my $net = $_[0];
 	unless ($gid[$$net]) {
-		$gid[$$net] = &EventDump::seq2gid(++$net_gid);
+		$gid[$$net] = $RemoteJanus::self->id().':'.&EventDump::seq2gid(++$net_gid);
 	}
 }
 
@@ -71,6 +71,7 @@ sub to_ij {
 	my $out = '';
 	$out .= ' gid='.$ij->ijstr($net->gid());
 	$out .= ' id='.$ij->ijstr($net->name());
+	$out .= ' jlink='.$ij->ijstr($net->jlink() || $RemoteJanus::self);
 	$out .= ' netname='.$ij->ijstr($net->netname());
 	$out .= ' numeric='.$ij->ijstr($net->numeric());
 	$out;
@@ -122,6 +123,25 @@ sub id {
 		&Debug::info("Nick deallocation start");
 		@clean = ();
 		&Debug::info("Nick deallocation end");
+
+		return if $Janus::lmode eq 'Bridge';
+
+		for my $chan ($net->all_chans()) {
+			warn "Channel not on network!" unless $chan->is_on($net);
+			push @clean, +{
+				type => 'DELINK',
+				dst => $chan,
+				net => $net,
+				netsplit_quit => 1,
+				except => $net,
+				reason => 'netsplit',
+				nojlink => 1,
+			};
+		}
+		&Janus::insert_full(@clean);
+		&Debug::info("Channel deallocation start");
+		@clean = ();
+		&Debug::info("Channel deallocation end");
 	},
 );
 

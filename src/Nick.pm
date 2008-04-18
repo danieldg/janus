@@ -250,6 +250,55 @@ sub rejoin {
 sub _part {
 	my($nick,$chan) = @_;
 	$chans[$$nick] = [ grep { $_ ne $chan } @{$chans[$$nick]} ];
+	$nick->_netclean($chan->nets());
+}
+
+sub _netpart {
+	my($nick, $net) = @_;	
+
+	delete $nets[$$nick]{$$net};
+	return if $net->jlink();
+	my $rnick = delete $nicks[$$nick]{$$net};
+	$net->release_nick($rnick, $nick);
+	# this could be the last local network the nick was on
+	# if so, we need to remove it from Janus::gnicks
+	my $jl = $nick->jlink();
+	return unless $jl;
+	for my $net (values %{$nets[$$nick]}) {
+		my $njl = $net->jlink();
+		return unless $njl && $njl eq $jl;
+	}
+	delete $Janus::gnicks{$nick->gid()};
+}
+
+sub _netclean {
+	my $nick = shift;
+	return if $$nick == 1 || $Janus::lmode eq 'Bridge';
+	my $home = $nick->homenet();
+	my %leave = @_ ? map { $$_ => $_ } @_ : %{$nets[$$nick]};
+	delete $leave{${$homenet[$$nick]}};
+	for my $chan (@{$chans[$$nick]}) {
+		unless ($chan->is_on($home)) {
+			&Debug::err("Found nick $$nick on delinked channel $$chan");
+			$chans[$$nick] = [ grep { $_ ne $chan } @{$chans[$$nick]} ];
+			next;
+		}
+		for my $net ($chan->nets()) {
+			delete $leave{$$net};
+		}
+	}
+	for my $net (values %leave) {
+		# This sending mechanism deliberately bypasses
+		# the message queue because a QUIT is intended
+		# to destroy the nick from all nets, not just one
+		$net->send({
+			type => 'QUIT',
+			src => $nick,
+			dst => $nick,
+			msg => 'Left all shared channels',
+		}) unless $net->jlink();
+		$nick->_netpart($net);
+	}
 }
 
 =item $nick->str($net)
@@ -320,7 +369,7 @@ sub str {
 			my $from = $nicks[$$nick]->{$id};
 			my $to = $net->request_cnick($nick, $new);
 			$nicks[$$nick]->{$id} = $to;
-
+	
 			$act->{from}->{$id} = $from;
 			$act->{to}->{$id} = $to;
 		}
@@ -377,13 +426,53 @@ sub str {
 		my $nick = $act->{kickee};
 		my $chan = $act->{dst};
 		$nick->_part($chan);
-	}, NETSPLIT => cleanup => sub {
-		my $act = shift;
-		my $net = $act->{net};
-		for my $n (values %Janus::gnicks) {
-			delete $nets[$$n]{$$net};
-		}
-	},
+	}
 );
+
+if ($Janus::lmode eq 'Link') {
+	&Janus::hook_add(
+		KILL => act => sub {
+			my $act = shift;
+			my $nick = $act->{dst};
+			my $net = $act->{net};
+			if ($nick->is_on($net) && !$net->jlink() && (!$act->{except} || $act->{except} ne $net)) {
+				$net->send({
+					type => 'QUIT',
+					dst => $nick,
+					msg => $act->{msg},
+					killer => $act->{src},
+				});
+			}
+			for my $chan (@{$chans[$$nick]}) {
+				next unless $chan->is_on($net);
+				my $act = {
+					type => 'KICK',
+					src => ($act->{src} || $net),
+					dst => $chan,
+					kickee => $nick,
+					msg => $act->{msg},
+					except => $net,
+					nojlink => 1,
+				};
+				&Janus::append($act);
+			}
+		}, KILL => cleanup => sub {
+			my $act = shift;
+			my $nick = $act->{dst};
+			my $net = $act->{net};
+			$nick->_netpart($net);
+		},
+	);
+} else {
+	&Janus::hook_add(
+		NETSPLIT => cleanup => sub {
+			my $act = shift;
+			my $net = $act->{net};
+			for my $n (values %Janus::gnicks) {
+				delete $nets[$$n]{$$net};
+			}
+		},
+	);
+}
 
 1;

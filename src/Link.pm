@@ -7,6 +7,13 @@ use integer;
 use Debug;
 use Persist;
 use Scalar::Util qw(weaken);
+
+if ($Janus::lmode) {
+	die "Wrong link mode" unless $Janus::lmode eq 'Link';
+} else {
+	$Janus::lmode = 'Link';
+}
+
 our %reqs;
 # {requestor}{destination}{src-channel} = {
 #  src => src-channel [? if ever useful]

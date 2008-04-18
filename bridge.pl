@@ -42,7 +42,7 @@ $| = 1;
 $SIG{PIPE} = 'IGNORE';
 $SIG{CHLD} = 'IGNORE';
 
-&Janus::load($_) or die for qw(Link Conffile Interface Actions Commands::Core);
+&Janus::load($_) or die for qw(Bridge Conffile Interface Actions Commands::Core);
 
 &Janus::insert_full(+{ type => 'INIT', args => [ $args, @ARGV ] });
 &Janus::insert_full(+{ type => 'RUN' });
