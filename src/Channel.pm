@@ -5,7 +5,6 @@ use strict;
 use warnings;
 use Persist;
 use Carp;
-use Nick;
 use Modes;
 
 =head1 Channel
@@ -73,6 +72,10 @@ our(@ts, @keyname, @topic, @topicts, @topicset, @mode);
 
 our @nicks;  # all nicks on this channel
 our @nmode;  # modes of those nicks
+
+&Persist::register_vars(qw(ts keyname topic topicts topicset mode nicks nmode));
+&Persist::autoget(qw(ts keyname topic topicts topicset), all_modes => \@mode);
+&Persist::autoinit(qw(ts topic topicts topicset));
 
 my %nmodebit = (
 	voice => 1,
@@ -233,10 +236,6 @@ sub part {
 ### MODE SPLIT ###
 eval($Janus::lmode eq 'Bridge' ? q[
 ### BRIDGE MODE ###
-&Persist::register_vars(qw(ts keyname topic topicts topicset mode nicks nmode));
-&Persist::autoget(qw(ts keyname topic topicts topicset), all_modes => \@mode);
-&Persist::autoinit(qw(ts topic topicts topicset));
-
 sub nets {
 	values %Janus::nets;
 }
@@ -294,13 +293,7 @@ sub unhook_destroyed {
 our @names;  # channel's name on the various networks
 our @nets;   # networks this channel is shared to
 
-our @locker; # Lock ID of the currently held lock, or undef
-our @lockts; # Time the lock will expire
-
-&Persist::register_vars(qw(ts keyname topic topicts topicset mode
-	names nets locker lockts nicks nmode));
-&Persist::autoget(qw(ts keyname topic topicts topicset), all_modes => \@mode);
-&Persist::autoinit(qw(ts topic topicts topicset));
+&Persist::register_vars(qw(names nets));
 
 sub nets {
 	values %{$nets[${$_[0]}]};
@@ -453,7 +446,6 @@ sub is_on {
 
 sub sendto {
 	my($chan,$act) = @_;
-	carp "except in sendto is deprecated" if @_ > 2;
 	values %{$nets[$$chan]};
 }
 
@@ -492,60 +484,8 @@ sub del_remoteonly {
 	}
 }
 
-sub can_lock {
-	my $chan = shift;
-	return 1 unless $locker[$$chan];
-	if ($lockts[$$chan] < $Janus::time) {
-		&Debug::info("Stealing expired lock from $locker[$$chan]");
-		return 1;
-	} else {
-		&Debug::info("Lock on #$$chan held by $locker[$$chan] until $lockts[$$chan]");
-		return 0;
-	}
-}
-
 &Janus::hook_add(
-	LOCKREQ => check => sub {
-		my $act = shift;
-		my $net = $act->{dst};
-		if ($net->isa('LocalNetwork')) {
-			my $chan = $net->chan($act->{name}, 1) or return 1;
-			$act->{dst} = $chan;
-		} elsif ($net->isa('Network')) {
-			my $kn = lc $net->gid().$act->{name};
-			my $chan = $Janus::gchans{$kn};
-			$act->{dst} = $chan if $chan;
-		}
-		return undef;
-	}, LOCKREQ => act => sub {
-		my $act = shift;
-		my $chan = $act->{dst};
-		return unless $chan->isa('Channel');
-
-		if ($chan->can_lock()) {
-			$locker[$$chan] = $act->{lockid};
-			$lockts[$$chan] = $Janus::time + 60;
-			&Janus::append(+{
-				type => 'LOCKACK',
-				src => $RemoteJanus::self,
-				dst => $act->{src},
-				lockid => $act->{lockid},
-				chan => $chan,
-				expire => ($Janus::time + 40),
-			});
-		} else {
-			&Janus::append(+{
-				type => 'LOCKACK',
-				src => $RemoteJanus::self,
-				dst => $act->{src},
-				lockid => $act->{lockid},
-			});
-		}
-	}, UNLOCK => act => sub {
-		my $act = shift;
-		my $chan = $act->{dst};
-		delete $locker[$$chan];
-	}, LOCKED => act => sub {
+	LOCKED => act => sub {
 		my $act = shift;
 		my $chan1 = $act->{chan1};
 		my $chan2 = $act->{chan2};
@@ -638,9 +578,9 @@ sub can_lock {
 		for my $src (values %from) {
 			next if $src eq $chan;
 			$src->_link_into($chan);
-			delete $locker[$$src];
+			&Lock::unlock($src);
 		}
-		delete $locker[$$chan];
+		&Lock::unlock($chan);
 	}, DELINK => check => sub {
 		my $act = shift;
 		my $chan = $act->{dst};
@@ -655,9 +595,9 @@ sub can_lock {
 			&Debug::warn("Cannot delink: channel $$chan is not on network #$$net");
 			return 1;
 		}
-		unless ($chan->can_lock()) {
+		unless (&Lock::can_lock($chan)) {
 			return undef if $act->{netsplit_quit};
-			&Debug::warn("Cannot delink: channel $$chan is locked by $locker[$$chan]");
+			&Debug::warn("Cannot delink: channel $$chan is locked");
 			return 1;
 		}
 		undef;

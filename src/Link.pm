@@ -5,8 +5,7 @@ use strict;
 use warnings;
 use integer;
 use Debug;
-use Persist;
-use Scalar::Util qw(weaken);
+use Lock;
 
 if ($Janus::lmode) {
 	die "Wrong link mode" unless $Janus::lmode eq 'Link';
@@ -21,63 +20,8 @@ our %reqs;
 #  mask => nick!ident@host of requestor
 #  time => unix timestamp of request
 
-our %bylock;
-# lockid => Link
-
-our $lockmax;
-
 # Emergency shutoff switch for retries
 our $abort;
-
-our(@lock, @chan, @ready, @expire, @other, @origin);
-&Persist::register_vars(lockid => \@lock, qw(chan ready expire other origin));
-&Persist::autoget(lockid => \@lock);
-&Persist::autoinit(qw(other origin));
-
-sub _rm_lock {
-	my $itm = shift;
-	my $l = delete $bylock{$itm->{id}};
-	$other[$$l] = undef if $l;
-}
-
-sub _retry {
-	my $itm = shift;
-	&Janus::append($itm->{origin});
-}
-
-sub _init {
-	my $link = shift;
-	my $id = $RemoteJanus::self->id().':'.++$lockmax;
-	$lock[$$link] = $id;
-	$expire[$$link] = $Janus::time + 61;
-	$bylock{$id} = $link;
-	&Janus::schedule(+{
-		delay => 61,
-		id => $id,
-		code => \&_rm_lock,
-	});
-}
-
-sub ready {
-	my $link = shift;
-	my $chan = $Janus::gchans{$chan[$$link] || ''} or return 0;
-	for my $net ($chan->nets()) {
-		my $jl = $net->jlink() || $RemoteJanus::self;
-		return 0 unless $ready[$$link]{$jl};
-	}
-	1;
-}
-
-sub unlock {
-	my $link = shift;
-	delete $bylock{$lock[$$link]};
-	my $chan = $Janus::gchans{$chan[$$link]} or return;
-	&Janus::append({
-		type => 'UNLOCK',
-		dst => $chan,
-		lockid => $lock[$$link],
-	});
-}
 
 &Janus::save_vars('reqs', \%reqs);
 
@@ -177,83 +121,10 @@ sub unlock {
 		}
 		if ($act->{override} || $recip eq 'any' || lc $recip eq lc $act->{slink}) {
 			&Debug::info("Link request: linking $kn1 and $kn2");
-			my $link1 = Link->new(origin => $act);
-			my $link2 = Link->new(origin => $act, other => $link1);
-			$other[$$link1] = $link2;
-			weaken($other[$$link1]);
-			weaken($other[$$link2]);
-			&Janus::append(+{
-				type => 'LOCKREQ',
-				src => $dnet,
-				dst => $snet,
-				name => $act->{slink},
-				lockid => $link1->lockid(),
-			}, {
-				type => 'LOCKREQ',
-				src => $dnet,
-				dst => $dnet,
-				name => $act->{dlink},
-				lockid => $link2->lockid(),
-			});
+			&Lock::req_pair($act, $snet, $dnet);
 		} else {
 			&Debug::info("Link request: name mismatch");
 		}
-	}, LOCKACK => act => sub {
-		my $act = shift;
-		my $link = $bylock{$act->{lockid}};
-		unless ($link) {
-			# is it our lock?
-			$act->{lockid} =~ /(.+):\d+/;
-			return unless $1 eq $RemoteJanus::self->id();
-			# unlock. We didn't actually need it.
-			&Janus::append({
-				type => 'UNLOCK',
-				dst => $act->{chan},
-				lockid => $act->{lockid},
-			});
-			return;
-		}
-		my $exp = $act->{expire} || 0;
-		my $other = $other[$$link];
-		if ($exp < $expire[$$link]) {
-			$expire[$$link] = $exp;
-		} else {
-			$exp = $expire[$$link];
-		}
-		$exp = $expire[$$other] if $expire[$$other] < $exp;
-		if ($exp < $Janus::time) {
-			&Debug::info("Lock ".$link->lockid()." & ".$other->lockid()." failed");
-			$link->unlock();
-			$other->unlock();
-			$other[$$link] = $other[$$other] = undef;
-
-			# Retry linking a few times; this is needed because channel locking
-			# will prevent links when syncing more than one network to a channel
-			# which has an inter-janus member.
-
-			my $relink = $origin[$$link];
-			$relink->{linkfile}++;
-			$relink->{linkfile} = 3 if $relink->{linkfile} < 3;
-			# linkfile, if 3 or greater, is the retry count
-			&Janus::schedule(+{
-				# randomize the delay to try to avoid collisions
-				delay => (5 + int(rand(25))),
-				origin => $relink,
-				code => \&_retry,
-			}) unless $relink->{linkfile} > 20 || $abort;
-			return;
-		}
-		$chan[$$link] ||= $act->{chan}->keyname();
-		$ready[$$link]{$act->{src}}++;
-		return unless $link->ready() && $other->ready();
-		&Janus::append({
-			type => 'LOCKED',
-			chan1 => $Janus::gchans{$chan[$$link]},
-			chan2 => $Janus::gchans{$chan[$$other]},
-		});
-		delete $bylock{$link->lockid()};
-		delete $bylock{$other->lockid()};
-		$other[$$link] = $other[$$other] = undef;
 	}, DELINK => act => sub {
 		my $act = shift;
 		my $src = $act->{src};
