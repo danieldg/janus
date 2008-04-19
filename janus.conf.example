@@ -20,6 +20,10 @@ set {
 	# Rehash password - if set, this password is required for non-opers to
 	# rehash the configuration.
 	pass rehashdude
+	# Link mode - use janus as a network partition or a transparent bridge
+	#  link - network partition, channels must be explicitly linked
+	#  bridge - transpaent link, all channels linked, opers are more global
+	lmode link
 	# This password is required for opers to be able to kill or restart the
 	# janus server. If unset, those commands are unavailable
 #	diepass killme
@@ -108,6 +112,7 @@ link u4 {
 
 # Inter-janus link block
 # The link id must match the set::name of the remote server
+# Note: this will not work in network bridge link mode
 link myserver {
 	type InterJanus
 	linkaddr ::1

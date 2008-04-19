@@ -273,7 +273,7 @@ sub _netpart {
 
 sub _netclean {
 	my $nick = shift;
-	return if $$nick == 1;
+	return if $$nick == 1 || $Janus::lmode eq 'Bridge';
 	my $home = $nick->homenet();
 	my %leave = @_ ? map { $$_ => $_ } @_ : %{$nets[$$nick]};
 	delete $leave{${$homenet[$$nick]}};
@@ -426,37 +426,53 @@ sub str {
 		my $nick = $act->{kickee};
 		my $chan = $act->{dst};
 		$nick->_part($chan);
-	}, KILL => act => sub {
-		my $act = shift;
-		my $nick = $act->{dst};
-		my $net = $act->{net};
-		if ($nick->is_on($net) && !$net->jlink() && (!$act->{except} || $act->{except} ne $net)) {
-			$net->send({
-				type => 'QUIT',
-				dst => $nick,
-				msg => $act->{msg},
-				killer => $act->{src},
-			});
-		}
-		for my $chan (@{$chans[$$nick]}) {
-			next unless $chan->is_on($net);
-			my $act = {
-				type => 'KICK',
-				src => ($act->{src} || $net),
-				dst => $chan,
-				kickee => $nick,
-				msg => $act->{msg},
-				except => $net,
-				nojlink => 1,
-			};
-			&Janus::append($act);
-		}
-	}, KILL => cleanup => sub {
-		my $act = shift;
-		my $nick = $act->{dst};
-		my $net = $act->{net};
-		$nick->_netpart($net);
-	},
+	}
 );
+
+if ($Janus::lmode eq 'Link') {
+	&Janus::hook_add(
+		KILL => act => sub {
+			my $act = shift;
+			my $nick = $act->{dst};
+			my $net = $act->{net};
+			if ($nick->is_on($net) && !$net->jlink() && (!$act->{except} || $act->{except} ne $net)) {
+				$net->send({
+					type => 'QUIT',
+					dst => $nick,
+					msg => $act->{msg},
+					killer => $act->{src},
+				});
+			}
+			for my $chan (@{$chans[$$nick]}) {
+				next unless $chan->is_on($net);
+				my $act = {
+					type => 'KICK',
+					src => ($act->{src} || $net),
+					dst => $chan,
+					kickee => $nick,
+					msg => $act->{msg},
+					except => $net,
+					nojlink => 1,
+				};
+				&Janus::append($act);
+			}
+		}, KILL => cleanup => sub {
+			my $act = shift;
+			my $nick = $act->{dst};
+			my $net = $act->{net};
+			$nick->_netpart($net);
+		},
+	);
+} else {
+	&Janus::hook_add(
+		NETSPLIT => cleanup => sub {
+			my $act = shift;
+			my $net = $act->{net};
+			for my $n (values %Janus::gnicks) {
+				delete $nets[$$n]{$$net};
+			}
+		},
+	);
+}
 
 1;

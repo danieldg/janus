@@ -8,7 +8,6 @@ use integer;
 use Listener;
 use Connection;
 use RemoteJanus;
-use Link;
 use Data::Dumper;
 
 our $conffile;
@@ -97,12 +96,23 @@ sub read_conf {
 		&Janus::err_jmsg($nick, "Server name not set! You need set block with a 'name' entry");
 		return;
 	}
+	unless ($Janus::lmode) {
+		my $mode = lc $newconf{set}{lmode} || 'link';
+		if ($mode eq 'link') {
+			&Janus::load('Link');
+		} elsif ($mode eq 'bridge') {
+			&Janus::load('Bridge');
+		} else {
+			&Janus::err_jmsg($nick, "Bad value $mode for set::lmode");
+			return;
+		}
+	}
 	%netconf = %newconf;
-	if ($newconf{modules}) {
-		for my $mod (keys %{$newconf{modules}}) {
-			unless (&Janus::load($mod)) {
-				&Janus::err_jmsg($nick, "Could not load module $mod: $@");
-			}
+
+	$newconf{modules}{$_}++ for qw(Interface Actions Commands::Core);
+	for my $mod (keys %{$newconf{modules}}) {
+		unless (&Janus::load($mod)) {
+			&Janus::err_jmsg($nick, "Could not load module $mod: $@");
 		}
 	}
 }

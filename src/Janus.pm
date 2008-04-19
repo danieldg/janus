@@ -23,7 +23,10 @@ our %nets;       # by network tag
 our %ijnets;     # by name (ij tag)
 our %gnets;      # by guid
 our %gnicks;     # by guid
-our %gchans;     # by all possible keynames
+
+our $lmode;      # Link mode: either "Link" or "Bridge"
+our %gchans;     # Link:   by keyname
+our %chans;      # Bridge: by name
 
 =head2 Module loading
 

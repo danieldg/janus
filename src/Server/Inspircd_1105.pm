@@ -1010,6 +1010,12 @@ $moddef{CORE} = {
 	}, KICK => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, KICK => $act->{dst}, $act->{kickee}, $act->{msg});
+	}, KILL => sub {
+		my($net,$act) = @_;
+		my $killfrom = $act->{net};
+		return () unless $net eq $killfrom;
+		return () unless defined $act->{dst}->str($net);
+		$net->cmd2($act->{src}, KILL => $act->{dst}, $act->{msg});
 	}, MODE => sub {
 		my($net,$act) = @_;
 		my $src = $act->{src} || $net;

@@ -4,17 +4,10 @@ package LocalNetwork;
 use Network;
 use Channel;
 use Persist 'Network';
-use Scalar::Util qw(isweak weaken);
 use strict;
 use warnings;
 
-our(@cparms, @chans, @nickseq);
-&Persist::register_vars(qw(cparms chans nickseq));
-
-sub _init {
-	my $net = shift;
-	$chans[$$net] = {};
-}
+our(@cparms, @nickseq);
 
 sub param {
 	my $net = shift;
@@ -35,6 +28,49 @@ sub intro {
 sub next_nickgid {
 	my $net = shift;
 	$net->gid() . ':' . &EventDump::seq2gid(++$nickseq[$$net]);
+}
+
+### MODE SPLIT ###
+eval($Janus::lmode eq 'Bridge' ? q[
+### BRIDGE MODE ###
+&Persist::register_vars(qw(cparms nickseq));
+
+sub chan {
+	my($net, $name, $new) = @_;
+	unless (exists $Janus::chans{lc $name}) {
+		return undef unless $new;
+		my $chan = Channel->new(
+			net => $net, 
+			name => $name,
+			ts => $new,
+		);
+		$Janus::chans{lc $name} = $chan;
+	}
+	$Janus::chans{lc $name};
+}
+
+sub replace_chan {
+	my($net,$name,$new) = @_;
+	warn "replacing nonexistant channel" unless exists $Janus::chans{lc $name};
+	if (defined $new) {
+		$Janus::chans{lc $name} = $new;
+	} else {
+		delete $Janus::chans{lc $name};
+	}
+}
+
+sub all_chans {
+	values %Janus::chans;
+}
+
+1 ] : q[
+### LINK MODE ###
+our @chans;
+&Persist::register_vars(qw(cparms chans nickseq));
+
+sub _init {
+	my $net = shift;
+	$chans[$$net] = {};
 }
 
 sub chan {
@@ -98,5 +134,7 @@ sub all_chans {
 		}
 	},
 );
+
+1 ]) or die $@;
 
 1;

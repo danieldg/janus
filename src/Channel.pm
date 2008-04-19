@@ -5,7 +5,6 @@ use strict;
 use warnings;
 use Persist;
 use Carp;
-use Nick;
 use Modes;
 
 =head1 Channel
@@ -54,21 +53,27 @@ String representing the setter of the topic
 
 Hash of modetext => modeval (see Modes.pm)
 
+=item $chan->nets()
+
+List of all networks this channel is on
+
+=item $chan->str($net)
+
+get the channel's name on a given network, or undef if the channel is
+not on the network
+
+=item $chan->is_on($net)
+
+returns true if the channel is linked onto the given network
+
 =cut
 
 our(@ts, @keyname, @topic, @topicts, @topicset, @mode);
 
-our @names;  # channel's name on the various networks
-our @nets;   # networks this channel is shared to
-
-our @locker; # Lock ID of the currently held lock, or undef
-our @lockts; # Time the lock will expire
-
 our @nicks;  # all nicks on this channel
 our @nmode;  # modes of those nicks
 
-&Persist::register_vars(qw(ts keyname topic topicts topicset mode
-	names nets locker lockts nicks nmode));
+&Persist::register_vars(qw(ts keyname topic topicts topicset mode nicks nmode));
 &Persist::autoget(qw(ts keyname topic topicts topicset), all_modes => \@mode);
 &Persist::autoinit(qw(ts topic topicts topicset));
 
@@ -79,16 +84,6 @@ my %nmodebit = (
 	admin => 8,
 	owner => 16,
 );
-
-=item $chan->nets()
-
-List of all networks this channel is on
-
-=cut
-
-sub nets {
-	values %{$nets[${$_[0]}]};
-}
 
 =item $chan->has_nmode($mode, $nick)
 
@@ -124,6 +119,184 @@ sub get_nmode {
 sub get_mode {
 	my($chan, $itm) = @_;
 	$mode[$$chan]{$itm};
+}
+
+=item $chan->all_nicks()
+
+return a list of all nicks on the channel
+
+=cut
+
+sub all_nicks {
+	my $chan = $_[0];
+	return @{$nicks[$$chan]};
+}
+
+=item $chan->part($nick)
+
+remove records of this nick (for quitting nicks)
+
+=cut
+
+sub part {
+	my($chan,$nick) = @_;
+	$nicks[$$chan] = [ grep { $_ != $nick } @{$nicks[$$chan]} ];
+	delete $nmode[$$chan]{$$nick};
+	return if @{$nicks[$$chan]};
+	$chan->unhook_destroyed();
+}
+
+&Janus::hook_add(
+	JOIN => act => sub {
+		my $act = $_[0];
+		my $nick = $act->{src};
+		my $chan = $act->{dst};
+		push @{$nicks[$$chan]}, $nick;
+		if ($act->{mode}) {
+			for (keys %{$act->{mode}}) {
+				warn "Unknown mode $_" unless $nmodebit{$_};
+				$nmode[$$chan]{$$nick} |= $nmodebit{$_};
+			}
+		}
+	}, PART => cleanup => sub {
+		my $act = $_[0];
+		my $nick = $act->{src};
+		my $chan = $act->{dst};
+		$chan->part($nick);
+	}, KICK => cleanup => sub {
+		my $act = $_[0];
+		my $nick = $act->{kickee};
+		my $chan = $act->{dst};
+		$chan->part($nick);
+	}, TIMESYNC => act => sub {
+		my $act = $_[0];
+		my $chan = $act->{dst};
+		my $ts = $act->{ts};
+		if ($ts < 1000000) {
+			#don't EVER destroy channel TSes with that annoying Unreal message
+			warn "Not destroying channel timestamp; mode desync may happen!" if $ts;
+			return;
+		}
+		$ts[$$chan] = $ts;
+		if ($act->{wipe}) {
+			$nmode[$$chan] = {};
+			$mode[$$chan] = {};
+		}
+	}, MODE => act => sub {
+		my $act = $_[0];
+		local $_;
+		my $chan = $act->{dst};
+		my @dirs = @{$act->{dirs}};
+		my @args = @{$act->{args}};
+		for my $i (@{$act->{mode}}) {
+			my $pm = shift @dirs;
+			my $arg = shift @args;
+			my $t = $Modes::mtype{$i} || '?';
+			if ($t eq 'n') {
+				unless (ref $arg && $arg->isa('Nick')) {
+					warn "$i without nick arg!";
+					next;
+				}
+				$nmode[$$chan]{$$arg} |= $nmodebit{$i}; # will ensure is defined
+				$nmode[$$chan]{$$arg} &= ~$nmodebit{$i} if $pm eq '-';
+			} elsif ($t eq 'l') {
+				if ($pm eq '+') {
+					@{$mode[$$chan]{$i}} = ($arg, grep { $_ ne $arg } @{$mode[$$chan]{$i}});
+				} else {
+					@{$mode[$$chan]{$i}} = grep { $_ ne $arg } @{$mode[$$chan]{$i}};
+				}
+			} elsif ($t eq 'v') {
+				$mode[$$chan]{$i} = $arg if $pm eq '+';
+				delete $mode[$$chan]{$i} if $pm eq '-';
+			} elsif ($t eq 'r') {
+				my $v = 0+($mode[$$chan]{$i} || 0);
+				$v |= $arg;
+				$v &= ~$arg if $pm eq '-';
+				$v ? $mode[$$chan]{$i} = $v : delete $mode[$$chan]{$i};
+			} else {
+				warn "Unknown mode '$i'";
+			}
+		}
+	}, TOPIC => act => sub {
+		my $act = $_[0];
+		my $chan = $act->{dst};
+		$topic[$$chan] = $act->{topic};
+		$topicts[$$chan] = $act->{topicts} || $Janus::time;
+		$topicset[$$chan] = $act->{topicset};
+		unless ($topicset[$$chan]) {
+			if ($act->{src} && $act->{src}->isa('Nick')) {
+				$topicset[$$chan] = $act->{src}->homenick();
+			} else {
+				$topicset[$$chan] = 'janus';
+			}
+		}
+	}
+);
+
+### MODE SPLIT ###
+eval($Janus::lmode eq 'Bridge' ? q[
+### BRIDGE MODE ###
+sub nets {
+	values %Janus::nets;
+}
+
+sub to_ij {
+	my($chan,$ij) = @_;
+	my $out = '';
+	$out .= ' ts='.$ij->ijstr($ts[$$chan]);
+	$out .= ' topic='.$ij->ijstr($topic[$$chan]);
+	$out .= ' topicts='.$ij->ijstr($topicts[$$chan]);
+	$out .= ' topicset='.$ij->ijstr($topicset[$$chan]);
+	$out .= ' mode='.$ij->ijstr($mode[$$chan]);
+	$out .= ' name='.$ij->ijstr($keyname[$$chan]);
+	$out;
+}
+
+sub _init {
+	my($c, $ifo) = @_;
+	{	no warnings 'uninitialized';
+		$mode[$$c] = $ifo->{mode} || {};
+		$nicks[$$c] = [];
+		$nmode[$$c] = {};
+		$topicts[$$c] += 0;
+		$ts[$$c] += 0;
+		$ts[$$c] = ($Janus::time + 60) if $ts[$$c] < 1000000;
+	}
+	$keyname[$$c] = $ifo->{name};
+}
+
+sub _destroy {
+	my $c = $_[0];
+	$keyname[$$c];
+}
+
+sub str {
+	my($chan,$net) = @_;
+	$keyname[$$chan];
+}
+
+sub is_on {
+	1
+}
+
+sub sendto {
+	values %Janus::nets;
+}
+
+sub unhook_destroyed {
+	my $chan = shift;
+	&LocalNetwork::replace_chan(undef, $keyname[$$chan], undef);
+}
+
+1 ] : q[
+### LINK MODE ###
+our @names;  # channel's name on the various networks
+our @nets;   # networks this channel is shared to
+
+&Persist::register_vars(qw(names nets));
+
+sub nets {
+	values %{$nets[${$_[0]}]};
 }
 
 sub to_ij {
@@ -261,34 +434,10 @@ sub _link_into {
 	}
 }
 
-=item $chan->all_nicks()
-
-return a list of all nicks on the channel
-
-=cut
-
-sub all_nicks {
-	my $chan = $_[0];
-	return @{$nicks[$$chan]};
-}
-
-=item $chan->str($net)
-
-get the channel's name on a given network, or undef if the channel is
-not on the network
-
-=cut
-
 sub str {
 	my($chan,$net) = @_;
 	$net ? $names[$$chan]{$$net} : undef;
 }
-
-=item $chan->is_on($net)
-
-returns true if the channel is linked onto the given network
-
-=cut
 
 sub is_on {
 	my($chan, $net) = @_;
@@ -297,22 +446,7 @@ sub is_on {
 
 sub sendto {
 	my($chan,$act) = @_;
-	carp "except in sendto is deprecated" if @_ > 2;
 	values %{$nets[$$chan]};
-}
-
-=item $chan->part($nick)
-
-remove records of this nick (for quitting nicks)
-
-=cut
-
-sub part {
-	my($chan,$nick) = @_;
-	$nicks[$$chan] = [ grep { $_ != $nick } @{$nicks[$$chan]} ];
-	delete $nmode[$$chan]{$$nick};
-	return if @{$nicks[$$chan]};
-	$chan->unhook_destroyed();
 }
 
 sub unhook_destroyed {
@@ -350,143 +484,8 @@ sub del_remoteonly {
 	}
 }
 
-sub can_lock {
-	my $chan = shift;
-	return 1 unless $locker[$$chan];
-	if ($lockts[$$chan] < $Janus::time) {
-		&Debug::info("Stealing expired lock from $locker[$$chan]");
-		return 1;
-	} else {
-		&Debug::info("Lock on #$$chan held by $locker[$$chan] until $lockts[$$chan]");
-		return 0;
-	}
-}
-
 &Janus::hook_add(
-	JOIN => act => sub {
-		my $act = $_[0];
-		my $nick = $act->{src};
-		my $chan = $act->{dst};
-		push @{$nicks[$$chan]}, $nick;
-		if ($act->{mode}) {
-			for (keys %{$act->{mode}}) {
-				warn "Unknown mode $_" unless $nmodebit{$_};
-				$nmode[$$chan]{$$nick} |= $nmodebit{$_};
-			}
-		}
-	}, PART => cleanup => sub {
-		my $act = $_[0];
-		my $nick = $act->{src};
-		my $chan = $act->{dst};
-		$chan->part($nick);
-	}, KICK => cleanup => sub {
-		my $act = $_[0];
-		my $nick = $act->{kickee};
-		my $chan = $act->{dst};
-		$chan->part($nick);
-	}, TIMESYNC => act => sub {
-		my $act = $_[0];
-		my $chan = $act->{dst};
-		my $ts = $act->{ts};
-		if ($ts < 1000000) {
-			#don't EVER destroy channel TSes with that annoying Unreal message
-			warn "Not destroying channel timestamp; mode desync may happen!" if $ts;
-			return;
-		}
-		$ts[$$chan] = $ts;
-		if ($act->{wipe}) {
-			$nmode[$$chan] = {};
-			$mode[$$chan] = {};
-		}
-	}, MODE => act => sub {
-		my $act = $_[0];
-		local $_;
-		my $chan = $act->{dst};
-		my @dirs = @{$act->{dirs}};
-		my @args = @{$act->{args}};
-		for my $i (@{$act->{mode}}) {
-			my $pm = shift @dirs;
-			my $arg = shift @args;
-			my $t = $Modes::mtype{$i} || '?';
-			if ($t eq 'n') {
-				unless (ref $arg && $arg->isa('Nick')) {
-					warn "$i without nick arg!";
-					next;
-				}
-				$nmode[$$chan]{$$arg} |= $nmodebit{$i}; # will ensure is defined
-				$nmode[$$chan]{$$arg} &= ~$nmodebit{$i} if $pm eq '-';
-			} elsif ($t eq 'l') {
-				if ($pm eq '+') {
-					@{$mode[$$chan]{$i}} = ($arg, grep { $_ ne $arg } @{$mode[$$chan]{$i}});
-				} else {
-					@{$mode[$$chan]{$i}} = grep { $_ ne $arg } @{$mode[$$chan]{$i}};
-				}
-			} elsif ($t eq 'v') {
-				$mode[$$chan]{$i} = $arg if $pm eq '+';
-				delete $mode[$$chan]{$i} if $pm eq '-';
-			} elsif ($t eq 'r') {
-				my $v = 0+($mode[$$chan]{$i} || 0);
-				$v |= $arg;
-				$v &= ~$arg if $pm eq '-';
-				$v ? $mode[$$chan]{$i} = $v : delete $mode[$$chan]{$i};
-			} else {
-				warn "Unknown mode '$i'";
-			}
-		}
-	}, TOPIC => act => sub {
-		my $act = $_[0];
-		my $chan = $act->{dst};
-		$topic[$$chan] = $act->{topic};
-		$topicts[$$chan] = $act->{topicts} || $Janus::time;
-		$topicset[$$chan] = $act->{topicset};
-		unless ($topicset[$$chan]) {
-			if ($act->{src} && $act->{src}->isa('Nick')) {
-				$topicset[$$chan] = $act->{src}->homenick();
-			} else {
-				$topicset[$$chan] = 'janus';
-			}
-		}
-	}, LOCKREQ => check => sub {
-		my $act = shift;
-		my $net = $act->{dst};
-		if ($net->isa('LocalNetwork')) {
-			my $chan = $net->chan($act->{name}, 1) or return 1;
-			$act->{dst} = $chan;
-		} elsif ($net->isa('Network')) {
-			my $kn = lc $net->gid().$act->{name};
-			my $chan = $Janus::gchans{$kn};
-			$act->{dst} = $chan if $chan;
-		}
-		return undef;
-	}, LOCKREQ => act => sub {
-		my $act = shift;
-		my $chan = $act->{dst};
-		return unless $chan->isa('Channel');
-
-		if ($chan->can_lock()) {
-			$locker[$$chan] = $act->{lockid};
-			$lockts[$$chan] = $Janus::time + 60;
-			&Janus::append(+{
-				type => 'LOCKACK',
-				src => $RemoteJanus::self,
-				dst => $act->{src},
-				lockid => $act->{lockid},
-				chan => $chan,
-				expire => ($Janus::time + 40),
-			});
-		} else {
-			&Janus::append(+{
-				type => 'LOCKACK',
-				src => $RemoteJanus::self,
-				dst => $act->{src},
-				lockid => $act->{lockid},
-			});
-		}
-	}, UNLOCK => act => sub {
-		my $act = shift;
-		my $chan = $act->{dst};
-		delete $locker[$$chan];
-	}, LOCKED => act => sub {
+	LOCKED => act => sub {
 		my $act = shift;
 		my $chan1 = $act->{chan1};
 		my $chan2 = $act->{chan2};
@@ -579,9 +578,9 @@ sub can_lock {
 		for my $src (values %from) {
 			next if $src eq $chan;
 			$src->_link_into($chan);
-			delete $locker[$$src];
+			&Lock::unlock($src);
 		}
-		delete $locker[$$chan];
+		&Lock::unlock($chan);
 	}, DELINK => check => sub {
 		my $act = shift;
 		my $chan = $act->{dst};
@@ -596,9 +595,9 @@ sub can_lock {
 			&Debug::warn("Cannot delink: channel $$chan is not on network #$$net");
 			return 1;
 		}
-		unless ($chan->can_lock()) {
+		unless (&Lock::can_lock($chan)) {
 			return undef if $act->{netsplit_quit};
-			&Debug::warn("Cannot delink: channel $$chan is locked by $locker[$$chan]");
+			&Debug::warn("Cannot delink: channel $$chan is locked");
 			return 1;
 		}
 		undef;
@@ -670,6 +669,8 @@ sub can_lock {
 		del_remoteonly($act->{split});
 	}
 );
+
+1 ]) or die $@;
 
 =back
 

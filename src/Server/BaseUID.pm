@@ -174,41 +174,4 @@ sub item {
 	return undef;
 }
 
-&Janus::hook_add(
-	NETSPLIT => cleanup => sub {
-		my $act = shift;
-		my $net = $act->{net};
-		return unless $net->isa(__PACKAGE__);
-		if (%{$uids[$$net]}) {
-			my @clean;
-			warn "nicks remain after a netsplit, killing...";
-			for my $nick ($net->all_nicks()) {
-				push @clean, +{
-					type => 'KILL',
-					dst => $nick,
-					net => $net,
-					msg => 'JanusSplit',
-					nojlink => 1,
-				};
-			}
-			&Janus::insert_full(@clean);
-		}
-		if (%{$gid2uid[$$net]}) {
-			my @clean;
-			warn "nicks still remain after netsplit kills, trying again...";
-			for my $gid (keys %{$gid2uid[$$net]}) {
-				my $nick = $Janus::gnicks{$gid};
-				push @clean, +{
-					type => 'KILL',
-					dst => $nick,
-					net => $net,
-					msg => 'JanusSplit',
-					nojlink => 1,
-				};
-			}
-			&Janus::insert_full(@clean);
-		}
-	},
-);
-
 1;

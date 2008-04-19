@@ -98,15 +98,6 @@ sub pmsg {
 			type => 'NEWNICK',
 			dst => $janus,
 		});
-	}, BURST => act => sub {
-		my $act = shift;
-		my $net = $act->{net};
-		return if $net->jlink();
-		&Janus::append(+{
-			type => 'CONNECT',
-			dst => $janus,
-			net => $net,
-		});
 	}, KILL => act => sub {
 		my $act = shift;
 		return unless $act->{dst} eq $janus;
@@ -115,9 +106,6 @@ sub pmsg {
 			dst => $act->{dst},
 			net => $act->{net},
 		});
-	}, NETSPLIT => act => sub {
-		my $act = shift;
-		$janus->_netpart($act->{net});
 	},
 	MSG => parse => \&pmsg,
 	MSG => jparse => \&pmsg,
@@ -125,8 +113,47 @@ sub pmsg {
 		my $act = shift;
 		my $src = $act->{src};
 		my $dst = $act->{dst};
-		return undef if $src->is_on($dst->homenet());
-		if ($dst eq $janus) {
+		return undef if $src->is_on($dst->homenet()) || $$dst == 1;
+		&Janus::jmsg($src, 'You cannot use this /whois syntax unless you are on a shared channel with the user');
+		return 1;
+	}, CHATOPS => jparse => sub {
+		my $act = shift;
+		delete $act->{IJ_RAW};
+		if ($act->{src} == $janus) {
+			$act->{msg} = '['.$act->{except}->id().'] '.$act->{msg};
+		}
+		undef;
+	},
+);
+if ($Janus::lmode eq 'Link') {
+	&Janus::hook_add(
+		BURST => act => sub {
+			my $act = shift;
+			my $net = $act->{net};
+			return if $net->jlink();
+			&Janus::append(+{
+				type => 'CONNECT',
+				dst => $janus,
+				net => $net,
+			});
+		}, NETSPLIT => act => sub {
+			my $act = shift;
+			$janus->_netpart($act->{net});
+		}
+	);
+}
+
+sub parse { () }
+sub send {
+	my $net = shift;
+	for my $act (@_) {
+		if ($act->{type} eq 'MSG' && $act->{msgtype} eq 'PRIVMSG' && $act->{dst} == $janus) {
+			my $src = $act->{src} or next;
+			$_ = $act->{msg};
+			my $cmd = s/^\s*(?:@\S+\s+)?([^@ ]\S*)\s*// ? lc $1 : 'unk';
+			&Janus::in_command($cmd, $src, $_);
+		} elsif ($act->{type} eq 'WHOIS' && $act->{dst} == $janus) {
+			my $src = $act->{src} or next;
 			my $net = $src->homenet();
 			my @msgs = (
 				[ 311, $src->info('ident'), $src->info('vhost'), '*', $src->info('name') ],
@@ -142,29 +169,6 @@ sub pmsg {
 				msgtype => $_->[0], # first part of message
 				msg => [$janus, @$_[1 .. $#$_] ], # source nick, rest of message array
 			}, @msgs);
-		} else {
-			&Janus::jmsg($src, 'You cannot use this /whois syntax unless you are on a shared channel with the user');
-		}
-		return 1;
-	}, CHATOPS => jparse => sub {
-		my $act = shift;
-		delete $act->{IJ_RAW};
-		if ($act->{src} == $janus) {
-			$act->{msg} = '['.$act->{except}->id().'] '.$act->{msg};
-		}
-		undef;
-	},
-);
-
-sub parse { () }
-sub send {
-	my $net = shift;
-	for my $act (@_) {
-		if ($act->{type} eq 'MSG' && $act->{msgtype} eq 'PRIVMSG' && $act->{dst} == $janus) {
-			my $src = $act->{src} or next;
-			$_ = $act->{msg};
-			my $cmd = s/^\s*(?:@\S+\s+)?([^@ ]\S*)\s*// ? lc $1 : 'unk';
-			&Janus::in_command($cmd, $src, $_);
 		}
 	}
 }

@@ -123,6 +123,9 @@ sub id {
 		&Debug::info("Nick deallocation start");
 		@clean = ();
 		&Debug::info("Nick deallocation end");
+
+		return if $Janus::lmode eq 'Bridge';
+
 		for my $chan ($net->all_chans()) {
 			warn "Channel not on network!" unless $chan->is_on($net);
 			push @clean, +{
