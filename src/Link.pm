@@ -112,8 +112,8 @@ our $abort;
 			&Debug::info("Link request: not syncing to avoid races");
 			return;
 		}
-		my $kn1 = lc $snet->gid().$act->{slink};
-		my $kn2 = lc $dnet->gid().$act->{dlink};
+		my $kn1 = $snet->gid().lc $act->{slink};
+		my $kn2 = $dnet->gid().lc $act->{dlink};
 		if ($Janus::gchans{$kn1} && $Janus::gchans{$kn2} &&
 			$Janus::gchans{$kn1} eq $Janus::gchans{$kn2}) {
 			&Debug::info("Link request: already linked");

@@ -324,13 +324,13 @@ sub _init {
 	}
 	if ($ifo->{net}) {
 		my $net = $ifo->{net};
-		my $kn = lc $net->gid().$ifo->{name};
+		my $kn = $net->gid().lc $ifo->{name};
 		$keyname[$$c] = $kn;
 		$nets[$$c]{$$net} = $net;
 		$names[$$c]{$$net} = $ifo->{name};
 		$Janus::gchans{$kn} = $c;
 	} elsif ($ifo->{merge}) {
-		$keyname[$$c] = lc $ifo->{merge};
+		$keyname[$$c] = $ifo->{merge};
 		$names[$$c] = {};
 		$nets[$$c] = {};
 	} else {
@@ -342,7 +342,7 @@ sub _init {
 			my $net = $Janus::gnets{$id} or warn next;
 			$names[$$c]{$$net} = $name;
 			$nets[$$c]{$$net} = $net;
-			my $kn = lc $net->gid().$name;
+			my $kn = $net->gid().lc $name;
 			$Janus::gchans{$kn} = $c unless $Janus::gchans{$kn};
 			$keyname[$$c] = $kn; # it just has to be one of them
 		}
@@ -381,7 +381,7 @@ sub _link_into {
 		$dbg .= " $id";
 		my $net = $nets[$$src]{$id};
 		my $name = $names[$$src]{$id};
-		$Janus::gchans{lc $net->gid().$name} = $chan;
+		$Janus::gchans{$net->gid().lc $name} = $chan;
 		delete $dstnets{$id};
 		next if $net->jlink();
 		$dbg .= '+';
@@ -455,7 +455,7 @@ sub unhook_destroyed {
 	for my $id (keys %{$nets[$$chan]}) {
 		my $net = $nets[$$chan]{$id};
 		my $name = $names[$$chan]{$id};
-		delete $Janus::gchans{lc $net->gid().$name};
+		delete $Janus::gchans{$net->gid().lc $name};
 		next if $net->jlink();
 		$net->replace_chan($name, undef);
 	}
@@ -564,7 +564,7 @@ sub del_remoteonly {
 		my %from;
 		for my $nid (keys %{$nets[$$chan]}) {
 			my $net = $nets[$$chan]{$nid} or next;
-			my $kn = lc $net->gid().$names[$$chan]{$nid};
+			my $kn = $net->gid().lc $names[$$chan]{$nid};
 			my $src = $Janus::gchans{$kn} or next;
 			$from{$$src} = $src;
 		}
@@ -609,11 +609,11 @@ sub del_remoteonly {
 		delete $nets[$$chan]{$$net} or warn;
 
 		my $name = delete $names[$$chan]{$$net};
-		if ($keyname[$$chan] eq lc $net->gid().$name) {
+		if ($keyname[$$chan] eq $net->gid().lc $name) {
 			my @onets = grep defined, values %{$nets[$$chan]};
 			if (@onets && $onets[0]) {
 				my $net = $onets[0];
-				my $kn = lc $net->gid().$names[$$chan]{$$net};
+				my $kn = $net->gid().lc $names[$$chan]{$$net};
 				&Debug::info("Rekeying channel $keyname[$$chan] to $kn");
 				$keyname[$$chan] = $kn;
 			} else {

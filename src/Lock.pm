@@ -112,7 +112,7 @@ sub req_pair {
 			my $chan = $net->chan($act->{name}, 1) or return 1;
 			$act->{dst} = $chan;
 		} elsif ($net->isa('Network')) {
-			my $kn = lc $net->gid().$act->{name};
+			my $kn = $net->gid().lc $act->{name};
 			my $chan = $Janus::gchans{$kn};
 			$act->{dst} = $chan if $chan;
 		}
