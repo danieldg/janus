@@ -94,7 +94,22 @@ sub hook_info {
 }
 
 sub timestamp {
-	print "\e[0;1mTimestamp: $Janus::time\e[m\n";
+	print "\e[0;1mTimestamp: $_[0]\e[m\n";
 }
+
+sub err_jmsg {
+	my $dst = shift;
+	unless ($dst) {
+		my @c = caller;
+		&Debug::warn("Deprecated err_jmsg call in $c[0] line $c[2]");
+	}
+	for my $v (@_) {
+		local $_ = $v; # don't use $v directly as it's read-only
+		&Debug::err($_);
+		s/\n/ /g;
+		&Interface::jmsg($dst, $_) if $Interface::janus && $dst;
+	}
+}
+
 
 1;

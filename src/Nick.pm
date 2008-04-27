@@ -55,6 +55,7 @@ do {
 		$i *= 2;
 	}
 	warn "Too many umode bits for a scalar" if (sprintf '%x', $i) =~ /f/;
+	# Note: if this ever happens, convert to using vec() on a bitstring
 };
 
 sub _init {

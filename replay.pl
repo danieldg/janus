@@ -35,7 +35,7 @@ $| = 1;
 $SIG{PIPE} = 'IGNORE';
 $SIG{CHLD} = 'IGNORE';
 
-&Janus::load($_) or die for qw(Conffile Interface Actions Commands::Core);
+&Janus::load('Conffile') or die;
 
 if ($ARGV[0] && $ARGV[0] =~ /(.+)/) {
 	my $dumpfile = $1;

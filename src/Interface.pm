@@ -8,6 +8,14 @@ use Persist 'Network';
 use strict;
 use warnings;
 
+=over
+
+=item $Interface::janus - Nick
+
+Nick object representing the janus interface bot.
+
+=cut
+
 our $janus; # Janus interface bot: this module handles interactions with this bot
 
 sub pmsg {
@@ -178,5 +186,28 @@ sub release_nick { }
 sub is_synced { 0 }
 sub all_nicks { $janus }
 sub all_chans { () }
+
+=item Interface::jmsg($dst, $msg,...)
+
+Send the given message(s), sourced from the janus interface,
+to the given destination
+
+=cut
+
+sub jmsg {
+	my $dst = shift;
+	return unless $dst && ref $dst;
+	my $type =
+		$dst->isa('Nick') ? 'NOTICE' :
+		$dst->isa('Channel') ? 'PRIVMSG' : '';
+	local $_;
+	&Janus::insert_full(map +{
+		type => 'MSG',
+		src => $Interface::janus,
+		dst => $dst,
+		msgtype => $type,
+		msg => $_,
+	}, @_) if $type;
+}
 
 1;

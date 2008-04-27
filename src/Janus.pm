@@ -406,60 +406,6 @@ sub append {
 	push @{$qstack[0]}, @_;
 }
 
-=item Janus::jmsg($dst, $msg,...)
-
-Send the given message(s), sourced from the janus interface,
-to the given destination
-
-=cut
-
-sub jmsg {
-	my $dst = shift;
-	return unless $dst && ref $dst;
-	my $type =
-		$dst->isa('Nick') ? 'NOTICE' :
-		$dst->isa('Channel') ? 'PRIVMSG' : '';
-	local $_;
-	&Janus::append(map +{
-		type => 'MSG',
-		src => $Interface::janus,
-		dst => $dst,
-		msgtype => $type,
-		msg => $_,
-	}, @_) if $type;
-}
-
-=item Janus::err_jmsg($dst, $msg,...)
-
-Send error messages to the given destination and to standard error
-
-=cut
-
-sub err_jmsg {
-	my $dst = shift;
-	for my $v (@_) {
-		local $_ = $v; # don't use $v directly as it's read-only
-		s/\n/ /g;
-		&Debug::err($_);
-		if ($dst) {
-			&Janus::append(+{
-				type => 'MSG',
-				src => $Interface::janus,
-				dst => $dst,
-				msgtype => ($dst->isa('Channel') ? 'PRIVMSG' : 'NOTICE'), # channel notice == annoying
-				msg => $_,
-			}) if $Interface::janus;
-		} else {
-			&Janus::insert_full({
-				type => 'CHATOPS',
-				src => $Interface::janus,
-				sendto => [ values %nets ],
-				msg => $_,
-			}) if $Interface::janus;
-		}
-	}
-}
-
 =item Janus::schedule(TimeEvent,...)
 
 schedule the given events for later execution
@@ -539,7 +485,7 @@ sub timer {
 		%tqueue = ();
 		$tqueue{$_ - $off} = $oq{$_} for keys %oq;
 	} elsif ($last_check < $time) {
-		&Debug::timestamp();
+		&Debug::timestamp($time);
 		for ($last_check .. $time) {
 			# yes it will hit some times twice... that is needed if events with delay=0 are
 			# added to the queue in the same second, but after the queue has already run
@@ -752,6 +698,9 @@ unless ($global) {
 sub gid {
 	'*';
 }
+
+sub jmsg { goto &Interface::jmsg }
+sub err_jmsg { goto &Debug::err_jmsg }
 
 # we load these modules down here because their loading uses
 # some of the subs defined above
