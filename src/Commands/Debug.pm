@@ -64,7 +64,7 @@ sub dump_now {
 	for my $q (@Connection::queues) {
 		my $sock = $q->[&Connection::SOCK()];
 		next unless ref $sock;
-		$seen{'$Replay::thaw_fd->('.$q->[&Connection::FD()].')'} = $sock;
+		$seen{'$Replay::thaw_fd->('.$q->[&Connection::FD()].", '".ref($sock)."')"} = $sock;
 	}
 
 	my $dd = Data::Dumper->new([]);
