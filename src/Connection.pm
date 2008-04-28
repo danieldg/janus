@@ -22,8 +22,6 @@ our @queues;
 # net number => [ fd, IO::Socket, net, recvq, sendq, try_recv, try_send, ping ]
 our $lping;
 $lping ||= 100;
-our $timeres;
-$timeres ||= 1;
 
 our $tblank;
 unless (defined $tblank) {
@@ -197,9 +195,11 @@ sub timestep {
 		vec($w,$q->[FD],1) = 1 if $q->[TRY_W];
 	}
 
-	my $fd = select $r, $w, undef, $timeres;
+	my $time = &Janus::next_event($lping+30);
 
-	$timeres = &Janus::timer();
+	my $fd = select $r, $w, undef, $time - time;
+
+	&Janus::timer(time);
 
 	if ($fd) {
 		for my $q (@queues) {

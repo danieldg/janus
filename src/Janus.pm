@@ -476,7 +476,7 @@ sub in_command {
 }
 
 sub timer {
-	$time = $_[0] || time;
+	$time = $_[0];
 	my @q;
 	if ($last_check > $time) {
 		my $off = $last_check-$time;
@@ -502,10 +502,14 @@ sub timer {
 			push @{$tqueue{$t}}, $event;
 		}
 	}
-	for (1..60) {
-		return $_ if $tqueue{$time+$_};
+}
+
+sub next_event {
+	my $max = shift;
+	for ($time..$max) {
+		return $_ if $tqueue{$_};
 	}
-	return 60;
+	$max;
 }
 
 =back
