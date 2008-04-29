@@ -152,14 +152,14 @@ sub run_sendq {
 }
 
 sub pingall {
-	my $timeout = shift;
+	my($timeout, $minpong) = @_;
 	my @all = @queues;
 	for my $q (@all) {
 		my($net,$last) = @$q[NET,PINGT];
 		next if ref $net eq 'Listener';
 		if ($last < $timeout) {
 			delink($net, 'Ping Timeout');
-		} else {
+		} elsif ($last < $minpong) {
 			$net->send(+{ type => 'PING' });
 		}
 	}
@@ -208,11 +208,13 @@ sub timestep {
 		}
 	}
 
+	# Send out pings to servers that need it, once every 30 seconds
 	if ($lping + 30 <= $Janus::time) {
-		# Ping at most once every 30 seconds
-		# Pings can be delayed up to twice this if $timeres lines up properly
-		# Therefore 95 seconds is a good timeout for the last pong message
-		pingall($Janus::time - 95);
+		# time out if it was 60 seconds since the PREVIOUS ping was sent
+		# (this will be around 90 seconds ago)
+		# send a ping if no traffic was received for 25 seconds
+		# (this is so we don't bother pinging active networks)
+		pingall($lping - 60, $Janus::time - 25);
 		$lping = $Janus::time;
 	}
 
