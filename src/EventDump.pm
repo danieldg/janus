@@ -49,6 +49,10 @@ sub ijstr {
 		return 'j:'.$itm->id();
 	} elsif ($itm->isa('Janus')) {
 		return 'j:*';
+	} elsif ($itm->isa('Nick')) {
+		return 'n:'.$itm->gid();
+	} elsif ($itm->isa('Channel')) {
+		return 'c:'.$itm->keyname();
 	}
 	&Debug::err("Unknown object $itm of type $ref");
 	return '""';

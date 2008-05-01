@@ -166,6 +166,7 @@ sub register_vars {
 
 sub poison {
 	my $ref = shift;
+	return if ref $ref eq 'Persist::Poison';
 	&Debug::alloc($ref, 'poisoned');
 	my $cls = ref $ref;
 	my $oid = $$ref;
@@ -176,7 +177,7 @@ sub poison {
 		refs => 0,
 	}, 'Persist::Poison::Int';
 	$$ref = $pdata;
-	bless $ref, 'Persist::Poison'
+	bless $ref, 'Persist::Poison';
 }
 
 package Persist::Poison;
@@ -193,10 +194,17 @@ sub AUTOLOAD {
 	my $ref = $_[0];
 	my @call = caller;
 	my($method) = $AUTOLOAD =~ /.*::([^:]+)/;
+	$$ref->{refs}++;
 	&Debug::info("Poisoned reference of $$ref->{class} called $method by ".
 		"$call[0] on $call[1] line $call[2] for object #$$ref->{id}");
 	my $sub = &UNIVERSAL::can($$ref->{class}, $method);
 	goto &$sub;
+}
+
+sub isa {
+	my $ref = $_[0];
+	$$ref->{refs}++;
+	&UNIVERSAL::isa($$ref->{class}, $_[1]);
 }
 
 package Persist::Poison::Int;
@@ -204,6 +212,7 @@ package Persist::Poison::Int;
 use overload '0+' => sub {
 	my $pdat = $_[0];
 	my @call = caller;
+	$pdat->{refs}++;
 	&Debug::info("Poisoned reference of $pdat->{class} dereferenced by ".
 		"$call[0] on $call[1] line $call[2] for object #$pdat->{id}");
 	$pdat->{id};
