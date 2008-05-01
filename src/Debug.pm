@@ -52,9 +52,9 @@ sub err {
 
 sub alloc {
 	return unless $alloc;
-	my($obj,$dir) = (shift,shift);
+	my$obj = shift;
 	print "\e[36m  ".ref($obj).":$$obj ",
-		join(' ', ($dir ? 'allocated' : 'deallocated'), @_), "\e[m\n";
+		join(' ', @_), "\e[m\n";
 }
 
 sub info {

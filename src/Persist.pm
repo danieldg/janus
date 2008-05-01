@@ -93,7 +93,7 @@ sub new {
 		my $init = *{$pkg.'::_init'}{CODE};
 		push @objid, $init->($s, \%args) if $init;
 	}
-	&Debug::alloc($s, 1, grep defined && !ref, @objid);
+	&Debug::alloc($s, 'allocated', grep defined && !ref, @objid);
 	$s;
 }
 
@@ -107,7 +107,7 @@ sub DESTROY {
 		my $dest = *{$pkg.'::_destroy'}{CODE};
 		push @objid, $dest->($self) if $dest;
 	}
-	&Debug::alloc($self, 0, grep defined && !ref, @objid);
+	&Debug::alloc($self, 'deallocated', grep defined && !ref, @objid);
 	for my $pkg (@pkgs) {
 		for my $aref (values %{$vars{$pkg}}) {
 			delete $aref->[$$self];
@@ -163,5 +163,48 @@ sub register_vars {
 		}
 	}
 }
+
+sub poison {
+	my $ref = shift;
+	&Debug::alloc($ref, 'poisoned');
+	my $cls = ref $ref;
+	my $oid = $$ref;
+	my $pdata = bless {
+		class => $cls,
+		id => $oid,
+		ts => $Janus::time,
+		refs => 0,
+	}, 'Persist::Poison::Int';
+	$$ref = $pdata;
+	bless $ref, 'Persist::Poison'
+}
+
+package Persist::Poison;
+
+our $AUTOLOAD;
+
+sub DESTROY {
+	my $ref = shift;
+	my $fake = $$ref->{id};
+	bless \$fake, $$ref->{class};
+}
+
+sub AUTOLOAD {
+	my $ref = $_[0];
+	my($method) = $AUTOLOAD =~ /.*::([^:]+)/;
+	&Debug::info("Poisoned reference of $$ref->{class} called $method on #$$ref->{id}");
+	my $sub = &UNIVERSAL::can($$ref->{class}, $method);
+	goto &$sub;
+}
+
+package Persist::Poison::Int;
+
+use overload '0+' => sub {
+	my $pdat = $_[0];
+	my @call = caller;
+	&Debug::info("Poisoned reference of $pdat->{class} dereferenced by ".
+		"$call[0] on $call[1] line $call[2] for object #$pdat->{id}");
+	$pdat->{id};
+};
 
 1;
