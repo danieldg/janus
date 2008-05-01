@@ -139,12 +139,12 @@ remove records of this nick (for quitting nicks)
 =cut
 
 sub part {
-	my($chan,$nick) = @_;
+	my($chan,$nick,$fast) = @_;
 	$nicks[$$chan] = [ grep { $_ != $nick } @{$nicks[$$chan]} ];
 	delete $nmode[$$chan]{$$nick};
-	return if @{$nicks[$$chan]};
+	return if $fast || @{$nicks[$$chan]};
 	$chan->unhook_destroyed();
-	&Janus::append({ type => 'POISON', item => $chan });
+	&Janus::append({ type => 'POISON', item => $chan, reason => 'Final part' });
 }
 
 &Janus::hook_add(
@@ -163,12 +163,12 @@ sub part {
 		my $act = $_[0];
 		my $nick = $act->{src};
 		my $chan = $act->{dst};
-		$chan->part($nick);
+		$chan->part($nick, $act->{delink});
 	}, KICK => cleanup => sub {
 		my $act = $_[0];
 		my $nick = $act->{kickee};
 		my $chan = $act->{dst};
-		$chan->part($nick);
+		$chan->part($nick, 0);
 	}, TIMESYNC => act => sub {
 		my $act = $_[0];
 		my $chan = $act->{dst};
@@ -464,26 +464,30 @@ sub unhook_destroyed {
 
 sub del_remoteonly {
 	my $chan = shift;
-	my @nets = values %{$nets[$$chan]};
-	my $cij = undef;
-	for my $net (@nets) {
-		my $ij = $net->jlink();
-		return unless $ij;
-		$ij = $ij->parent() while $ij->parent();
-		return if $cij && $cij ne $ij;
-		$cij = $ij;
+	if (@{$nicks[$$chan]}) {
+		my @nets = values %{$nets[$$chan]};
+		my $cij = undef;
+		for my $net (@nets) {
+			my $ij = $net->jlink();
+			return unless $ij;
+			$ij = $ij->parent() while $ij->parent();
+			return if $cij && $cij ne $ij;
+			$cij = $ij;
+		}
+		# all networks are on the same ij network. We can't see you anymore
+		for my $nick (@{$nicks[$$chan]}) {
+			&Janus::append({
+				type => 'PART',
+				src => $nick,
+				dst => $chan,
+				msg => 'Delink of invisible channel',
+				delink => 1,
+				nojlink => 1,
+			});
+		}
 	}
-	# all networks are on the same ij network. Wipe out the channel.
-	for my $nick (@{$nicks[$$chan]}) {
-		&Janus::append({
-			type => 'PART',
-			src => $nick,
-			dst => $chan,
-			msg => 'Delink of invisible channel',
-			nojlink => 1,
-		});
-	}
-	&Janus::append({ type => 'POISON', item => $chan });
+	$chan->unhook_destroyed();
+	&Janus::append({ type => 'POISON', item => $chan, reason => 'delink gone' });
 }
 
 &Janus::hook_add(
@@ -589,7 +593,7 @@ sub del_remoteonly {
 		my $chan = $act->{dst};
 		my $net = $act->{net};
 		my %nets = %{$nets[$$chan]};
-		&Debug::info("Delink channel $$chan which is currently on: ", join ' ', keys %nets);
+		&Debug::info("Delink channel $$chan which is currently on:", keys %nets);
 		if (scalar keys %nets <= 1) {
 			&Debug::warn("Cannot delink: channel $$chan is not shared");
 			return 1;
@@ -640,6 +644,8 @@ sub del_remoteonly {
 		$nicks[$$split] = [ @presplit ];
 		$nmode[$$split] = { %{$nmode[$$chan]} };
 
+		my @parts;
+
 		for my $nick (@presplit) {
 			# we need to insert the nick into the split off channel before the delink
 			# PART is sent, because code is allowed to assume a PARTed nick was actually
@@ -649,23 +655,26 @@ sub del_remoteonly {
 			warn "c$$chan/n$$nick:no HN", next unless $nick->homenet();
 			if ($nick->homenet() eq $net) {
 				$nick->rejoin($split);
-				&Janus::append(+{
+				push @parts, {
 					type => 'PART',
 					src => $nick,
 					dst => $chan,
 					msg => 'Channel delinked',
+					delink => 1,
 					nojlink => 1,
-				});
+				};
 			} else {
-				&Janus::append(+{
+				push @parts, +{
 					type => 'PART',
 					src => $nick,
 					dst => $split,
 					msg => 'Channel delinked',
+					delink => 1,
 					nojlink => 1,
-				});
+				};
 			}
 		}
+		&Janus::insert_full(@parts);
 	}, DELINK => cleanup => sub {
 		my $act = shift;
 		del_remoteonly($act->{dst});

@@ -202,6 +202,7 @@ my %spec = (
 		src => 'Nick',
 		dst => 'Channel',
 		msg => '?$',
+		delink => '?$',
 	},
 	KICK => {
 		dst => 'Channel',
@@ -309,7 +310,10 @@ my %spec = (
 
 	PING => {},
 	PONG => {},
-	POISON => { item => 'Persist' },
+	POISON => {
+		item => 'Persist Persist::Poison',
+		reason => '?$',
+	},
 	IDENTIFY => {
 		dst => 'Network',
 		method => '?$',
