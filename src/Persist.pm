@@ -180,6 +180,15 @@ sub poison {
 	bless $ref, 'Persist::Poison';
 }
 
+sub unpoison {
+	my $ref = shift;
+	return unless ref $ref eq 'Persist::Poison';
+	my $pdata = $$ref;
+	$$ref = $pdata->{id};
+	bless $ref, $pdata->{class};
+	&Debug::alloc($ref, 'unpoisoned', $pdata->{ts}, $pdata->{refs});
+}
+
 package Persist::Poison;
 
 our $AUTOLOAD;
