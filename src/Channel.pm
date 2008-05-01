@@ -234,7 +234,7 @@ sub part {
 );
 
 ### MODE SPLIT ###
-eval($Janus::lmode eq 'Bridge' ? q[
+eval($Janus::lmode eq 'Bridge' ? '#line '.__LINE__.' "'.__FILE__.'"'.q[
 ### BRIDGE MODE ###
 sub nets {
 	values %Janus::nets;
@@ -288,7 +288,7 @@ sub unhook_destroyed {
 	&LocalNetwork::replace_chan(undef, $keyname[$$chan], undef);
 }
 
-1 ] : q[
+1 ] : '#line '.__LINE__.' "'.__FILE__.'"'.q[
 ### LINK MODE ###
 our @names;  # channel's name on the various networks
 our @nets;   # networks this channel is shared to

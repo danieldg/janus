@@ -191,8 +191,10 @@ sub DESTROY {
 
 sub AUTOLOAD {
 	my $ref = $_[0];
+	my @call = caller;
 	my($method) = $AUTOLOAD =~ /.*::([^:]+)/;
-	&Debug::info("Poisoned reference of $$ref->{class} called $method on #$$ref->{id}");
+	&Debug::info("Poisoned reference of $$ref->{class} called $method by ".
+		"$call[0] on $call[1] line $call[2] for object #$$ref->{id}");
 	my $sub = &UNIVERSAL::can($$ref->{class}, $method);
 	goto &$sub;
 }
