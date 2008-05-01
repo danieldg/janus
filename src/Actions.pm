@@ -309,6 +309,7 @@ my %spec = (
 
 	PING => {},
 	PONG => {},
+	POISON => { item => 'Persist' },
 	IDENTIFY => {
 		dst => 'Network',
 		method => '?$',

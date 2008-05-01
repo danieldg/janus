@@ -144,6 +144,7 @@ sub part {
 	delete $nmode[$$chan]{$$nick};
 	return if @{$nicks[$$chan]};
 	$chan->unhook_destroyed();
+	&Janus::append({ type => 'POISON', item => $chan });
 }
 
 &Janus::hook_add(
@@ -482,6 +483,7 @@ sub del_remoteonly {
 			nojlink => 1,
 		});
 	}
+	&Janus::append({ type => 'POISON', item => $chan });
 }
 
 &Janus::hook_add(
@@ -579,6 +581,7 @@ sub del_remoteonly {
 			next if $src eq $chan;
 			$src->_link_into($chan);
 			&Lock::unlock($src);
+			&Janus::append({ type => 'POISON', item => $src });
 		}
 		&Lock::unlock($chan);
 	}, DELINK => check => sub {

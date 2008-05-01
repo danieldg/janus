@@ -4,6 +4,7 @@ package Janus;
 use strict;
 use warnings;
 use Carp 'cluck';
+use Scalar::Util 'weaken';
 
 # set only on released versions
 our $RELEASE;
@@ -344,6 +345,7 @@ sub _runq {
 	for my $act (@$q) {
 		unshift @qstack, [];
 		_run($act);
+		$act = undef;
 		_runq(shift @qstack);
 	}
 }
@@ -446,6 +448,7 @@ sub in_socket {
 			} else {
 				&Debug::hook_info($act, "$parse_hook hook stole");
 			}
+			$act = undef;
 			_runq(shift @qstack);
 		}
 		1;
@@ -578,6 +581,12 @@ if ($RELEASE) {
 				netsplit_quit => 1,
 				nojlink => 1,
 			});
+		}
+	}, POISON => cleanup => sub {
+		my $act = shift;
+		weaken($act->{item});
+		if ($act->{item}) {
+			&Persist::poison($act->{item});
 		}
 	}, module => READ => sub {
 		$_[0] =~ /([0-9A-Za-z_:]+)/;

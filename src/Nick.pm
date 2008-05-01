@@ -411,6 +411,7 @@ sub str {
 		delete $nets[$$nick];
 		delete $homenet[$$nick];
 		delete $Janus::gnicks{$nick->gid()};
+		&Persist::poison($nick);
 	}, JOIN => act => sub {
 		my $act = shift;
 		my $nick = $act->{src};
