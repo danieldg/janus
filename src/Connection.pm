@@ -63,8 +63,8 @@ sub readable {
 		# this is a listening socket; accept a new connection
 		my $lsock = $$l[SOCK];
 		my($sock,$peer) = $lsock->accept();
-		my $fd = fileno $sock;
-		return unless $sock && defined $fd;
+		my $fd = $sock ? fileno $sock : undef;
+		return unless defined $fd;
 		$net = $net->init_pending($sock, $peer);
 		return unless $net;
 		push @queues, [ $fd, $sock, $net, $tblank, '', 1, 0, $Janus::time ];
