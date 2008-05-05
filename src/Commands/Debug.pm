@@ -12,8 +12,6 @@ eval {
 	# BUG in Data::Dumper, running this is needed before using Seen
 };
 
-our $DUMP_SEQ;
-
 sub dump_all_globals {
 	my %rv;
 	for my $pkg (@_) {
@@ -44,8 +42,12 @@ sub dump_now {
 	} else {
 		$fn .= $Janus::time;
 	}
-	1 while -f "$fn.dump".($DUMP_SEQ++);
-	$fn .= '.dump'.$DUMP_SEQ;
+	$fn .= '.dump';
+	if (-f $fn) {
+		my $seq;
+		1 while -f $fn.++$seq;
+		$fn .= $seq;
+	}
 
 	open my $dump, '>', $fn or return undef;
 	my $gbls = dump_all_globals(keys %Janus::modules);
