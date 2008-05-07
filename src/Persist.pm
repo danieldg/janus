@@ -225,6 +225,13 @@ use overload '0+' => sub {
 	&Debug::info("Poisoned reference of $pdat->{class} dereferenced by ".
 		"$call[0] on $call[1] line $call[2] for object #$pdat->{id}");
 	$pdat->{id};
+}, '<=>' => sub {
+	my $pdat = $_[2] ? $_[0] : $_[1];
+	my @call = caller;
+	$pdat->{refs}++;
+	&Debug::info("Poisoned reference of $pdat->{class} dereferenced by ".
+		"$call[0] on $call[1] line $call[2] for object #$pdat->{id}");
+	$_[2] ? ($pdat->{id} <=> $_[1]) : ($_[0] <=> $pdat->{id});
 };
 
 1;
