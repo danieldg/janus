@@ -44,7 +44,7 @@ sub mynick {
 sub nick {
 	my($net, $name) = @_;
 	if ($name !~ /^\d/) {
-		&Debug::warn_in($net, "Nick used where UID expected: converting");
+		&Debug::warn_in($net, "Nick used where UID expected: converting") unless $_[2];
 		$name = $nick2uid[$$net]{lc $name} || $name;
 	}
 	return $uids[$$net]{uc $name} if $uids[$$net]{uc $name};

@@ -283,6 +283,25 @@ $moddef{CORE} = {
 		my $net = shift;
 		if (@_ < 10) {
 			my $nick = $net->mynick($_[0]) or return ();
+			my $stomp = $net->nick($_[2], 1);
+			if ($stomp) {
+				$net->send({
+					type => 'QUIT',
+					dst => $stomp,
+					msg => "Nickname collision ($_[0] -> $_[2])",
+				});
+				return +{
+					type => 'QUIT',
+					dst => $nick,
+					msg => "Nickname collision ($_[0] -> $_[2])",
+				}, {
+					type => 'RECONNECT',
+					dst => $stomp,
+					net => $net,
+					killed => 1,
+					nojlink => 1,
+				};
+			}
 			return +{
 				type => 'NICK',
 				src => $nick,

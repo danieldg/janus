@@ -303,6 +303,21 @@ $moddef{CORE} = {
 	NICK => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
+		my $stomp = $net->nick($_[2], 1);
+		if ($stomp) {
+			return +{
+				type => 'NICK',
+				src => $nick,
+				dst => $nick,
+				nick => $_[0],
+				nickts => $Janus::time,
+			}, {
+				type => 'RECONNECT',
+				dst => $stomp,
+				net => $net,
+				killed => 0,
+			};
+		}
 		return +{
 			type => 'NICK',
 			src => $nick,
