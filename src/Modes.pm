@@ -51,6 +51,7 @@ sub from_irc {
 		my $type = substr $txt,0,1;
 		if ($type eq 'n') {
 			$arg = $net->nick(shift);
+			next unless $arg; # that nick just quit, messages crossed on the wire
 		} elsif ($type eq 'l') {
 			$arg = shift;
 		} elsif ($type eq 'v') {

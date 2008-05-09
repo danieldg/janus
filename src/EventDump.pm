@@ -53,6 +53,8 @@ sub ijstr {
 		return 'n:'.$itm->gid();
 	} elsif ($itm->isa('Channel')) {
 		return 'c:'.$itm->keyname();
+	} elsif ($itm->isa('Pending')) {
+		return 'pend:'.$$itm;
 	}
 	&Debug::err("Unknown object $itm of type $ref");
 	return '""';
