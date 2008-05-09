@@ -73,6 +73,7 @@ sub unlock {
 		delete $locker[$$itm];
 	} elsif ($itm->isa(__PACKAGE__)) {
 		delete $bylock{$lock[$$itm]};
+		return unless $chan[$$itm];
 		my $chan = $Janus::gchans{$chan[$$itm]} or return;
 		&Janus::append({
 			type => 'UNLOCK',

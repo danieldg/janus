@@ -988,10 +988,11 @@ sub srvname {
 		);
 		if (defined $_[0]) {
 			my $src = $act{src} = $net->item($_[0]);
-			$act{topicset} = $src ? $src->str($net) : 'unknown';
+			$act{topicset} = $src ? $_[0] : 'unknown';
 		}
 		$act{topicset} = $_[3] if @_ > 4;
 		$act{topicts} = $net->sjbint($_[4]) if @_ > 5;
+		$act{in_link} = 1 unless @_ > 4 && $_[0] && $_[3] eq $_[0];
 		\%act;
 	},
 	INVITE => \&todo,
@@ -1194,6 +1195,15 @@ sub srvname {
 			msgtype => 'PRIVMSG',
 			msg => 'version',
 		};
+	}, TSCTL => sub {
+		my $net = shift;
+		my $nick = $net->mynick($_[0]) or return ();
+		return () unless lc $_[2] eq 'alltime';
+		return +{
+			type => 'TSREPORT',
+			src => $nick,
+			sendto => [ $nick->netlist() ],
+		};
 	},
 	CREDITS => \&todo,
 	DALINFO => \&todo,
@@ -1211,7 +1221,6 @@ sub srvname {
 	OPERMOTD => \&todo,
 	BOTMOTD => \&todo,
 	INFO => \&todo,
-	TSCTL => \&todo,
 	TIME => \&todo,
 	LAG => \&todo,
 	TRACE => \&todo,

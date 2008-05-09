@@ -419,14 +419,8 @@ $moddef{CORE} = {
 		my $msg = $_[3];
 		$msg =~ s/^\S+!//;
 
-		if ($dst->homenet() eq $net) {
-			return {
-				type => 'QUIT',
-				dst => $dst,
-				msg => $msg,
-				killer => $src,
-			};
-		}
+		# inspircd will send a QUIT for the nick
+		return () if $dst->homenet() eq $net;
 		return {
 			type => 'KILL',
 			src => $src,
