@@ -331,7 +331,7 @@ sub str {
 		$nets[$$nick]{$$net} = $net;
 		return if $net->jlink();
 
-		my $rnick = $net->request_newnick($nick, $homenick[$$nick], 0);
+		my $rnick = $net->request_newnick($nick, $homenick[$$nick], $act->{tag});
 		$nicks[$$nick]->{$$net} = $rnick;
 	}, RECONNECT => act => sub {
 		my $act = shift;
