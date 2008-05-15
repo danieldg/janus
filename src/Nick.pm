@@ -265,16 +265,18 @@ sub _netpart {
 	# if so, we need to remove it from Janus::gnicks
 	my $jl = $nick->jlink();
 	return unless $jl;
+	$jl = $jl->parent() while $jl->parent();
 	for my $net (values %{$nets[$$nick]}) {
-		my $njl = $net->jlink();
-		return unless $njl && $njl eq $jl;
+		return unless $jl->jparent($net);
 	}
 	delete $Janus::gnicks{$nick->gid()};
 }
 
 sub _netclean {
 	my $nick = shift;
-	return if $$nick == 1 || $Janus::lmode eq 'Bridge';
+	return if $nets[$$nick]{1};
+	# nicks on network 1 (Interface) are never cleaned from networks
+
 	my $home = $nick->homenet();
 	my %leave = @_ ? map { $$_ => $_ } @_ : %{$nets[$$nick]};
 	delete $leave{${$homenet[$$nick]}};
