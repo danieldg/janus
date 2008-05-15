@@ -176,20 +176,6 @@ sub dump_sendq {
 sub nicklen { 40 }
 
 %toirc = (
-	LINKREQ => sub {
-		my($net,$act) = @_;
-		return () if $act->{dlink} eq 'any';
-		return () unless $act->{linkfile} || $act->{override};
-		&Janus::insert_full(+{
-			type => 'LINKREQ',
-			dst => $act->{net},
-			net => $net,
-			slink => $act->{dlink},
-			dlink => $act->{slink},
-			override => 1,
-		});
-		();
-	},
 	LINK => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst}->str($net);
