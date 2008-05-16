@@ -430,7 +430,14 @@ sub str {
 		my $nick = $act->{kickee};
 		my $chan = $act->{dst};
 		$nick->_part($chan);
-	}
+	}, NETSPLIT => act => sub {
+		my $act = shift;
+		my $net = $act->{net};
+		for my $n (values %Janus::gnicks) {
+			next if $n->homenet() eq $net;
+			$n->_netpart($net);
+		}
+	},
 );
 
 if ($Janus::lmode eq 'Link') {
@@ -465,16 +472,6 @@ if ($Janus::lmode eq 'Link') {
 			my $nick = $act->{dst};
 			my $net = $act->{net};
 			$nick->_netpart($net);
-		},
-	);
-} else {
-	&Janus::hook_add(
-		NETSPLIT => cleanup => sub {
-			my $act = shift;
-			my $net = $act->{net};
-			for my $n (values %Janus::gnicks) {
-				delete $nets[$$n]{$$net};
-			}
 		},
 	);
 }
