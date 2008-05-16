@@ -425,6 +425,16 @@ $moddef{CORE} = {
 				killer => $src,
 			};
 		}
+		if ($_[3] eq 'Nickname collision') {
+			return {
+				type => 'RECONNECT',
+				dst => $dst,
+				net => $net,
+				killed => 1,
+				nojlink => 1,
+			};
+		}
+
 		return {
 			type => 'KILL',
 			src => $src,
