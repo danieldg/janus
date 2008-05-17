@@ -5,6 +5,7 @@ use strict;
 use warnings;
 use integer;
 use Persist;
+use Scalar::Util 'weaken';
 
 =head1 Nick
 
@@ -248,14 +249,8 @@ sub rejoin {
 	}
 }
 
-sub _part {
-	my($nick,$chan) = @_;
-	$chans[$$nick] = [ grep { $_ ne $chan } @{$chans[$$nick]} ];
-	$nick->_netclean($chan->nets());
-}
-
 sub _netpart {
-	my($nick, $net) = @_;	
+	my($nick, $net) = @_;
 
 	delete $nets[$$nick]{$$net};
 	return if $net->jlink();
@@ -339,13 +334,13 @@ sub str {
 		my $act = shift;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
-		
+
 		delete $act->{except};
 
 		my $from = $act->{from} = $nicks[$$nick]{$$net};
 		my $to = $act->{to} = $net->request_cnick($nick, $homenick[$$nick], 1);
 		$nicks[$$nick]{$$net} = $to;
-		
+
 		if ($act->{killed}) {
 			$act->{reconnect_chans} = [ @{$chans[$$nick]} ];
 		}
@@ -372,7 +367,7 @@ sub str {
 			my $from = $nicks[$$nick]->{$id};
 			my $to = $net->request_cnick($nick, $new);
 			$nicks[$$nick]->{$id} = $to;
-	
+
 			$act->{from}->{$id} = $from;
 			$act->{to}->{$id} = $to;
 		}
@@ -424,56 +419,82 @@ sub str {
 		my $act = $_[0];
 		my $nick = $act->{src};
 		my $chan = $act->{dst};
-		$nick->_part($chan);
+
+		$chans[$$nick] = [ grep { $_ ne $chan } @{$chans[$$nick]} ];
+		unless ($act->{delink} && $act->{delink} == 2) {
+			$nick->_netclean($chan->nets());
+		}
 	}, KICK => cleanup => sub {
 		my $act = $_[0];
 		my $nick = $act->{kickee};
 		my $chan = $act->{dst};
-		$nick->_part($chan);
+
+		$chans[$$nick] = [ grep { $_ ne $chan } @{$chans[$$nick]} ];
+		$nick->_netclean($chan->nets());
 	}, NETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
-		for my $n (values %Janus::gnicks) {
-			next if $n->homenet() eq $net;
-			$n->_netpart($net);
-		}
-	},
-);
-
-if ($Janus::lmode eq 'Link') {
-	&Janus::hook_add(
-		KILL => act => sub {
-			my $act = shift;
-			my $nick = $act->{dst};
-			my $net = $act->{net};
-			if ($nick->is_on($net) && !$net->jlink() && (!$act->{except} || $act->{except} ne $net)) {
-				$net->send({
+		my $msg = 'hub.janus '.$net->jname();
+		my @nicks = $net->all_nicks();
+		my @clean;
+		for my $n (@nicks) {
+			if ($n->homenet() eq $net) {
+				push @clean, {
 					type => 'QUIT',
-					dst => $nick,
-					msg => $act->{msg},
-					killer => $act->{src},
-				});
-			}
-			for my $chan (@{$chans[$$nick]}) {
-				next unless $chan->is_on($net);
-				my $act = {
-					type => 'KICK',
-					src => ($act->{src} || $net),
-					dst => $chan,
-					kickee => $nick,
-					msg => $act->{msg},
+					dst => $n,
+					msg => $msg,
 					except => $net,
+					netsplit_quit => 1,
 					nojlink => 1,
 				};
-				&Janus::append($act);
+			} else {
+				$n->_netpart($net);
 			}
-		}, KILL => cleanup => sub {
-			my $act = shift;
-			my $nick = $act->{dst};
-			my $net = $act->{net};
-			$nick->_netpart($net);
-		},
-	);
-}
+		}
+		&Janus::insert_full(@clean); @clean = ();
+
+		&Debug::info("Nick deallocation start");
+		for (0..$#nicks) {
+			weaken($nicks[$_]);
+			my $n = $nicks[$_] or next;
+			next if 'Persist::Poison' eq ref $n;
+			next unless $n->homenet() eq $net;
+			&Persist::poison($nicks[$_]);
+		}
+		@nicks = ();
+		&Debug::info("Nick deallocation end");
+	}, KILL => act => sub {
+		# TODO this is very specific to Link-mode kills
+		my $act = shift;
+		my $nick = $act->{dst};
+		my $net = $act->{net};
+		if ($nick->is_on($net) && !$net->jlink() && (!$act->{except} || $act->{except} ne $net)) {
+			$net->send({
+				type => 'QUIT',
+				dst => $nick,
+				msg => $act->{msg},
+				killer => $act->{src},
+			});
+		}
+		for my $chan (@{$chans[$$nick]}) {
+			next unless $chan->is_on($net);
+			my $act = {
+				type => 'KICK',
+				src => ($act->{src} || $net),
+				dst => $chan,
+				kickee => $nick,
+				msg => $act->{msg},
+				except => $net,
+				nojlink => 1,
+			};
+			&Janus::append($act);
+		}
+	}, KILL => cleanup => sub {
+		my $act = shift;
+		my $nick = $act->{dst};
+		my $net = $act->{net};
+		$nick->_netpart($net);
+	},
+);
 
 1;

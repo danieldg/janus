@@ -644,6 +644,8 @@ sub del_remoteonly {
 		$nicks[$$split] = [ @presplit ];
 		$nmode[$$split] = { %{$nmode[$$chan]} };
 
+		my $delink_lvl = $act->{netsplit_quit} ? 2 : 1;
+
 		my @parts;
 
 		for my $nick (@presplit) {
@@ -660,8 +662,8 @@ sub del_remoteonly {
 					src => $nick,
 					dst => $chan,
 					msg => 'Channel delinked',
-					delink => 1,
-					nojlink => 1,
+					delink => $delink_lvl,
+					($act->{netsplit_quit} ? (sendto => []) : (nojlink => 1)),
 				};
 			} else {
 				push @parts, +{
@@ -669,8 +671,8 @@ sub del_remoteonly {
 					src => $nick,
 					dst => $split,
 					msg => 'Channel delinked',
-					delink => 1,
-					nojlink => 1,
+					delink => $delink_lvl,
+					($act->{netsplit_quit} ? (sendto => []) : (nojlink => 1)),
 				};
 			}
 		}
@@ -679,7 +681,28 @@ sub del_remoteonly {
 		my $act = shift;
 		del_remoteonly($act->{dst});
 		del_remoteonly($act->{split});
-	}
+	}, NETSPLIT => act => sub {
+		my $act = shift;
+		my $net = $act->{net};
+		my @clean;
+		for my $chan ($net->all_chans()) {
+			warn "Channel not on network!" unless $chan->is_on($net);
+			push @clean, +{
+				type => 'DELINK',
+				dst => $chan,
+				net => $net,
+				netsplit_quit => 1,
+				except => $net,
+				reason => 'netsplit',
+				nojlink => 1,
+			};
+		}
+		&Janus::insert_full(@clean);
+	}, NETSPLIT => cleanup => sub {
+		my $act = shift;
+		my $net = $act->{net};
+		&Persist::poison($_) for $net->all_chans();
+	},
 );
 
 1 ]) or die $@;

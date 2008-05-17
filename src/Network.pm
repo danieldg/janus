@@ -4,7 +4,6 @@ package Network;
 use SocketHandler;
 use Persist 'SocketHandler';
 use Carp qw(cluck);
-use Scalar::Util 'weaken';
 use strict;
 use warnings;
 
@@ -106,46 +105,7 @@ sub id {
 		undef;
 	}, NETSPLIT => act => sub {
 		my $act = shift;
-		my $net = $act->{net};
-		my $msg = 'hub.janus '.$net->jname();
-		my @nicks = grep { $_->homenet() eq $net } $net->all_nicks();
-		&Janus::insert_full(map +{
-				type => 'QUIT',
-				dst => $_,
-				msg => $msg,
-				except => $net,
-				netsplit_quit => 1,
-				nojlink => 1,
-			}, @nicks);
-		&Debug::info("Nick deallocation start");
-		for (0..$#nicks) {
-			weaken $nicks[$_];
-			&Persist::poison($nicks[$_]) if $nicks[$_];
-		}
-		@nicks = ();
-		&Debug::info("Nick deallocation end");
-
-		return if $Janus::lmode eq 'Bridge';
-
-		my @clean;
-		for my $chan ($net->all_chans()) {
-			warn "Channel not on network!" unless $chan->is_on($net);
-			push @clean, +{
-				type => 'DELINK',
-				dst => $chan,
-				net => $net,
-				netsplit_quit => 1,
-				except => $net,
-				reason => 'netsplit',
-				nojlink => 1,
-			};
-		}
-		&Janus::insert_full(@clean);
-		&Debug::info("Channel deallocation start");
-		@clean = ();
-		&Persist::poison($_) for $net->all_chans();
-		&Debug::info("Channel deallocation end");
-		&Janus::append({ type => 'POISON', item => $net });
+		&Janus::append({ type => 'POISON', item => $act->{net} });
 	},
 );
 

@@ -131,25 +131,18 @@ sub pmsg {
 			$act->{msg} = '['.$act->{except}->id().'] '.$act->{msg};
 		}
 		undef;
+	}, BURST => act => sub {
+		my $act = shift;
+		my $net = $act->{net};
+		return if $net->jlink();
+		return if $janus->is_on($net);
+		&Janus::append(+{
+			type => 'CONNECT',
+			dst => $janus,
+			net => $net,
+		});
 	},
 );
-if ($Janus::lmode eq 'Link') {
-	&Janus::hook_add(
-		BURST => act => sub {
-			my $act = shift;
-			my $net = $act->{net};
-			return if $net->jlink();
-			&Janus::append(+{
-				type => 'CONNECT',
-				dst => $janus,
-				net => $net,
-			});
-		}, NETSPLIT => act => sub {
-			my $act = shift;
-			$janus->_netpart($act->{net});
-		}
-	);
-}
 
 sub parse { () }
 sub send {
