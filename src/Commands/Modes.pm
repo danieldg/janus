@@ -77,6 +77,7 @@ use Modes;
 		my $hn = $nick->homenet();
 		$args =~ s/^(#\S*)\s+//i or return &Janus::jmsg($nick, 'Syntax: SETMODE #chan modes');
 		my $cname = $1;
+		return &Janus::jmsg($nick, 'Local command') unless $hn->isa('LocalNetwork');
 		my $chan = $hn->chan($cname,0);
 		return &Janus::jmsg($nick, 'That channel does not exist') unless $chan;
 		unless ($chan->has_nmode(owner => $nick) || $nick->has_mode('oper')) {
@@ -102,6 +103,11 @@ use Modes;
 					$v = length $d;
 					$d = '+';
 				}
+			} elsif ($type eq 'n') {
+				$v = $hn->nick($v) or do {
+					&Janus::jmsg($nick, "Cannot find nick");
+					return;
+				};
 			}
 			if ($type eq 'v' && $d eq '-') {
 				$v = $chan->get_mode($txt);
