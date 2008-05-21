@@ -217,9 +217,9 @@ sub save {
 		my $act = shift;
 		&Conffile::rehash($act->{src});
 	},
-	'INIT' => check => sub {
+	'INITCONF' => act => sub {
 		my $act = shift;
-		$conffile = $act->{args}[1];
+		$conffile = $act->{file};
 		read_conf;
 		if ($netconf{set}{ipv6}) {
 			eval q[
@@ -322,7 +322,6 @@ sub save {
 				} ],
 			);
 		}
-		undef;
 	},
 	RUN => act => sub {
 		my $save = $netconf{set}{save};

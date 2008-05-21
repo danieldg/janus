@@ -20,15 +20,13 @@ use POSIX 'setsid';
 
 our $VERSION = '1.11';
 
-my $args = @ARGV && $ARGV[0] =~ /^-/ ? shift : '';
-
-unless ($^P || $args =~ /d/) {
+unless ($^P) {
 	# $^P is nonzero if run inside perl -d
 	open STDIN, '/dev/null' or die $!;
 	my $pid = fork;
 	die $! unless defined $pid;
 	if ($pid) {
-		if ($args =~ /p/) {
+		if ($ARGV[0] && $ARGV[0] =~ /^-.*p/) {
 			open P, '>janus.pid' or die $!;
 			print P $pid,"\n";
 			close P;
@@ -43,8 +41,8 @@ $SIG{PIPE} = 'IGNORE';
 $SIG{CHLD} = 'IGNORE';
 
 &Janus::load('Conffile') or die;
-
-&Janus::insert_full(+{ type => 'INIT', args => [ $args, @ARGV ] });
+&Janus::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
+&Janus::insert_full(+{ type => 'INIT', args => \@ARGV });
 &Janus::insert_full(+{ type => 'RUN' });
 
 eval { 
