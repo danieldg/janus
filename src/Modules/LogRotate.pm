@@ -21,7 +21,7 @@ sub rotate {
 	open STDOUT, '>', $log or die $!;
 	open STDERR, '>&', \*STDOUT or die $!;
 
-	if ($Janus::modules{'Commands::Debug'}) {
+	if ($Janus::modinfo{'Commands::Debug'}{active}) {
 		&Commands::Debug::dump_now("New log $log");
 	}
 

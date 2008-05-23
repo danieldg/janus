@@ -311,22 +311,28 @@ my %spec = (
 
 	PING => {},
 	PONG => {},
-	POISON => {
-		item => 'Persist Persist::Poison',
-		reason => '?$',
-	},
 	IDENTIFY => {
 		dst => 'Network',
 		method => '?$',
 		# add other args for manual methods?
 	},
-	REHASH => {
-	},
-	'INIT' => {
+	POISON => {
+		item => 'Persist Persist::Poison',
+		reason => '?$',
+		except => '?',
+	}, MODLOAD => {
+		module => '$',
+		except => '?',
+	}, MODUNLOAD => {
+		module => '$',
+		except => '?',
+	}, REHASH => {
+	}, 'INIT' => {
 		args => '@', # program arguments
 		except => '?',
+	}, RUN => {
+		except => '?'
 	},
-	RUN => { except => '?' },
 	TSREPORT => {
 		src => 'Nick',
 	},

@@ -16,7 +16,7 @@ sub fexec {
 	acl => 1,
 	code => sub {
 		my($nick,$arg) = @_;
-		my @mods = sort grep { $Janus::modules{$_} == 2 } keys %Janus::modules;
+		my @mods = sort grep { $Janus::modinfo{$_}{active} } keys %Janus::modinfo;
 		for my $mod (@mods) {
 			print "Reload $mod:\n";
 			&Janus::reload($mod);

@@ -50,7 +50,7 @@ sub dump_now {
 	}
 
 	open my $dump, '>', $fn or return undef;
-	my $gbls = dump_all_globals(keys %Janus::modules);
+	my $gbls = dump_all_globals(keys %Janus::modinfo);
 	my $objs = &Persist::dump_all_refs();
 	my %seen;
 	my @tmp = keys %$gbls;

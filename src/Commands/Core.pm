@@ -44,8 +44,13 @@ use integer;
 		for (@mods) {
 			s/\.pmc?$//;
 			s#/#::#g;
-			no strict 'refs';
-			my $v = ${$_.'::VERSION_NAME'} || ${$_.'::VERSION'} || '';
+			my $v;
+			if ($Janus::modinfo{$_}) {
+				$v = $Janus::modinfo{$_}{version};
+			} else {
+				no strict 'refs';
+				$v = ${$_.'::VERSION'};
+			}
 			next unless $v;
 			$m1 = length $_ if $m1 < length $_;
 			$m2 = length $v if $m2 < length $v;
@@ -72,7 +77,7 @@ use integer;
 		return &Janus::jmsg($nick, "Invalid module name") unless $name =~ /^([0-9_A-Za-z:]+)$/;
 		my $n = $1;
 		if (&Janus::reload($n)) {
-			my $ver = do { no strict 'refs'; ${$n.'::VERSION_NAME'} } || 'unknown';
+			my $ver = $Janus::modinfo{$n}{version} || 'unknown';
 			&Janus::jmsg($nick, "Module $n reloaded ($ver)");
 		} else {
 			my $err = $@ || $!;
