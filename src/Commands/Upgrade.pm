@@ -18,7 +18,6 @@ sub fexec {
 		my($nick,$arg) = @_;
 		my @mods = sort grep { $Janus::modinfo{$_}{active} } keys %Janus::modinfo;
 		for my $mod (@mods) {
-			print "Reload $mod:\n";
 			&Janus::reload($mod);
 		}
 		&Janus::jmsg($nick, 'All modules reloaded');

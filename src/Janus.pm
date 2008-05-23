@@ -162,9 +162,15 @@ sub csum_read {
 
 sub reload {
 	my $module = $_[0];
-
-	&Janus::unload if $modinfo{$module}{active};
-	&Janus::load;
+	if ($modinfo{$module}{active}) {
+		Event::insert_full({
+			type => 'MODRELOAD',
+			module => $_[0],
+		});
+		return $modinfo{$_[0]}{active};
+	} else {
+		goto &Janus::load;
+	}
 }
 
 sub load {
@@ -195,6 +201,7 @@ sub save_vars {
 }
 
 unless ($global) {
+	# first-time run
 	my $two = 2;
 	$global = bless \$two;
 	unshift @INC, $global;
@@ -211,6 +218,13 @@ Event::hook_add(
 		my $module = $_[0]->{module};
 		delete $states{$module};
 		delete $modinfo{$module}{active};
+	}, MODRELOAD => check => sub {
+		!$modinfo{$_[0]->{module}}{active};
+	}, MODRELOAD => act => sub {
+		my $module = $_[0]->{module};
+		delete $states{$module};
+		delete $modinfo{$module}{active};
+		_load_run($module);
 	}, NETLINK => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
@@ -294,9 +308,8 @@ if ($modinfo{Janus}{load} == 1) {
 	# initial load, must finalize ourself
 	delete $modinfo{Janus}{load};
 	$modinfo{Janus}{active} = 1;
-	require Debug;
-	require EventDump;
-	require RemoteJanus;
+	_load_run('Debug');
+	_load_run('EventDump');
 }
 
 1;

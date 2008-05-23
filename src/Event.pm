@@ -11,11 +11,11 @@ $last_check ||= $Janus::time; # not assigned so that reloads don't skip seconds
 our @qstack;
 our %tqueue;
 
-our %hook_mod; # $hook_mod{$type}{$level}{$module} = $sub;
+our %hook_mod; # $hook_mod{"$type/$level"}{$module} = $sub;
 
 # Caches derived from hook_mod
-our %hook_chk; # $hook_???{$type} => [ item, item ]
-our %hook_run; # item = [ sub, module, level ]
+our %hook_chk; # $hook_???{$type} => sub
+our %hook_run;
 
 our %commands;
 
@@ -25,7 +25,7 @@ sub hook_add {
 	while (@_) {
 		my ($type, $level, $sub) = (shift, shift, shift);
 		warn unless $sub;
-		$hook_mod{$type}{$level}{$module} = $sub;
+		$hook_mod{$type.'/'.$level}{$module} = $sub;
 		delete $hook_chk{$type};
 		delete $hook_run{$type};
 	}
@@ -116,21 +116,20 @@ sub _send {
 			$net->send($act);
 			1;
 		} or do {
-			named_hook('die', 'send', $@, $net, $act);
+			named_hook('die', $@, 'send', $net, $act);
 		};
 	}
 }
 
-$hook_mod{ALL}{send}{Event} = \&_send;
+$hook_mod{'ALL/send'}{Event} = \&_send;
 
 sub find_hook {
 	my $hook = shift;
-	for my $type (keys %hook_mod) {
-		for my $lvl (keys %{$hook_mod{$type}}) {
-			for my $mod (keys %{$hook_mod{$type}{$lvl}}) {
-				my $s = $hook_mod{$type}{$lvl}{$mod};
-				return ($type, $lvl, $mod) if $s eq $hook;
-			}
+	for my $lvl (keys %hook_mod) {
+		for my $mod (keys %{$hook_mod{$lvl}}) {
+			my $s = $hook_mod{$lvl}{$mod};
+			next unless $s eq $hook;
+			return ($mod, $lvl);
 		}
 	}
 	return 'unknown hook';
@@ -146,30 +145,30 @@ sub _runq {
 	}
 }
 
+sub enum_hooks {
+	my($type, $lvl) = @_;
+	my $pfx = "$type/$lvl";
+	return
+		map { values %{$hook_mod{$_}} }
+		sort { "$a~~$b" =~ /\.([-0-9.]+)~~.*\.([-0-9.]+)/ ? ($1 <=> $2) : 0 }
+		grep { 0 == index $_, $pfx }
+		keys %hook_mod;
+}
+
 sub _run {
 	my $act = $_[0];
 	my $type = $act->{type};
 	my($chk,$run) = ($hook_chk{$type}, $hook_run{$type});
 	unless ($chk && $run) {
 		($chk, $run) = ([], []);
+		
+		push @$chk, enum_hooks($type, 'parse');
+		push @$chk, enum_hooks('ALL', 'validate');
+		push @$chk, enum_hooks($type, 'check');
 
-		for my $mod (sort keys %{$hook_mod{$type}{parse}}) {
-			push @$chk, $hook_mod{$type}{parse}{$mod};
-		}
-		for my $mod (sort keys %{$hook_mod{ALL}{validate}}) {
-			push @$chk, $hook_mod{ALL}{validate}{$mod};
-		}
-		for my $mod (sort keys %{$hook_mod{$type}{check}}) {
-			push @$chk, $hook_mod{$type}{check}{$mod};
-		}
-
-		for my $mod (sort keys %{$hook_mod{$type}{act}}) {
-			push @$run, $hook_mod{$type}{act}{$mod};
-		}
+		push @$run, enum_hooks($type, 'act');
 		push @$run, \&_send;
-		for my $mod (sort keys %{$hook_mod{$type}{cleanup}}) {
-			push @$run, $hook_mod{$type}{cleanup}{$mod};
-		}
+		push @$run, enum_hooks($type, 'cleanup');
 
 		($hook_chk{$type}, $hook_run{$type}) = ($chk,$run);
 	}
@@ -297,23 +296,20 @@ sub in_command {
 }
 
 sub named_hook {
-	my($lvl, @args) = @_;
-	my $type = 'ALL';
+	my($name, @args) = @_;
 	local $_;
-	my $hook = $hook_mod{$type}{$lvl};
-	return unless $hook;
 
-	my @hookmods = sort keys %$hook;
-	for my $mod (@hookmods) {
+	my @hooks = enum_hooks('ALL', $name);
+	for my $hook (@hooks) {
 		eval {
-			$hook->{$mod}->(@args);
+			$hook->(@args);
 			1;
 		} or do {
-			my $err = $@;
-			if ($lvl eq 'die') {
-				&Debug::err(undef, "Unchecked exception in $type hook, from module $mod: $err");
+			my @hifo = find_hook($hook);
+			if ($name eq 'die') {
+				&Debug::err("Unchecked exception in die hook, from module $hifo[0]: $@");
 			} else {
-				named_hook('die', $mod, $lvl, $err, @args);
+				named_hook('die', $@, @hifo, @args);
 			}
 		};
 	}
@@ -357,23 +353,29 @@ sub next_event {
 	$max;
 }
 
+sub _wipe_hooks {
+	my $module = $_[0];
+	for my $t (keys %hook_mod) {
+		for my $l (keys %{$hook_mod{$t}}) {
+			delete $hook_mod{$t}{$l}{$module};
+		}
+	}
+	%hook_chk = ();
+	%hook_run = ();
+	for my $cmd (keys %commands) {
+		warn "Command $cmd lacks class" unless $commands{$cmd}{class};
+		next unless $commands{$cmd}{class} eq $module;
+		delete $commands{$cmd};
+	}
+}
+
 Event::hook_add(
 	ALL => 'die' => sub {
 		&Debug::err(@_);
 	}, MODUNLOAD => act => sub {
-		my $module = $_[0]->{module};
-		for my $t (keys %hook_mod) {
-			for my $l (keys %{$hook_mod{$t}}) {
-				delete $hook_mod{$t}{$l}{$module};
-			}
-		}
-		%hook_chk = ();
-		%hook_run = ();
-		for my $cmd (keys %commands) {
-			warn "Command $cmd lacks class" unless $commands{$cmd}{class};
-			next unless $commands{$cmd}{class} eq $module;
-			delete $commands{$cmd};
-		}
+		_wipe_hooks($_[0]->{module});
+	}, MODRELOAD => 'act.-1' => sub {
+		_wipe_hooks($_[0]->{module});
 	}
 );
 
