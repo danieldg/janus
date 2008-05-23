@@ -116,7 +116,6 @@ sub pmsg {
 		});
 	},
 	MSG => parse => \&pmsg,
-	MSG => jparse => \&pmsg,
 	WHOIS => parse => sub {
 		my $act = shift;
 		my $src = $act->{src};
@@ -124,11 +123,13 @@ sub pmsg {
 		return undef if $src->is_on($dst->homenet()) || $$dst == 1;
 		&Janus::jmsg($src, 'You cannot use this /whois syntax unless you are on a shared channel with the user');
 		return 1;
-	}, CHATOPS => jparse => sub {
+	}, CHATOPS => parse => sub {
 		my $act = shift;
-		delete $act->{IJ_RAW};
-		if ($act->{src} == $janus) {
-			$act->{msg} = '['.$act->{except}->id().'] '.$act->{msg};
+		if ($act->{except} && $act->{except}->isa('RemoteJanus')) {
+			delete $act->{IJ_RAW};
+			if ($act->{src} == $janus) {
+				$act->{msg} = '['.$act->{except}->id().'] '.$act->{msg};
+			}
 		}
 		undef;
 	}, BURST => act => sub {

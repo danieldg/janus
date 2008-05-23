@@ -375,7 +375,6 @@ for my $type (keys %spec) {
 		return undef;
 	}
 	KEY: for my $k (keys %$check) {
-		$act->{ERR} = "Fail: Key $k in $itm";
 		$_ = $$check{$k};
 		my $v = $act->{$k};
 		if (s/^=(.*)=(\s+|$)//) {
@@ -385,8 +384,9 @@ for my $type (keys %spec) {
 			}
 		} elsif (s/^\?//) {
 			next KEY unless defined $v;
-		} else {
-			return 1 unless defined $v;
+		} elsif (!defined $v) {
+			&Debug::hook_err($act, "Validate hook [$itm: $k undefined]");
+			return 1;
 		}
 		for (split /\s+/) {
 			next KEY if eval {
@@ -396,9 +396,9 @@ for my $type (keys %spec) {
 				$v->isa($_);
 			};
 		}
+		&Debug::hook_err($act, "Validate hook [$itm: $k invalid]");
 		return 1;
 	}
-	delete $act->{ERR};
 	for my $k (keys %$act) {
 		next if exists $check->{$k};
 		&Debug::warn("unknown key $k in action $itm");

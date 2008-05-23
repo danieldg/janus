@@ -217,11 +217,13 @@ Event::hook_add(
 		my $id = $net->name();
 		$gnets{$net->gid()} = $net;
 		$nets{$id} = $net;
-	}, NETSPLIT => jparse => sub {
+	}, NETSPLIT => parse => sub {
 		my $act = shift;
-		delete $act->{netsplit_quit};
-		my $net = $act->{net};
-		return 1 unless $net && $act->{except}->jparent($net->jlink());
+		if ($act->{except} && $act->{except}->isa('RemoteJanus')) {
+			delete $act->{netsplit_quit};
+			my $net = $act->{net};
+			return 1 unless $net && $act->{except}->jparent($net->jlink());
+		}
 		undef;
 	}, NETSPLIT => act => sub {
 		my $act = shift;

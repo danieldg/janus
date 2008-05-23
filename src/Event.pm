@@ -11,12 +11,11 @@ $last_check ||= $Janus::time; # not assigned so that reloads don't skip seconds
 our @qstack;
 our %tqueue;
 
+our %hook_mod; # $hook_mod{$type}{$level}{$module} = $sub;
 
-our %hooks;
-#our %hook_mod; # $hook_mod{$type}{$level}{$module} = $sub;
-
-#our %hook_chk; # $hooks{$type} => [ sub, ..., sub ]
-#our %hook_run;
+# Caches derived from hook_mod
+our %hook_chk; # $hook_???{$type} => [ item, item ]
+our %hook_run; # item = [ sub, module, level ]
 
 our %commands;
 
@@ -26,9 +25,9 @@ sub hook_add {
 	while (@_) {
 		my ($type, $level, $sub) = (shift, shift, shift);
 		warn unless $sub;
-		$hooks{$type}{$level}{$module} = $sub;
-#		delete $hook_chk{$type};
-#		delete $hook_run{$type};
+		$hook_mod{$type}{$level}{$module} = $sub;
+		delete $hook_chk{$type};
+		delete $hook_run{$type};
 	}
 }
 
@@ -58,50 +57,6 @@ sub command_add {
 		$h->{class} = $class;
 		$commands{$cmd} = $h;
 	}
-}
-
-sub _hook {
-	my($type, $lvl, @args) = @_;
-	local $_;
-	my $hook = $hooks{$type}{$lvl};
-	return unless $hook;
-
-	my @hookmods = sort keys %$hook;
-	for my $mod (@hookmods) {
-		eval {
-			$hook->{$mod}->(@args);
-			1;
-		} or do {
-			my $err = $@;
-			unless ($lvl eq 'die') {
-				_hook(ALL => 'die', $mod, $lvl, $err, @args);
-			}
-			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod: $err");
-		};
-	}
-}
-
-sub _mod_hook {
-	my($type, $lvl, @args) = @_;
-	local $_;
-	my $hook = $hooks{$type}{$lvl};
-	return undef unless $hook;
-
-	my $rv = undef;
-	for my $mod (sort keys %$hook) {
-		eval {
-			my $r = $hook->{$mod}->(@args);
-			$rv = $r if $r;
-			1;
-		} or do {
-			my $err = $@;
-			unless ($lvl eq 'die') {
-				_hook(ALL => 'die', $mod, $lvl, $err, @args);
-			}
-			&Janus::err_jmsg(undef, "Unchecked exception in $lvl hook of $type, from module $mod: $err");
-		};
-	}
-	$rv;
 }
 
 sub _send {
@@ -161,9 +116,24 @@ sub _send {
 			$net->send($act);
 			1;
 		} or do {
-			_hook(ALL => 'die', 'send', $@, $net, $act);
+			named_hook('die', 'send', $@, $net, $act);
 		};
 	}
+}
+
+$hook_mod{ALL}{send}{Event} = \&_send;
+
+sub find_hook {
+	my $hook = shift;
+	for my $type (keys %hook_mod) {
+		for my $lvl (keys %{$hook_mod{$type}}) {
+			for my $mod (keys %{$hook_mod{$type}{$lvl}}) {
+				my $s = $hook_mod{$type}{$lvl}{$mod};
+				return ($type, $lvl, $mod) if $s eq $hook;
+			}
+		}
+	}
+	return 'unknown hook';
 }
 
 sub _runq {
@@ -178,19 +148,46 @@ sub _runq {
 
 sub _run {
 	my $act = $_[0];
-	if (_mod_hook('ALL', validate => $act)) {
-		my $err = $act->{ERR} || 'unknown error';
-		$err =~ s/\n//;
-		&Debug::hook_err($act, "Validate hook [$err]");
-		return;
+	my $type = $act->{type};
+	my($chk,$run) = ($hook_chk{$type}, $hook_run{$type});
+	unless ($chk && $run) {
+		($chk, $run) = ([], []);
+
+		for my $mod (sort keys %{$hook_mod{$type}{parse}}) {
+			push @$chk, $hook_mod{$type}{parse}{$mod};
+		}
+		for my $mod (sort keys %{$hook_mod{ALL}{validate}}) {
+			push @$chk, $hook_mod{ALL}{validate}{$mod};
+		}
+		for my $mod (sort keys %{$hook_mod{$type}{check}}) {
+			push @$chk, $hook_mod{$type}{check}{$mod};
+		}
+
+		for my $mod (sort keys %{$hook_mod{$type}{act}}) {
+			push @$run, $hook_mod{$type}{act}{$mod};
+		}
+		push @$run, \&_send;
+		for my $mod (sort keys %{$hook_mod{$type}{cleanup}}) {
+			push @$run, $hook_mod{$type}{cleanup}{$mod};
+		}
+
+		($hook_chk{$type}, $hook_run{$type}) = ($chk,$run);
 	}
-	if (_mod_hook($act->{type}, check => $act)) {
-		&Debug::hook_info($act, "Check hook stole");
-		return;
+	for my $h (@$chk) {
+		my $rv = eval { $h->($act) };
+		if ($@) {
+			named_hook('die', $@, find_hook($h), $act);
+		} elsif ($rv) {
+			&Debug::hook_info($act, "Check hook stole");
+			return;
+		}
 	}
-	_hook($act->{type}, act => $act);
-	_send($act);
-	_hook($act->{type}, cleanup => $act);
+	for my $h (@$run) {
+		eval { $h->($act) };
+		if ($@) {
+			named_hook('die', $@, find_hook($h), $act);
+		}
+	}
 }
 
 =head2 Command generation
@@ -265,21 +262,16 @@ sub in_socket {
 	return unless $src;
 	eval {
 		my @act = $src->parse($line);
-		my $parse_hook = $src->isa('Network') ? 'parse' : 'jparse';
 		for my $act (@act) {
-			$act->{except} = $src unless exists $act->{except};
+			$act->{except} = $src;
 			unshift @qstack, [];
-			unless (_mod_hook($act->{type}, $parse_hook, $act)) {
-				_run($act);
-			} else {
-				&Debug::hook_info($act, "$parse_hook hook stole");
-			}
+			_run($act);
 			$act = undef;
 			_runq(shift @qstack);
 		}
 		1;
 	} or do {
-		_hook(ALL => 'die', $@, @_);
+		named_hook('die', $@, @_);
 		&Janus::err_jmsg(undef, "Unchecked exception in parsing");
 	};
 }
@@ -298,14 +290,33 @@ sub in_command {
 		$csub->($nick, $text);
 		1;
 	} or do {
-		_hook(ALL => 'die', $@, @_);
+		named_hook('die', $@, @_);
 		&Janus::err_jmsg(undef, "Unchecked exception in janus command '$cmd'");
 	};
 	_runq(shift @qstack);
 }
 
 sub named_hook {
-	# TODO
+	my($lvl, @args) = @_;
+	my $type = 'ALL';
+	local $_;
+	my $hook = $hook_mod{$type}{$lvl};
+	return unless $hook;
+
+	my @hookmods = sort keys %$hook;
+	for my $mod (@hookmods) {
+		eval {
+			$hook->{$mod}->(@args);
+			1;
+		} or do {
+			my $err = $@;
+			if ($lvl eq 'die') {
+				&Debug::err(undef, "Unchecked exception in $type hook, from module $mod: $err");
+			} else {
+				named_hook('die', $mod, $lvl, $err, @args);
+			}
+		};
+	}
 }
 
 sub timer {
@@ -347,13 +358,17 @@ sub next_event {
 }
 
 Event::hook_add(
-	MODUNLOAD => act => sub {
+	ALL => 'die' => sub {
+		&Debug::err(@_);
+	}, MODUNLOAD => act => sub {
 		my $module = $_[0]->{module};
-		for my $t (keys %hooks) {
-			for my $l (keys %{$hooks{$t}}) {
-				delete $hooks{$t}{$l}{$module};
+		for my $t (keys %hook_mod) {
+			for my $l (keys %{$hook_mod{$t}}) {
+				delete $hook_mod{$t}{$l}{$module};
 			}
 		}
+		%hook_chk = ();
+		%hook_run = ();
 		for my $cmd (keys %commands) {
 			warn "Command $cmd lacks class" unless $commands{$cmd}{class};
 			next unless $commands{$cmd}{class} eq $module;
