@@ -18,7 +18,7 @@ BEGIN {
 }
 use POSIX 'setsid';
 
-our $VERSION = '1.11';
+our $VERSION = '1.12';
 
 unless ($^P) {
 	# $^P is nonzero if run inside perl -d

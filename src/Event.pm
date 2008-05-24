@@ -150,7 +150,7 @@ sub enum_hooks {
 	my $pfx = "$type/$lvl";
 	return
 		map { values %{$hook_mod{$_}} }
-		sort { "$a~~$b" =~ /\.([-0-9.]+)~~.*\.([-0-9.]+)/ ? ($1 <=> $2) : 0 }
+		sort { ($a =~ /:([-0-9.]+)/ ? $1 : 0) <=> ($b =~ /:([-0-9.]+)/ ? $1 : 0) }
 		grep { 0 == index $_, $pfx }
 		keys %hook_mod;
 }
@@ -355,10 +355,8 @@ sub next_event {
 
 sub _wipe_hooks {
 	my $module = $_[0];
-	for my $t (keys %hook_mod) {
-		for my $l (keys %{$hook_mod{$t}}) {
-			delete $hook_mod{$t}{$l}{$module};
-		}
+	for my $hk (values %hook_mod) {
+		delete $hk->{$module};
 	}
 	%hook_chk = ();
 	%hook_run = ();
@@ -374,7 +372,7 @@ Event::hook_add(
 		&Debug::err(@_);
 	}, MODUNLOAD => act => sub {
 		_wipe_hooks($_[0]->{module});
-	}, MODRELOAD => 'act.-1' => sub {
+	}, MODRELOAD => 'act:-1' => sub {
 		_wipe_hooks($_[0]->{module});
 	}
 );
