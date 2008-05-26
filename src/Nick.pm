@@ -269,7 +269,7 @@ sub _netpart {
 
 sub _netclean {
 	my $nick = shift;
-	return if $nets[$$nick]{1};
+	return if $nets[$$nick]{$$Interface::network};
 	# nicks on network 1 (Interface) are never cleaned from networks
 
 	my $home = $nick->homenet();

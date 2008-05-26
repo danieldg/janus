@@ -16,7 +16,9 @@ Nick object representing the janus interface bot.
 
 =cut
 
-our $janus; # Janus interface bot: this module handles interactions with this bot
+our $janus;   # Janus interface bot: this module handles interactions with this bot
+our $network;
+$network = $janus->homenet() if $janus && !$network;
 
 sub pmsg {
 	my $act = shift;
@@ -75,20 +77,20 @@ sub pmsg {
 
 &Janus::hook_add(
 	'INIT' => act => sub {
-		my $int = Interface->new(
+		$network = Interface->new(
 			id => 'janus',
 			gid => 'janus',
 		);
-		$int->_set_netname('Janus');
+		$network->_set_netname('Janus');
 		&Janus::append(+{
 			type => 'NETLINK',
-			net => $int,
+			net => $network,
 		});
 
 		my $inick = $Conffile::netconf{set}{janus_nick} || 'janus';
 
 		$janus = Nick->new(
-			net => $int,
+			net => $network,
 			gid => 'janus:1',
 			nick => $inick,
 			ts => ($^T - 1000000000),
