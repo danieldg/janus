@@ -138,6 +138,7 @@ my %spec = (
 	JNETLINK => {
 		net => 'RemoteJanus',
 		sendto => '=$Janus::global= Janus @',
+		except => '?Persist',
 	},
 	NETLINK => {
 		net => 'Network',
