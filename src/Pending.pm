@@ -5,16 +5,14 @@ use strict;
 use warnings;
 use SocketHandler;
 use Persist 'SocketHandler';
-use Connection;
 
-our(@buffer, @delegate, @peer);
-&Persist::register_vars(qw(buffer delegate peer));
-&Persist::autoinit('peer');
+our(@buffer, @delegate, @addr);
+&Persist::register_vars(qw(buffer delegate addr));
+&Persist::autoinit('addr');
 
 sub _init {
 	my $net = shift;
-	my($addr,$port) = $Conffile::inet{addr}->($peer[$$net]);
-	"from $addr:$port";
+	$addr[$$net];
 }
 
 sub id {
@@ -38,7 +36,7 @@ sub parse {
 				&Janus::load($type) or next;
 				$rnet = &Persist::new($type, id => $id);
 				&Debug::info("Shifting new connection #$$pnet to $type network $id (#$$rnet)");
-				$rnet->intro($nconf, $peer[$$pnet]);
+				$rnet->intro($nconf, $addr[$$pnet]);
 				&Janus::insert_full({
 					type => 'NETLINK',
 					net => $rnet,

@@ -5,8 +5,26 @@ use strict;
 use warnings;
 use integer;
 use Debug;
-use IO::Socket::SSL;
 use Scalar::Util qw(tainted);
+our $ipv6;
+BEGIN {
+	$ipv6 = $Conffile::netconf{set}{ipv6} ? 1 : 0 unless defined $ipv6;
+	require IO::Socket::SSL;
+	if ($ipv6) {
+		require IO::Socket::INET6;
+		require Socket6;
+		IO::Socket::INET6->import();
+		IO::Socket::SSL->import('inet6');
+		Socket6->import();
+	} else {
+		require IO::Socket::INET;
+		require Socket;
+		IO::Socket::INET->import();
+		IO::Socket::SSL->import();
+		Socket->import();
+	}
+}
+use Fcntl;
 use constant {
 	FD => 0,
 	SOCK => 1,
@@ -16,6 +34,7 @@ use constant {
 	TRY_R => 5,
 	TRY_W => 6,
 	PINGT => 7,
+	IPV6 => $ipv6,
 };
 
 our @queues;
@@ -56,6 +75,55 @@ sub reassign {
 	push @queues, $q;
 }
 
+sub init_listen {
+	my $addr = shift;
+	$addr = (IPV6 ? '[::]:' : '0.0.0.0:').$addr unless $addr =~ /:/;
+	my $inet = IPV6 ? 'IO::Socket::INET6' : 'IO::Socket::INET';
+	my $sock = $inet->new(
+		Listen => 5, 
+		Proto => 'tcp', 
+		LocalAddr => $addr,
+		Blocking => 0,
+	);
+	if ($sock) {
+		fcntl $sock, F_SETFL, O_NONBLOCK;
+		setsockopt $sock, SOL_SOCKET, SO_REUSEADDR, 1;
+	}
+	$sock;
+}
+
+sub init_conn {
+	my $nconf = shift;
+	my $addr = IPV6 ?
+			sockaddr_in6($nconf->{linkport}, inet_pton(AF_INET6, $nconf->{linkaddr})) :
+			sockaddr_in($nconf->{linkport}, inet_aton($nconf->{linkaddr}));
+	my $inet = IPV6 ? 'IO::Socket::INET6' : 'IO::Socket::INET';
+	my $sock = $inet->new(
+		Proto => 'tcp',
+		($nconf->{linkbind} ? (LocalAddr => $nconf->{linkbind}) : ()), 
+		Blocking => 0,
+	);
+	fcntl $sock, F_SETFL, O_NONBLOCK;
+	connect $sock, $addr;
+
+	if ($nconf->{linktype} =~ /^ssl/) {
+		IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
+		$sock->connect_SSL();
+	}
+	$sock;
+}
+
+sub peer_to_addr {
+	my $peer = shift;
+	if (IPV6) {
+		my($port,$addr) = unpack_sockaddr_in6 $peer;
+		inet_ntop(AF_INET6, $addr);
+	} else {
+		my($port,$addr) = unpack_sockaddr_in $peer;
+		inet_ntoa $addr;
+	}
+}
+
 sub readable {
 	my $l = shift;
 	my $net = $$l[NET] or return;
@@ -65,7 +133,8 @@ sub readable {
 		my($sock,$peer) = $lsock->accept();
 		my $fd = $sock ? fileno $sock : undef;
 		return unless defined $fd;
-		$net = $net->init_pending($sock, $peer);
+		my $addr = peer_to_addr($peer);
+		$net = $net->init_pending($sock, $addr);
 		return unless $net;
 		push @queues, [ $fd, $sock, $net, $tblank, '', 1, 0, $Janus::time ];
 		return;

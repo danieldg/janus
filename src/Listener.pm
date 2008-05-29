@@ -25,10 +25,10 @@ sub close {
 }
 
 sub init_pending {
-	my($self, $sock, $peer) = @_;
+	my($self, $sock, $addr) = @_;
 	my $conf = $Conffile::netconf{$id[$$self]};
 	return undef unless $conf;
-	my $net = Pending->new(peer => $peer);
+	my $net = Pending->new(addr => $addr);
 	if ($conf->{linktype} =~ /ssl/) {
 		IO::Socket::SSL->start_SSL($sock, 
 			SSL_server => 1, 

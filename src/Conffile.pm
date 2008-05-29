@@ -6,16 +6,11 @@ use strict;
 use warnings;
 use integer;
 use Listener;
-use Connection;
 use RemoteJanus;
 use Data::Dumper;
 
 our $conffile;
 our %netconf;
-our %inet;
-# these values are replaced in modload by IPv4 or IPv6 code
-# for creating IO::Socket objects. The dynamic choice can only
-# happen once as it defines some symbols in this package
 
 sub read_conf {
 	my $nick = shift;
@@ -109,8 +104,8 @@ sub read_conf {
 	}
 	%netconf = %newconf;
 
-	$newconf{modules}{$_}++ for qw(Interface Actions Commands::Core);
-	for my $mod (keys %{$newconf{modules}}) {
+	$newconf{modules}{$_}++ for qw(Interface Actions Commands::Core Connection);
+	for my $mod (sort keys %{$newconf{modules}}) {
 		unless (&Janus::load($mod)) {
 			&Janus::err_jmsg($nick, "Could not load module $mod: $@");
 		}
@@ -124,7 +119,7 @@ sub connect_net {
 	if ($id =~ /^LISTEN:/) {
 		return if $Listener::open{$id};
 		&Debug::info("Listening on $nconf->{addr}");
-		my $sock = $inet{listn}->($nconf);
+		my $sock = &Connection::init_listen($nconf->{addr});
 		if ($sock) {
 			my $list = Listener->new(id => $id, conf => $nconf);
 			&Connection::add($sock, $list);
@@ -139,10 +134,12 @@ sub connect_net {
 		} else {
 			&Debug::info("Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}");
 
-			my $sock = $inet{conn}->($nconf) or return;
+			my $sock = &Connection::init_conn($nconf) or return;
 
 			my $net = &Persist::new($type, id => $id);
 			# this is equivalent to $type->new(id => \$id) but without using eval
+
+			&Connection::add($sock, $net);
 
 			$net->intro($nconf);
 
@@ -153,9 +150,6 @@ sub connect_net {
 				});
 			} 
 			# otherwise it's interjanus, which we let report its own events
-
-			# we start out waiting on writes because that's what connect(2) says for EINPROGRESS connects
-			&Connection::add($sock, $net);
 		}
 	}
 }
@@ -221,107 +215,6 @@ sub save {
 		my $act = shift;
 		$conffile = $act->{file};
 		read_conf;
-		if ($netconf{set}{ipv6}) {
-			eval q[
-				use IO::Socket::INET6;
-				use IO::Socket::SSL 'inet6';
-				use Socket6;
-				use Fcntl;
-				1;
-			] or die "Could not load IPv6 socket code: $@";
-			%Conffile::inet = (
-				type => 'IPv6',
-				listn => eval q[ sub {
-					my $nconf = shift;
-					my $addr = $nconf->{addr};
-					$addr = '[::]:'.$addr unless $addr =~ /:/;
-					my $sock = IO::Socket::INET6->new(
-						Listen => 5, 
-						Proto => 'tcp', 
-						LocalAddr => $addr,
-						Blocking => 0,
-					);
-					if ($sock) {
-						fcntl $sock, F_SETFL, O_NONBLOCK;
-						setsockopt $sock, SOL_SOCKET, SO_REUSEADDR, 1;
-					}
-					$sock;
-				} ], 
-				conn => eval q[ sub {
-					my $nconf = shift;
-					my $addr = sockaddr_in6($nconf->{linkport}, inet_pton(AF_INET6, $nconf->{linkaddr}));
-					my $sock = IO::Socket::INET6->new(
-						Proto => 'tcp',
-						($nconf->{linkbind} ? (LocalAddr => $nconf->{linkbind}) : ()), 
-						Blocking => 0,
-					);
-					fcntl $sock, F_SETFL, O_NONBLOCK;
-					connect $sock, $addr;
-
-					if ($nconf->{linktype} =~ /^ssl/) {
-						IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
-						$sock->connect_SSL();
-					}
-					$sock;
-				} ],
-				addr => eval q[ sub {
-					my $str = shift;
-					my($port,$addr) = unpack_sockaddr_in6 $str;
-					$addr = inet_ntop AF_INET6, $addr;
-					return ($addr,$port);
-				} ],
-			);
-		} else {
-			eval q[
-				use IO::Socket::INET;
-				use IO::Socket::SSL;
-				use Socket;
-				use Fcntl;
-				1;
-			] or die "Could not load IPv4 socket code: $@";
-			%Conffile::inet = (
-				type => 'IPv4',
-				listn => eval q[ sub {
-					my $nconf = shift;
-					my $addr = $nconf->{addr};
-					$addr = '0.0.0.0:'.$addr unless $addr =~ /:/;
-					my $sock = IO::Socket::INET->new(
-						Listen => 5, 
-						Proto => 'tcp', 
-						LocalAddr => $addr,
-						Blocking => 0,
-					);
-					if ($sock) {
-						fcntl $sock, F_SETFL, O_NONBLOCK;
-						setsockopt $sock, SOL_SOCKET, SO_REUSEADDR, 1;
-					}
-					$sock;
-				} ], 
-				conn => eval q[ sub {
-					my $nconf = shift;
-					my $addr = sockaddr_in($nconf->{linkport}, inet_aton($nconf->{linkaddr}));
-					my $sock = IO::Socket::INET->new(
-						Proto => 'tcp', 
-						LocalAddr => ($nconf->{linkbind} || '0.0.0.0'), 
-						Blocking => 0,
-					);
-					fcntl $sock, F_SETFL, O_NONBLOCK;
-					connect $sock, $addr;
-
-					if ($nconf->{linktype} =~ /^ssl/) {
-						IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
-						$sock->connect_SSL();
-					}
-					$sock;
-				} ],
-				addr => eval q[ sub {
-					my $str = shift;
-					my($port,$addr) = unpack_sockaddr_in $str;
-					$addr = inet_ntoa $addr;
-					return ($addr,$port);
-				} ],
-			);
-		}
 	},
 	RUN => act => sub {
 		my $save = $netconf{set}{save};
