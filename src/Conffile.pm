@@ -104,7 +104,7 @@ sub read_conf {
 	}
 	%netconf = %newconf;
 
-	$newconf{modules}{$_}++ for qw(Interface Actions Commands::Core Connection);
+	$newconf{modules}{$_}++ for qw(Interface Actions Commands::Core);
 	for my $mod (sort keys %{$newconf{modules}}) {
 		unless (&Janus::load($mod)) {
 			&Janus::err_jmsg($nick, "Could not load module $mod: $@");

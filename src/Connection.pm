@@ -4,8 +4,6 @@ package Connection;
 use strict;
 use warnings;
 use integer;
-use Debug;
-use Scalar::Util qw(tainted);
 our $ipv6;
 BEGIN {
 	$ipv6 = $Conffile::netconf{set}{ipv6} ? 1 : 0 unless defined $ipv6;
@@ -23,7 +21,11 @@ BEGIN {
 		IO::Socket::SSL->import();
 		Socket->import();
 	}
+	our $XS;
+	die "Connection cannot be reloaded in C mode" if $XS;
 }
+use Debug;
+use Scalar::Util qw(tainted);
 use Fcntl;
 use constant {
 	FD => 0,
