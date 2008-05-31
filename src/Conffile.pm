@@ -23,7 +23,7 @@ sub read_conf {
 		&Janus::err_jmsg($nick, "Could not open configuration file: $!");
 		return;
 	};
-	$conf->untaint(); 
+	$conf->untaint();
 		# the configurator is assumed to have at least half a brain :)
 	while (<$conf>) {
 		chomp;
@@ -119,7 +119,9 @@ sub connect_net {
 	if ($id =~ /^LISTEN:/) {
 		return if $Listener::open{$id};
 		&Debug::info("Listening on $nconf->{addr}");
-		my $sock = &Connection::init_listen($nconf->{addr});
+		my $sock = &Connection::init_listen(
+			($nconf->{addr} =~ /^(.*):(\d+)/) ? ($1, $2) : ('', $nconf->{addr})
+		);
 		if ($sock) {
 			my $list = Listener->new(id => $id, conf => $nconf);
 			&Connection::add($sock, $list);
@@ -134,7 +136,11 @@ sub connect_net {
 		} else {
 			&Debug::info("Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}");
 
-			my $sock = &Connection::init_conn($nconf) or return;
+			my($addr, $port, $bind) = @$nconf{qw(linkaddr linkport linkbind)};
+			my $ssl = ($nconf->{linktype} =~ /^ssl/);
+
+			my $sock = &Connection::init_conn($addr, $port, $bind, $ssl);
+			return unless $sock;
 
 			my $net = &Persist::new($type, id => $id);
 			# this is equivalent to $type->new(id => \$id) but without using eval
@@ -148,7 +154,7 @@ sub connect_net {
 					type => 'NETLINK',
 					net => $net,
 				});
-			} 
+			}
 			# otherwise it's interjanus, which we let report its own events
 		}
 	}

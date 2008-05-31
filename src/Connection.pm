@@ -78,13 +78,13 @@ sub reassign {
 }
 
 sub init_listen {
-	my $addr = shift;
-	$addr = (IPV6 ? '[::]:' : '0.0.0.0:').$addr unless $addr =~ /:/;
+	my($addr,$port) = @_;
 	my $inet = IPV6 ? 'IO::Socket::INET6' : 'IO::Socket::INET';
 	my $sock = $inet->new(
-		Listen => 5, 
-		Proto => 'tcp', 
-		LocalAddr => $addr,
+		Listen => 5,
+		Proto => 'tcp',
+		($addr ? (LocalAddr => $addr) : ()),
+		LocakPort => $port,
 		Blocking => 0,
 	);
 	if ($sock) {
@@ -95,20 +95,20 @@ sub init_listen {
 }
 
 sub init_conn {
-	my $nconf = shift;
+	my($addr, $port, $bind, $ssl) = @_;
 	my $addr = IPV6 ?
-			sockaddr_in6($nconf->{linkport}, inet_pton(AF_INET6, $nconf->{linkaddr})) :
-			sockaddr_in($nconf->{linkport}, inet_aton($nconf->{linkaddr}));
+			sockaddr_in6($port, inet_pton(AF_INET6, $addr)) :
+			sockaddr_in($port, inet_aton($addr));
 	my $inet = IPV6 ? 'IO::Socket::INET6' : 'IO::Socket::INET';
 	my $sock = $inet->new(
 		Proto => 'tcp',
-		($nconf->{linkbind} ? (LocalAddr => $nconf->{linkbind}) : ()), 
 		Blocking => 0,
+		($bind ? (LocalAddr => $bind) : ()),
 	);
 	fcntl $sock, F_SETFL, O_NONBLOCK;
 	connect $sock, $addr;
 
-	if ($nconf->{linktype} =~ /^ssl/) {
+	if ($ssl) {
 		IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
 		$sock->connect_SSL();
 	}
