@@ -51,12 +51,14 @@ sub chan {
 
 sub replace_chan {
 	my($net,$name,$new) = @_;
-	warn "replacing nonexistant channel" unless exists $Janus::chans{lc $name};
+	my $old = $chans[$$net]{lc $name};
+	warn "replacing nonexistant channel" unless $old;
 	if (defined $new) {
 		$Janus::chans{lc $name} = $new;
 	} else {
 		delete $Janus::chans{lc $name};
 	}
+	$old;
 }
 
 sub all_chans {
@@ -89,12 +91,14 @@ sub chan {
 
 sub replace_chan {
 	my($net,$name,$new) = @_;
-	warn "replacing nonexistant channel" unless exists $chans[$$net]{lc $name};
+	my $old = $chans[$$net]{lc $name};
+	warn "replacing nonexistant channel" unless $old;
 	if (defined $new) {
 		$chans[$$net]{lc $name} = $new;
 	} else {
 		delete $chans[$$net]{lc $name};
 	}
+	$old;
 }
 
 sub all_chans {

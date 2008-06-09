@@ -20,7 +20,7 @@ Basic descriptions and checking of all internal janus actions
 
 =over
 
-=item NETLINK Sent when a connection to/from janus is initalized 
+=item NETLINK Sent when a connection to/from janus is initalized
 
 =item BURST Sent when a connection is ready to start syncing data
 
@@ -66,7 +66,7 @@ Basic descriptions and checking of all internal janus actions
 
 =item MODE Basic mode change
 
-=over 
+=over
 
 =item n nick access level
 
@@ -177,7 +177,7 @@ my %spec = (
 		dst => 'Nick',
 		net => 'Network',
 		tag => '?$',
-	}, 
+	},
 	RECONNECT => {
 		dst => 'Nick',
 		net => 'Network',
@@ -264,44 +264,20 @@ my %spec = (
 	},
 
 	LINKREQ => {
-		dst => 'Network',
 		net => 'Network',
+		dst => 'Network',
 		slink => '$',
 		dlink => '$',
+		reqby => '$',
+		reqtime => '$',
 		linkfile => '?$',
-		override => '?$',
-		reqby => '?$',
-		reqtime => '?$',
 	},
-	REQDEL => {
-		snet => 'Network',
-		dnet => 'Network',
-		name => '$',
-	},
-	LOCKREQ => {
+	LINKOFFER => {
 		src => 'Network',
-		dst => 'Network Channel',
-		name => '?$',
-		lockid => '$',
-	},
-	LOCKACK => {
-		src => 'RemoteJanus',
-		dst => 'Network',
-		chan => '?Channel',
-		expire => '?$',
-		lockid => '$',
-	},
-	LOCKED => {
-		chan1 => 'Channel',
-		chan2 => 'Channel',
-	},
-	UNLOCK => {
-		dst => 'Channel',
-		lockid => '$',
-	},
-	LINK => {
-		dst => 'Channel',
-		linkfile => '?$',
+		name => '$',
+		reqby => '$',
+		reqtime => '$',
+		sendto => '=$Janus::global= Janus @',
 	},
 	DELINK => {
 		net => 'Network',
