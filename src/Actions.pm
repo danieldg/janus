@@ -283,7 +283,6 @@ my %spec = (
 		net => 'Network',
 		netsplit_quit => '?$',
 		'split' => '?Channel',
-		reason => '$',
 	},
 
 	PING => {},

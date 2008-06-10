@@ -142,6 +142,15 @@ sub autolink_to {
 				name => $act->{slink},
 			});
 		}
+	}, LINKOFFER => act => sub {
+		my $act = shift;
+		my $net = $act->{src};
+		$avail{$net->name()}{$act->{name}} = {
+			mode => 1,
+			mask => $act->{reqby},
+			'time', $act->{reqtime},
+		};
+		# wait to link until someone requests
 	}, DELINK => act => sub {
 		# TODO remove requests and such
 	},

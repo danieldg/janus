@@ -297,6 +297,7 @@ our @nets;    # networks this channel is shared to
 
 &Persist::register_vars(qw(homenet names nets));
 &Persist::autoinit(qw(homenet));
+&Persist::autoget(qw(homenet));
 
 sub nets {
 	values %{$nets[${$_[0]}]};
@@ -513,7 +514,7 @@ sub del_remoteonly {
 			}
 			return 1;
 		}
-		unless (exists $nets[$$net]) {
+		unless (exists $nets[$$chan]{$$net}) {
 			&Debug::warn("Cannot delink: channel $$chan is not on network #$$net");
 			return 1;
 		}

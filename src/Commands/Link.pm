@@ -14,7 +14,7 @@ use warnings;
 	],
 	code => sub {
 		my($nick,$args) = @_;
-		
+
 		if ($nick->jlink()) {
 			return &Janus::jmsg($nick, 'Please execute this command on your own server');
 		}
@@ -24,9 +24,9 @@ use warnings;
 		}
 
 		my($cname1, $nname2, $cname2);
-		if ($args =~ /(#\S+)\s+(\S+)\s*(#\S+)/) {
+		if ($args =~ /(#\S*)\s+(\S+)\s*(#\S*)/) {
 			($cname1, $nname2, $cname2) = ($1,$2,$3);
-		} elsif ($args =~ /(#\S+)\s+(\S+)/) {
+		} elsif ($args =~ /(#\S*)\s+(\S+)/) {
 			($cname1, $nname2, $cname2) = ($1,$2,$1);
 		} else {
 			&Janus::jmsg($nick, 'Usage: LINK localchan network [remotechan]');
@@ -46,7 +46,7 @@ use warnings;
 			&Janus::jmsg($nick, "You must be a channel owner to use this command");
 			return;
 		}
-	
+
 		&Janus::append(+{
 			type => 'LINKREQ',
 			src => $nick,
@@ -61,10 +61,48 @@ use warnings;
 		&Janus::jmsg($nick, "Link request sent");
 	}
 }, {
-	cmd => 'delink',
-	help => 'Delinks a channel from all other networks',
+	cmd => 'create',
+	help => 'Creates a channel that other networks can link to',
 	details => [
-		"Syntax: \002DELINK\002 [network] #channel [reason]",
+		"Syntax: \002CREATE\002 #channel"
+	],
+	code => sub {
+		my($nick,$args) = @_;
+
+		my $net = $nick->homenet();
+
+		if ($net->jlink()) {
+			return &Janus::jmsg($nick, 'Please execute this command on your own server');
+		}
+		if ($net->param('oper_only_link') && !$nick->has_mode('oper')) {
+			&Janus::jmsg($nick, "You must be an IRC operator to use this command");
+			return;
+		}
+
+		my $cname = $args =~ /^(#\S*)/ ? $1 : undef;
+		my $chan = $cname && $net->chan($cname, 0);
+		unless ($chan) {
+			&Janus::jmsg($nick, $cname ? 'Cannot find that channel' : 'Syntax: CREATE #channel');
+			return;
+		}
+		unless ($chan->has_nmode(owner => $nick) || $nick->has_mode('oper')) {
+			&Janus::jmsg($nick, "You must be a channel owner to use this command");
+			return;
+		}
+		&Janus::append(+{
+			type => 'LINKOFFER',
+			src => $net,
+			name => $cname,
+			reqby => $nick->realhostmask(),
+			reqtime => $Janus::time,
+		});
+		&Janus::jmsg($nick, 'Done');
+	},
+}, {
+	cmd => 'delink',
+	help => 'Delinks a channel',
+	details => [
+		"Syntax: \002DELINK\002 #channel [network]",
 	],
 	code => sub {
 		my($nick, $args) = @_;
@@ -73,11 +111,11 @@ use warnings;
 			&Janus::jmsg($nick, "You must be an IRC operator to use this command");
 			return;
 		}
-		$args && $args =~ /^(?:([^#]\S*)\s+)?(#\S*)(?:\s+(.+))?/ or do {
-			&Janus::jmsg($nick, "Syntax: DELINK [network] #channel [reason]");
+		$args && $args =~ /^(#\S*)(?:\s+(\S+))?/ or do {
+			&Janus::jmsg($nick, "Syntax: DELINK #channel [network]");
 			return;
 		};
-		my($nname,$cname,$reason) = ($1, $2, $3 || 'no reason');
+		my($cname,$nname) = ($1, $2);
 		my $chan = $snet->chan($cname) or do {
 			&Janus::jmsg($nick, "Cannot find channel $cname");
 			return;
@@ -86,10 +124,16 @@ use warnings;
 			&Janus::jmsg($nick, "You must be a channel owner to use this command");
 			return;
 		}
-		$snet = $Janus::nets{$nname} if $nname;
-		unless ($snet) {
-			&Janus::jmsg($nick, 'Could not find that network');
-			return;
+		if ($nname) {
+			if ($snet != $chan->homenet()) {
+				&Janus::jmsg($nick, 'This syntax can only be used by the network owning the channel');
+				return;
+			}
+			$snet = $Janus::nets{$nname};
+			unless ($snet) {
+				&Janus::jmsg($nick, 'Could not find that network');
+				return;
+			}
 		}
 
 		&Janus::append(+{
@@ -97,7 +141,6 @@ use warnings;
 			src => $nick,
 			dst => $chan,
 			net => $snet,
-			reason => $reason,
 		});
 	},
 });
