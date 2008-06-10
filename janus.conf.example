@@ -55,7 +55,7 @@ listen 8005 {
 }
 
 # SSL listen bock: requires an SSL server certificate
-listen 8006 {
+listen 1.2.3.4:8006 {
 	linktype ssl
 	certfile server.cert.pem
 	keyfile server.key.pem

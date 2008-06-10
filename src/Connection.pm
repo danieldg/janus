@@ -95,10 +95,10 @@ sub init_listen {
 }
 
 sub init_conn {
-	my($addr, $port, $bind, $ssl) = @_;
+	my($iaddr, $port, $bind, $ssl) = @_;
 	my $addr = IPV6 ?
-			sockaddr_in6($port, inet_pton(AF_INET6, $addr)) :
-			sockaddr_in($port, inet_aton($addr));
+			sockaddr_in6($port, inet_pton(AF_INET6, $iaddr)) :
+			sockaddr_in($port, inet_aton($iaddr));
 	my $inet = IPV6 ? 'IO::Socket::INET6' : 'IO::Socket::INET';
 	my $sock = $inet->new(
 		Proto => 'tcp',
