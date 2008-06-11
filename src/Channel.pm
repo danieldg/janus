@@ -394,7 +394,30 @@ sub add_net {
 
 	&Debug::info("Link $keyname[$$src] into $keyname[$$chan] ($$src -> $$chan)");
 
+	my $tsctl = ($ts[$$src] <=> $ts[$$chan]);
+
+	if ($tsctl > 0) {
+		$net->send({
+			type => 'TIMESYNC',
+			dst => $src,
+			wipe => 1,
+			ts => $ts[$$chan],
+			oldts => $ts[$$src],
+		});
+	}
+
 	$net->replace_chan($sname, $chan);
+
+	if ($tsctl < 0) {
+		&Debug::info("Resetting timestamp from $ts[$$chan] to $ts[$$src]");
+		&Janus::insert_full(+{
+			type => 'TIMESYNC',
+			dst => $chan,
+			wipe => 0,
+			ts => $ts[$$src],
+			oldts => $ts[$$chan],
+		});
+	}
 
 	&Janus::insert_full(+{
 		type => 'JOIN',
@@ -403,7 +426,7 @@ sub add_net {
 		nojlink => 1,
 	});
 
-	my ($mode, $marg, $dirs) = &Modes::delta($src, $chan);
+	my ($mode, $marg, $dirs) = &Modes::delta($tsctl <= 0 ? $src : undef, $chan);
 	$net->send({
 		type => 'MODE',
 		dst => $chan,
