@@ -264,9 +264,8 @@ my %spec = (
 	},
 
 	LINKREQ => {
-		net => 'Network',
 		dst => 'Network',
-		slink => '$',
+		chan => 'Channel',
 		dlink => '$',
 		reqby => '$',
 		reqtime => '$',
@@ -278,6 +277,12 @@ my %spec = (
 		reqby => '$',
 		reqtime => '$',
 		sendto => '=$Janus::global= Janus @',
+	},
+	CHANLINK => {
+		dst => 'Channel',
+		net => 'Network',
+		in => '?Channel',
+		name => '$',
 	},
 	DELINK => {
 		net => 'Network',

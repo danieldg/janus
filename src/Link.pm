@@ -42,11 +42,11 @@ sub autolink_from {
 		if ($mask && !$mask->jparent($dst)) {
 			next;
 		}
+		my $chan = $net->chan($src, 1);
 		push @acts, +{
 			type => 'LINKREQ',
-			net => $net,
+			chan => $chan,
 			dst => $dst,
-			slink => $src,
 			dlink => $ifo->{chan},
 			reqby => $ifo->{mask},
 			reqtime => $ifo->{time},
@@ -63,15 +63,15 @@ sub autolink_to {
 	for my $src (sort keys %request) {
 		my $snet = $Janus::nets{$src} or next;
 		next if $snet->jlink();
-		for my $chan (sort keys %{$request{$src}}) {
-			my $ifo = $request{$src}{$chan};
+		for my $cname (sort keys %{$request{$src}}) {
+			my $ifo = $request{$src}{$cname};
 			next unless $netok{$ifo->{net}};
 			my $net = $Janus::nets{$ifo->{net}} or next;
+			my $chan = $snet->chan($cname, 1);
 			push @acts, +{
 				type => 'LINKREQ',
-				net => $snet,
+				chan => $chan,
 				dst => $net,
-				slink => $chan,
 				dlink => $ifo->{chan},
 				reqby => $ifo->{mask},
 				reqtime => $ifo->{time},
@@ -102,10 +102,11 @@ sub autolink_to {
 		autolink_to(@nets);
 	}, LINKREQ => act => sub {
 		my $act = shift;
-		my $snet = $act->{net};
+		my $schan = $act->{chan};
+		my $snet = $schan->homenet();
+		my $sname = $schan->str($snet);
 		my $dnet = $act->{dst};
-		return if $snet eq $dnet;
-		$request{$snet->name()}{lc $act->{slink}} = {
+		$request{$snet->name()}{lc $sname} = {
 			net => $dnet->name(),
 			chan => $act->{dlink},
 			mask => $act->{reqby},
@@ -125,21 +126,18 @@ sub autolink_to {
 			return;
 		}
 		# TODO check for true availability
-		my $kn1 = $snet->gid().lc $act->{slink};
-		if ($Janus::gchans{$kn1}) {
-			my $sc = $Janus::gchans{$kn1};
-			if (1 < scalar $sc->nets()) {
-				&Debug::info("Link request: already linked");
-				return;
-			}
+		if (1 < scalar $schan->nets()) {
+			&Debug::info("Link request: already linked");
+			return;
 		}
 		unless ($dnet->jlink()) {
-			my $chan = $dnet->chan($act->{dlink}, 1);
+			my $dchan = $dnet->chan($act->{dlink}, 1);
 			&Janus::append({
 				type => 'CHANLINK',
-				chan => $chan,
+				dst => $dchan,
+				in => $schan,
 				net => $snet,
-				name => $act->{slink},
+				name => $sname,
 			});
 		}
 	}, LINKOFFER => act => sub {

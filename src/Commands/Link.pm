@@ -50,11 +50,9 @@ use warnings;
 		&Janus::append(+{
 			type => 'LINKREQ',
 			src => $nick,
+			chan => $chan1,
 			dst => $net2,
-			net => $net1,
-			slink => lc $cname1,
 			dlink => lc $cname2,
-			override => $nick->has_mode('oper'),
 			reqby => $nick->realhostmask(),
 			reqtime => $Janus::time,
 		});

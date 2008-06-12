@@ -368,7 +368,9 @@ sub _modecpy {
 }
 
 sub add_net {
-	my($chan, $net, $sname) = @_;
+	my($chan, $src) = @_;
+	my $net = $homenet[$$src];
+	my $sname = $src->str($net);
 
 	for my $nick (@{$nicks[$$chan]}) {
 		next if $$nick == 1 || $nick->jlink();
@@ -389,8 +391,6 @@ sub add_net {
 	$Janus::gchans{$net->gid().lc $sname} = $chan;
 
 	return if $net->jlink();
-
-	my $src = $net->chan($sname, 1) or die;
 
 	&Debug::info("Link $keyname[$$src] into $keyname[$$chan] ($$src -> $$chan)");
 
@@ -515,13 +515,24 @@ sub del_remoteonly {
 }
 
 &Janus::hook_add(
-	CHANLINK => act => sub {
+	CHANLINK => check => sub {
 		my $act = shift;
-		my $chan = $act->{chan};
-		my $net = $act->{net};
-		my $name = $act->{name};
+		my $schan = $act->{in};
+		unless ($schan) {
+			my $net = $act->{net};
+			my $name = $act->{name};
+			$schan = $net->chan($name, 1);
+		}
+		return 1 if $schan && 1 < scalar $schan->nets();
 
-		$chan->add_net($net, $name);
+		$act->{in} = $schan;
+		undef;
+	}, CHANLINK => act => sub {
+		my $act = shift;
+		my $dchan = $act->{dst};
+		my $schan = $act->{in} or return;
+
+		$dchan->add_net($schan);
 	}, DELINK => check => sub {
 		my $act = shift;
 		my $chan = $act->{dst};

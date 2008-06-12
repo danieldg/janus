@@ -84,7 +84,7 @@ sub init_listen {
 		Listen => 5,
 		Proto => 'tcp',
 		($addr ? (LocalAddr => $addr) : ()),
-		LocakPort => $port,
+		LocalPort => $port,
 		Blocking => 0,
 	);
 	if ($sock) {

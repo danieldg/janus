@@ -92,18 +92,14 @@ my %to_ij = (
 		my $out = send_hdr(@_) . ' net=<j';
 		$out .= $act->{net}->to_ij($ij);
 		$out . '>>';
-	}, LOCKACK => sub {
+	}, LINKREQ => sub {
 		my($ij, $act) = @_;
-		if ($act->{chan}) {
-			my $out = send_hdr(@_, qw/src dst expire lockid/) . ' chan=<c';
-			$out .= $act->{chan}->to_ij($ij);
-			$out . '>>';
-		} else {
-			&ssend;
-		}
-	}, LINK => sub {
+		my $out = send_hdr(@_, qw/src dst dlink reqby reqtime linkfile/) . ' chan=<c';
+		$out .= $act->{chan}->to_ij($ij);
+		$out . '>>';
+	}, CHANLINK => sub {
 		my($ij, $act) = @_;
-		my $out = send_hdr(@_) . ' dst=<c';
+		my $out = send_hdr(@_, qw/net name/) . ' dst=<c';
 		$out .= $act->{dst}->to_ij($ij);
 		$out . '>>';
 	}, CONNECT => sub {
