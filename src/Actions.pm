@@ -332,7 +332,7 @@ my %default = (
 	src => '?Nick Network',
 	dst => '?Nick Channel Network',
 	except => '?Network RemoteJanus',
-	sendto => '?@ Network RemoteJanus',
+	sendto => '?@ Network RemoteJanus Janus',
 	nojlink => '?$',
 	IJ_RAW => '?$',
 );

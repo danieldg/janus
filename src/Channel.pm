@@ -533,9 +533,9 @@ sub del_remoteonly {
 					type => 'DELINK',
 					net => $on,
 					dst => $chan,
+					nojlink => 1,
 				});
 			}
-			return 1;
 		}
 		unless (exists $nets[$$chan]{$$net}) {
 			&Debug::warn("Cannot delink: channel $$chan is not on network #$$net");
@@ -546,6 +546,7 @@ sub del_remoteonly {
 		my $act = shift;
 		my $chan = $act->{dst};
 		my $net = $act->{net};
+		return if $net == $homenet[$$chan];
 		$act->{sendto} = [ values %{$nets[$$chan]} ]; # before the splitting
 		delete $nets[$$chan]{$$net} or warn;
 
@@ -604,7 +605,7 @@ sub del_remoteonly {
 	}, DELINK => cleanup => sub {
 		my $act = shift;
 		del_remoteonly($act->{dst});
-		del_remoteonly($act->{split});
+		del_remoteonly($act->{split}) if $act->{split};
 	}, NETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};

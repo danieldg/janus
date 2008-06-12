@@ -152,7 +152,19 @@ sub autolink_to {
 		};
 		# wait to link until someone requests
 	}, DELINK => act => sub {
-		# TODO remove requests and such
+		my $act = shift;
+		# do not process derived actions
+		return if $act->{nojlink};
+		my $net = $act->{net};
+		my $nname = $net->name();
+		my $chan = $act->{dst};
+		my $cname = $chan->str($net);
+		if ($chan->homenet() == $net) {
+			delete $avail{$nname}{$cname};
+		} else {
+			# TODO set unavailable if rejected
+			delete $request{$nname}{$cname};
+		}
 	},
 );
 
