@@ -69,7 +69,7 @@ sub autolink_to {
 			my $net = $Janus::nets{$ifo->{net}} or next;
 			push @acts, +{
 				type => 'LINKREQ',
-				net => $src,
+				net => $snet,
 				dst => $net,
 				slink => $chan,
 				dlink => $ifo->{chan},
