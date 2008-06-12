@@ -127,8 +127,8 @@ use warnings;
 		}
 	},
 }, {
-	cmd => 'list',
-	help => 'Shows a list of the linked networks and shared channels',
+	cmd => 'linked',
+	help => 'Shows a list of the linked networks and channels',
 	code => sub {
 		my $nick = shift;
 		my $hnet = $nick->homenet();
