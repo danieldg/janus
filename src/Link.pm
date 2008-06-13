@@ -82,6 +82,26 @@ sub autolink_to {
 	&Janus::append(@acts);
 }
 
+sub send_avail {
+	my $ij = shift;
+	my @acts;
+	for my $sname (sort keys %avail) {
+		my $snet = $Janus::nets{$sname} or next;
+		next if $ij->jparent($snet);
+		for my $cname (sort keys %{$avail{$sname}}) {
+			my $ifo = $avail{$sname}{$cname};
+			push @acts, +{
+				type => 'LINKOFFER',
+				src => $snet,
+				name => $cname,
+				reqby => $ifo->{mask},
+				reqtime => $ifo->{time},
+			};
+		}
+	}
+	$ij->send(@acts);
+}
+
 &Janus::hook_add(
 	NETLINK => act => sub {
 		my $act = shift;
@@ -98,8 +118,10 @@ sub autolink_to {
 	}, JLINKED => act => sub {
 		my $act = shift;
 		my $ij = $act->{except};
-		my @nets = grep { $ij->jparent($_) } values %Janus::nets;
-		autolink_to(@nets);
+		# Linking channels to a network is done at the remote-generated LINKED event
+		# my @nets = grep { $ij->jparent($_) } values %Janus::nets;
+		# autolink_to(@nets);
+		send_avail($ij);
 	}, LINKREQ => act => sub {
 		my $act = shift;
 		my $schan = $act->{chan};
