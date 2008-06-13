@@ -9,7 +9,7 @@ use Nick;
 use Channel;
 use RemoteNetwork;
 
-our $IJ_PROTO = 1.8;
+our $IJ_PROTO = 1.9;
 
 our(@sendq, @auth);
 &Persist::register_vars(qw(sendq auth));
