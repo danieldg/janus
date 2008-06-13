@@ -289,7 +289,9 @@ sub timestep {
 		$lping = $Janus::time;
 	}
 
-	run_sendq $_ for @queues;
+	for my $q (@queues) {
+		run_sendq $q;
+	}
 
 	scalar @queues;
 }
