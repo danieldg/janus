@@ -152,7 +152,9 @@ sub part {
 		my $act = $_[0];
 		my $nick = $act->{src};
 		my $chan = $act->{dst};
-		push @{$nicks[$$chan]}, $nick;
+		my $on;
+		$nick == $_ and $on++ for @{$nicks[$$chan]};
+		push @{$nicks[$$chan]}, $nick unless $on;
 		if ($act->{mode}) {
 			for (keys %{$act->{mode}}) {
 				warn "Unknown mode $_" unless $nmodebit{$_};
