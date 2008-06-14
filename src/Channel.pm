@@ -462,12 +462,7 @@ sub add_net {
 sub migrate_from {
 	my($chan, $src) = @_;
 
-	my %nets;
-	for my $net ($chan->nets()) {
-		$nets{$$net} = $net;
-		my $kn = $net->gid().lc $chan->str($net);
-		$Janus::gchans{$kn} = $chan;
-	}
+	my %nets = %{$nets[$$chan]};
 	for my $net ($src->nets()) {
 		warn unless delete $nets{$$net};
 		my $name = $src->str($net);
@@ -569,6 +564,9 @@ sub del_remoteonly {
 			warn if $gchan->homenet() != $dchan->homenet();
 			warn unless $dchan->homenet()->jlink();
 			$dchan->migrate_from($gchan);
+		}
+		for my $net ($dchan->nets()) {
+			$Janus::gchans{$net->gid().lc $dchan->str($net)} = $dchan;
 		}
 	}, DELINK => check => sub {
 		my $act = shift;
