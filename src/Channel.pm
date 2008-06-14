@@ -532,7 +532,7 @@ sub del_remoteonly {
 	}, CHANLINK => act => sub {
 		my $act = shift;
 		my $dchan = $act->{dst};
-		my $schan = $act->{in} or return;
+		my $schan = $act->{in} or die;
 
 		$dchan->add_net($schan);
 	}, DELINK => check => sub {
