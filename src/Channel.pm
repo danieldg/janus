@@ -466,7 +466,7 @@ sub migrate_from {
 	for my $net ($src->nets()) {
 		warn unless delete $nets{$$net};
 		my $name = $src->str($net);
-		$net->replace_chan($name, $chan);
+		$net->replace_chan($name, $chan) if $net->isa('LocalNetwork');
 	}
 
 	my $newnets = [ values %nets ];
