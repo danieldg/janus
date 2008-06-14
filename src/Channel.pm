@@ -533,6 +533,8 @@ sub del_remoteonly {
 		my $schan = $act->{in};
 
 		$dchan->add_net($schan);
+
+		$Janus::gchans{$dchan->keyname()} = $dchan;
 	}, DELINK => check => sub {
 		my $act = shift;
 		my $chan = $act->{dst};
