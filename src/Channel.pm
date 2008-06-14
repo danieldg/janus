@@ -336,7 +336,6 @@ sub _init {
 		$homenet[$$c] = $net;
 		$nets[$$c]{$$net} = $net;
 		$names[$$c]{$$net} = $ifo->{name};
-		$Janus::gchans{$kn} = $c;
 	} else {
 		my $names = $ifo->{names} || {};
 		$names[$$c] = {};
@@ -347,7 +346,6 @@ sub _init {
 			$names[$$c]{$$net} = $name;
 			$nets[$$c]{$$net} = $net;
 			my $kn = $net->gid().lc $name;
-			$Janus::gchans{$kn} = $c;
 			$keyname[$$c] = $kn if $net == $homenet[$$c];
 		}
 		&Debug::err("Constructing unkeyed channel!") unless $keyname[$$c];
@@ -525,14 +523,14 @@ sub del_remoteonly {
 			my $name = $act->{name};
 			$schan = $net->chan($name, 1);
 		}
-		return 1 if $schan && 1 < scalar $schan->nets();
+		return 1 if 1 < scalar $schan->nets();
 
 		$act->{in} = $schan;
 		undef;
 	}, CHANLINK => act => sub {
 		my $act = shift;
 		my $dchan = $act->{dst};
-		my $schan = $act->{in} or die;
+		my $schan = $act->{in};
 
 		$dchan->add_net($schan);
 	}, DELINK => check => sub {

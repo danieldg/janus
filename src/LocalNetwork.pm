@@ -84,6 +84,7 @@ sub chan {
 			name => $name,
 			ts => $new,
 		);
+		$Janus::gchans{$chan->keyname()} = $chan;
 		$chans[$$net]{lc $name} = $chan;
 	}
 	$chans[$$net]{lc $name};
