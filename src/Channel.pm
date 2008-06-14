@@ -563,7 +563,7 @@ sub del_remoteonly {
 		my $schan = $act->{in};
 		my $gchan = $Janus::gchans{$dchan->keyname()};
 
-		if ($dchan == $gchan) {
+		if (!$gchan || $dchan == $gchan) {
 			$dchan->add_net($schan);
 		} else {
 			warn if $gchan->homenet() != $dchan->homenet();
