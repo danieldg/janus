@@ -459,6 +459,36 @@ sub add_net {
 	}
 }
 
+sub migrate_from {
+	my($chan, $src) = @_;
+
+	my %nets;
+	for my $net ($chan->nets()) {
+		$nets{$$net} = $net;
+		my $kn = $net->gid().lc $chan->str($net);
+		$Janus::gchans{$kn} = $chan;
+	}
+	for my $net ($src->nets()) {
+		warn unless delete $nets{$$net};
+		my $name = $src->str($net);
+		$net->replace_chan($name, $chan);
+	}
+
+	my $newnets = [ values %nets ];
+
+	for my $nick (@{$nicks[$$src]}) {
+		$nick->rejoin($chan);
+		next if $$nick == 1 || $nick->jlink();
+		&Janus::append(+{
+			type => 'JOIN',
+			src => $nick,
+			dst => $chan,
+			mode => $chan->get_nmode($nick),
+			sendto => $newnets,
+		});
+	}
+}
+
 sub str {
 	my($chan,$net) = @_;
 	$net ? $names[$$chan]{$$net} : undef;
@@ -531,10 +561,15 @@ sub del_remoteonly {
 		my $act = shift;
 		my $dchan = $act->{dst};
 		my $schan = $act->{in};
+		my $gchan = $Janus::gchans{$dchan->keyname()};
 
-		$dchan->add_net($schan);
-
-		$Janus::gchans{$dchan->keyname()} = $dchan;
+		if ($dchan == $gchan) {
+			$dchan->add_net($schan);
+		} else {
+			warn if $gchan->homenet() != $dchan->homenet();
+			warn unless $dchan->homenet()->jlink();
+			$dchan->migrate_from($gchan);
+		}
 	}, DELINK => check => sub {
 		my $act = shift;
 		my $chan = $act->{dst};
