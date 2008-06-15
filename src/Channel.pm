@@ -466,6 +466,7 @@ sub migrate_from {
 	my $chan = shift;
 	&Debug::info("Migrating nicks to $$chan from", map $$_, @_);
 	for my $src (@_) {
+		next if $$src == $$chan;
 		for my $net ($src->nets()) {
 			my $name = $src->str($net);
 			$net->replace_chan($name, $chan) if $net->isa('LocalNetwork');
@@ -548,6 +549,7 @@ sub del_remoteonly {
 			my $name = $act->{name};
 			$schan = $net->chan($name, 1);
 		}
+		return 1 if $act->{dst} == $schan;
 		return 1 if 1 < scalar $schan->nets();
 
 		$act->{in} = $schan;
