@@ -68,7 +68,7 @@ sub pmsg {
 		return 0;
 	}
 
-	unless ($src->is_on($dst->homenet())) {
+	unless ($$src == 1 || $src->is_on($dst->homenet())) {
 		&Janus::jmsg($src, 'You must join a shared channel to speak with remote users') if $act->{msgtype} eq 'PRIVMSG';
 		return 1;
 	}
