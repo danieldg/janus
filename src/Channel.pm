@@ -416,6 +416,7 @@ sub add_net {
 	}
 
 	for my $nick (@{$nicks[$$chan]}) {
+		$nick->rejoin($chan);
 		next if $$nick == 1 || $nick->jlink();
 		# Every network must send JOINs for its own nicks
 		# to the network
