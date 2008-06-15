@@ -237,7 +237,7 @@ sub part {
 );
 
 ### MODE SPLIT ###
-eval($Janus::lmode eq 'Bridge' ? '#line '.__LINE__.' "'.__FILE__.'"'.q[
+eval($Janus::lmode eq 'Bridge' ? '#line '.__LINE__.' "'.__FILE__.qq{"\n}.q[
 ### BRIDGE MODE ###
 sub nets {
 	values %Janus::nets;
@@ -372,17 +372,6 @@ sub add_net {
 	my $net = $homenet[$$src];
 	my $sname = $src->str($net);
 
-	for my $nick (@{$nicks[$$chan]}) {
-		next if $$nick == 1 || $nick->jlink();
-		&Janus::append(+{
-			type => 'JOIN',
-			src => $nick,
-			dst => $chan,
-			mode => $chan->get_nmode($nick),
-			sendto => $net,
-		});
-	}
-
 	my $joinnets = [ values %{$nets[$$chan]} ];
 
 	$nets[$$chan]{$$net} = $net;
@@ -390,97 +379,108 @@ sub add_net {
 
 	$Janus::gchans{$net->gid().lc $sname} = $chan;
 
-	return if $net->jlink();
-
 	&Debug::info("Link $keyname[$$src] into $keyname[$$chan] ($$src -> $$chan)");
 
 	my $tsctl = ($ts[$$src] <=> $ts[$$chan]);
 
-	if ($tsctl > 0) {
-		$net->send({
-			type => 'TIMESYNC',
-			dst => $src,
-			wipe => 1,
-			ts => $ts[$$chan],
-			oldts => $ts[$$src],
-		});
-	}
+	unless ($net->jlink()) {
+		if ($tsctl > 0) {
+			$net->send({
+				type => 'TIMESYNC',
+				dst => $src,
+				wipe => 1,
+				ts => $ts[$$chan],
+				oldts => $ts[$$src],
+			});
+			delete $nmode[$$src];
+		}
 
-	$net->replace_chan($sname, $chan);
+		$net->replace_chan($sname, $chan);
 
-	if ($tsctl < 0) {
-		&Debug::info("Resetting timestamp from $ts[$$chan] to $ts[$$src]");
-		&Janus::insert_full(+{
-			type => 'TIMESYNC',
-			dst => $chan,
-			wipe => 0,
-			ts => $ts[$$src],
-			oldts => $ts[$$chan],
-		});
-	}
+		if ($tsctl < 0) {
+			&Debug::info("Resetting timestamp from $ts[$$chan] to $ts[$$src]");
+			&Janus::insert_full(+{
+				type => 'TIMESYNC',
+				dst => $chan,
+				wipe => 0,
+				ts => $ts[$$src],
+				oldts => $ts[$$chan],
+			});
+		}
 
-	&Janus::insert_full(+{
-		type => 'JOIN',
-		src => $Interface::janus,
-		dst => $chan,
-		nojlink => 1,
-	});
-
-	my ($mode, $marg, $dirs) = &Modes::delta($tsctl <= 0 ? $src : undef, $chan);
-	$net->send({
-		type => 'MODE',
-		dst => $chan,
-		mode => $mode,
-		args => $marg,
-		dirs => $dirs,
-	}) if @$mode;
-
-	$net->send(+{
-		type => 'TOPIC',
-		dst => $chan,
-		topic => $topic[$$chan],
-		topicts => $topicts[$$chan],
-		topicset => $topicset[$$chan],
-		in_link => 1,
-		nojlink => 1,
-	}) if $topic[$$chan] && (!$topic[$$src] || $topic[$$chan] ne $topic[$$src]);
-
-
-	for my $nick (@{$nicks[$$src]}) {
-		next if $$nick == 1;
-
-		&Janus::append(+{
+		$net->send(+{
 			type => 'JOIN',
-			src => $nick,
+			src => $Interface::janus,
 			dst => $chan,
-			mode => $src->get_nmode($nick),
-			sendto => $joinnets,
 		});
 	}
-}
 
-sub migrate_from {
-	my($chan, $src) = @_;
-
-	my %nets = %{$nets[$$chan]};
-	for my $net ($src->nets()) {
-		warn unless delete $nets{$$net};
-		my $name = $src->str($net);
-		$net->replace_chan($name, $chan) if $net->isa('LocalNetwork');
-	}
-
-	my $newnets = [ values %nets ];
-
-	for my $nick (@{$nicks[$$src]}) {
-		$nick->rejoin($chan);
+	for my $nick (@{$nicks[$$chan]}) {
 		next if $$nick == 1 || $nick->jlink();
-		&Janus::append(+{
+		# Every network must send JOINs for its own nicks
+		# to the network
+		$net->send(+{
 			type => 'JOIN',
 			src => $nick,
 			dst => $chan,
 			mode => $chan->get_nmode($nick),
-			sendto => $newnets,
 		});
+	}
+
+	unless ($net->jlink()) {
+		my ($mode, $marg, $dirs) = &Modes::delta($tsctl <= 0 ? $src : undef, $chan);
+		$net->send({
+			type => 'MODE',
+			dst => $chan,
+			mode => $mode,
+			args => $marg,
+			dirs => $dirs,
+		}) if @$mode;
+
+		$net->send(+{
+			type => 'TOPIC',
+			dst => $chan,
+			topic => $topic[$$chan],
+			topicts => $topicts[$$chan],
+			topicset => $topicset[$$chan],
+			in_link => 1,
+			nojlink => 1,
+		}) if $topic[$$chan] && (!$topic[$$src] || $topic[$$chan] ne $topic[$$src]);
+
+		for my $nick (@{$nicks[$$src]}) {
+			next if $$nick == 1;
+			# source network must also send JOINs to everyone
+			# except for itself
+			&Janus::append(+{
+				type => 'JOIN',
+				src => $nick,
+				dst => $chan,
+				mode => $src->get_nmode($nick),
+				sendto => $joinnets,
+			});
+		}
+	}
+}
+
+sub migrate_from {
+	my $chan = shift;
+	&Debug::info("Migrating nicks to $$chan from", map $$_, @_);
+	for my $src (@_) {
+		for my $net ($src->nets()) {
+			my $name = $src->str($net);
+			$net->replace_chan($name, $chan) if $net->isa('LocalNetwork');
+		}
+
+		for my $nick (@{$nicks[$$src]}) {
+			$nick->rejoin($chan);
+			next if $$nick == 1 || $nick->jlink();
+			&Janus::append(+{
+				type => 'JOIN',
+				src => $nick,
+				dst => $chan,
+				mode => $chan->get_nmode($nick),
+			});
+		}
 	}
 }
 
@@ -561,9 +561,7 @@ sub del_remoteonly {
 		if (!$gchan || $dchan == $gchan) {
 			$dchan->add_net($schan);
 		} else {
-			warn if $gchan->homenet() != $dchan->homenet();
-			warn unless $dchan->homenet()->jlink();
-			$dchan->migrate_from($gchan);
+			$dchan->migrate_from($schan, $gchan);
 		}
 		for my $net ($dchan->nets()) {
 			$Janus::gchans{$net->gid().lc $dchan->str($net)} = $dchan;
