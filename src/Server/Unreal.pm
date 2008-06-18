@@ -1478,21 +1478,16 @@ sub cmd2 {
 		my $chan = $act->{dst}->str($net);
 		return () if $act->{linkfile};
 		[ FLOAT_ALL => $net->cmd1(GLOBOPS => "Channel $chan linked") ];
-	}, LINKREQ => sub {
-		my($net,$act) = @_;
-		my $src = $act->{net};
-		return () if $act->{linkfile};
-		[ FLOAT_ALL => $net->cmd1(GLOBOPS => $src->netname()." would like to link $act->{slink} to $act->{dlink}") ];
 	}, DELINK => sub {
 		my($net,$act) = @_;
 		return () if $act->{netsplit_quit};
 		if ($act->{net} eq $net) {
 			my $name = $act->{split}->str($net);
 			my $nick = $act->{src} ? $act->{src}->str($net) : 'janus';
-			$net->cmd1(GLOBOPS => "Channel $name delinked by $nick (". $act->{reason} . ")");
+			$net->cmd1(GLOBOPS => "Channel $name delinked by $nick");
 		} else {
 			my $name = $act->{dst}->str($net);
-			$net->cmd1(GLOBOPS => "Network ".$act->{net}->netname()." dropped channel $name: ".$act->{reason});
+			$net->cmd1(GLOBOPS => "Network ".$act->{net}->netname()." dropped channel $name");
 		}
 	}, KILL => sub {
 		my($net,$act) = @_;

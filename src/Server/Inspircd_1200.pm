@@ -1154,11 +1154,6 @@ $moddef{CORE} = {
 	}, PING => sub {
 		my($net,$act) = @_;
 		$net->ncmd(PING => $net->cparam('server'));
-	}, LINKREQ => sub {
-		my($net,$act) = @_;
-		my $src = $act->{net};
-		return () if $act->{linkfile};
-		$net->ncmd(SNONOTICE => 'A', $src->netname()." would like to link $act->{slink} to $act->{dlink}");
 	}, RAW => sub {
 		my($net,$act) = @_;
 		$act->{msg};
