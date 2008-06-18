@@ -462,6 +462,7 @@ sub add_net {
 			});
 		}
 	}
+	&Janus::append({ type => 'POISON', item => $src, reason => 'migrated away' });
 }
 
 sub migrate_from {
@@ -484,6 +485,7 @@ sub migrate_from {
 				mode => $chan->get_nmode($nick),
 			});
 		}
+		&Janus::append({ type => 'POISON', item => $src, reason => 'migrated away' });
 	}
 }
 
@@ -508,7 +510,12 @@ sub unhook_destroyed {
 	for my $id (keys %{$nets[$$chan]}) {
 		my $net = $nets[$$chan]{$id};
 		my $name = $names[$$chan]{$id};
-		delete $Janus::gchans{$net->gid().lc $name};
+		my $c = delete $Janus::gchans{$net->gid().lc $name};
+		if ($c != $chan) {
+			&Debug::err("Corrupted unhook! $$c found where $$chan expected");
+			$Janus::gchans{$net->gid().lc $name} = $c;
+			next;
+		}
 		next if $net->jlink();
 		$net->replace_chan($name, undef);
 	}
