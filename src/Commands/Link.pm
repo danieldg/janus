@@ -47,6 +47,14 @@ use warnings;
 			return;
 		}
 
+		if (1 < scalar $chan1->nets()) {
+			&Janus::jsmg($nick, 'That channel is already linked');
+			return;
+		}
+		if ($Link::request{$net1->name()}{$cname1}{mode}) {
+			&Janus::jsmg($nick, 'This network is the owner for that channel. Use DESTROY to change this');
+			return;
+		}
 		&Janus::append(+{
 			type => 'LINKREQ',
 			src => $nick,
@@ -87,6 +95,10 @@ use warnings;
 			&Janus::jmsg($nick, "You must be a channel owner to use this command");
 			return;
 		}
+		if (1 < scalar $chan->nets()) {
+			&Janus::jsmg($nick, 'That channel is already linked');
+			return;
+		}
 		&Janus::append(+{
 			type => 'LINKOFFER',
 			src => $net,
@@ -122,7 +134,7 @@ use warnings;
 			&Janus::jmsg($nick, "You must be a channel owner to use this command");
 			return;
 		}
-		if ($snet == $chan->homenet()) {
+		if ($snet == $chan->homenet() && 1 < scalar $chan->nets()) {
 			unless ($nname) {
 				&Janus::jmsg($nick, 'Please specify the network to delink, or use DESTROY');
 				return;
