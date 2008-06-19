@@ -12,22 +12,35 @@ if ($Janus::lmode) {
 	$Janus::lmode = 'Link';
 }
 
-our %avail;
-# {network}{channel} = {
-#? mode => 1=allow by default, 2=deny by default (ask)
-#? ack{net} => 0/undef=default, 1=allow, 2=deny
-#  mask => nick!ident@host of requestor
-#  time => unix timestamp of request
-
 our %request;
 # {network}{channel} = {
-#  net  => master network
-#  chan => master channel
 #  mask => nick!ident@host of requestor
 #  time => unix timestamp of request
+#  mode 0: link TO
+#   net  => master network
+#   chan => master channel
+#  mode 1: allow default
+#   ack{net} => =2 denies
+#  mode 2: deny default
+#   ack{net} => =1 allows
 
+our %avail;
+if (%avail) {
+	for my $n (keys %avail) {
+		for my $c (keys %{$avail{$n}}) {
+			$request{$n}{lc $c} = $avail{$n}{$c};
+		}
+	}
+	%avail = ();
+}
+
+for my $n (keys %request) {
+	for my $c (keys %{$request{$n}}) {
+		next if $c eq lc $c;
+		$request{$n}{lc $c} = delete $request{$n}{$c};
+	}
+}
 &Janus::save_vars(
-	avail => \%avail,
 	request => \%request,
 );
 
@@ -38,6 +51,7 @@ sub autolink_from {
 	my $bychan = $request{$netn} or return;
 	for my $src (sort keys %$bychan) {
 		my $ifo = $bychan->{$src} or next;
+		next if $ifo->{mode};
 		my $dst = $Janus::nets{$ifo->{net}} or next;
 		if ($mask && !$mask->jparent($dst)) {
 			next;
@@ -65,6 +79,7 @@ sub autolink_to {
 		next if $snet->jlink();
 		for my $cname (sort keys %{$request{$src}}) {
 			my $ifo = $request{$src}{$cname};
+			next if $ifo->{mode};
 			next unless $netok{$ifo->{net}};
 			my $net = $Janus::nets{$ifo->{net}} or next;
 			my $chan = $snet->chan($cname, 1);
@@ -85,11 +100,12 @@ sub autolink_to {
 sub send_avail {
 	my $ij = shift;
 	my @acts;
-	for my $sname (sort keys %avail) {
+	for my $sname (sort keys %request) {
 		my $snet = $Janus::nets{$sname} or next;
 		next if $ij->jparent($snet);
-		for my $cname (sort keys %{$avail{$sname}}) {
-			my $ifo = $avail{$sname}{$cname};
+		for my $cname (sort keys %{$request{$sname}}) {
+			my $ifo = $request{$sname}{$cname};
+			next unless $ifo->{mode};
 			push @acts, +{
 				type => 'LINKOFFER',
 				src => $snet,
@@ -108,7 +124,6 @@ sub send_avail {
 		my $net = $act->{net};
 		return unless $net->jlink();
 		# clear the request list as it will be repopulated as part of the remote sync
-		delete $avail{$net->name()};
 		delete $request{$net->name()};
 	}, LINKED => act => sub {
 		my $act = shift;
@@ -142,8 +157,8 @@ sub send_avail {
 			&Debug::info("Link request: dst not ready");
 			return;
 		}
-		my $recip = $avail{$dnet->name()}{lc $act->{dlink}};
-		unless ($recip) {
+		my $recip = $request{$dnet->name()}{lc $act->{dlink}};
+		unless ($recip && $recip->{mode}) {
 			&Debug::info("Link request: saved in list");
 			return;
 		}
@@ -165,7 +180,7 @@ sub send_avail {
 	}, LINKOFFER => act => sub {
 		my $act = shift;
 		my $net = $act->{src};
-		$avail{$net->name()}{$act->{name}} = {
+		$request{$net->name()}{lc $act->{name}} = {
 			mode => 1,
 			mask => $act->{reqby},
 			'time', $act->{reqtime},
@@ -179,12 +194,8 @@ sub send_avail {
 		my $nname = $net->name();
 		my $chan = $act->{dst};
 		my $cname = $chan->str($net);
-		if ($chan->homenet() == $net) {
-			delete $avail{$nname}{$cname};
-		} else {
-			# TODO set unavailable if rejected
-			delete $request{$nname}{$cname};
-		}
+		delete $request{$nname}{$cname};
+		# TODO change ack on a forced delink
 	},
 );
 
