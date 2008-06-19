@@ -133,7 +133,7 @@ use warnings;
 				return;
 			}
 		} elsif ($nname) {
-			&Janus::jmsg($nick, 'This syntax can only be used by the network owning the channel');
+			&Janus::jmsg($nick, 'You cannot specify the network to delink');
 			return;
 		}
 

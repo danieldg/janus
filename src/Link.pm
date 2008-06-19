@@ -141,9 +141,10 @@ sub send_avail {
 		my $act = shift;
 		my $schan = $act->{chan};
 		my $snet = $schan->homenet();
+		my $snetn = $snet->name();
 		my $sname = $schan->str($snet);
 		my $dnet = $act->{dst};
-		$request{$snet->name()}{lc $sname} = {
+		$request{$snetn}{lc $sname} = {
 			net => $dnet->name(),
 			chan => $act->{dlink},
 			mask => $act->{reqby},
@@ -159,10 +160,18 @@ sub send_avail {
 		}
 		my $recip = $request{$dnet->name()}{lc $act->{dlink}};
 		unless ($recip && $recip->{mode}) {
-			&Debug::info("Link request: saved in list");
+			&Debug::info("Link request: destination not shared");
 			return;
 		}
-		# TODO check for true availability
+		if ($recip->{ack}{$snetn}) {
+			if ($recip->{ack}{$snetn} == 2) {
+				&Debug::info("Link request: rejected by homenet");
+				return;
+			}
+		} elsif ($recip->{mode} == 2) {
+			&Debug::info("Link request: rejected by default");
+			return;
+		}
 		if (1 < scalar $schan->nets()) {
 			&Debug::info("Link request: already linked");
 			return;
@@ -189,13 +198,18 @@ sub send_avail {
 	}, DELINK => act => sub {
 		my $act = shift;
 		# do not process derived actions
-		return if $act->{nojlink};
+		return if $act->{nojlink} || !$act->{src};
 		my $net = $act->{net};
 		my $nname = $net->name();
 		my $chan = $act->{dst};
 		my $cname = $chan->str($net);
-		delete $request{$nname}{$cname};
-		# TODO change ack on a forced delink
+		my $hnet = $act->{src}->homenet();
+		if ($hnet == $net) {
+			delete $request{$nname}{$cname};
+		} else {
+			# forced delink
+			$request{$hnet->name()}{$chan->str($hnet)}{ack}{$nname} = 2;
+		}
 	},
 );
 
