@@ -176,7 +176,7 @@ sub dump_sendq {
 sub nicklen { 40 }
 
 %toirc = (
-	LINK => sub {
+	CHANLINK => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst}->str($net);
 		$lchan[$$net] = $chan;

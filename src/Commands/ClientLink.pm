@@ -13,20 +13,22 @@ use warnings;
 	acl => 1,
 	code => sub {
 		my($nick,$args) = @_;
-		$args ||= '';
-		return &Janus::jmsg($nick, 'Invalid syntax') unless $args =~ /^(\S+) (#\S*)(?: (\S+))?/;
-		my($bname, $cname, $nname) = ($1,$2,$3);
-		$nname ||= $nick->homenet()->name();
-		my $cb = $Janus::nets{$bname} or return &Interface::jmsg($nick, 'Client network not found');
+		unless ($args && $args =~ /^(\S+) +(#\S*)(?: +(\S+)(?: +(#\S*))?)?$/) {
+			return &Janus::jmsg($nick, 'Invalid syntax');
+		}
+		my($bnet, $bchan, $dnet, $dchan) = ($1,$2,$3,$4);
+		$dnet ||= $nick->homenet()->name();
+		$dchan ||= $bchan;
+		my $cb = $Janus::nets{$bnet}  or return &Interface::jmsg($nick, 'Client network not found');
 		$cb->isa('Server::ClientBot') or return &Interface::jmsg($nick, 'Client network must be a clientbot');
-		my $dn = $Janus::nets{$nname} or return &Interface::jmsg($nick, 'Destination network not found');
+		my $dn = $Janus::nets{$dnet}  or return &Interface::jmsg($nick, 'Destination network not found');
+		$Link::request{$dnet}{$dchan}{mode} or return &Interface::jmsg($nick, 'Channel must be shared');
 		&Janus::append(+{
 			type => 'LINKREQ',
 			src => $nick,
+			chan => $cb->chan($bchan, 1),
 			dst => $dn,
-			net => $cb,
-			slink => $cname,
-			dlink => $cname,
+			dlink => $dchan,
 			reqby => $nick->realhostmask(),
 			reqtime => $Janus::time,
 		});
