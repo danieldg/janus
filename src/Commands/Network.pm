@@ -132,26 +132,41 @@ use warnings;
 	code => sub {
 		my $nick = shift;
 		my $hnet = $nick->homenet();
-		my $amsg = 'Linked Networks:';
-		my $head = join ' ', grep !($_ eq 'janus' || $_ eq $hnet->name()), sort keys %Janus::nets;
+		my $hnetn = $hnet->name();
+		my $head1 = 'Linked Networks:';
+		my $head2 = "\002$hnetn\002";
+		my $head3 = join ' ', grep !($_ eq 'janus' || $_ eq $hnetn), sort keys %Janus::nets;
 		my %chans;
-		my $len = length($amsg) - 1;
+		my $len1 = length($head1) - 1;
+		my $len2 = length($head2);
 		for my $chan ($hnet->all_chans()) {
-			my @nets = $chan->nets();
-			next if @nets == 1;
-			my @list;
+			my %nets = map { $$_ => $_ } $chan->nets();
+			delete $nets{$$hnet};
+			next unless scalar keys %nets;
+			my $cnet = $chan->homenet();
+			my $cname = lc $chan->str($cnet);
 			my $hname = lc $chan->str($hnet);
-			for my $net (@nets) {
-				next if $net eq $hnet;
-				my $oname = lc $chan->str($net);
-				push @list, $net->name().($hname eq $oname ? '' : $oname);
+			my $hcol;
+			if ($hnet == $cnet) {
+				$hcol = "\002$hnetn\002";
+			} elsif ($cname eq $hname) {
+				$hcol = "\002".$cnet->name()."\002";
+				$len2 = length $hcol if length $hcol > $len2;
+			} else {
+				$hcol = "\002".$cnet->name()."$cname\002";
 			}
-			$len = length $hname if length $hname > $len;
-			$chans{$hname} = join ' ', sort @list;
+			my @list;
+			for my $net (values %nets) {
+				next if $net == $hnet || $net == $cnet;
+				my $oname = lc $chan->str($net);
+				push @list, $net->name().($cname eq $oname ? '' : $oname);
+			}
+			$len1 = length $hname if length $hname > $len1;
+			$chans{$hname} = [ $hname, $hcol, join ' ', sort @list ];
 		}
-		&Janus::jmsg($nick, sprintf '%-'.($len+1).'s %s', $amsg, $head);
+		&Janus::jmsg($nick, sprintf '%-'.($len1+1).'s %-'.$len2.'s %s', $head1, $head2, $head3);
 		&Janus::jmsg($nick, map {
-			sprintf " %-${len}s \%s", $_, $chans{$_};
+			sprintf " \%-${len1}s \%-${len2}s \%s", @{$chans{$_}};
 		} sort keys %chans);
 	}
 });
