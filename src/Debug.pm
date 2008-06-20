@@ -6,6 +6,8 @@ use warnings;
 
 our($IO, $action, $alloc, $info, $warn) = (1,1,1,1,1);
 
+our $last_err;
+
 sub netin {
 	return unless $IO;
 	my($net, $line) = @_;
@@ -47,7 +49,8 @@ sub usrerr {
 }
 
 sub err {
-	print "\e[31mERR: @_\e[m\n";
+	$last_err = join ' ', @_;
+	print "\e[31mERR: $last_err\e[m\n";
 }
 
 sub alloc {

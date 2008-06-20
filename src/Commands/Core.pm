@@ -76,13 +76,12 @@ use integer;
 		my($nick,$name) = @_;
 		return &Janus::jmsg($nick, "Invalid module name") unless $name =~ /^([0-9_A-Za-z:]+)$/;
 		my $n = $1;
+		my $over = $Janus::modinfo{$n}{version} || 'none';
 		if (&Janus::reload($n)) {
 			my $ver = $Janus::modinfo{$n}{version} || 'unknown';
-			&Janus::jmsg($nick, "Module $n reloaded ($ver)");
+			&Janus::jmsg($nick, "Module $n reloaded ($over => $ver)");
 		} else {
-			my $err = $@ || $!;
-			$err =~ s/\n/ /g;
-			&Janus::err_jmsg($nick, "Module load failed: $err");
+			&Janus::err_jmsg($nick, "Module load failed: $Debug::last_err");
 		}
 	},
 }, {
