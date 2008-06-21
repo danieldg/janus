@@ -147,15 +147,16 @@ use warnings;
 			my $cname = lc $chan->str($cnet);
 			my $hname = lc $chan->str($hnet);
 			my $hcol;
+			my @list = ($hnetn);
 			if ($hnet == $cnet) {
 				$hcol = "\002$hnetn\002";
+				@list = ();
 			} elsif ($cname eq $hname) {
 				$hcol = "\002".$cnet->name()."\002";
 				$len2 = length $hcol if length $hcol > $len2;
 			} else {
 				$hcol = "\002".$cnet->name()."$cname\002";
 			}
-			my @list;
 			for my $net (values %nets) {
 				next if $net == $hnet || $net == $cnet;
 				my $oname = lc $chan->str($net);

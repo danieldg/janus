@@ -61,15 +61,18 @@ sub pmsg {
 			my $rto = $Janus::ijnets{$1};
 			if ($rto) {
 				$act->{sendto} = $rto;
-			} else {
+			} elsif ($1 eq $RemoteJanus::self->id) {
 				delete $act->{sendto};
+			} else {
+				&Interface::jmsg($src, 'Network not found') if $act->{msgtype} eq 'PRIVMSG';
+				return 1;
 			}
 		}
 		return 0;
 	}
 
 	unless ($$src == 1 || $src->is_on($dst->homenet())) {
-		&Janus::jmsg($src, 'You must join a shared channel to speak with remote users') if $act->{msgtype} eq 'PRIVMSG';
+		&Interface::jmsg($src, 'You must join a shared channel to speak with remote users') if $act->{msgtype} eq 'PRIVMSG';
 		return 1;
 	}
 	undef;
@@ -123,7 +126,7 @@ sub pmsg {
 		my $src = $act->{src};
 		my $dst = $act->{dst};
 		return undef if $src->is_on($dst->homenet()) || $$dst == 1;
-		&Janus::jmsg($src, 'You cannot use this /whois syntax unless you are on a shared channel with the user');
+		&Interface::jmsg($src, 'You cannot use this /whois syntax unless you are on a shared channel with the user');
 		return 1;
 	}, CHATOPS => parse => sub {
 		my $act = shift;
