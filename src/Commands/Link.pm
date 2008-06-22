@@ -48,11 +48,11 @@ use warnings;
 		}
 
 		if (1 < scalar $chan1->nets()) {
-			&Janus::jsmg($nick, 'That channel is already linked');
+			&Janus::jmsg($nick, 'That channel is already linked');
 			return;
 		}
 		if ($Link::request{$net1->name()}{$cname1}{mode}) {
-			&Janus::jsmg($nick, 'This network is the owner for that channel. Use DESTROY to change this');
+			&Janus::jmsg($nick, 'This network is the owner for that channel. Use DESTROY to change this');
 			return;
 		}
 		&Janus::append(+{
@@ -96,7 +96,7 @@ use warnings;
 			return;
 		}
 		if (1 < scalar $chan->nets()) {
-			&Janus::jsmg($nick, 'That channel is already linked');
+			&Janus::jmsg($nick, 'That channel is already linked');
 			return;
 		}
 		&Janus::append(+{

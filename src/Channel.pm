@@ -511,7 +511,7 @@ sub unhook_destroyed {
 		my $net = $nets[$$chan]{$id};
 		my $name = $names[$$chan]{$id};
 		my $c = delete $Janus::gchans{$net->gid().lc $name};
-		if ($c != $chan) {
+		if ($c && $c != $chan) {
 			&Debug::err("Corrupted unhook! $$c found where $$chan expected");
 			$Janus::gchans{$net->gid().lc $name} = $c;
 			next;
