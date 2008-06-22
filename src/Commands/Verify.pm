@@ -4,151 +4,132 @@ package Commands::Verify;
 use strict;
 use warnings;
 
+my (@err, %cseen, %nseen, %sseen, %n_c);
+
+sub v_chan;
+sub v_nick;
+sub v_serv;
+
+sub v_nick {
+	my($nick,$path) = @_;
+	if (ref $nick eq 'Persist::Poison') {
+		my $id = $$nick->{id};
+		push @err, "Poisoned nick $id ($Nick::gid[$id] = $Nick::homenick[$id]) in $path";
+		return;
+	}
+	return if $nseen{$$nick};
+	$nseen{$$nick} = $nick;
+	my $gid = $nick->gid;
+	my $hn = $nick->homenick;
+	my $hs = $nick->homenet;
+
+	if ($Janus::gnicks{$gid} != $nick) {
+		push @err, "nick $$nick not in gnicks; found in $path";
+	}
+	if ($hs) {
+		v_serv $hs, "nick $$nick (homenet)";
+	} else {
+		push @err, "nick $$nick with no homenet found in $path";
+	}
+
+	for my $net ($nick->netlist) {
+		v_serv $net, "nick $$nick (list)";
+	}
+	for my $chan ($nick->all_chans) {
+		v_chan $chan, "nick $$nick (list)";
+		$n_c{$$nick.'-'.$$chan} |= 1;
+	}
+}
+
+sub v_serv {
+	my($net, $path) = @_;
+	if (ref $net eq 'Persist::Poison') {
+		my $id = $$net->{id};
+		push @err, "Poisoned network $id ($Network::gid[$id] = $Network::name[$id]) in $path";
+		return;
+	}
+	return if $sseen{$$net};
+	$sseen{$$net} = $net;
+
+	my $gid = $net->gid;
+	my $name = $net->name;
+
+	if ($Janus::gnets{$gid} != $net) {
+		push @err, "net $$net ($name - $gid) not in gnets; found in $path";
+	}
+	if ($Janus::nets{$name} != $net) {
+		push @err, "net $$net ($name - $gid) not in nets; found in $path";
+	}
+
+	for my $nick ($net->all_nicks) {
+		v_nick $nick, "network $$net (list)";
+	}
+
+	for my $chan ($net->all_chans) {
+		v_chan $chan, "network $$net (list)";
+	}
+}
+
+sub v_chan {
+	my($chan, $path) = @_;
+	if (ref $chan eq 'Persist::Poison') {
+		my $id = $$chan->{id};
+		push @err, "Poisoned channel $id ($Channel::keyname[$id]) in $path";
+		return;
+	}
+	return if $cseen{$$chan};
+	$cseen{$$chan} = $chan;
+
+	my $kn = $chan->keyname;
+	my $hnet = $chan->homenet;
+
+	if ($Janus::gchans{$kn} != $chan) {
+		push @err, "channel $$chan not in gchans; found in $path";
+	}
+
+	for my $net ($chan->nets) {
+		v_serv $net, "channel $$chan (list)";
+		my $name = $chan->str($net);
+		if ($net->isa('LocalNetwork') && $net->chan($name) != $chan) {
+			push @err, "channel $$chan not associated with $name in network $$net; found in $path";
+		}
+	}
+
+	for my $nick ($chan->all_nicks) {
+		v_nick $nick, "channel $$chan (list)";
+		$n_c{$$nick.'-'.$$chan} |= 2;
+	}
+}
+
 sub verify {
 	my($nick,$tryfix) = @_;
 	my $ts = $Janus::time;
 	my $oops = 0;
-	my @fixes;
-	open my $dump, '>', "log/verify-$ts" or return;
-	for my $nick (values %Janus::gnicks) {
-		my $hn = $nick->homenick();
-		my $ht = $nick->homenet() or do {
-			print $dump "nick $$nick has null homenet\n";
-			$oops++;
-			next;
-		};
-		for my $net ($nick->netlist()) {
-			my $rf = $Janus::gnets{$net->gid()};
-			if (!$rf || $rf ne $net) {
-				push @fixes, +{
-					type => 'KILL',
-					dst => $nick,
-					net => $net,
-					msg => 'Please rejoin | Fixing internal corruption',
-				};
-				print $dump "nick $$nick on dropped network $$net\n";
-				$oops++;
-			} else {
-				$rf = $Janus::nets{$net->name()};
-				if (!$rf || $rf ne $net) {
-					print $dump "nick $$nick on replaced network $$net\n";
-					$oops++;
-				}
-			}
-		}
-		for my $chan ($nick->all_chans()) {
-			my $hcname = $chan->str($ht);
-			unless ($ht->jlink() || $nick eq $Interface::janus) {
-				my $hchan = $ht->chan($hcname);
-				if (!$hchan || $hchan ne $chan) {
-					print $dump "nick $$nick on dropped channel $$chan=$hcname\n";
-					$oops++;
-					push @fixes, +{
-						type => 'KICK',
-						dst => $chan,
-						kickee => $nick,
-						msg => 'Please rejoin | Fixing internal corruption',
-					};
-					next;
-				}
-			}
-			my $kn = $chan->keyname();
-			my $rf = $Janus::gchans{$kn};
-			if (!$rf || $rf ne $chan) {
-				print $dump "nick $$nick on miskeyed channel $$chan=$kn\n";
-				$oops++;
-			}
+	(@err, %cseen, %nseen, %sseen, %n_c) = ();
+
+	v_nick $_,'gnicks' for values %Janus::gnicks;
+	v_chan $_,'gchans' for values %Janus::gchans;
+	v_serv $_,'gnets' for values %Janus::gnets;
+	v_serv $_,'nets' for values %Janus::nets;
+
+	while (my($k,$v) = each %n_c) {
+		next if $v == 3;
+		if ($v == 1) {
+			push @err, "membership c-n $k is in nick's table but not channel's";
+		} elsif ($v == 2) {
+			push @err, "membership c-n $k is in channel's table but not nick's";
 		}
 	}
-	my %seen;
-	for my $chan (values %Janus::gchans) {
-		next if $seen{$chan}++;
-		my $fix_kn;
-		if ($Janus::gchans{$chan->keyname()} ne $chan) {
-			print $dump "channel $$chan is not registered on its keyname\n";
-			$oops++;
-			$fix_kn = 1 if $tryfix =~ /^y/;
-		}
-		for my $net ($chan->nets()) {
-			my $rf = $Janus::gnets{$net->gid()};
-			if (!$rf || $rf ne $net) {
-				print $dump "channel $$chan on dropped network $$net\n";
-				$oops++;
-				push @fixes, +{
-					type => 'DELINK',
-					net => $net,
-					reason => 'Fixes from validate',
-				};
-			} else {
-				$rf = $Janus::nets{$net->name()};
-				if (!$rf || $rf ne $net) {
-					print $dump "channel $$chan on replaced network $$net\n";
-					$oops++;
-				} elsif ($fix_kn) {
-					$Persist::vars{Channel}{keyname}[$$chan] = lc ($net->gid().$chan->str($net));
-					$fix_kn = 0;
-				}
-			}
-		}
-		for my $nick ($chan->all_nicks()) {
-			my $gid = $nick->gid();
-			my $gn = $Janus::gnicks{$gid};
-			if (!$gn || $gn ne $nick) {
-				print $dump "channel $$chan contains dropped nick $$nick\n";
-				$oops++;
-				push @fixes, +{
-					type => 'KICK',
-					dst => $chan,
-					kickee => $nick,
-					msg => 'Please rejoin | Fixing internal corruption',
-				};
-			}
-		}
+
+	if (@err) {
+		open my $dump, '>', "log/verify-$ts" or return;
+		print $dump "$_\n" for @err;
+		close $dump;
+		&Janus::jmsg($nick, scalar @err, "problems found - report is in log/verify-$ts");
+	} else {
+		&Janus::jmsg($nick, 'No problems found');
 	}
-	for my $net (values %Janus::nets) {
-		for my $nick ($net->all_nicks()) {
-			my $gid = $nick->gid();
-			my $gn = $Janus::gnicks{$gid};
-			if (!$gn || $gn ne $nick) {
-				print $dump "net $$net contains dropped nick $$nick\n";
-				$oops++;
-			}
-			unless ($nick->is_on($net)) {
-				print $dump "net $$net contains nick $$nick which doesn't agree\n";
-				$oops++;
-			}
-		}
-		for my $chan ($net->all_chans()) {
-			my $kn = $chan->keyname();
-			my $rf = $Janus::gchans{$kn};
-			if (!$rf || $rf ne $chan) {
-				print $dump "net $$net contains miskeyed channel $$chan=$kn\n";
-				$oops++;
-			}
-			unless ($chan->is_on($net)) {
-				print $dump "net $$net contains channel $$chan which doesn't agree\n";
-				$oops++;
-			}
-			next if $net->jlink();
-			my $name = $chan->str($net);
-			my $nch = $net->chan($name);
-			if (!$nch || $nch ne $chan) {
-				print $dump "net $$net has misnamed channel $$chan=$name\n";
-				$oops++;
-			}
-		}
-	}
-	close $dump;
-	&Janus::jmsg($nick, "$oops problems found - report is in log/verify-$ts");
-	if ($tryfix eq 'yes') {
-		my $nobody = [];
-		for (@fixes) {
-			$_->{sendto} = $nobody;
-			$_->{nojlink} = 1;
-		}
-		&Janus::insert_full(@fixes);
-		&Janus::jmsg($nick, 'Fixes applied');
-	}
+	(@err, %cseen, %nseen, %sseen, %n_c) = ();
 }
 
 &Janus::command_add({
