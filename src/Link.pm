@@ -144,6 +144,10 @@ sub send_avail {
 		my $snetn = $snet->name();
 		my $sname = $schan->str($snet);
 		my $dnet = $act->{dst};
+		if ($request{$snetn}{lc $sname}{mode}) {
+			&Debug::info("Link request: not overriding created");
+			return;
+		}
 		$request{$snetn}{lc $sname} = {
 			net => $dnet->name(),
 			chan => $act->{dlink},
