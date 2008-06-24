@@ -1123,9 +1123,7 @@ $moddef{CORE} = {
 				);
 			}
 		} else {
-			my @interp = $net->_mode_interp($chan->mode_delta());
-			# delta from channel to undef == remove all modes. We want to add.
-			$interp[0] =~ tr/-+/+-/ unless $interp[0] eq '+';
+			my @interp = &Modes::to_multi($net, &Modes::delta(undef, $chan));
 			return $net->ncmd(FMODE => $chan, $act->{ts}, @interp);
 		}
 	}, MSG => sub {
