@@ -125,7 +125,7 @@ sub verify {
 		open my $dump, '>', "log/verify-$ts" or return;
 		print $dump "$_\n" for @err;
 		close $dump;
-		&Janus::jmsg($nick, scalar @err, "problems found - report is in log/verify-$ts");
+		&Janus::jmsg($nick, scalar(@err)." problems found - report is in log/verify-$ts");
 	} else {
 		&Janus::jmsg($nick, 'No problems found');
 	}

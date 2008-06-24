@@ -291,7 +291,7 @@ sub unhook_destroyed {
 	&LocalNetwork::replace_chan(undef, $keyname[$$chan], undef);
 }
 
-1 ] : '#line '.__LINE__.' "'.__FILE__.'"'.q[
+1 ] : '#line '.__LINE__.' "'.__FILE__.qq{"\n}.q[
 ### LINK MODE ###
 our @homenet; # controlling network of this channel
 our @names;   # channel's name on the various networks
@@ -511,7 +511,7 @@ sub unhook_destroyed {
 		my $net = $nets[$$chan]{$id};
 		my $name = $names[$$chan]{$id};
 		my $c = delete $Janus::gchans{$net->gid().lc $name};
-		if ($c && $c != $chan) {
+		if ($c && $c ne $chan) {
 			&Debug::err("Corrupted unhook! $$c found where $$chan expected");
 			$Janus::gchans{$net->gid().lc $name} = $c;
 			next;
@@ -594,6 +594,7 @@ sub del_remoteonly {
 					type => 'DELINK',
 					net => $on,
 					dst => $chan,
+					netsplit_quit => $act->{netsplit_quit},
 					nojlink => 1,
 				});
 			}
@@ -624,6 +625,7 @@ sub del_remoteonly {
 
 		$act->{split} = $split;
 		$split->_modecpy($chan);
+		$Janus::gchans{$net->gid().lc $name} = $split;
 		$net->replace_chan($name, $split) unless $net->jlink();
 
 		my @presplit = @{$nicks[$$chan]};
@@ -679,7 +681,6 @@ sub del_remoteonly {
 				net => $net,
 				netsplit_quit => 1,
 				except => $net,
-				reason => 'netsplit',
 				nojlink => 1,
 			};
 		}
