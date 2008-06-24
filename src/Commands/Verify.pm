@@ -115,9 +115,9 @@ sub verify {
 	while (my($k,$v) = each %n_c) {
 		next if $v == 3;
 		if ($v == 1) {
-			push @err, "membership c-n $k is in nick's table but not channel's";
+			push @err, "membership n-c $k is in nick's table but not channel's";
 		} elsif ($v == 2) {
-			push @err, "membership c-n $k is in channel's table but not nick's";
+			push @err, "membership n-c $k is in channel's table but not nick's";
 		}
 	}
 

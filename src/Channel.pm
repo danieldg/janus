@@ -419,13 +419,12 @@ sub add_net {
 		$nick->rejoin($chan);
 		next if $$nick == 1 || $nick->jlink();
 		# Every network must send JOINs for its own nicks
-		# to the network
+		# to all networks
 		&Janus::append(+{
 			type => 'JOIN',
 			src => $nick,
 			dst => $chan,
 			mode => $chan->get_nmode($nick),
-			sendto => $net,
 		});
 	}
 
