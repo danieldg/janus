@@ -1482,7 +1482,8 @@ sub cmd2 {
 		my($net,$act) = @_;
 		return () if $act->{netsplit_quit};
 		if ($act->{net} eq $net) {
-			my $name = $act->{split}->str($net);
+			my $split = $act->{split} || $act->{dst};
+			my $name = $split->str($net);
 			my $nick = $act->{src} ? $act->{src}->str($net) : 'janus';
 			$net->cmd1(GLOBOPS => "Channel $name delinked by $nick");
 		} else {
