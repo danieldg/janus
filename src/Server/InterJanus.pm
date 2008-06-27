@@ -105,7 +105,7 @@ my %v_type; %v_type = (
 		s/^>// or warn;
 		my $id = $h->{id};
 		my $parent = $h->{parent};
-		if ($Janus::ijnets{$id}) {
+		if ($Janus::ijnets{$id} || $id eq $RemoteJanus::self->id) {
 			&Janus::insert_full(+{
 				type => 'JNETSPLIT',
 				net => $ij,

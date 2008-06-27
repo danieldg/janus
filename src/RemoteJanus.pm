@@ -52,6 +52,11 @@ sub jparent {
 &Janus::hook_add(
 	'INIT' => act => sub {
 		$self = RemoteJanus->new(id => $Conffile::netconf{set}{name});
+	}, JNETLINK => check => sub {
+		my $act = shift;
+		my $net = $act->{net};
+		$act->{except} = $act->{net} unless $net->parent();
+		0;
 	},
 );
 
