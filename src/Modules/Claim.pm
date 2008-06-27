@@ -62,6 +62,7 @@ sub acl_ok {
 	my $snet = $src->isa('Network') ? $src : $src->homenet;
 	$snet->name() eq $_ and return 1 for split /,/, $claim;
 	if ($src->isa('Nick')) {
+		return 1 if $$src == 1;
 		# this is not a true operoverride check, just makes sure acting users
 		# have >= halfop. This is really good enough, if you have halfop you
 		# have a trust relationship with chanops, and they can remove it when
