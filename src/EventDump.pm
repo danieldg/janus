@@ -42,7 +42,7 @@ sub ijstr {
 	} elsif ($ref eq 'Nick') {
 		return 'n:'.$itm->gid();
 	} elsif ($ref eq 'Channel') {
-		return 'c:'.$itm->keyname();
+		return 'c:'.$itm->real_keyname;
 	} elsif ($itm->isa('Network')) {
 		return 's:'.$itm->gid();
 	} elsif ($itm->isa('RemoteJanus')) {
@@ -50,9 +50,9 @@ sub ijstr {
 	} elsif ($itm->isa('Janus')) {
 		return 'j:*';
 	} elsif ($itm->isa('Nick')) {
-		return 'n:'.$itm->gid();
+		return 'n:'.$itm->gid;
 	} elsif ($itm->isa('Channel')) {
-		return 'c:'.$itm->keyname();
+		return 'c:'.$itm->real_keyname;
 	} elsif ($itm->isa('Pending')) {
 		return 'pend:'.$$itm;
 	}

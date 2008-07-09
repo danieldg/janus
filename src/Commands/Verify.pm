@@ -83,8 +83,16 @@ sub v_chan {
 	my $kn = $chan->keyname;
 	my $hnet = $chan->homenet;
 
-	if ($Janus::gchans{$kn} != $chan) {
+	if ($kn && $Janus::gchans{$kn} != $chan) {
 		push @err, "channel $$chan not in gchans; found in $path";
+	}
+	if (!$kn && $Janus::gchans{$chan->real_keyname}) {
+		my $imp = $Janus::gchans{$chan->real_keyname};
+		if ($imp == $chan) {
+			push @err, "Channel $$chan in gchans but is not keyed";
+		} else {
+			push @err, "Channel $$imp in gchans with keyname from $$chan (from $path)";
+		}
 	}
 
 	for my $net ($chan->nets) {

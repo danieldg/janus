@@ -17,18 +17,6 @@ Object representing a set of linked channels
 
 Create a new channel. Should only be called by LocalNetwork and InterJanus.
 
-=over
-
-=item ts, mode, topic, topicts, topicset - same as getters
-
-=item keyname - if set, is assumed to be a merging channel
-
-=item names - hashref of netname => channame. Only used if keyname set
-
-=item net - network this channel is on. Only used if keyname unset
-
-=back
-
 =item $chan->ts()
 
 Timestamp for this channel
@@ -332,7 +320,6 @@ sub _init {
 	if ($ifo->{net}) {
 		my $net = $ifo->{net};
 		my $kn = $net->gid().lc $ifo->{name};
-		$keyname[$$c] = $kn;
 		$homenet[$$c] = $net;
 		$nets[$$c]{$$net} = $net;
 		$names[$$c]{$$net} = $ifo->{name};
@@ -345,10 +332,10 @@ sub _init {
 			my $net = $Janus::gnets{$id} or warn next;
 			$names[$$c]{$$net} = $name;
 			$nets[$$c]{$$net} = $net;
-			my $kn = $net->gid().lc $name;
-			$keyname[$$c] = $kn if $net == $homenet[$$c];
+			if ($net == $homenet[$$c] && 1 < scalar keys %$names) {
+				$keyname[$$c] = $net->gid().lc $name;
+			}
 		}
-		&Debug::err("Constructing unkeyed channel!") unless $keyname[$$c];
 	}
 	join ',', sort map { $_.$names[$$c]{$_} } keys %{$names[$$c]};
 }
@@ -377,9 +364,7 @@ sub add_net {
 	$nets[$$chan]{$$net} = $net;
 	$names[$$chan]{$$net} = $sname;
 
-	$Janus::gchans{$net->gid().lc $sname} = $chan;
-
-	&Debug::info("Link $keyname[$$src] into $keyname[$$chan] ($$src -> $$chan)");
+	&Debug::info("Link ".$net->name."$sname into $keyname[$$chan] ($$net:$$src -> $$chan)");
 
 	my $tsctl = ($ts[$$src] <=> $ts[$$chan]);
 
@@ -503,6 +488,12 @@ sub sendto {
 	values %{$nets[$$chan]};
 }
 
+sub real_keyname {
+	my $chan = shift;
+	my $hn = $homenet[$$chan];
+	$hn->gid . lc $chan->str($hn);
+}
+
 sub unhook_destroyed {
 	my $chan = shift;
 	# destroy channel
@@ -572,15 +563,17 @@ sub del_remoteonly {
 		my $act = shift;
 		my $dchan = $act->{dst};
 		my $schan = $act->{in};
-		my $gchan = $Janus::gchans{$dchan->keyname()};
 
-		if (!$gchan || $dchan == $gchan) {
+		my $kn = $dchan->real_keyname;
+		$keyname[$$dchan] = $kn;
+
+		my $gchan = $Janus::gchans{$kn} || $dchan;
+		$Janus::gchans{$kn} = $dchan;
+
+		if ($dchan == $gchan) {
 			$dchan->add_net($schan);
 		} else {
 			$dchan->migrate_from($schan, $gchan);
-		}
-		for my $net ($dchan->nets()) {
-			$Janus::gchans{$net->gid().lc $dchan->str($net)} = $dchan;
 		}
 	}, DELINK => check => sub {
 		my $act = shift;
@@ -624,7 +617,7 @@ sub del_remoteonly {
 
 		$act->{split} = $split;
 		$split->_modecpy($chan);
-		$Janus::gchans{$net->gid().lc $name} = $split;
+		delete $Janus::gchans{$split->real_keyname};
 		$net->replace_chan($name, $split) unless $net->jlink();
 
 		my @presplit = @{$nicks[$$chan]};
