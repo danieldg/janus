@@ -6,6 +6,8 @@ use warnings;
 use integer;
 our $ipv6;
 BEGIN {
+	our $XS;
+	die "Connection cannot be reloaded in C mode" if $XS;
 	$ipv6 = $Conffile::netconf{set}{ipv6} ? 1 : 0 unless defined $ipv6;
 	require IO::Socket::SSL;
 	if ($ipv6) {
@@ -21,8 +23,6 @@ BEGIN {
 		IO::Socket::SSL->import();
 		Socket->import();
 	}
-	our $XS;
-	die "Connection cannot be reloaded in C mode" if $XS;
 }
 use Debug;
 use Scalar::Util qw(tainted);

@@ -71,12 +71,17 @@ my %timespec = (
 	cmd => 'ban',
 	help => 'Manages Janus bans (bans remote users)',
 	details => [
-		'Bans are matched against nick!ident@host%netid on any remote joins to a shared channel',
-		'Syntax is the same as a standard IRC ban',
-		'Expiration can be of the form 1y1w3d4h5m6s, or just # of seconds, or 0 for a permanent ban',
-		" \002ban list\002                      List all active janus bans on your network",
-		" \002ban add\002 expr length reason    Add a ban (applied to new users only)",
-		" \002ban del\002 [expr|index]          Remove a ban by expression or index in the ban list",
+		'Bans are matched on connects to shared channels, and generate autokicks.',
+		" \002ban list\002               List all active janus bans",
+		" \002ban add\002 expr           Add a ban (applied to new users only)",
+		" \002ban del\002 index          Remove a ban by expression or index in the ban list",
+		'expr consists of one or more of the following:',
+		' (nick|ident|host|name) item    Matches using standard IRC ban syntax',
+		' (to|from) network              Matches the source or destination network',
+		' for 2w4d12h5m2s                Time the ban is applied (0 or unspecified = perm)',
+		' /perl regex/                   Regex matched against nick!ident@host:name',
+		' [any other text]               Added to the ban reason',
+		'a nick must match all of the conditions on the ban to be banned.',
 	],
 	acl => 1,
 	code => sub {
@@ -103,14 +108,14 @@ my %timespec = (
 			my %ban = (setter => $nick->realhostmask);
 			local $_ = $args;
 			while (length) {
-				if (s#^(nick|ident|host|name|to|from|for)\s+((?:"(?:[^\\"]|\\.)*+"|\S+))\s*##i) {
+				if (s#^(nick|ident|host|name|to|from|for)\s+((?:"(?:[^\\"]|\\.)*"|\S+))\s*##i) {
 					my $k = lc $1;
 					my $v = $2;
 					$v =~ s/^"(.*)"$/$1/ and $v =~ s/\\(.)/$1/g;
 					$ban{$k} = $v;
-				} elsif (s#^/((?:[^\\/]|\\.)*+)/\s*##) {
+				} elsif (s#^/((?:[^\\/]|\\.)*)/\s*##) {
 					$ban{perlre} = qr($1);
-				} elsif (s#^(\S+\s*)##) {
+				} elsif (s#^((?:\S+|"[^"]+")\s*)##) {
 					$ban{reason} .= $1;
 				} else {
 					warn;
