@@ -43,7 +43,7 @@ sub find {
 	my $ip = $new->info('ip');
 	my $name = $new->info('name');
 	my $retxt = "$nick\!$ident\@$host\:$name";
-	@bans = grep { my $e = $b->{expire}; !$e || $e < $Janus::time } @bans;
+	@bans = grep { my $e = $_->{expire}; !$e || $e > $Janus::time } @bans;
 	for my $b (@bans) {
 		next if $b->{to} && $b->{to} !~ /$to/;
 		next if $b->{from} && $b->{from} !~ /$from/;
@@ -74,7 +74,7 @@ my %timespec = (
 		'Bans are matched on connects to shared channels, and generate autokicks.',
 		" \002ban list\002               List all active janus bans",
 		" \002ban add\002 expr           Add a ban (applied to new users only)",
-		" \002ban del\002 index          Remove a ban by expression or index in the ban list",
+		" \002ban del\002 index          Remove a ban by index in the ban list",
 		'expr consists of one or more of the following:',
 		' (nick|ident|host|name) item    Matches using standard IRC ban syntax',
 		' (to|from) network              Matches the source or destination network',
@@ -91,7 +91,7 @@ my %timespec = (
 		my $net = $nick->homenet;
 		if ($cmd =~ /^l/i) {
 			my $c = 0;
-			@bans = grep { my $e = $b->{expire}; !$e || $e < $Janus::time } @bans;
+			@bans = grep { my $e = $_->{expire}; !$e || $e > $Janus::time } @bans;
 			for my $ban (@bans) {
 				my $str = ++$c;
 				for (qw/perlre nick ident host name setter reason to from/) {
