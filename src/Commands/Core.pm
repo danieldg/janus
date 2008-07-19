@@ -5,6 +5,8 @@ use strict;
 use warnings;
 use integer;
 
+$perl::VERSION = sprintf '%vd', $^V;
+
 &Janus::command_add({
 	cmd => 'info',
 	help => 'Provides information about janus',
@@ -33,11 +35,11 @@ use integer;
 		my $w = $parm =~ /(\d)/ ? $1 : 3;
 		my @mods;
 		if ($parm =~ /^j/) {
-			@mods = sort 'main', grep { $main::INC{$_} !~ /^\// } keys %main::INC;
+			@mods = sort('main', grep { $main::INC{$_} !~ /^\// } keys %main::INC);
 		} elsif ($parm =~ /^o/) {
-			@mods = sort grep { $main::INC{$_} =~ /^\// } keys %main::INC;
+			@mods = sort('perl', grep { $main::INC{$_} =~ /^\// } keys %main::INC);
 		} else {
-			@mods = sort('main', keys %main::INC);
+			@mods = sort('main', 'perl', keys %main::INC);
 		}
 		my($m1, $m2) = (10,3); #min lengths
 		my @mvs;
@@ -45,7 +47,9 @@ use integer;
 			s/\.pmc?$//;
 			s#/#::#g;
 			my $v;
-			if ($Janus::modinfo{$_}) {
+			if ($parm =~ /^s/i) {
+				$v = $Janus::modinfo{$_} ? substr $Janus::modinfo{$_}{sha}, 0, 10 : '';
+			} elsif ($Janus::modinfo{$_}) {
 				$v = $Janus::modinfo{$_}{version};
 			} else {
 				no strict 'refs';
