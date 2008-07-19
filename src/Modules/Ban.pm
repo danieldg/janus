@@ -115,8 +115,10 @@ my %timespec = (
 					$ban{$k} = $v;
 				} elsif (s#^/((?:[^\\/]|\\.)*)/\s*##) {
 					$ban{perlre} = qr($1);
-				} elsif (s#^((?:\S+|"[^"]+")\s*)##) {
-					$ban{reason} .= $1;
+				} elsif (s#^((?:[^" ]+|"[^"]+")\s*)##) {
+					return &Janus::jmsg($nick, 'Invalid syntax (use quotes for the reason)') if $ban{reason};
+					$ban{reason} = $1;
+					$ban{reason} =~ s/"//g;
 				} else {
 					warn;
 					last;
@@ -131,9 +133,14 @@ my %timespec = (
 					&Janus::jmsg($nick, 'Invalid characters in ban length');
 					return;
 				}
-			} else {
+			} elsif (defined delete $ban{for}) {
 				$ban{expire} = 0;
+			} else {
+				$ban{expire} = $Janus::time + 604800;
 			}
+			my $itms = 0;
+			exists $ban{$_} and $itms++ for qw(nick ident host name perlre);
+			return &Janus::jmsg($nick, 'Ban too wide') unless $itms;
 			push @bans, \%ban;
 			&Janus::jmsg($nick, 'Ban added');
 			# TODO kadd
