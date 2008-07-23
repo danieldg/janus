@@ -25,9 +25,12 @@ sub hook_add {
 	while (@_) {
 		my ($type, $level, $sub) = (shift, shift, shift);
 		warn unless $sub;
-		$hook_mod{$type.'/'.$level}{$module} = $sub;
+		my $when = $type.'/'.$level;
+		$hook_mod{$when}{$module} = $sub;
 		delete $hook_chk{$type};
 		delete $hook_run{$type};
+		$when =~ s/:.*//;
+		delete $hook_run{$when};
 	}
 }
 
@@ -147,8 +150,7 @@ sub _runq {
 }
 
 sub enum_hooks {
-	my($type, $lvl) = @_;
-	my $pfx = "$type/$lvl";
+	my $pfx = $_[0];
 	return
 		map { values %{$hook_mod{$_}} }
 		sort { ($a =~ /:([-0-9.]+)/ ? $1 : 0) <=> ($b =~ /:([-0-9.]+)/ ? $1 : 0) }
@@ -163,13 +165,13 @@ sub _run {
 	unless ($chk && $run) {
 		($chk, $run) = ([], []);
 		
-		push @$chk, enum_hooks($type, 'parse');
-		push @$chk, enum_hooks('ALL', 'validate');
-		push @$chk, enum_hooks($type, 'check');
+		push @$chk, enum_hooks($type . '/parse');
+		push @$chk, enum_hooks('ALL/validate');
+		push @$chk, enum_hooks($type . '/check');
 
-		push @$run, enum_hooks($type, 'act');
+		push @$run, enum_hooks($type . '/act');
 		push @$run, \&_send;
-		push @$run, enum_hooks($type, 'cleanup');
+		push @$run, enum_hooks($type . '/cleanup');
 
 		($hook_chk{$type}, $hook_run{$type}) = ($chk,$run);
 	}
@@ -300,15 +302,20 @@ sub named_hook {
 	my($name, @args) = @_;
 	local $_;
 
-	my @hooks = enum_hooks('ALL', $name);
-	for my $hook (@hooks) {
+	$name = 'ALL/'.$name unless $name =~ m#/#;
+	my $hooks = $hook_run{$name};
+	unless ($hooks) {
+		$hook_run{$name} = $hooks = [];
+		@$hooks = enum_hooks($name);
+	}
+	for my $hook (@$hooks) {
 		eval {
 			$hook->(@args);
 			1;
 		} or do {
 			my @hifo = find_hook($hook);
-			if ($name eq 'die') {
-				&Debug::err("Unchecked exception in die hook, from module $hifo[0]: $@");
+			if ($name eq 'ALL/die') {
+				&Log::err("Unchecked exception in die hook, from module $hifo[0]: $@");
 			} else {
 				named_hook('die', $@, @hifo, @args);
 			}
@@ -354,7 +361,7 @@ sub next_event {
 	$max;
 }
 
-sub _wipe_hooks {
+sub wipe_hooks {
 	my $module = $_[0];
 	for my $hk (values %hook_mod) {
 		delete $hk->{$module};
@@ -372,9 +379,9 @@ Event::hook_add(
 	ALL => 'die' => sub {
 		&Debug::err(@_);
 	}, MODUNLOAD => act => sub {
-		_wipe_hooks($_[0]->{module});
+		wipe_hooks($_[0]->{module});
 	}, MODRELOAD => 'act:-1' => sub {
-		_wipe_hooks($_[0]->{module});
+		wipe_hooks($_[0]->{module});
 	}
 );
 

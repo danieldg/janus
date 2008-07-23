@@ -23,6 +23,8 @@ our $VERSION = '1.12';
 unless ($^P) {
 	# $^P is nonzero if run inside perl -d
 	open STDIN, '/dev/null' or die $!;
+	open STDOUT, '>daemon.log' or die $!;
+	open STDERR, '>&', \*STDOUT or die $!;
 	my $pid = fork;
 	die $! unless defined $pid;
 	if ($pid) {
@@ -34,6 +36,10 @@ unless ($^P) {
 		exit;
 	}
 	setsid;
+} else {
+	require Log::Debug;
+	@Log::listeners = $Log::Debug::INST;
+	&Log::dump_queue();
 }
 
 $| = 1;

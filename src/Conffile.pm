@@ -29,10 +29,7 @@ sub read_conf {
 		chomp;
 		s/\s*$//;
 		next if /^\s*(#|$)/;
-		s/^\s*(\S+)\s*// or do {
-			&Debug::usrerr("Line $. of config file could not be parsed");
-			next;
-		};
+		s/^\s*(\S+)\s*// or die;
 		my $type = $1;
 
 		if ($type eq 'link') {
@@ -58,6 +55,16 @@ sub read_conf {
 			};
 			$current = { addr => $1 };
 			$newconf{'LISTEN:'.$1} = $current;
+		} elsif ($type eq 'log') {
+			if (defined $current) {
+				&Janus::err_jmsg($nick, "Missing closing brace at line $. of config file, aborting");
+				return;
+			}
+			/^(\S+)(?: |$)/ or do {
+				&Janus::err_jmsg($nick, "Error in line $. of config file: expected log name");
+				return;
+			};
+			$newconf{'LOG:'.$1} = $current = { name => $1 };
 		} elsif ($type eq 'set' || $type eq 'modules') {
 			if (defined $current) {
 				&Janus::err_jmsg($nick, "Missing closing brace at line $. of config file, aborting");
@@ -104,6 +111,26 @@ sub read_conf {
 	}
 	%netconf = %newconf;
 
+	my @loggers;
+	for my $id (keys %newconf) {
+		next unless $id =~ /LOG:(.*)/;
+		my $log = $newconf{$id};
+		my $type = 'Log::'.$log->{type};
+		&Janus::load($type) or do {
+			&Janus::err_jmsg($nick, "Could not load module $type: $@");
+			next;
+		};
+		push @loggers, $type->new(%$log);
+	}
+	unless (@loggers) {
+		require Log::Debug;
+		push @loggers, $Log::Debug::INST;
+	}
+	unless ($^P) {
+		@Log::listeners = @loggers;
+		&Log::dump_queue();
+	}
+
 	$newconf{modules}{$_}++ for qw(Interface Actions Commands::Core);
 	for my $mod (sort keys %{$newconf{modules}}) {
 		unless (&Janus::load($mod)) {
@@ -118,7 +145,7 @@ sub connect_net {
 	return if !$nconf || exists $Janus::nets{$id} || exists $Janus::ijnets{$id};
 	if ($id =~ /^LISTEN:/) {
 		return if $Listener::open{$id};
-		&Debug::info("Listening on $nconf->{addr}");
+		&Log::info("Listening on $nconf->{addr}");
 		my $sock = &Connection::init_listen(
 			($nconf->{addr} =~ /^(.*):(\d+)/) ? ($1, $2) : ('', $nconf->{addr})
 		);
@@ -129,12 +156,12 @@ sub connect_net {
 			&Janus::err_jmsg($nick, "Could not listen on port $nconf->{addr}: $!");
 		}
 	} elsif ($nconf->{autoconnect}) {
-		&Debug::info("Autoconnecting $id");
+		&Log::info("Autoconnecting $id");
 		my $type = 'Server::'.$nconf->{type};
 		unless (&Janus::load($type)) {
 			&Janus::err_jmsg($nick, "Error creating $type network $id: $@");
 		} else {
-			&Debug::info("Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}");
+			&Log::info("Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}");
 
 			my($addr, $port, $bind) = @$nconf{qw(linkaddr linkport linkbind)};
 			my $ssl = ($nconf->{linktype} =~ /^ssl/);
@@ -186,10 +213,10 @@ sub autoconnect {
 			my $item = 2 * $netconf{$id}{backoff}++;
 			my $rt = int sqrt $item;
 			if ($item == $rt * ($rt + 1)) {
-				&Debug::info("Backoff $item - Connecting");
+				&Log::info("Backoff $item - Connecting");
 				connect_net undef,$id;
 			} else {
-				&Debug::info("Backoff: $item != ".$rt*($rt+1));
+				&Log::info("Backoff: $item != ".$rt*($rt+1));
 			}
 		}
 	}

@@ -3,116 +3,14 @@
 package Debug;
 use strict;
 use warnings;
+use Log;
 
-our($IO, $action, $alloc, $info, $warn) = (1,1,1,1,1);
-
-our $last_err;
-
-sub netin {
-	return unless $IO;
-	my($net, $line) = @_;
-	my $name = 
-		$net->can('name') ? $net->name() : 
-		$net->can('id') ? $net->id() : $$net;
-	print "\e[32m    IN\@$name $line\e[m\n";
+our $AUTOLOAD;
+sub AUTOLOAD {
+	my $i = $AUTOLOAD;
+	$i =~ s/Debug::/Log::/;
+	$Log::AUTOLOAD = $i;
+	goto &Log::AUTOLOAD;
 }
-
-sub netout {
-	return unless $IO;
-	my($net, $line) = @_;
-	my $name = 
-		$net->can('name') ? $net->name() : 
-		$net->can('id') ? $net->id() : $$net;
-	print "\e[34m   OUT\@$name $line\e[m\n";
-}
-
-sub warn_in {
-	return unless $warn;
-	my($src, $msg) = @_;
-	my $name = $EventDump::INST->ijstr($src);
-	print "\e[35m \@$name $msg\e[m\n";
-}
-
-sub warn {
-	return unless $warn;
-	print "\e[35mWARN: @_\e[m\n";
-}
-
-sub err_in {
-	my($src, $msg) = @_;
-	my $name = $EventDump::INST->ijstr($src);
-	print "\e[31m \@$name $msg\e[m\n";
-}
-
-sub usrerr {
-	print "\e[31m@_\e[m\n";
-}
-
-sub err {
-	$last_err = join ' ', @_;
-	print "\e[31mERR: $last_err\e[m\n";
-}
-
-sub alloc {
-	return unless $alloc;
-	my$obj = shift;
-	print "\e[36m  ".ref($obj).":$$obj ",
-		join(' ', @_), "\e[m\n";
-}
-
-sub info {
-	return unless $info;
-	print "\e[36m @_\e[m\n";
-}
-
-sub action {
-	return unless $action;
-	print "\e[33m   ACTION @_\e[m\n";
-}
-
-sub hook_err {
-	my($act, $msg) = @_;
-	print "\e[35m$msg ";
-	eval {
-		print $EventDump::INST->ssend($act);
-		1;
-	} or do {
-		print "[ERR2: $@]"
-	};
-	print "\e[m\n";
-}
-
-sub hook_info {
-	return unless $info;
-	my($act, $msg) = @_;
-	print "\e[36m $msg ";
-	eval {
-		print $EventDump::INST->ssend($act);
-		print "\e[m\n";
-		1;
-	} or do {
-		print "\e[m\n";
-		&Debug::err("hook_info failed: $@");
-	};
-}
-
-sub timestamp {
-	print "\e[0;1mTimestamp: $_[0]\e[m\n";
-}
-
-sub err_jmsg {
-	my $dst = shift;
-	unless ($dst) {
-		my @c = caller;
-		&Debug::warn("Deprecated err_jmsg call in $c[0] line $c[2]");
-	}
-	for my $v (@_) {
-		local $_ = $v; # don't use $v directly as it's read-only
-		&Debug::err($_);
-		s/\n/ /g;
-		&Interface::jmsg($dst, $_) if $Interface::janus && $dst;
-	}
-}
-
 
 1;

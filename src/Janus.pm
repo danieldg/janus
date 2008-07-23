@@ -73,7 +73,7 @@ sub _load_run {
 	my $fn = $module.'.pm';
 	$fn =~ s#::#/#g;
 	unless (-f "src/$fn") {
-		&Debug::err("Cannot find module $module: $!");
+		&Log::err("Cannot find module $module: $!");
 		delete $modinfo{$module}{load};
 	}
 	delete $INC{$fn};
@@ -81,7 +81,7 @@ sub _load_run {
 		delete $modinfo{$module}{load};
 		$modinfo{$module}{active} = 1;
 	} else {
-		&Debug::err("Cannot load module $module: $! $@");
+		&Log::err("Cannot load module $module: $! $@");
 		delete $modinfo{$module}{load};
 	}
 }
@@ -290,7 +290,7 @@ sub gid {
 }
 
 sub jmsg { goto &Interface::jmsg }
-sub err_jmsg { goto &Debug::err_jmsg }
+sub err_jmsg { goto &Log::err_jmsg }
 
 sub hook_add { goto &Event::hook_add }
 sub command_add { goto &Event::command_add }
