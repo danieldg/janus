@@ -24,7 +24,8 @@ our @bans;
 
 sub ire {
 	my($x,$i) = @_;
-	return 1 unless $x;
+	return 1 unless defined $x;
+	return 0 unless defined $i;
 	$x =~ s/(\W)/\\$1/g;
 	$x =~ s/\\\*/.*/g;
 	$x =~ s/\\\?/./g;

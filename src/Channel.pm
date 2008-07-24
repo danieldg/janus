@@ -191,6 +191,7 @@ sub part {
 				$nmode[$$chan]{$$arg} |= $nmodebit{$i}; # will ensure is defined
 				$nmode[$$chan]{$$arg} &= ~$nmodebit{$i} if $pm eq '-';
 			} elsif ($t eq 'l') {
+				next unless defined $arg;
 				if ($pm eq '+') {
 					@{$mode[$$chan]{$i}} = ($arg, grep { $_ ne $arg } @{$mode[$$chan]{$i}});
 				} else {

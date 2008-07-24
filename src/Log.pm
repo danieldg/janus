@@ -15,7 +15,8 @@ our %action = (
 		my($net, $line) = @_;
 		my $name =
 			$net->can('name') ? $net->name() :
-			$net->can('id') ? $net->id() : $$net;
+			$net->can('id') ? $net->id() : '';
+		$name ||= $$net;
 		(3, "IN\@$name", $line);
 	}, 'netout' => sub {
 		my($net, $line) = @_;

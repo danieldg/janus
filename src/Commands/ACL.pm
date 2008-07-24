@@ -15,7 +15,7 @@ use warnings;
 	],
 	code => sub {
 		my($nick,$args) = @_;
-		unless ($args && $args =~ /^(\S+) +(#\S*)(?: +(\S+))?$/) {
+		unless ($args && $args =~ /^(\S+) +(#\S*)(?: +(\S+))?\s*$/) {
 			&Interface::jmsg($nick, 'Bad syntax. See "help acl" for syntax');
 			return;
 		}
