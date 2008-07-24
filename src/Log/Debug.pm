@@ -10,7 +10,7 @@ $INST ||= do { my $i; bless \$i; };
 sub new { $INST }
 
 sub log {
-	print "\e[$Log::ANSI[$_[1]]m$_[2]: $_[3]\e[m\n";
+	print "\e[$Log::ANSI[$_[2]]m$_[3]: $_[4]\e[m\n";
 }
 
 1;

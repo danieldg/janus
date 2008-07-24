@@ -11,31 +11,18 @@ use Carp;
 our %action = (
 	'err' => sub {
 		(5, 'ERR', join ' ', @_);
-	}, 'netin' => sub {
-		my($net, $line) = @_;
-		my $name =
-			$net->can('name') ? $net->name() :
-			$net->can('id') ? $net->id() : '';
-		$name ||= $$net;
-		(3, "IN\@$name", $line);
-	}, 'netout' => sub {
-		my($net, $line) = @_;
-		my $name =
-			$net->can('name') ? $net->name() :
-			$net->can('id') ? $net->id() : $$net;
-		(2, "OUT\@$name", $line);
+	}, 'warn' => sub {
+		(6, 'WARN', join ' ', @_);
+	}, 'info' => sub {
+		(10, '', join ' ', @_)
 	}, 'warn_in' => sub {
 		my($src, $msg) = @_;
 		my $name = $EventDump::INST->ijstr($src);
 		(6, "\@$name", $msg);
-	}, 'warn' => sub {
-		(6, 'WARN', join ' ', @_);
 	}, 'err_in' => sub {
 		my($src, $msg) = @_;
 		my $name = $EventDump::INST->ijstr($src);
 		(5, "ERR\@$name", $msg);
-	}, 'info' => sub {
-		(10, '', join ' ', @_)
 	}, 'alloc' => sub {
 		my $obj = shift;
 		(10, ref($obj), join ' ', $$obj, @_);
@@ -61,6 +48,20 @@ our %action = (
 			$astr = "[ERR2: $@]"
 		};
 		(4, $msg, $astr);
+	}, 'netin' => sub {
+		my($net, $line) = @_;
+		my $name =
+			$net->can('name') ? $net->name() :
+			$net->can('id') ? $net->id() : 0;
+		$name ||= $$net;
+		(3, "IN\@$name", $line);
+	}, 'netout' => sub {
+		my($net, $line) = @_;
+		my $name =
+			$net->can('name') ? $net->name() :
+			$net->can('id') ? $net->id() : 0;
+		$name ||= $$net;
+		(2, "OUT\@$name", $line);
 	}, 'timestamp' => sub {
 		(14, 'Timestamp', $_[0])
 	},
@@ -79,14 +80,15 @@ sub AUTOLOAD {
 	my $lvl = $action{$AUTOLOAD};
 	unless ($lvl) {
 		carp "Unknown log level $AUTOLOAD";
-		$lvl = $action{error} or die;
+		$AUTOLOAD = 'err';
+		$lvl = $action{err} or die;
 	}
 	if ($ftime == $Janus::time) {
 		return unless $fcount++ < 20;
 	} else {
 		($ftime,$fcount) = ($Janus::time, 0);
 	}
-	my @str = $lvl->(@_);
+	my @str = ($AUTOLOAD, $lvl->(@_));
 	if (@listeners) {
 		$_->log(@str) for @listeners;
 	} else {

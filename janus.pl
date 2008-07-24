@@ -38,6 +38,7 @@ unless ($^P) {
 	setsid;
 } else {
 	require Log::Debug;
+	no warnings 'once';
 	@Log::listeners = $Log::Debug::INST;
 	&Log::dump_queue();
 }

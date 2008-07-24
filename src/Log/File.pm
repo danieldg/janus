@@ -4,9 +4,10 @@ package Log::File;
 use strict;
 use warnings;
 use integer;
+use Log::Base;
 use Scalar::Util 'weaken';
 use POSIX 'strftime';
-use Persist;
+use Persist 'Log::Base';
 
 our(@name, @filename, @fh, @rotate, @closeact, @dump);
 &Persist::register_vars(qw(name filename fh rotate closeact dump));
@@ -70,7 +71,7 @@ sub closelog {
 	}
 }
 
-sub log {
+sub output {
 	my $log = shift;
 	my $fh = $fh[$$log];
 	print $fh "\e[$Log::ANSI[$_[0]]m$_[1]: $_[2]\e[m\n";
