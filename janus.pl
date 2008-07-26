@@ -20,11 +20,18 @@ use POSIX 'setsid';
 
 our $VERSION = '1.12';
 
-unless ($^P) {
+if ($^P) {
 	# $^P is nonzero if run inside perl -d
+	require Log::Debug;
+	no warnings 'once';
+	@Log::listeners = $Log::Debug::INST;
+	&Log::dump_queue();
+} else {
 	open STDIN, '/dev/null' or die $!;
-	open STDOUT, '>daemon.log' or die $!;
-	open STDERR, '>&', \*STDOUT or die $!;
+	if (-t STDOUT) {
+		open STDOUT, '>daemon.log' or die $!;
+		open STDERR, '>&', \*STDOUT or die $!;
+	}
 	my $pid = fork;
 	die $! unless defined $pid;
 	if ($pid) {
@@ -36,11 +43,6 @@ unless ($^P) {
 		exit;
 	}
 	setsid;
-} else {
-	require Log::Debug;
-	no warnings 'once';
-	@Log::listeners = $Log::Debug::INST;
-	&Log::dump_queue();
 }
 
 $| = 1;
