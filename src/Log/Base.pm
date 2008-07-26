@@ -4,6 +4,7 @@ package Log::Base;
 use strict;
 use warnings;
 use integer;
+use Persist;
 
 our(@filter);
 &Persist::register_vars(qw(filter));
