@@ -369,37 +369,36 @@ sub add_net {
 
 	my $tsctl = ($ts[$$src] <=> $ts[$$chan]);
 
-	unless ($net->jlink()) {
-		if ($tsctl > 0) {
-			$net->send({
-				type => 'TIMESYNC',
-				dst => $src,
-				wipe => 1,
-				ts => $ts[$$chan],
-				oldts => $ts[$$src],
-			});
-			delete $nmode[$$src];
-		}
-
-		$net->replace_chan($sname, $chan);
-
-		if ($tsctl < 0) {
-			&Debug::info("Resetting timestamp from $ts[$$chan] to $ts[$$src]");
-			&Janus::insert_full(+{
-				type => 'TIMESYNC',
-				dst => $chan,
-				wipe => 0,
-				ts => $ts[$$src],
-				oldts => $ts[$$chan],
-			});
-		}
-
-		$net->send(+{
-			type => 'JOIN',
-			src => $Interface::janus,
+	if ($tsctl < 0) {
+		&Debug::info("Resetting timestamp from $ts[$$chan] to $ts[$$src]");
+		&Janus::insert_full(+{
+			type => 'TIMESYNC',
 			dst => $chan,
+			wipe => 0,
+			ts => $ts[$$src],
+			oldts => $ts[$$chan],
 		});
 	}
+
+	unless ($net->jlink()) {
+		$net->replace_chan($sname, $chan);
+		$net->send({
+			type => 'CHANBURST',
+			before => $src,
+			after => $chan,
+		});
+
+		if ($tsctl > 0) {
+			delete $nmode[$$src];
+		}
+	}
+
+	&Janus::append({
+		type => 'JOIN',
+		src => $Interface::janus,
+		dst => $chan,
+		nojlink => 1,
+	});
 
 	for my $nick (@{$nicks[$$chan]}) {
 		$nick->rejoin($chan);
@@ -415,25 +414,6 @@ sub add_net {
 	}
 
 	unless ($net->jlink()) {
-		my ($mode, $marg, $dirs) = &Modes::delta($tsctl <= 0 ? $src : undef, $chan);
-		$net->send({
-			type => 'MODE',
-			dst => $chan,
-			mode => $mode,
-			args => $marg,
-			dirs => $dirs,
-		}) if @$mode;
-
-		$net->send(+{
-			type => 'TOPIC',
-			dst => $chan,
-			topic => $topic[$$chan],
-			topicts => $topicts[$$chan],
-			topicset => $topicset[$$chan],
-			in_link => 1,
-			nojlink => 1,
-		}) if $topic[$$chan] && (!$topic[$$src] || $topic[$$chan] ne $topic[$$src]);
-
 		for my $nick (@{$nicks[$$src]}) {
 			next if $$nick == 1;
 			# source network must also send JOINs to everyone

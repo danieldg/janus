@@ -442,6 +442,17 @@ $moddef{CORE} = {
 			oldts => $chan->ts(),
 			wipe => 1,
 		} if $chan->ts() > $ts;
+		if (@_ > 5 && $applied) {
+			my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, @_[4 .. ($#_ - 1)]);
+			push @acts, +{
+				type => 'MODE',
+				src => $net,
+				dst => $chan,
+				mode => $modes,
+				args => $args,
+				dirs => $dirs,
+			};
+		}
 
 		for my $nm (split / /, $_[-1]) {
 			$nm =~ /(?:(.*),)?(\S+)$/ or next;
@@ -1126,6 +1137,21 @@ $moddef{CORE} = {
 			my @interp = &Modes::to_multi($net, &Modes::delta(undef, $chan));
 			return $net->ncmd(FMODE => $chan, $act->{ts}, @interp);
 		}
+	}, CHANBURST => sub {
+		my($net,$act) = @_;
+		my $old = $act->{before};
+		my $new = $act->{after};
+		my @sjmodes = &Modes::to_irc($net, &Modes::dump($new));
+		@sjmodes = '+' unless @sjmodes;
+		my @out;
+		push @out, $net->ncmd(FJOIN => $new, $new->ts, @sjmodes, ','.$net->_out($Interface::janus));
+		push @out, map {
+			$net->ncmd(FMODE => $new, $new->ts, @$_);
+		} &Modes::to_multi($net, &Modes::delta($new->ts < $old->ts ? undef : $old, $new));
+		if ($new->topic && (!$old->topic || $old->topic ne $new->topic)) {
+			push @out, $net->ncmd(FTOPIC => $new, $new->topicts, $new->topicset, $new->topic);
+		}
+		@out;
 	}, MSG => sub {
 		my($net,$act) = @_;
 		return if $act->{dst}->isa('Network');

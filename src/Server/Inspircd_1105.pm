@@ -1102,6 +1102,19 @@ $moddef{CORE} = {
 			my @interp = &Modes::to_multi($net, &Modes::delta(undef, $chan));
 			return $net->ncmd(FMODE => $chan, $act->{ts}, @interp);
 		}
+	}, CHANBURST => sub {
+		my($net,$act) = @_;
+		my $old = $act->{before};
+		my $new = $act->{after};
+		my @out;
+		push @out, $net->ncmd(FJOIN => $new, $new->ts, ','.$net->_out($Interface::janus));
+		push @out, map {
+			$net->ncmd(FMODE => $new, $new->ts, @$_);
+		} &Modes::to_multi($net, &Modes::delta($new->ts < $old->ts ? undef : $old, $new));
+		if ($new->topic && (!$old->topic || $old->topic ne $new->topic)) {
+			push @out, $net->ncmd(FTOPIC => $new, $new->topicts, $new->topicset, $new->topic);
+		}
+		@out;
 	}, MSG => sub {
 		my($net,$act) = @_;
 		return if $act->{dst}->isa('Network');

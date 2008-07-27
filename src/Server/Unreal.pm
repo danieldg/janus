@@ -237,6 +237,7 @@ sub intro {
 	$net->SUPER::intro($param);
 	unless ($addr) {
 		$auth[$$net] = 2;
+		$param->{numeric} ||= '';
 		$net->send(
 			'PASS :'.$param->{sendpass},
 			'PROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS UMODE2 TKLEXT SJB64',
@@ -881,7 +882,7 @@ sub srvname {
 		my $ts = $net->sjbint($_[2]);
 		my $applied = ($chan->ts() >= $ts);
 		my $joins = pop;
-		my $cmode = $_[4] || '+';
+		my $cmode = @_ == 5 ? pop : '+';
 
 		my @acts;
 
@@ -916,7 +917,7 @@ sub srvname {
 			}
 		}
 		$cmode =~ tr/&"'/beI/;
-		my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, $cmode, @_[5 .. $#_]);
+		my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, $cmode, @_[4 .. $#_]);
 		push @acts, +{
 			type => 'MODE',
 			src => $net,
@@ -1419,6 +1420,22 @@ sub cmd2 {
 		} else {
 			return $net->cmd1(MODE => $chan, '+', $act->{ts});
 		}
+	}, CHANBURST => sub {
+		my($net,$act) = @_;
+		my $old = $act->{before};
+		my $new = $act->{after};
+		my @sjmodes = &Modes::to_irc($net, &Modes::dump($new));
+		@sjmodes = '+' unless @sjmodes;
+		my @out;
+		push @out, $net->cmd1(SJOIN => $net->sjb64($new->ts), $new, @sjmodes, $Interface::janus);
+		if ($new->topic && (!$old->topic || $old->topic ne $new->topic)) {
+			push @out, $net->cmd2($Interface::janus, TOPIC => $new, $new->topicset,
+				$net->sjb64($new->topicts), $new->topic);
+		}
+		push @out, map {
+			$net->cmd1(MODE => $new, @$_, 0);
+		} &Modes::to_multi($net, &Modes::delta($new->ts < $old->ts ? undef : $old, $new));
+		@out;
 	}, TOPIC => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, TOPIC => $act->{dst}, $act->{topicset},
