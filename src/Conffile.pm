@@ -109,8 +109,8 @@ sub read_conf {
 			return;
 		}
 	}
-	%netconf = %newconf;
 
+	my %pre_loggers = map { $_->name, $_ } @Log::listeners;
 	my @loggers;
 	for my $id (keys %newconf) {
 		next unless $id =~ /LOG:(.*)/;
@@ -120,16 +120,23 @@ sub read_conf {
 			&Janus::err_jmsg($nick, "Could not load module $type: $@");
 			next;
 		};
-		push @loggers, $type->new(%$log);
+		my $name = $log->{name};
+		if ($pre_loggers{$name} && $type eq ref $pre_loggers{$name}) {
+			push @loggers, delete $pre_loggers{$name};
+		} else {
+			push @loggers, $type->new(%$log);
+		}
 	}
 	unless (@loggers) {
 		require Log::Debug;
 		push @loggers, $Log::Debug::INST;
 	}
-	unless ($^P) {
+	unless ($^P && !$nick) { # first load on a debug run skips this
 		@Log::listeners = @loggers;
 		&Log::dump_queue();
 	}
+
+	%netconf = %newconf;
 
 	$newconf{modules}{$_}++ for qw(Interface Actions Commands::Core);
 	for my $mod (sort keys %{$newconf{modules}}) {

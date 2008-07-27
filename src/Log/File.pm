@@ -9,9 +9,9 @@ use Scalar::Util 'weaken';
 use POSIX 'strftime';
 use Persist 'Log::Base';
 
-our(@name, @filename, @fh, @rotate, @closeact, @dump);
-&Persist::register_vars(qw(name filename fh rotate closeact dump));
-&Persist::autoinit(qw(name rotate closeact dump));
+our(@filename, @fh, @rotate, @closeact, @dump);
+&Persist::register_vars(qw(filename fh rotate closeact dump));
+&Persist::autoinit(qw(rotate closeact dump));
 
 sub rotate {
 	my $e = shift;
@@ -37,18 +37,18 @@ sub _init {
 		$rotate[$$log] = $rotate;
 	}
 	$log->openlog();
-	$name[$$log];
+	$filename[$$log];
 }
 
 sub _destroy {
 	my $log = shift;
 	$log->closelog();
-	$name[$$log];
+	$filename[$$log];
 }
 
 sub openlog {
 	my $log = shift;
-	my $fn = $filename[$$log] = strftime $name[$$log], gmtime $Janus::time;
+	my $fn = $filename[$$log] = strftime $log->name, gmtime $Janus::time;
 	if ($dump[$$log] && &Janus::load('Commands::Debug')) {
 		&Commands::Debug::dump_now("New log $fn", $log);
 	}

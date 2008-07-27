@@ -8,6 +8,7 @@ our $INST;
 $INST ||= do { my $i; bless \$i; };
 
 sub new { $INST }
+sub name { 'Debug' }
 
 sub log {
 	print "\e[$Log::ANSI[$_[2]]m$_[3]: $_[4]\e[m\n";
