@@ -84,7 +84,7 @@ sub AUTOLOAD {
 		$lvl = $action{err} or die;
 	}
 	if ($ftime == $Janus::time) {
-		return unless $fcount++ < 20;
+		return unless $fcount++ < 2000;
 	} else {
 		($ftime,$fcount) = ($Janus::time, 0);
 	}
