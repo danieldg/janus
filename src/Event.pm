@@ -344,7 +344,12 @@ sub timer {
 	$last_check = $time;
 	for my $event (@q) {
 		unshift @qstack, [];
-		$event->{code}->($event);
+		eval {
+			$event->{code}->($event);
+			1;
+		} or do {
+			named_hook('die', $@, 'timer', $event);
+		};
 		_runq(shift @qstack);
 		if ($event->{repeat}) {
 			my $t = $time + $event->{repeat};
