@@ -882,7 +882,8 @@ sub srvname {
 		my $ts = $net->sjbint($_[2]);
 		my $applied = ($chan->ts() >= $ts);
 		my $joins = pop;
-		my $cmode = @_ == 5 ? pop : '+';
+		push @_, '+' if @_ < 5;
+		my $cmode = $_[4];
 
 		my @acts;
 
@@ -917,7 +918,7 @@ sub srvname {
 			}
 		}
 		$cmode =~ tr/&"'/beI/;
-		my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, $cmode, @_[4 .. $#_]);
+		my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, $cmode, @_[5 .. $#_]);
 		push @acts, +{
 			type => 'MODE',
 			src => $net,
