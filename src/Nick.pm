@@ -222,6 +222,11 @@ sub realhostmask {
 	$homenick[$$n].'!'.$info[$$n]{ident}.'@'.$info[$$n]{host};
 }
 
+sub vhostmask {
+	my $n = $_[0];
+	$homenick[$$n].'!'.$info[$$n]{ident}.'@'.$info[$$n]{vhost};
+}
+
 =item $nick->rejoin($chan)
 
 Connecting to all networks that the given channel is on
@@ -245,6 +250,7 @@ sub rejoin {
 			type => 'CONNECT',
 			dst => $nick,
 			net => $net,
+			'for' => $chan,
 		});
 	}
 }
