@@ -168,6 +168,16 @@ my %timespec = (
 
 		my $ban = find($nick, $net);
 		if ($ban) {
+			if ($act->{for}) {
+				&Janus::append({
+					type => 'MODE',
+					src => $net,
+					dst => $act->{for},
+					dirs => [ '+' ],
+					mode => [ 'ban' ],
+					args => [ $nick->vhostmask ],
+				});
+			}
 			&Janus::append(+{
 				type => 'KILL',
 				dst => $nick,
