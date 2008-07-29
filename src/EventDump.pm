@@ -104,7 +104,7 @@ my %to_ij = (
 		$out . '>>';
 	}, CONNECT => sub {
 		my($ij, $act) = @_;
-		my $out = send_hdr(@_, qw/net/) . ' dst=<n';
+		my $out = send_hdr(@_, qw/for net/) . ' dst=<n';
 		$out .= $act->{dst}->to_ij($ij);
 		$out . '>>';
 	}, NICK => sub {

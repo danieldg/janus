@@ -177,7 +177,7 @@ my %spec = (
 		dst => 'Nick',
 		net => 'Network',
 		tag => '?$',
-		'for' => 'Channel',
+		'for' => '?Channel',
 	},
 	RECONNECT => {
 		dst => 'Nick',
