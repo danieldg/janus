@@ -49,12 +49,12 @@ sub _destroy {
 sub openlog {
 	my $log = shift;
 	my $fn = $filename[$$log] = strftime $log->name, gmtime $Janus::time;
-	if ($dump[$$log] && &Janus::load('Commands::Debug')) {
-		&Commands::Debug::dump_now("New log $fn", $log);
-	}
 	open my $fh, '>', $fn or die $!;
 	$fh->autoflush(1);
 	$fh[$$log] = $fh;
+	if ($dump[$$log] && &Janus::load('Commands::Debug')) {
+		&Commands::Debug::dump_now("New log $fn", $log);
+	}
 }
 
 sub closelog {
