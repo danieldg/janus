@@ -78,10 +78,10 @@ my %timespec = (
 		" \002ban del\002 index          Remove a ban by index in the ban list",
 		'expr consists of one or more of the following:',
 		' (nick|ident|host|name) item    Matches using standard IRC ban syntax',
-		' (to|from) network              Matches the source or destination network',
-		' for 2w4d12h5m2s                Time the ban is applied (0 or unspecified = perm)',
+		' (to|from) (network|*)          Matches the source or destination network',
+		' for 2w4d12h5m2s                Time the ban is applied (0=perm, default=1 week)',
 		' /perl regex/                   Regex matched against nick!ident@host:name',
-		' [any other text]               Added to the ban reason',
+		' reason "reason here"           Reason the ban was added',
 		'a nick must match all of the conditions on the ban to be banned.',
 	],
 	acl => 1,
@@ -95,7 +95,13 @@ my %timespec = (
 			@bans = grep { my $e = $_->{expire}; !$e || $e > $Janus::time } @bans;
 			for my $ban (@bans) {
 				my $str = ++$c;
-				for (qw/perlre nick ident host name setter reason to from/) {
+				if ($ban->{perlre}) {
+					my $b = ''.$ban->{perlre};
+					1 while $b =~ s/^\(\?-xism:(.*)\)$/$1/;
+					$str .= " /$b/";
+					$ban->{perlre} = qr($b);
+				}
+				for (qw/nick ident host name setter reason to from/) {
 					next unless exists $ban->{$_};
 					$str .= " $_=$ban->{$_}";
 				}
@@ -106,23 +112,22 @@ my %timespec = (
 			}
 			&Janus::jmsg($nick, 'No bans defined') unless @bans;
 		} elsif ($cmd =~ /^k?a/i) {
-			my %ban = (setter => $nick->realhostmask);
+			my %ban = (
+				setter => $nick->realhostmask,
+				to => $nick->homenet,
+			);
 			local $_ = $args;
 			while (length) {
-				if (s#^(nick|ident|host|name|to|from|for)\s+((?:"(?:[^\\"]|\\.)*"|\S+))\s*##i) {
+				if (s#^(nick|ident|host|name|to|from|for|reason)\s+((?:"(?:[^\\"]|\\.)*"|\S+))\s*##i) {
 					my $k = lc $1;
 					my $v = $2;
 					$v =~ s/^"(.*)"$/$1/ and $v =~ s/\\(.)/$1/g;
 					$ban{$k} = $v;
+					delete $ban{$k} if $v eq '*';
 				} elsif (s#^/((?:[^\\/]|\\.)*)/\s*##) {
 					$ban{perlre} = qr($1);
-				} elsif (s#^((?:[^" ]+|"[^"]+")\s*)##) {
-					return &Janus::jmsg($nick, 'Invalid syntax (use quotes for the reason)') if $ban{reason};
-					$ban{reason} = $1;
-					$ban{reason} =~ s/"//g;
 				} else {
-					warn;
-					last;
+					return &Janus::jmsg($nick, 'Invalid syntax for ban');
 				}
 			}
 			if ($ban{for}) {
