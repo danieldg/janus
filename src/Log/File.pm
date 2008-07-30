@@ -53,7 +53,12 @@ sub openlog {
 	$fh->autoflush(1);
 	$fh[$$log] = $fh;
 	if ($dump[$$log] && &Janus::load('Commands::Debug')) {
-		&Commands::Debug::dump_now("New log $fn", $log);
+		for (1..10) {
+			eval {
+				&Commands::Debug::dump_now("New log $fn", $log);
+				1;
+			} and last;
+		}
 	}
 }
 
