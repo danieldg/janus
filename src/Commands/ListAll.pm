@@ -7,28 +7,29 @@ use warnings;
 &Janus::command_add({
 	cmd => 'listall',
 	help => 'Shows a list of all shared channels visible to this janus server',
-	acl => 1,
 	code => sub {
 		my $nick = shift;
 		my %seen;
 		my @out;
 		for my $chan (values %Janus::gchans) {
 			next if $seen{$chan}++;
-			my @nets = $chan->nets();
+			my @nets = $chan->nets;
 			next if @nets == 1;
-			my(@namelist, @netlist, $name, $rename);
+			my $name = $chan->str($chan->homenet);
+			my @netlist;
 			for my $net (@nets) {
-				my $oname = lc $chan->str($net);
-				push @netlist, $net->name();
-				push @namelist, $net->name().$oname;
-				if ($name && $oname ne $name) {
-					$rename++;
+				my $netn = $net->name;
+				$netn = "\002$netn\002" if $net == $chan->homenet;
+				my $oname = $chan->str($net);
+				if (lc $oname ne lc $name) {
+					push @netlist, $netn.$oname;
+				} else {
+					push @netlist, $netn;
 				}
-				$name = $oname;
 			}
-			push @out, join ' ', $rename ? ('', @namelist) : ($name, @netlist);
+			push @out, join ' ', $name, sort @netlist;
 		}
-		&Janus::jmsg($nick, sort @out);
+		&Janus::jmsg($nick, sort { lc($a) cmp lc($b) } @out);
 	}
 });
 
