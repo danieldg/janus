@@ -1431,8 +1431,7 @@ sub cmd2 {
 		my @out;
 		push @out, $net->cmd1(SJOIN => $net->sjb64($new->ts), $new, @sjmodes, $Interface::janus);
 		if ($new->topic && (!$old->topic || $old->topic ne $new->topic)) {
-			push @out, $net->cmd2($Interface::janus, TOPIC => $new, $new->topicset,
-				$net->sjb64($new->topicts), $new->topic);
+			push @out, $net->cmd1(TOPIC => $new, $new->topicset, $net->sjb64($new->topicts), $new->topic);
 		}
 		push @out, map {
 			$net->cmd1(MODE => $new, @$_, 0);

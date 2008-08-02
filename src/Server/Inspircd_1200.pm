@@ -294,9 +294,8 @@ $moddef{CORE} = {
   },
   umode => {
 		i => 'invisible',
-		n => 'snomask',
+		's' => 'snomask',
 		o => 'oper',
-		's' => 'globops', # technically, server notices
 		w => 'wallops',
   },
   cmds => {

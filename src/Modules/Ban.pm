@@ -80,7 +80,7 @@ my %timespec = (
 		' (nick|ident|host|name) item    Matches using standard IRC ban syntax',
 		' (to|from) (network|*)          Matches the source or destination network',
 		' for 2w4d12h5m2s                Time the ban is applied (0=perm, default=1 week)',
-		' /perl regex/                   Regex matched against nick!ident@host:name',
+		' /perl regex/                   Regex with implicit ^$, matched against nick!ident@host:name',
 		' reason "reason here"           Reason the ban was added',
 		'a nick must match all of the conditions on the ban to be banned.',
 	],
