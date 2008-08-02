@@ -114,7 +114,7 @@ my %timespec = (
 		} elsif ($cmd =~ /^k?a/i) {
 			my %ban = (
 				setter => $nick->realhostmask,
-				to => $nick->homenet,
+				to => $nick->homenet->name,
 			);
 			local $_ = $args;
 			while (length) {
