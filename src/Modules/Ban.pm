@@ -183,11 +183,16 @@ my %timespec = (
 					args => [ $nick->vhostmask ],
 				});
 			}
+			$ban->{setter} =~ /^(.*?)!/;
+			my $msg = 'Banned from all janus channels by '.$1;
+			if ($ban->{to}) {
+				$msg = "Banned from ".$net->netname.' by '.$1;
+			}
 			&Janus::append(+{
 				type => 'KILL',
 				dst => $nick,
 				net => $net,
-				msg => "Banned by ".$net->netname,
+				msg => $msg,
 			});
 			return 1;
 		}
