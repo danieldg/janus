@@ -456,7 +456,9 @@ sub migrate_from {
 
 sub str {
 	my($chan,$net) = @_;
-	$net ? $names[$$chan]{$$net} : undef;
+	return undef unless $net;
+	return $keyname[$$chan] if $$net == 1;
+	$names[$$chan]{$$net};
 }
 
 sub is_on {

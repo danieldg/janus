@@ -81,7 +81,7 @@ sub acl_ok {
 		my %nact = %$act;
 		delete $nact{src};
 		delete $nact{IJ_RAW};
-		my $net = delete $nact{except};
+		my $net = delete $nact{except} or return undef;
 		my $chan = $act->{dst};
 		my($m,$a,$d) = @nact{qw/mode args dirs/};
 		for my $i (0 .. $#$d) {

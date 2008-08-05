@@ -5,6 +5,7 @@ use Network;
 use Persist 'Network';
 use strict;
 use warnings;
+use Carp;
 
 sub all_nicks { 
 	my $net = shift;
@@ -20,15 +21,10 @@ sub all_chans {
 
 sub chan {
 	my($net, $cname) = @_;
-	my $kn = lc $net->gid() . $cname;
+	my $kn = $net->gid() . lc $cname;
 	my $c = $Janus::gchans{$kn};
 	if (!$c && $_[2]) {
-		# create channel
-		$c = Channel->new(
-			net => $net,
-			name => $cname,
-		);
-		$Janus::gchans{$kn} = $c;
+		croak "Cannot create remote channel";
 	}
 	$c;
 }
