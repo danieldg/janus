@@ -45,7 +45,7 @@ do {
 	for (qw/
 		oper vhost ssl registered
 		invisible wallops bot badword hide_chans
-		dcc_reject deaf_chan deaf_regpriv deaf_ctcp no_privmsg
+		dcc_reject deaf_chan deaf_regpriv deaf_ctcp no_privmsg callerid
 		colorstrip vhost_x webtv
 		service globops snomask hideoper no_kick whois_notice
 		helpop oper_local coadmin admin svs_admin netadmin

@@ -43,6 +43,7 @@ mdef 1200, 'm_blockcaps.so', cmode => { B => 'r_blockcaps' };
 mdef 'm_blockcolor.so', cmode => { c => 't2_colorblock' };
 mdef 'm_botmode.so', umode => { B => 'bot' };
 
+mdef 1200, 'm_callerid.so', umode => { g => 'callerid' }, cmds => { ACCEPT => \&ignore };
 mdef 'm_cban.so', cmds => { CBAN => \&ignore }; # janus needs localjoin to link, so we don't care
 mdef 'm_censor.so', cmode => { G => 'r_badword' }, umode => { G => 'badword' };
 mdef 'm_hidechans.so', umode => { I => 'hide_chans' };
@@ -240,6 +241,7 @@ mdef 'm_operlog.so';
 mdef 'm_opermodes.so';
 mdef 'm_opermotd.so';
 mdef 'm_override.so';
+mdef 1200, 'm_permchannels.so', cmode => { P => 'permanent' };
 mdef 'm_randquote.so';
 mdef 'm_redirect.so', cmode => { L => 's_forward' };
 mdef 'm_regonlycreate.so';
@@ -330,6 +332,8 @@ mdef 'm_services_account.so', cmode => { R => 'r_reginvite', M => 'r_regmoderate
 		},
 	};
 
+mdef 1200, 'm_servprotect.so', umode => { S => 'service', k => 'no_kick' };
+
 mdef 'm_sethost.so', cmds => {
 	SETHOST => sub {
 		my $net = shift;
@@ -371,6 +375,7 @@ mdef 'm_setname.so', cmds => {
 };
 mdef 'm_setidle.so';
 mdef 'm_sha256.so';
+mdef 'm_shun.so', cmds => { SHUN => \&ignore };
 mdef 'm_showwhois.so', umode => { W => 'whois_notice' }, acts => {
 	WHOIS => sub {
 		my($net,$act) = @_;
