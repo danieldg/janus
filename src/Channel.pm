@@ -361,6 +361,12 @@ sub add_net {
 	my $sname = $src->str($net);
 
 	my $joinnets = [ values %{$nets[$$chan]} ];
+	my %burstmap;
+	for my $n (@$joinnets) {
+		my $jl = $n->jlink;
+		$burstmap{$$jl} = $jl if $jl;
+	}
+	my $burstnets = [ $net, values %burstmap ];
 
 	$nets[$$chan]{$$net} = $net;
 	$names[$$chan]{$$net} = $sname;
@@ -380,7 +386,7 @@ sub add_net {
 		});
 	}
 
-	unless ($net->jlink()) {
+	unless ($net->jlink) {
 		$net->replace_chan($sname, $chan);
 		$net->send({
 			type => 'CHANBURST',
@@ -402,7 +408,7 @@ sub add_net {
 
 	for my $nick (@{$nicks[$$chan]}) {
 		$nick->rejoin($chan);
-		next if $$nick == 1 || $nick->jlink();
+		next if $$nick == 1 || $nick->jlink;
 		# Every network must send JOINs for its own nicks
 		# to all networks
 		&Janus::append(+{
@@ -410,14 +416,15 @@ sub add_net {
 			src => $nick,
 			dst => $chan,
 			mode => $chan->get_nmode($nick),
+			sendto => $burstnets,
 		});
 	}
 
-	unless ($net->jlink()) {
+	unless ($net->jlink) {
 		for my $nick (@{$nicks[$$src]}) {
 			next if $$nick == 1;
-			# source network must also send JOINs to everyone
-			# except for itself
+			# source network must also send JOINs to everyone. However, since
+			# it is local, we can omit sending it to ourselves.
 			&Janus::append(+{
 				type => 'JOIN',
 				src => $nick,
@@ -433,21 +440,28 @@ sub add_net {
 sub migrate_from {
 	my $chan = shift;
 	&Debug::info("Migrating nicks to $$chan from", map $$_, @_);
+	my %burstmap;
+	for my $n ($chan->nets) {
+		my $jl = $n->jlink;
+		$burstmap{$$jl} = $jl if $jl;
+	}
 	for my $src (@_) {
 		next if $$src == $$chan;
-		for my $net ($src->nets()) {
+		for my $net ($src->nets) {
 			my $name = $src->str($net);
 			$net->replace_chan($name, $chan) if $net->isa('LocalNetwork');
 		}
+		my $burstto = [ $src->nets, values %burstmap ];
 
 		for my $nick (@{$nicks[$$src]}) {
 			$nick->rejoin($chan);
-			next if $$nick == 1 || $nick->jlink();
+			next if $$nick == 1 || $nick->jlink;
 			&Janus::append(+{
 				type => 'JOIN',
 				src => $nick,
 				dst => $chan,
 				mode => $chan->get_nmode($nick),
+				sendto => $burstto,
 			});
 		}
 		&Janus::append({ type => 'POISON', item => $src, reason => 'migrated away' });
