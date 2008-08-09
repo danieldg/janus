@@ -49,6 +49,21 @@ modules {
 	Modules::Signals
 }
 
+# Log files
+log log/%Y-%m-%d-%H:%M:%S {
+	# Type - a module in the Log package
+	type File
+	# Filter - what events to send to the log. Space-separated values, see Log.pm for the list
+	filter *
+	## SPECIFIC TO File type
+	# Run a dump before opening the log file (for possible replays)
+	dump 1
+	# rotate the log every N seconds
+	rotate 86400
+	# action to take on the log after closing
+	closeact gzip
+}
+
 # Listen block: janus will listen on this port for incoming server connections
 listen 8005 {
 	linktype plain
