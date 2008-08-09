@@ -19,7 +19,7 @@ sub _init {
 
 sub log {
 	my($log, $lvl) = (shift,shift);
-	for (split /\s*/, $filter[$$log]) {
+	for (split /\s+/, $filter[$$log]) {
 		if ($_ eq '*' || $lvl =~ /^$_$/) {
 			return $log->output(@_);
 		}
