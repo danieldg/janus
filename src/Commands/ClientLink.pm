@@ -8,12 +8,12 @@ use warnings;
 	cmd => 'clink',
 	help => 'Requests a link from a clientbot network',
 	details => [
-		"\002CLINK\002 cb-net #channel [dest-net]"
+		"\002CLINK\002 cb-net #channel [dest-net] [#dest-chan]"
 	],
 	acl => 1,
 	code => sub {
 		my($nick,$args) = @_;
-		unless ($args && $args =~ /^(\S+) +(#\S*)(?: +(\S+)(?: +(#\S*))?)?$/) {
+		unless ($args && $args =~ /^(\S+) +(#\S*)(?: +([^# ]+)(?: +(#\S*))?)?$/) {
 			return &Janus::jmsg($nick, 'Invalid syntax');
 		}
 		my($bnet, $bchan, $dnet, $dchan) = ($1,$2,$3,$4);
