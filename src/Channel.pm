@@ -442,6 +442,7 @@ sub migrate_from {
 	&Debug::info("Migrating nicks to $$chan from", map $$_, @_);
 	my %burstmap;
 	for my $n ($chan->nets) {
+		$burstmap{$$n} = $n;
 		my $jl = $n->jlink;
 		$burstmap{$$jl} = $jl if $jl;
 	}
@@ -451,7 +452,9 @@ sub migrate_from {
 			my $name = $src->str($net);
 			$net->replace_chan($name, $chan) if $net->isa('LocalNetwork');
 		}
-		my $burstto = [ $src->nets, values %burstmap ];
+		my %tomap = %burstmap;
+		delete $tomap{$$_} for $src->nets;
+		my $burstto = [ values %tomap ];
 
 		for my $nick (@{$nicks[$$src]}) {
 			$nick->rejoin($chan);
