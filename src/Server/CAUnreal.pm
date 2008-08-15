@@ -1000,8 +1000,18 @@ sub srvname {
 		$act{topicts} = $net->sjbint($_[4]) if @_ > 5;
 		$act{in_link} = 1 unless @_ > 4 && $_[0] && $_[3] eq $_[0];
 		\%act;
+	}, INVITE => sub {
+		my $net = shift;
+		my $src = $net->mynick($_[0]) or return ();
+		my $dst = $net->nick($_[2]) or return ();
+		my $chan = $net->chan($_[3]) or return ();
+		return {
+			type => 'INVITE',
+			src => $src,
+			dst => $dst,
+			to => $chan,
+		};
 	},
-	INVITE => \&todo,
 	KNOCK => \&todo,
 
 # Server actions
@@ -1377,7 +1387,7 @@ sub cmd2 {
 	}, JOIN => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
-		if ($act->{src}->homenet() eq $net) {
+		if ($act->{src}->homenet eq $net) {
 			&Debug::err('Trying to force channel join remotely ('.$act->{src}->gid().$chan->str($net).")");
 			return ();
 		}
@@ -1395,6 +1405,9 @@ sub cmd2 {
 	}, KICK => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, KICK => $act->{dst}, $act->{kickee}, $act->{msg});
+	}, INVITE => sub {
+		my($net,$act) = @_;
+		$net->cmd2($act->{src}, INVITE => $act->{dst}, $act->{to});
 	}, MODE => sub {
 		my($net,$act) = @_;
 		my $src = $act->{src};

@@ -568,6 +568,17 @@ $moddef{CORE} = {
 			kickee => $nick,
 			msg => $_[4],
 		};
+	}, INVITE => sub {
+		my $net = shift;
+		my $src = $net->mynick($_[0]) or return ();
+		my $dst = $net->nick($_[2]) or return ();
+		my $chan = $net->chan($_[3]) or return ();
+		return {
+			type => 'INVITE',
+			src => $src,
+			dst => $dst,
+			to => $chan,
+		};
 	}, SVSPART => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
@@ -586,7 +597,6 @@ $moddef{CORE} = {
 			msg => 'Services forced part',
 		};
 	},
-	INVITE => \&ignore,
 
 	SERVER => sub {
 		my $net = shift;
@@ -1039,6 +1049,9 @@ $moddef{CORE} = {
 	}, KICK => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, KICK => $act->{dst}, $act->{kickee}, $act->{msg});
+	}, INVITE => sub {
+		my($net,$act) = @_;
+		$net->cmd2($act->{src}, INVITE => $act->{dst}, $act->{to});
 	}, KILL => sub {
 		my($net,$act) = @_;
 		my $killfrom = $act->{net};

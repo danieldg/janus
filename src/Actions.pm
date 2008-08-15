@@ -212,6 +212,12 @@ my %spec = (
 		kickee => 'Nick',
 		msg => '$',
 	},
+	INVITE => {
+		src => 'Nick',
+		dst => 'Nick',
+		to => 'Channel',
+		timeout => '?$',
+	},
 
 	MODE => {
 		dst => 'Channel',

@@ -18,7 +18,6 @@ Nick object representing the janus interface bot.
 
 our $janus;   # Janus interface bot: this module handles interactions with this bot
 our $network;
-$network = $janus->homenet() if $janus && !$network;
 
 sub pmsg {
 	my $act = shift;
@@ -121,6 +120,21 @@ sub pmsg {
 		});
 	},
 	MSG => parse => \&pmsg,
+	INVITE => parse => sub {
+		my $act = shift;
+		my $src = $act->{src};
+		my $dst = $act->{dst};
+		my $chan = $act->{to};
+		unless ($src->is_on($dst->homenet)) {
+			&Interface::jmsg($src, 'You cannot /invite a user unless you are on a channel on their network');
+			return 1;
+		}
+		unless ($chan->is_on($dst->homenet)) {
+			&Interface::jmsg($src, 'You cannot /invite a user to a channel not on their network');
+			return 1;
+		}
+		undef;
+	},
 	WHOIS => parse => sub {
 		my $act = shift;
 		my $src = $act->{src};
