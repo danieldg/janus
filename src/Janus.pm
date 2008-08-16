@@ -200,6 +200,23 @@ sub save_vars {
 	$states{$class} = { @_ };
 }
 
+=item Janus::info(%info)
+
+provides information about the module (while loading)
+
+=cut
+
+sub info {
+	my $class = caller || 'Janus';
+	cluck "command_add called outside module load" unless $modinfo{$class}{load};
+	my %add = @_;
+	for (qw(desc)) {
+		next unless exists $add{$_};
+		$modinfo{$class}{$_} = delete $add{$_};
+	}
+	cluck "Ignoring unknown info keys for $class" if scalar %add;
+}
+
 unless ($global) {
 	# first-time run
 	my $two = 2;
@@ -208,6 +225,8 @@ unless ($global) {
 	csum_read('Janus');
 	_load_run('Event');
 }
+
+Janus::info(desc => 'Core module loader');
 
 Event::hook_add(
 	MODLOAD => check => sub {

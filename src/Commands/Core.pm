@@ -68,6 +68,32 @@ $perl::VERSION = sprintf '%vd', $^V;
 		}
 	}
 }, {
+	cmd => 'modinfo',
+	help => 'Provides information about a module',
+	details => [
+		"Syntax: \002MODINFO\002 module",
+	],
+	code => sub {
+		my($nick,$mod) = @_;
+		return &Janus::jmsg($nick, 'Module not loaded') unless $Janus::modinfo{$mod};
+		my $ifo = $Janus::modinfo{$mod};
+		my $active = $ifo->{active} ? 'active' : 'inactive';
+		&Janus::jmsg($nick, "Module $mod is at version $ifo->{version}; hooks are $active",
+			"Source checksum is $ifo->{sha}");
+		&Janus::jmsg($nick, ' '.$ifo->{desc}) if $ifo->{desc};
+		my(@hooks, @cmds);
+		for my $cmd (sort keys %Event::commands) {
+			next unless $Event::commands{$cmd}{class} eq $mod;
+			push @cmds, $cmd;
+		}
+		for my $lvl (sort keys %Event::hook_mod) {
+			next unless $Event::hook_mod{$lvl}{$mod};
+			push @hooks, $lvl;
+		}
+		&Janus::jmsg($nick, 'Provides commands: '. join ' ', @cmds) if @cmds;
+		&Janus::jmsg($nick, 'Hooks: '. join ' ', @hooks) if @hooks;
+	},
+}, {
 	cmd => 'reload',
 	help => "Load or reload a module, live.",
 	details => [
