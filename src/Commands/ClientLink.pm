@@ -23,7 +23,7 @@ use warnings;
 		$cb->isa('Server::ClientBot') or return &Interface::jmsg($nick, 'Client network must be a clientbot');
 		my $dn = $Janus::nets{$dnet}  or return &Interface::jmsg($nick, 'Destination network not found');
 		$Link::request{$dnet}{$dchan}{mode} or return &Interface::jmsg($nick, 'Channel must be shared');
-		&Log::audit("Channel $bchan on $bnet linked to $dchan on $dnet by ".$nick->netname);
+		&Log::audit("Channel $bchan on $bnet linked to $dchan on $dnet by ".$nick->netnick);
 		&Janus::append(+{
 			type => 'LINKREQ',
 			src => $nick,

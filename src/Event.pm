@@ -287,6 +287,9 @@ sub in_command {
 		&Janus::jmsg($nick, "You must be an IRC operator to use this command");
 		return;
 	}
+	unless ($commands{$cmd}{secret}) {
+		&Log::command($nick, $cmd, $text);
+	}
 	unshift @qstack, [];
 	eval {
 		$csub->($nick, $text);

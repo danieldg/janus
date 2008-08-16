@@ -99,7 +99,7 @@ use warnings;
 			&Janus::jmsg($nick, 'That channel is already linked');
 			return;
 		}
-		&Log::audit("New channel $cname shared by ".$nick->netname);
+		&Log::audit("New channel $cname shared by ".$nick->netnick);
 		&Janus::append(+{
 			type => 'LINKOFFER',
 			src => $net,
@@ -150,7 +150,7 @@ use warnings;
 			return;
 		}
 
-		&Log::audit("Channel $cname delinked from $nname by ".$nick->netname);
+		&Log::audit("Channel $cname delinked from $nname by ".$nick->netnick);
 		&Janus::append(+{
 			type => 'DELINK',
 			src => $nick,
@@ -191,7 +191,7 @@ use warnings;
 			&Janus::jmsg($nick, "This command must be run from the channel's home network");
 			return;
 		}
-		&Log::audit("Channel $cname destroyed by ".$nick->netname);
+		&Log::audit("Channel $cname destroyed by ".$nick->netnick);
 		&Janus::append(+{
 			type => 'DELINK',
 			src => $nick,

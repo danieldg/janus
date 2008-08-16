@@ -83,7 +83,7 @@ sub acl_ok {
 		delete $nact{IJ_RAW};
 		my $net = delete $nact{except} or return undef;
 		my $chan = $act->{dst};
-		&Log::audit('Bouncing mode change by '.$src->netnick.' on '.$chan->str($src->homenet));
+		&Log::info('Bouncing mode change by '.$src->netnick.' on '.$chan->str($src->homenet));
 		my($m,$a,$d) = @nact{qw/mode args dirs/};
 		for my $i (0 .. $#$d) {
 			my $t = $Modes::mtype{$m->[$i]};
@@ -108,7 +108,7 @@ sub acl_ok {
 		my $net = $act->{except};
 		my $chan = $act->{dst};
 		my $src = $act->{src};
-		&Log::audit('Bouncing kick by '.$src->netnick.' on '.$chan->str($src->homenet));
+		&Log::info('Bouncing kick by '.$src->netnick.' on '.$chan->str($src->homenet));
 
 		&Janus::append({
 			type => 'KICK',
@@ -124,7 +124,7 @@ sub acl_ok {
 		my $chan = $act->{dst};
 		my $src = $act->{src};
 		return undef unless $chan->get_mode('topic'); # allow if not +t
-		&Log::audit('Bouncing topic change by '.$src->netnick.' on '.$chan->str($src->homenet));
+		&Log::info('Bouncing topic change by '.$src->netnick.' on '.$chan->str($src->homenet));
 		$net->send(+{
 			type => 'TOPIC',
 			dst => $chan,

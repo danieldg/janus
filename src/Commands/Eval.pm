@@ -9,6 +9,7 @@ use Data::Dumper;
 	cmd => 'eeval',
 	# nope. Not existing
 	acl => 1,
+	secret => 1,
 	code => sub {
 		my($nick,$expr) = @_;
 		return &Janus::jmsg($nick, "Bad syntax") unless $expr =~ s/^(\S+)\s+//;

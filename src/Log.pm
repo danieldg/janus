@@ -66,6 +66,8 @@ our %action = (
 		(14, 'Timestamp', $_[0])
 	}, 'audit' => sub {
 		(9, 'AUDIT', $_[0])
+	}, 'command' => sub {
+		(13, 'janus', join ' ', $_[0]->netnick, $_[1], $_[2])
 	},
 );
 
