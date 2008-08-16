@@ -54,6 +54,11 @@ sub pmsg {
 	}
 	return 1 if $type eq '310'; # available for help
 
+	if ($$src == 1 && ref $act->{except}) {
+		my $srcj = $act->{except}->id;
+		$act->{msg} = "\@$srcj $act->{msg}" unless $act->{msg} =~ /^@/;
+	}
+
 	return undef unless $src->isa('Nick') && $dst->isa('Nick');
 	if ($$dst == 1) {
 		if ($act->{msg} =~ /^@(\S+)\s*/) {
