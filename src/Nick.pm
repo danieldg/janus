@@ -227,6 +227,11 @@ sub vhostmask {
 	$homenick[$$n].'!'.$info[$$n]{ident}.'@'.$info[$$n]{vhost};
 }
 
+sub netnick {
+	my $n = $_[0];
+	$homenet[$$n]->name . ':' . $homenick[$$n];
+}
+
 =item $nick->rejoin($chan)
 
 Connecting to all networks that the given channel is on

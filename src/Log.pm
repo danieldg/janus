@@ -14,7 +14,7 @@ our %action = (
 	}, 'warn' => sub {
 		(6, 'WARN', join ' ', @_);
 	}, 'info' => sub {
-		(10, '', join ' ', @_)
+		(10, 'info', join ' ', @_)
 	}, 'warn_in' => sub {
 		my($src, $msg) = @_;
 		my $name = $EventDump::INST->ijstr($src);
@@ -64,6 +64,8 @@ our %action = (
 		(2, "OUT\@$name", $line);
 	}, 'timestamp' => sub {
 		(14, 'Timestamp', $_[0])
+	}, 'audit' => sub {
+		(9, 'AUDIT', $_[0])
 	},
 );
 

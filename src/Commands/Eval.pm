@@ -14,6 +14,7 @@ use Data::Dumper;
 		return &Janus::jmsg($nick, "Bad syntax") unless $expr =~ s/^(\S+)\s+//;
 		return &Janus::jmsg($nick, "Bad syntax") unless $1 && $1 eq $Conffile::netconf{set}{evalpass};
 		print "EVAL: $expr\n";
+		&Log::audit('EVAL by '.$nick->netnick.': '.$expr);
 		$expr =~ /(.*)/; # go around taint mode
 		$expr = $1;
 		my @r = eval $expr;
