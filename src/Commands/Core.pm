@@ -81,7 +81,6 @@ $perl::VERSION = sprintf '%vd', $^V;
 		return &Janus::jmsg($nick, "Invalid module name") unless $name =~ /^([0-9_A-Za-z:]+)$/;
 		my $n = $1;
 		my $over = $Janus::modinfo{$n}{version} || 'none';
-		&Log::info($nick->netnick . ' reloading module '.$n);
 		if (&Janus::reload($n)) {
 			my $ver = $Janus::modinfo{$n}{version} || 'unknown';
 			&Log::audit("Module $n reloaded ($over => $ver) by " . $nick->netnick);

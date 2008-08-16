@@ -26,6 +26,7 @@ use warnings;
 		"Syntax: \002DIE\002 diepass",
 	],
 	acl => 1,
+	secret => 1,
 	code => sub {
 		my($nick,$pass) = @_;
 		unless ($nick->has_mode('oper') && $pass && $pass eq $Conffile::netconf{set}{diepass}) {
@@ -33,6 +34,7 @@ use warnings;
 			return;
 		}
 		&Conffile::save();
+		&Log::audit('DIE by '.$nick->netnick);
 		for my $net (values %Janus::nets) {
 			next if $net->jlink();
 			&Janus::append(+{
@@ -54,12 +56,14 @@ use warnings;
 		"Syntax: \002RESTART\002 diepass",
 	],
 	acl => 1,
+	secret => 1,
 	code => sub {
 		my($nick,$pass) = @_;
 		unless ($nick->has_mode('oper') && $pass && $pass eq $Conffile::netconf{set}{diepass}) {
 			&Janus::jmsg($nick, "You must specify the 'diepass' password to use this command");
 			return;
 		}
+		&Log::audit('RESTART by '.$nick->netnick);
 		&Conffile::save();
 		for my $net (values %Janus::nets) {
 			next if $net->jlink();
