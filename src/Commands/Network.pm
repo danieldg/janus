@@ -13,6 +13,7 @@ use warnings;
 			&Janus::jmsg($nick, "You must be an IRC operator or specify the rehash password to use this command");
 			return;
 		}
+		&Log::audit('Rehash by '.$nick->netnick);
 		&Janus::append(+{
 			src => $nick,
 			type => 'REHASH',
@@ -96,6 +97,7 @@ use warnings;
 			&Janus::jmsg($nick, 'Cannot find network');
 			return;
 		};
+		&Log::audit("Autoconnect on $id ".($onoff ? 'enabled' : 'disabled').' by '.$nick->netnick);
 		$nconf->{autoconnect} = $onoff;
 		$nconf->{backoff} = 0;
 		&Janus::jmsg($nick, 'Done');
@@ -112,6 +114,7 @@ use warnings;
 		my $nick = shift;
 		my $net = $Janus::nets{lc $_} || $Janus::ijnets{lc $_};
 		return unless $net;
+		&Log::audit("Network ".$net->name.' split by '.$nick->netnick);
 		if ($net->isa('LocalNetwork')) {
 			&Janus::append(+{
 				type => 'NETSPLIT',

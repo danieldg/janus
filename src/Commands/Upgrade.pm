@@ -17,9 +17,11 @@ sub fexec {
 	code => sub {
 		my($nick,$arg) = @_;
 		my @mods = sort grep { $Janus::modinfo{$_}{active} } keys %Janus::modinfo;
+		&Log::audit('Full upgrade started by '.$nick->netnick);
 		for my $mod (@mods) {
 			&Janus::reload($mod);
 		}
+		&Log::info('Upgrade finished');
 		&Janus::jmsg($nick, 'All modules reloaded');
 	}
 }, {
@@ -28,6 +30,7 @@ sub fexec {
 	acl => 1,
 	code => sub {
 		my $nick = shift;
+		&Log::audit('Up-tar started by '.$nick->netnick);
 		my $p = fork;
 		return &Janus::jmsg($nick, 'Failed') unless defined $p && $p >= 0;
 		return if $p;
@@ -46,21 +49,11 @@ sub fexec {
 	acl => 1,
 	code => sub {
 		my $nick = shift;
+		&Log::audit('Up-git started by '.$nick->netnick);
 		my $p = fork;
 		return &Janus::jmsg($nick, 'Failed') unless defined $p && $p >= 0;
 		return if $p;
 		fexec 'git-pull';
-	}
-}, {
-	cmd => 'up-svn',
-	help => 'Runs "svn up"',
-	acl => 1,
-	code => sub {
-		my $nick = shift;
-		my $p = fork;
-		return &Janus::jmsg($nick, 'Failed') unless defined $p && $p >= 0;
-		return if $p;
-		fexec 'svn', 'up';
 	}
 });
 
