@@ -371,7 +371,8 @@ sub add_net {
 	$nets[$$chan]{$$net} = $net;
 	$names[$$chan]{$$net} = $sname;
 
-	&Debug::info("Link ".$net->name."$sname into $keyname[$$chan] ($$net:$$src -> $$chan)");
+	my $dstname = $chan->homenet->name;
+	&Debug::info("Link ".$net->name."$sname into $dstname $keyname[$$chan] ($$net:$$src -> $$chan)");
 
 	my $tsctl = ($ts[$$src] <=> $ts[$$chan]);
 
