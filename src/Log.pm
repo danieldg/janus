@@ -64,6 +64,8 @@ our %action = (
 		(2, "OUT\@$name", $line);
 	}, 'timestamp' => sub {
 		(14, 'Timestamp', $_[0])
+	}, 'debug' => sub {
+		(14, 'debug', $_[0])
 	}, 'audit' => sub {
 		(9, 'AUDIT', $_[0])
 	}, 'command' => sub {

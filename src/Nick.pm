@@ -464,7 +464,7 @@ sub str {
 		}
 		&Janus::insert_full(@clean); @clean = ();
 
-		&Debug::info("Nick deallocation start");
+		&Log::debug("Nick deallocation start");
 		for (0..$#nicks) {
 			weaken($nicks[$_]);
 			my $n = $nicks[$_] or next;
@@ -473,7 +473,7 @@ sub str {
 			&Persist::poison($nicks[$_]);
 		}
 		@nicks = ();
-		&Debug::info("Nick deallocation end");
+		&Log::debug("Nick deallocation end");
 	}, KILL => act => sub {
 		# TODO this is very specific to Link-mode kills
 		my $act = shift;
