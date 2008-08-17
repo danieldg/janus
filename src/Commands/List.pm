@@ -46,7 +46,7 @@ use warnings;
 				&Janus::jmsg($nick, @out);
 			}
 		} else {
-			&Janus::jmsg($nick, "Syntax: LIST network");
+			&Janus::jmsg($nick, "Syntax: LIST network|*");
 		}
 	},
 });

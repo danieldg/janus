@@ -6,7 +6,7 @@ use strict;
 use warnings;
 
 our @sets;
-&Janus::save_vars(sets => @sets);
+&Janus::save_vars(sets => \@sets);
 
 # set => {
 #	name   banset name
@@ -21,7 +21,7 @@ sub find {
 	my $nick = $new->homenick;
 	for my $set (@sets) {
 		next unless $set->{to} eq $to;
-		my $itm = $set->{item} eq 'nick' ? $nick : $nick->info($set->{item});
+		my $itm = $set->{item} eq 'nick' ? $nick : $new->info($set->{item});
 		next unless defined $itm;
 		next unless $set->{hash}{$itm};
 		return $set;
