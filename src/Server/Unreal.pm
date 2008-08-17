@@ -576,7 +576,7 @@ sub _parse_umode {
 	if ($vh_pre != $vh_post) {
 		if ($vh_post > 1) {
 			#invalid
-			&Debug::info("Ignoring extraneous umode +t");
+			&Log::debug("Ignoring extraneous umode +t");
 		} else {
 			my $vhost = $vh_post ? $nick->info('chost') : $nick->info('host');
 			push @out,{

@@ -475,7 +475,7 @@ sub migrate_from {
 sub str {
 	my($chan,$net) = @_;
 	return undef unless $net;
-	return $keyname[$$chan] if $$net == 1;
+	return $keyname[$$chan] if $net == $Interface::network;
 	$names[$$chan]{$$net};
 }
 

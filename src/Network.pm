@@ -92,6 +92,10 @@ sub id {
 	$_[0]->name();
 }
 
+sub netnick {
+	$_[0]->name;
+}
+
 =back
 
 =cut
