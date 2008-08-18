@@ -64,7 +64,6 @@ sub _init {
 	my $net = $ifo->{net};
 	my $gid = $ifo->{gid} || $net->next_nickgid();
 	$gid[$$nick] = $gid;
-	$Janus::gnicks{$gid} = $nick;
 	$homenet[$$nick] = $net;
 	$homenick[$$nick] = $ifo->{nick};
 	$nets[$$nick] = { $$net => $net };
@@ -326,7 +325,11 @@ sub str {
 =cut
 
 &Janus::hook_add(
-	CONNECT => check => sub {
+	NEWNICK => act => sub {
+		my $act = shift;
+		my $nick = $act->{dst};
+		$Janus::gnicks{$nick->gid} = $nick;
+	}, CONNECT => check => sub {
 		my $act = shift;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
