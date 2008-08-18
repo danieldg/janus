@@ -83,7 +83,11 @@ sub acl_ok {
 		delete $nact{IJ_RAW};
 		my $net = delete $nact{except} or return undef;
 		my $chan = $act->{dst};
-		&Log::info('Bouncing mode change by '.$src->netnick.' on '.$chan->str($src->homenet));
+		if ($src->isa('Nick')) {
+			&Log::info('Bouncing mode change by '.$src->netnick.' on '.$chan->str($src->homenet));
+		} else {
+			&Log::info('Bouncing mode change by '.$src->name.' on '.$chan->str($src));
+		}
 		my($m,$a,$d) = @nact{qw/mode args dirs/};
 		for my $i (0 .. $#$d) {
 			my $t = $Modes::mtype{$m->[$i]};
