@@ -3,6 +3,7 @@
 package Commands::Verify;
 use strict;
 use warnings;
+use Scalar::Util 'blessed';
 
 my (@err, %cseen, %nseen, %sseen, %n_c);
 
@@ -88,6 +89,11 @@ sub v_chan {
 		push @err, "Poisoned channel $id ($Channel::keyname[$id]) in $path";
 		return;
 	}
+	unless (blessed $chan && $chan->isa('Channel')) {
+		push @err, "non-channel chan (".ref($chan).") found in $path";
+		return;
+	}
+
 	return if $cseen{$$chan};
 	$cseen{$$chan} = $chan;
 
