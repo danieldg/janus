@@ -138,7 +138,11 @@ my %v_type; %v_type = (
 		$ij->kv_pairs($h);
 		s/^>// or warn;
 		return undef unless $h->{gid} && ref $h->{net} && $ij->jparent($h->{net});
-		$Janus::gnicks{$h->{gid}} || Nick->new(%$h);
+		my $n = $Janus::gnicks{$h->{gid}};
+		unless ($n) {
+			$Janus::gnicks{$h->{gid}} = $n = Nick->new(%$h);
+		}
+		$n;
 	},
 );
 
