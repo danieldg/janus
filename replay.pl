@@ -3,6 +3,7 @@
 # Released under the GNU Affero General Public License v3
 use strict;
 use warnings;
+no warnings 'once';
 BEGIN {
 	# Support for taint mode: we don't acually need most of these protections
 	# as the person running janus.pl is assumed to have shell access anyway.
@@ -31,15 +32,19 @@ my $conffile = shift;
 open my $console, '>&STDOUT' or die $!;
 open my $log, $logfile or die $!;
 
+require Log::Debug;
+@Log::listeners = $Log::Debug::INST;
+&Log::dump_queue();
+
 $| = 1;
 $SIG{PIPE} = 'IGNORE';
 $SIG{CHLD} = 'IGNORE';
 
 &Janus::load('Conffile') or die;
+&Janus::load('Replay') or die;
 
 if ($ARGV[0] && $ARGV[0] =~ /(.+)/) {
 	my $dumpfile = $1;
-	&Janus::load('Replay') or die;
 	$dumpfile = "./$dumpfile" unless $dumpfile =~ m#^/#;
 	&Replay::run($conffile, $dumpfile);
 }
@@ -66,11 +71,11 @@ sub zero { 0 }
 sub one { 1 }
 my $KV = do {
 	my $u;
-	require Server::InterJanus;
 	bless \$u, 'Server::InterJanus';
 };
 
 while (<$log>) {
+	print ">$_";
 	if ($BKPT && $. >= $BKPT) {
 		BEGIN { print "Set breakpoint on line ".(__LINE__+1)."\n"; }
 		print $console "BREAK\n";
@@ -79,74 +84,49 @@ while (<$log>) {
 	if (s/^!//) {
 		print $console "EVAL: $_";
 		eval;
-	} elsif (/^\e\[33m   ACTION <INIT( .*>)\e\[m/) {
+	} elsif (/^\e\[33mACTION: <INITCONF file="(.*)">\e\[m/) {
 		$state = NONE;
-		my $act = { type => 'INIT' };
-		$_ = $1;
-		$KV->kv_pairs($act);
-		if ($conffile) {
-			$act->{args}[1] = $conffile;
-		}
+		$conffile ||= $1;
+		my $act = { type => 'INITCONF', file => $conffile };
 		&Janus::insert_full($act);
 
-		%Conffile::inet = (
-			type => 'REPLAY',
-			listn => \&zero,
-			conn => \&zero,
-			addr => sub { 'nowhere', 5 },
-		);
 		for (values %Conffile::netconf) {
 			$_->{autoconnect} = 0;
 		}
-	} elsif (/^\e\[33m   ACTION <RUN>/) {
+	} elsif (/^\e\[33mACTION: <INIT /) {
+		&Janus::insert_full({ type => 'INIT', args => [ $conffile ] });
+	} elsif (/^\e\[33mACTION: <RUN>/) {
 		&Janus::insert_full({ type => 'RUN' });
-	} elsif (/^\e\[36m Autoconnecting (\S+)\e\[m$/) {
+	} elsif (/^\e\[36minfo: Autoconnecting (\S+)\e\[m$/) {
 		$state = NONE;
 		my $id = $1;
 		next if $Janus::nets{$id} || $Janus::ijnets{$id};
 		my $nconf = $Conffile::netconf{$id} or die $id;
 		$nconf->{autoconnect} = 1;
-		$Conffile::inet{conn} = \&one;
-		unshift @Janus::qstack, [];
+		unshift @Event::qstack, [];
 		&Conffile::connect_net(undef, $id);
 		$nconf->{autoconnect} = 0;
-		$Conffile::inet{conn} = \&zero;
-		&Janus::_runq(shift @Janus::qstack);
-	} elsif (/^\e\[36m Listening on (\S+)\e\[m$/) {
+		&Event::_runq(shift @Event::qstack);
+	} elsif (/^\e\[36minfo: Listening on (\S+)\e\[m$/) {
+		print "Fake listener on $1\n";
 		my $id = $1;
-		$Conffile::inet{listn} = \&one;
 		&Conffile::connect_net(undef, 'LISTEN:'.$1);
-		$Conffile::inet{listn} = \&zero;
 	} elsif (/^\e\[31mERR: Could not listen on port (\S+):/) {
 		my $id = 'LISTEN:'.$1;
 		my $l = find_ij $id;
 		$l->close();
 		&Connection::reassign($l, undef);
-	} elsif (/^\e\[34m   OUT\@\S+ <InterJanus .* ts="(\d+)"/) {
-		print "\e\[0;1mTS-DeltaTo $1\e\[m\n";
-		&Janus::timer($1);
-	} elsif (/^\e\[34m   OUT\@(\S+)/) {
+	} elsif (/^\e\[34mOUT\@(\S+):/) {
 		next if $state == DUMP || !$Janus::nets{$1};
 		$state = DUMP;
 		$_->[&Connection::NET]->dump_sendq() for @Connection::queues;
-	} elsif (/^\e\[32m    IN\@(\S*) (<InterJanus( .*>))\e\[0?m$/) {
+	} elsif (/^\e\[32mIN\@(\S*): (<InterJanus( .*>))\e\[0?m$/) {
 		$state = IN;
 		my($cid,$line,$ij,$tmp) = ($1,$2,undef,{});
 		$_ = $3;
 		$KV->kv_pairs($tmp);
 		die if $cid && $tmp->{id} ne $cid;
 		$ij = find_ij $tmp->{id};
-
-		$_ = <$log>;
-		if (/^\e\[34m   OUT\@\S+ <InterJanus .* ts="(\d+)"/) {
-			print "# Timestamp reset to $1\n";
-			&Janus::timer($1);
-		} elsif (/^\e\[31mERR: Clocks .* here=(\d+)/) {
-			print "# Timestamp reset to $1\n";
-			&Janus::timer($1);
-		} else {
-			print "# Line $_";
-		}
 
 		if ($ij) {
 			&Janus::insert_full($ij->parse($line));
@@ -158,7 +138,7 @@ while (<$log>) {
 			&Janus::insert_full(@out);
 			&Connection::add(1, $ij);
 		}
-	} elsif (/^\e\[32m    IN\@(\S+) (.*)\e\[0?m$/) {
+	} elsif (/^\e\[32mIN\@(\S+): (.*)\e\[m$/) {
 		$state = IN;
 		my($nid, $line) = ($1,$2);
 		my $net = $Janus::nets{$nid} || $Janus::ijnets{$nid};
@@ -167,7 +147,7 @@ while (<$log>) {
 			die;
 		}
 		&Janus::in_socket($net, $line);
-	} elsif (/^\e\[33m   ACTION <(J?NETSPLIT)( .*>)\e\[m$/) {
+	} elsif (/^\e\[33mACTION <(J?NETSPLIT)( .*>)\e\[m$/) {
 		$state = IN;
 		my $act = { type => $1 };
 		my $txt = $_ = $2;
@@ -179,10 +159,10 @@ while (<$log>) {
 			}
 		}
 		&Janus::insert_full($act);
-	} elsif (/^\e\[33m   ACTION <LOCKACK .* expire="(\d+)" .* src=j:(\S+)>\e\[m$/) {
+	} elsif (/^\e\[33mACTION <LOCKACK .* expire="(\d+)" .* src=j:(\S+)>\e\[m$/) {
 		next unless $2 eq $RemoteJanus::self->id();
 		&Janus::timer($1-40);
-	} elsif (/^\e\[0;1mTimestamp: (\d+)\e\[m$/) {
+	} elsif (/^\e\[1;30mTimestamp: (\d+)\e\[m$/) {
 		&Janus::timer($1);
 	} else {
 		$state = NONE;

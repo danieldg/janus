@@ -106,4 +106,21 @@ sub run {
 	&Debug::info("State restored. Beginning replay.");
 }
 
+package Connection;
+
+sub add {
+}
+
+sub init_listen {
+	1;
+}
+
+sub init_conn {
+	1;
+}
+
+sub peer_to_addr {
+	'addr';
+}
+
 1;
