@@ -84,9 +84,9 @@ while (<$log>) {
 	if (s/^!//) {
 		print $console "EVAL: $_";
 		eval;
-	} elsif (/^\e\[33mACTION: <INITCONF file="(.*)">\e\[m/) {
+	} elsif (/^\e\[33mACTION: <INITCONF(?: file="(.*)")?>\e\[m/) {
 		$state = NONE;
-		$conffile ||= $1;
+		$conffile ||= $1 || 'janus.conf';
 		my $act = { type => 'INITCONF', file => $conffile };
 		&Janus::insert_full($act);
 

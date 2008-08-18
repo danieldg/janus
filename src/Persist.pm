@@ -200,6 +200,7 @@ sub DESTROY {
 }
 
 sub AUTOLOAD {
+	local $_;
 	my $ref = $_[0];
 	my($method) = $AUTOLOAD =~ /.*::([^:]+)/;
 	$$ref->{refs}++;
@@ -218,11 +219,13 @@ sub isa {
 package Persist::Poison::Int;
 
 use overload '0+' => sub {
+	local $_;
 	my $pdat = $_[0];
 	$pdat->{refs}++;
 	&Log::poison(caller, '+', $pdat);
 	$pdat->{id};
 }, '<=>' => sub {
+	local $_;
 	my $side = ref $_[0];
 	my $pdat = $side ? $_[0] : $_[1];
 	$pdat->{refs}++;
