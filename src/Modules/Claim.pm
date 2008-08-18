@@ -128,7 +128,11 @@ sub acl_ok {
 		my $chan = $act->{dst};
 		my $src = $act->{src};
 		return undef unless $chan->get_mode('topic'); # allow if not +t
-		&Log::info('Bouncing topic change by '.$src->netnick.' on '.$chan->str($src->homenet));
+		if ($src->isa('Nick')) {
+			&Log::info('Bouncing mode change by '.$src->netnick.' on '.$chan->str($src->homenet));
+		} else {
+			&Log::info('Bouncing mode change by '.$src->name.' on '.$chan->str($src));
+		}
 		$net->send(+{
 			type => 'TOPIC',
 			dst => $chan,

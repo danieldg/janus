@@ -70,6 +70,12 @@ our %action = (
 		(9, 'AUDIT', $_[0])
 	}, 'command' => sub {
 		(13, 'janus', join ' ', $_[0]->netnick, $_[1], $_[2])
+	}, 'poison' => sub {
+		my($pkg, $file, $line, $called, $ifo, @etc) = @_;
+		if ($ifo->{refs} == 1 && &Janus::load('Commands::Debug')) {
+			eval { &Commands::Debug::dump_now('poison', @_) };
+		}
+		(14, 'poison', "Reference to $ifo->{class}->$called at $file line $line for #$ifo->{id} (count=$ifo->{refs})");
 	},
 );
 
