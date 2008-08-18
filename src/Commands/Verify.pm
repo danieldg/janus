@@ -17,8 +17,14 @@ sub v_nick {
 		push @err, "Poisoned nick $id ($Nick::gid[$id] = $Nick::homenick[$id]) in $path";
 		return;
 	}
+	unless ($nick->isa('Nick')) {
+		push @err, "non-nick nick $$nick (".ref($nick).") found in $path";
+		return;
+	}
+
 	return if $nseen{$$nick};
 	$nseen{$$nick} = $nick;
+
 	my $gid = $nick->gid;
 	my $hn = $nick->homenick;
 	my $hs = $nick->homenet;
@@ -48,6 +54,11 @@ sub v_serv {
 		push @err, "Poisoned network $id ($Network::gid[$id] = $Network::name[$id]) in $path";
 		return;
 	}
+	unless ($net->isa('Network')) {
+		push @err, "non-network net $$net (".ref($net).") found in $path";
+		return;
+	}
+
 	return if $sseen{$$net};
 	$sseen{$$net} = $net;
 
