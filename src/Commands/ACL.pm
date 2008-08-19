@@ -98,7 +98,7 @@ use warnings;
 				dst => $Interface::janus,
 				msgtype => 'PRIVMSG',
 				sendto => $dnet->jlink,
-				msg => '@'.$dnet->jlink->name." accept $args",
+				msg => '@'.$dnet->jlink->id." accept $args",
 			});
 		} else {
 			for my $dcname (keys %{$Link::request{$dnname}}) {
