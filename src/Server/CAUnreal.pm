@@ -1074,7 +1074,6 @@ sub srvname {
 				$sgone{$_} = 1 if $sgone{$servers[$$net]{$_}{parent}};
 			}
 		}
-		&Debug::info('Lost servers: '.join(' ', sort keys %sgone));
 		delete $srvname[$$net]{$servers[$$net]{$_}{numeric}} for keys %sgone;
 		delete $servers[$$net]{$_} for keys %sgone;
 
@@ -1089,6 +1088,7 @@ sub srvname {
 				msg => "$splitfrom $srv",
 			}
 		}
+		&Debug::info('Lost servers: '.join(' ', sort keys %sgone).' with '.(scalar @quits).' users from '.$net->name);
 		@quits;
 	}, PING => sub {
 		my $net = shift;

@@ -125,7 +125,7 @@ while (<$log>) {
 		my($cid,$line,$ij,$tmp) = ($1,$2,undef,{});
 		$_ = $3;
 		$KV->kv_pairs($tmp);
-		die if $cid && $tmp->{id} ne $cid;
+		die if $cid !~ /^\d+$/ && $tmp->{id} ne $cid;
 		$ij = find_ij $tmp->{id};
 
 		if ($ij) {

@@ -24,6 +24,17 @@ sub _init {
 
 sub ignore { () }
 
+sub unkick {
+	my $e = shift;
+	my($net, $nick, $chan) = @$e{qw(net nick chan)};
+	return unless $net && $nick && $chan && $kicks[$$net]{$$nick}{$chan->str($net)};
+	&Janus::insert_full(+{
+		type => 'JOIN',
+		src => $nick,
+		dst => $chan,
+	});
+}
+
 sub intro {
 	my($net,$param) = @_;
 	$net->SUPER::intro($param);
@@ -208,17 +219,17 @@ sub nicklen { 40 }
 		$src = ref $src && $src->isa('Nick') ? '<'.$src->str($net).'>' : '[?]';
 		my $cn = $chan->str($net);
 		my $nn = $nick->str($net);
-		&Janus::schedule(+{
+		my $evt = {
 			delay => 15,
-			code => sub {
-				return unless $kicks[$$net]{$$nick}{$cn};
-				&Janus::insert_full(+{
-					type => 'JOIN',
-					src => $nick,
-					dst => $chan,
-				});
-			}
-		});
+			net => $net,
+			nick => $nick,
+			chan => $chan,
+			code => \&unkick,
+		};
+		weaken($evt->{net});
+		weaken($evt->{nick});
+		weaken($evt->{chan});
+		&Janus::schedule($evt);
 		$kicks[$$net]{$$nick}{$cn} = 1;
 		"KICK $cn $nn :$src $act->{msg}";
 	},

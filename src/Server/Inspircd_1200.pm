@@ -514,17 +514,6 @@ $moddef{CORE} = {
 				dirs => $dirs,
 			};
 		}
-	}, REMSTATUS => sub {
-		my $net = shift;
-		my $chan = $net->chan($_[2]) or return ();
-		return +{
-			type => 'TIMESYNC',
-			src => $net,
-			dst => $chan,
-			ts => $chan->ts(),
-			oldts => $chan->ts(),
-			wipe => 1,
-		};
 	}, FTOPIC => sub {
 		my $net = shift;
 		my $chan = $net->chan($_[2]) or return ();
@@ -1138,7 +1127,7 @@ $moddef{CORE} = {
 		my $chan = $act->{dst};
 		if ($act->{wipe}) {
 			if ($act->{ts} == $act->{oldts}) {
-				return $net->ncmd(REMSTATUS => $chan);
+				# TODO must revert all modes
 			} else {
 				# TODO this is still an ugly hack
 				return (
