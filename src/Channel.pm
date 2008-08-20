@@ -547,13 +547,17 @@ sub del_remoteonly {
 		unless ($schan) {
 			my $net = $act->{net};
 			my $name = $act->{name};
-			$schan = $net->chan($name, 1);
+			if ($net->isa('LocalNetwork')) {
+				$schan = $net->chan($name, 1);
+			} else {
+				$schan = Channel->new(net => $net, name => $name, ts => $act->{dst}->ts);
+			}
 		}
 		if ($act->{dst} == $schan) {
 			&Debug::err("Not linking a channel to itself ($$schan)");
 			return 1;
 		}
-		if (1 < scalar $schan->nets()) {
+		if (1 < scalar $schan->nets) {
 			&Debug::err("Channel already linked ($$schan)");
 			return 1;
 		}
