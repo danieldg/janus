@@ -16,13 +16,31 @@ sub fexec {
 	acl => 1,
 	code => sub {
 		my($nick,$arg) = @_;
-		my @mods = sort grep { $Janus::modinfo{$_}{active} } keys %Janus::modinfo;
-		&Log::audit('Full upgrade started by '.$nick->netnick);
+		my @mods = sort keys %Janus::modinfo;
+		my $force = ($arg && $arg eq 'force');
+		&Log::audit(($force ? 'Full module reload' : 'Upgrade') .
+			' started by '.$nick->netnick);
+		my @done;
 		for my $mod (@mods) {
-			&Janus::reload($mod);
+			next unless $Janus::modinfo{$mod}{active};
+			unless ($force) {
+				my $fn = 'src/'.$mod.'.pm';
+				$fn =~ s#::#/#g;
+				my $sha1 = $Janus::new_sha1->();
+				open my $fh, '<', $fn or next;
+				$sha1->addfile($fh);
+				close $fh;
+				my $csum = $sha1->hexdigest();
+				next if $Janus::modinfo{$mod}{sha} eq $csum;
+			}
+			if (&Janus::reload($mod)) {
+				push @done, $mod;
+			} else {
+				push @done, "\00304$mod\017";
+			}
 		}
 		&Log::info('Upgrade finished');
-		&Janus::jmsg($nick, 'All modules reloaded');
+		&Janus::jmsg($nick, join ' ', 'Modules reloaded:', sort @done);
 	}
 }, {
 	cmd => 'up-tar',

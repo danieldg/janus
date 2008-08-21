@@ -99,7 +99,8 @@ if ($RELEASE) {
 	close $rcs;
 }
 
-my $new_sha1 = eval {
+our $new_sha1;
+$new_sha1 ||= eval {
 	require Digest::SHA1;
 	sub { Digest::SHA1->new(); }
 } || eval {
