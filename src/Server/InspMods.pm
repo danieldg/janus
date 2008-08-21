@@ -241,7 +241,7 @@ mdef 'm_operlog.so';
 mdef 'm_opermodes.so';
 mdef 'm_opermotd.so';
 mdef 'm_override.so';
-mdef 1200, 'm_permchannels.so', cmode => { P => 'permanent' };
+mdef 1200, 'm_permchannels.so', cmode => { P => 'r_permanent' };
 mdef 'm_randquote.so';
 mdef 'm_redirect.so', cmode => { L => 's_forward' };
 mdef 'm_regonlycreate.so';
