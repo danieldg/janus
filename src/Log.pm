@@ -88,6 +88,7 @@ our($AUTOLOAD,$ftime,$fcount);
 $ftime ||= 0;
 
 sub AUTOLOAD {
+	local $_;
 	$AUTOLOAD =~ s/Log:://;
 	my $lvl = $action{$AUTOLOAD};
 	unless ($lvl) {

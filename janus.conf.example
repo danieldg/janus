@@ -38,14 +38,8 @@ set {
 # Modules block: this is a list of modules which are loaded at startup.
 # Modules can also be loaded or unloaded while janus is running.
 modules {
-	Commands::Debug
-	Commands::Link
-	Commands::Modes
-	Commands::Network
-	Commands::Request
-	Commands::Save
+	Commands::*
 	Modules::Ban
-	Modules::LogRotate
 	Modules::Signals
 }
 
@@ -62,6 +56,12 @@ log log/%Y-%m-%d-%H:%M:%S {
 	rotate 86400
 	# action to take on the log after closing
 	closeact gzip
+}
+
+log net#logchan {
+	type Channel
+	filter audit
+	# You MUST use a filter to avoid massive floods with a channel log
 }
 
 # Listen block: janus will listen on this port for incoming server connections

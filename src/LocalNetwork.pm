@@ -31,7 +31,7 @@ sub next_nickgid {
 }
 
 ### MODE SPLIT ###
-eval($Janus::lmode eq 'Bridge' ? '#line '.__LINE__.' "'.__FILE__.'"'.q[
+eval($Janus::lmode eq 'Bridge' ? '#line '.__LINE__.' "'.__FILE__.'"'.q[#[[]]
 ### BRIDGE MODE ###
 &Persist::register_vars(qw(cparms nickseq));
 
@@ -65,7 +65,7 @@ sub all_chans {
 	values %Janus::chans;
 }
 
-1 ] : '#line '.__LINE__.' "'.__FILE__.'"'.q[
+1 ] : '#line '.__LINE__.' "'.__FILE__.'"'.q[#[[]]
 ### LINK MODE ###
 our @chans;
 &Persist::register_vars(qw(cparms chans nickseq));
