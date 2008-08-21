@@ -35,7 +35,7 @@ use warnings;
 			&Interface::jmsg($nick, 'Default: '.($ifo->{mode} == 1 ? 'allow' : 'deny'));
 			return unless $ifo->{ack};
 			for my $nn (keys %{$ifo->{ack}}) {
-				&Interface::jmsg($nick, sprintf '%4s %s', $nn,
+				&Interface::jmsg($nick, sprintf '%8s %s', $nn,
 					($ifo->{ack}{$nn} == 1 ? 'allow' : 'deny'));
 			}
 		} elsif ($m eq 'add' && $arg) {
