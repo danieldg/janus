@@ -596,13 +596,14 @@ sub del_remoteonly {
 		my $chan = $act->{dst};
 		my $net = $act->{net};
 		if ($net == $homenet[$$chan]) {
+			my $slow_quit = $act->{netsplit_quit} ? 2 : 0;
 			for my $on (values %{$nets[$$chan]}) {
 				next if $on == $net;
 				&Janus::append(+{
 					type => 'DELINK',
 					net => $on,
 					dst => $chan,
-					netsplit_quit => $act->{netsplit_quit},
+					netsplit_quit => $slow_quit,
 					nojlink => 1,
 				});
 			}
@@ -640,7 +641,8 @@ sub del_remoteonly {
 		$nicks[$$split] = [ @presplit ];
 		$nmode[$$split] = { %{$nmode[$$chan]} };
 
-		my $delink_lvl = $act->{netsplit_quit} ? 2 : 1;
+		my $delink_lvl = $act->{netsplit_quit};
+		$delink_lvl++;
 
 		my @parts;
 
@@ -649,28 +651,26 @@ sub del_remoteonly {
 			# PART is sent, because code is allowed to assume a PARTed nick was actually
 			# in the channel it is parting from; this also keeps the channel from being
 			# prematurely removed from the list.
-
-			warn "c$$chan/n$$nick:no HN", next unless $nick->homenet();
-			if ($nick->homenet() eq $net) {
-				$nick->rejoin($split);
-				push @parts, {
-					type => 'PART',
-					src => $nick,
-					dst => $chan,
-					msg => 'Channel delinked',
-					delink => $delink_lvl,
-					($act->{netsplit_quit} ? (sendto => []) : (nojlink => 1)),
-				};
-			} else {
-				push @parts, +{
-					type => 'PART',
-					src => $nick,
-					dst => $split,
-					msg => 'Channel delinked',
-					delink => $delink_lvl,
-					($act->{netsplit_quit} ? (sendto => []) : (nojlink => 1)),
-				};
+			my %part = (
+				type => 'PART',
+				src => $nick,
+				msg => 'Channel delinked',
+				delink => $delink_lvl,
+			);
+			if ($delink_lvl == 1) {
+				$part{nojlink} = 1;
+			} elsif ($delink_lvl == 2) {
+				$part{sendto} = [];
 			}
+
+			warn "c$$chan/n$$nick:no HN", next unless $nick->homenet;
+			if ($nick->homenet eq $net) {
+				$nick->rejoin($split);
+				$part{dst} = $chan,
+			} else {
+				$part{dst} = $split;
+			}
+			push @parts, \%part;
 		}
 		&Janus::insert_full(@parts);
 	}, DELINK => cleanup => sub {
