@@ -149,6 +149,7 @@ use warnings;
 		for my $chan ($hnet->all_chans()) {
 			my %nets = map { $$_ => $_ } $chan->nets();
 			delete $nets{$$hnet};
+			delete $nets{$$Interface::network};
 			next unless scalar keys %nets;
 			my $cnet = $chan->homenet();
 			my $cname = lc $chan->str($cnet);

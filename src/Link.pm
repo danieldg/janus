@@ -51,12 +51,28 @@ sub autolink_from {
 	my $bychan = $request{$netn} or return;
 	for my $src (sort keys %$bychan) {
 		my $ifo = $bychan->{$src} or next;
-		next if $ifo->{mode};
+		my $chan = $net->chan($src, 1);
+		if ($ifo->{mode}) {
+			next if $chan->is_on($Interface::network);
+			my $ifchan = Channel->new(
+				net => $Interface::network,
+				name => $chan->real_keyname,
+				ts => $chan->ts,
+			);
+			push @acts, {
+				type => 'CHANLINK',
+				dst => $chan,
+				in => $ifchan,
+				net => $Interface::network,
+				name => $chan->real_keyname,
+				nojlink => 1,
+			};
+			next;
+		}
 		my $dst = $Janus::nets{$ifo->{net}} or next;
 		if ($mask && !$mask->jparent($dst)) {
 			next;
 		}
-		my $chan = $net->chan($src, 1);
 		push @acts, +{
 			type => 'LINKREQ',
 			chan => $chan,

@@ -203,7 +203,25 @@ sub request_cnick { $_[2] }
 sub release_nick { }
 sub is_synced { 0 }
 sub all_nicks { $janus }
-sub all_chans { () }
+sub all_chans { values %Janus::gchans }
+
+sub chan {
+	$Janus::gchans{$_[1]};
+}
+
+sub replace_chan {
+	my $new = $_[2];
+	&Log::debug("Replace channel $_[1]");
+	if ($_[2] && 2 > scalar $_[2]->nets) {
+		Event::append({
+			type => 'PART',
+			dst => $new,
+			src => $janus,
+			msg => 'Unlinked',
+		});
+	}
+	();
+}
 
 =item Interface::jmsg($dst, $msg,...)
 
