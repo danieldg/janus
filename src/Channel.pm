@@ -400,16 +400,24 @@ sub add_net {
 		}
 	}
 
+	my $jto = [ $net, @$joinnets ];
+
 	&Janus::append({
 		type => 'JOIN',
 		src => $Interface::janus,
 		dst => $chan,
 		nojlink => 1,
+		sendto => $jto,
 	});
 
 	for my $nick (@{$nicks[$$chan]}) {
 		$nick->rejoin($chan);
-		next if $$nick == 1 || $nick->jlink;
+		next if $nick->jlink;
+		if ($$nick == 1) {
+			# janus nick already on channel
+			@$jto = $net;
+			next;
+		}
 		# Every network must send JOINs for its own nicks
 		# to all networks
 		&Janus::append(+{
@@ -423,7 +431,10 @@ sub add_net {
 
 	unless ($net->jlink) {
 		for my $nick (@{$nicks[$$src]}) {
-			next if $$nick == 1;
+			if ($$nick == 1) {
+				@$jto = grep { $_ != $net } @$jto;
+				next;
+			}
 			# source network must also send JOINs to everyone. However, since
 			# it is local, we can omit sending it to ourselves.
 			&Janus::append(+{
