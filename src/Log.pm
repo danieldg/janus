@@ -17,11 +17,19 @@ our %action = (
 		(10, 'info', join ' ', @_)
 	}, 'warn_in' => sub {
 		my($src, $msg) = @_;
-		my $name = $EventDump::INST->ijstr($src);
+		my $name =
+			$src->isa('Network') ? ($src->name.'='.$src->gid) :
+			$src->isa('Channel') ? $src->real_keyname :
+			$src->isa('Nick') ? $src->netnick :
+			$src;
 		(6, "\@$name", $msg);
 	}, 'err_in' => sub {
 		my($src, $msg) = @_;
-		my $name = $EventDump::INST->ijstr($src);
+		my $name =
+			$src->isa('Network') ? ($src->name.'='.$src->gid) :
+			$src->isa('Channel') ? $src->real_keyname :
+			$src->isa('Nick') ? $src->netnick :
+			$src;
 		(5, "ERR\@$name", $msg);
 	}, 'alloc' => sub {
 		my $obj = shift;
