@@ -658,9 +658,14 @@ sub del_remoteonly {
 				delink => $delink_lvl,
 			);
 			if ($delink_lvl == 1) {
+				# standard delink command
 				$part{nojlink} = 1;
 			} elsif ($delink_lvl == 2) {
+				# delink from a non-homenet netsplit
 				$part{sendto} = [];
+			} elsif ($delink_lvl == 3) {
+				# delink from a homenet netsplit
+				$part{nojlink} = 1;
 			}
 
 			warn "c$$chan/n$$nick:no HN", next unless $nick->homenet;

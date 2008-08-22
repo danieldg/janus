@@ -330,7 +330,8 @@ $moddef{CORE} = {
 		$nick{mode} = +{ map {
 			my $t = $net->umode2txt($_);
 			defined $t ? ($t => 1) : do {
-				&Debug::warn_in($net, "Unknown umode '$_'");
+				# inspircd bug, fixed in 1.2: an extra + may be added to the umode at each hop
+				&Debug::warn_in($net, "Unknown umode '$_'") unless $_ eq '+';
 				();
 			};
 		} @m };
