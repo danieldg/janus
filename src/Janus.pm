@@ -109,9 +109,9 @@ $new_sha1 ||= eval {
 } || die "One of Digest::SHA1 or Digest::SHA is required to run";
 
 sub csum_read {
-	$_[0] =~ /([0-9A-Za-z_:]+)/;
-	my $mod = $1;
-	my $fn = 'src/'.$mod.'.pm';
+	my $mod = $_[0];
+	$mod =~ /([0-9A-Za-z_:]+)/;
+	my $fn = "src/$1.pm";
 	$fn =~ s#::#/#g;
 	my $ver = '?';
 
