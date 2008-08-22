@@ -156,19 +156,20 @@ sub readable {
 	} else {
 		my $net = $$l[NET] or return;
 		if ($sock->isa('IO::Socket::SSL')) {
-			&Debug::warn_in($net, "SSL read error: ".$sock->errstr());
 			if ($sock->errstr() eq SSL_WANT_READ) {
 				# we were trying to read, and want another read: act just like reading
 				# half of a line, i.e. return and wait for the next incoming blob
 				return unless $$l[TRY_R]++ > 30;
 				# However, if we have had more than 30 errors, assume something else is wrong
 				# and bail out.
-				&Debug::info("Bailing out!");
+				&Debug::err_in("30 read errors in a row, bailing out!");
 			} elsif ($sock->errstr() eq SSL_WANT_WRITE) {
 				# since are waiting for a write, we do NOT want to come back when reads
 				# are available, at least not until we have unblocked a write.
 				@$l[TRY_R, TRY_W] = (0,1);
 				return;
+			} else {
+				&Debug::err_in($net, "SSL read error: ".$sock->errstr());
 			}
 		} else {
 			&Debug::err_in($net, "Delink from failed read: $!");
@@ -187,13 +188,14 @@ sub _syswrite {
 		$$l[TRY_W] = 1 if $len < length $sendq;
 	} else {
 		if ($sock->isa('IO::Socket::SSL')) {
-			&Debug::warn_in($net, "SSL write error: ".$sock->errstr());
 			if ($sock->errstr() eq SSL_WANT_READ) {
 				@$l[TRY_R,TRY_W] = (1,0);
 				return;
 			} elsif ($sock->errstr() eq SSL_WANT_WRITE) {
 				@$l[TRY_R,TRY_W] = (0,1);
 				return;
+			} else {
+				&Debug::err_in($net, "SSL write error: ".$sock->errstr());
 			}
 		} else {
 			&Debug::err_in($net, "Delink from failed write: $!");
