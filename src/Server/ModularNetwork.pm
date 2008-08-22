@@ -190,17 +190,17 @@ sub reload_moddef {
 	my $net = shift;
 	return unless $net->isa(__PACKAGE__);
 	my @mods = keys %{$modules[$$net]};
-	&Debug::info("Reloading module definitions for $net");
+	&Log::info('Reloading module definitions for',$net->name,$net->gid);
 	for my $mod (@mods) {
 		$net->module_remove($mod);
 		$net->module_add($mod);
 	}
 }
 
-&Janus::hook_add(
-	module => LOAD => sub {
-		my $mod = shift;
-		return unless $mod =~ /^Server::/;
+&Event::hook_add(
+	MODRELOAD => 'act:1' => sub {
+		my $act = shift;
+		return unless $act->{module} =~ /^Server::/;
 		for my $net (values %Janus::nets) {
 			next unless $net->isa(__PACKAGE__);
 			$net->reload_moddef();
