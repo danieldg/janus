@@ -44,6 +44,24 @@ for my $n (keys %request) {
 	request => \%request,
 );
 
+sub link_to_janus {
+	my $chan = shift;
+	return if $chan->is_on($Interface::network);
+	my $ifchan = Channel->new(
+		net => $Interface::network,
+		name => $chan->real_keyname,
+		ts => $chan->ts,
+	);
+	Event::append({
+		type => 'CHANLINK',
+		dst => $chan,
+		in => $ifchan,
+		net => $Interface::network,
+		name => $chan->real_keyname,
+		nojlink => 1,
+	});
+}
+
 sub autolink_from {
 	my($net,$mask) = @_;
 	my @acts;
@@ -53,20 +71,7 @@ sub autolink_from {
 		my $ifo = $bychan->{$src} or next;
 		my $chan = $net->chan($src, 1);
 		if ($ifo->{mode}) {
-			next if $chan->is_on($Interface::network);
-			my $ifchan = Channel->new(
-				net => $Interface::network,
-				name => $chan->real_keyname,
-				ts => $chan->ts,
-			);
-			push @acts, {
-				type => 'CHANLINK',
-				dst => $chan,
-				in => $ifchan,
-				net => $Interface::network,
-				name => $chan->real_keyname,
-				nojlink => 1,
-			};
+			link_to_janus($chan);
 			next;
 		}
 		my $dst = $Janus::nets{$ifo->{net}} or next;
@@ -214,7 +219,8 @@ sub send_avail {
 			mask => $act->{reqby},
 			'time', $act->{reqtime},
 		};
-		# wait to link until someone requests
+		my $chan = $net->chan($act->{name}, 1);
+		link_to_janus($chan);
 	}, DELINK => act => sub {
 		my $act = shift;
 		# do not process derived actions
