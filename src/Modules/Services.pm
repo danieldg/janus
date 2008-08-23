@@ -92,9 +92,14 @@ sub svs_type {
 		my $act = shift;
 		my $nick = $act->{dst};
 		return unless svs_type($nick) & JOIN_ALL;
+		Event::append({
+			type => 'NICKINFO',
+			dst => $nick,
+			item => noquit => value => 1,
+		});
 		for my $net (values %Janus::nets) {
 			next if $nick->is_on($net);
-			&Janus::append({
+			Event::append({
 				type => 'CONNECT',
 				dst => $nick,
 				net => $net,

@@ -56,6 +56,7 @@ sub pmsg {
 
 	if ($$src == 1 && ref $act->{except}) {
 		my $srcj = $act->{except}->id;
+		delete $act->{IJ_RAW};
 		$act->{msg} = "\@$srcj $act->{msg}" unless $act->{msg} =~ /^@/;
 	}
 
@@ -107,6 +108,7 @@ sub pmsg {
 				vhost => ($Conffile::netconf{set}{janus_host} || 'service'),
 				name => 'Janus Control Interface',
 				opertype => 'Janus Service',
+				noquit => 1,
 			},
 			mode => { oper => 1, service => 1, bot => 1 },
 		);

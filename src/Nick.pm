@@ -281,10 +281,9 @@ sub _netpart {
 
 sub _netclean {
 	my $nick = shift;
-	return if $nets[$$nick]{$$Interface::network};
-	# nicks on network 1 (Interface) are never cleaned from networks
+	return if $nick->info('noquit');
 
-	my $home = $nick->homenet();
+	my $home = $nick->homenet;
 	my %leave = @_ ? map { $$_ => $_ } @_ : %{$nets[$$nick]};
 	delete $leave{${$homenet[$$nick]}};
 	for my $chan (@{$chans[$$nick]}) {
