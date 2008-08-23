@@ -428,24 +428,27 @@ sub add_net {
 			sendto => $burstnets,
 		});
 	}
-
-	unless ($net->jlink) {
-		for my $nick (@{$nicks[$$src]}) {
-			if ($$nick == 1) {
-				@$jto = grep { $_ != $net } @$jto;
-				next;
-			}
-			# source network must also send JOINs to everyone. However, since
-			# it is local, we can omit sending it to ourselves.
-			&Janus::append(+{
-				type => 'JOIN',
-				src => $nick,
-				dst => $chan,
-				mode => $src->get_nmode($nick),
-				sendto => $joinnets,
-			});
+	
+	my %nicks_by_id;
+	$nicks_by_id{$$_} = $_ for @{$nicks[$$chan]};
+	for my $nick (@{$nicks[$$src]}) {
+		if ($$nick == 1) {
+			@$jto = grep { $_ != $net } @$jto;
+			next;
 		}
+		$nicks_by_id{$$nick} = $nick;
+		$nmode[$$chan]{$$nick} = $nmode[$$src]{$$nick} if $nmode[$$src]{$$nick};
+		next if $nick->jlink;
+		# source network must also send JOINs to everyone
+		&Janus::append(+{
+			type => 'JOIN',
+			src => $nick,
+			dst => $chan,
+			mode => $src->get_nmode($nick),
+			sendto => $joinnets,
+		});
 	}
+	$nicks[$$chan] = [ values %nicks_by_id ];
 	&Janus::append({ type => 'POISON', item => $src, reason => 'migrated away' });
 }
 
@@ -459,6 +462,9 @@ sub migrate_from {
 		$burstmap{$$jl} = $jl if $jl;
 	}
 
+	my %nicks_by_id;
+	$nicks_by_id{$$_} = $_ for @{$nicks[$$chan]};
+
 	for my $src (@_) {
 		next if $$src == $$chan;
 		for my $net ($src->nets) {
@@ -471,6 +477,8 @@ sub migrate_from {
 
 		for my $nick (@{$nicks[$$src]}) {
 			$nick->rejoin($chan, $src);
+			$nicks_by_id{$$nick} = $nick;
+			$nmode[$$chan]{$$nick} = $nmode[$$src]{$$nick} if $nmode[$$src]{$$nick};
 			next if $$nick == 1 || $nick->jlink;
 			&Janus::append(+{
 				type => 'JOIN',
@@ -482,6 +490,7 @@ sub migrate_from {
 		}
 		&Janus::append({ type => 'POISON', item => $src, reason => 'migrated away' });
 	}
+	$nicks[$$chan] = [ values %nicks_by_id ];
 }
 
 sub str {
