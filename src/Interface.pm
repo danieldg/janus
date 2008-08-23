@@ -123,6 +123,14 @@ sub pmsg {
 			dst => $act->{dst},
 			net => $act->{net},
 		});
+	}, KICK => act => sub {
+		my $act = shift;
+		return unless $act->{kickee} eq $janus;
+		&Janus::append({
+			type => 'JOIN',
+			dst => $act->{dst},
+			src => $janus,
+		});
 	},
 	MSG => parse => \&pmsg,
 	INVITE => parse => sub {
