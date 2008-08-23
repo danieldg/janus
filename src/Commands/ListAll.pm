@@ -20,6 +20,7 @@ use warnings;
 			for my $net (@nets) {
 				my $netn = $net->name;
 				$netn = "\002$netn\002" if $net == $chan->homenet;
+				next if $net == $Interface::network;
 				my $oname = $chan->str($net);
 				if (lc $oname ne lc $name) {
 					push @netlist, $netn.$oname;
