@@ -91,7 +91,7 @@ sub find {
 		my $act = shift;
 		my $nick = $act->{dst};
 		my $net = $act->{net};
-		return undef if $net->jlink();
+		return undef if $net->jlink || $net == $Interface::network;
 		return undef if $nick->has_mode('oper');
 
 		my $ban = find($nick, $net);
