@@ -15,6 +15,14 @@ our %action = (
 		(6, 'WARN', join ' ', @_);
 	}, 'info' => sub {
 		(10, 'info', join ' ', @_)
+	}, 'info_in' => sub {
+		my($src, $msg) = @_;
+		my $name =
+			$src->isa('Network') ? ($src->name.'='.$src->gid) :
+			$src->isa('Channel') ? $src->real_keyname :
+			$src->isa('Nick') ? $src->netnick :
+			$src;
+		(10, "\@$name", $msg);
 	}, 'warn_in' => sub {
 		my($src, $msg) = @_;
 		my $name =
@@ -22,7 +30,7 @@ our %action = (
 			$src->isa('Channel') ? $src->real_keyname :
 			$src->isa('Nick') ? $src->netnick :
 			$src;
-		(6, "\@$name", $msg);
+		(6, "WARN\@$name", $msg);
 	}, 'err_in' => sub {
 		my($src, $msg) = @_;
 		my $name =

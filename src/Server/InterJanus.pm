@@ -183,7 +183,7 @@ sub jlink {
 sub send {
 	my $ij = shift;
 	my @out = &EventDump::dump_act(@_);
-	&Debug::netout($ij, $_) for @out;
+	&Log::netout($ij, $_) for @out;
 	$sendq[$$ij] .= join '', map "$_\n", @out;
 }
 
@@ -195,17 +195,17 @@ sub dump_sendq {
 }
 
 sub parse {
-	&Debug::netin(@_);
+	&Log::netin(@_);
 	my $ij = shift;
 	local $_ = $_[0];
 
 	s/^\s*<([^ >]+)// or do {
-		&Debug::err_in($ij, "Invalid IJ line\n");
+		&Log::err_in($ij, "Invalid IJ line\n");
 		return ();
 	};
 	my $act = { type => $1, IJ_RAW => $_[0] };
 	$ij->kv_pairs($act);
-	&Debug::err_in($ij, "bad line: $_[0]") unless /^\s*>\s*$/;
+	&Log::err_in($ij, "bad line: $_[0]") unless /^\s*>\s*$/;
 	$act->{except} = $ij;
 	if ($act->{type} eq 'PING') {
 		$ij->send({ type => 'PONG' });

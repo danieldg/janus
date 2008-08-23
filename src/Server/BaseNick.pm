@@ -19,11 +19,11 @@ sub mynick {
 	my($net, $name) = @_;
 	my $nick = $nicks[$$net]{lc $name};
 	unless ($nick) {
-		&Debug::warn_in($net, "Nick '$name' does not exist; ignoring");
+		&Log::warn_in($net, "Nick '$name' does not exist; ignoring");
 		return undef;
 	}
 	if ($nick->homenet() ne $net) {
-		&Debug::err_in($net, "Nick '$name' is from network '".$nick->homenet()->name().
+		&Log::err_in($net, "Nick '$name' is from network '".$nick->homenet()->name().
 			"' but was sourced locally");
 		return undef;
 	}
@@ -33,7 +33,7 @@ sub mynick {
 sub nick {
 	my($net, $name) = @_;
 	return $nicks[$$net]{lc $name} if $nicks[$$net]{lc $name};
-	&Debug::warn_in($net, "Nick '$name' does not exist; ignoring") unless $_[2];
+	&Log::warn_in($net, "Nick '$name' does not exist; ignoring") unless $_[2];
 	undef;
 }
 

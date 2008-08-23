@@ -1,7 +1,6 @@
 # Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
 package Server::BaseUID;
-use Debug;
 use LocalNetwork;
 use Persist 'LocalNetwork';
 use strict;
@@ -25,16 +24,16 @@ sub nick2uid {
 sub mynick {
 	my($net, $name) = @_;
 	if ($name !~ /^\d/) {
-		&Debug::warn_in($net, "Nick used where UID expected; converting");
+		&Log::warn_in($net, "Nick used where UID expected; converting");
 		$name = $nick2uid[$$net]{lc $name} || $name;
 	}
 	my $nick = $uids[$$net]{uc $name};
 	unless ($nick) {
-		&Debug::warn_in($net, "UID '$name' does not exist; ignoring");
+		&Log::warn_in($net, "UID '$name' does not exist; ignoring");
 		return undef;
 	}
 	if ($nick->homenet() ne $net) {
-		&Debug::err_in($net, "UID '$name' is from network '".$nick->homenet()->name().
+		&Log::err_in($net, "UID '$name' is from network '".$nick->homenet()->name().
 			"' but was sourced locally");
 		return undef;
 	}
@@ -44,11 +43,11 @@ sub mynick {
 sub nick {
 	my($net, $name) = @_;
 	if ($name !~ /^\d/) {
-		&Debug::warn_in($net, "Nick used where UID expected: converting") unless $_[2];
+		&Log::warn_in($net, "Nick used where UID expected: converting") unless $_[2];
 		$name = $nick2uid[$$net]{lc $name} || $name;
 	}
 	return $uids[$$net]{uc $name} if $uids[$$net]{uc $name};
-	&Debug::warn_in($net, "UID '$name' does not exist; ignoring") unless $_[2];
+	&Log::warn_in($net, "UID '$name' does not exist; ignoring") unless $_[2];
 	undef;
 }
 
@@ -57,7 +56,7 @@ sub register_nick {
 	my($net, $new, $new_uid) = @_;
 	$uids[$$net]{uc $new_uid} = $new;
 	$gid2uid[$$net]{$new->gid()} = $new_uid;
-	&Debug::info("Registering $new_uid for nick #$$new");
+	&Log::debug("Registering $new_uid for nick #$$new");
 	my $name = $new->str($net);
 	my $old_uid = delete $nick2uid[$$net]{lc $name};
 	unless ($old_uid) {
@@ -137,7 +136,7 @@ sub request_newnick {
 	my($net, $nick, $reqnick, $tagged) = @_;
 	my $given = _request_nick(@_);
 	my $uid = $net->next_uid($nick->homenet());
-	&Debug::info("Registering nick #$$nick as uid $uid with nick $given");
+	&Log::debug("Registering nick #$$nick as uid $uid with nick $given");
 	$uids[$$net]{uc $uid} = $nick;
 	$nick2uid[$$net]{lc $given} = $uid;
 	$gid2uid[$$net]{$nick->gid()} = $uid;

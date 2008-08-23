@@ -51,7 +51,7 @@ sub intro {
 # parse one line of input
 sub parse {
 	my ($net, $line) = @_;
-	&Debug::netin(@_);
+	&Log::netin(@_);
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
 	push @args, $msg if defined $msg;
@@ -97,7 +97,7 @@ sub dump_sendq {
 		$auth[$$net] = 3 if $auth[$$net] == 2;
 	}
 	$q =~ s/\n+/\r\n/g;
-	&Debug::netout($net, $_) for split /\r\n/, $q;
+	&Log::netout($net, $_) for split /\r\n/, $q;
 	$q;
 }
 
@@ -221,7 +221,7 @@ sub _parse_umode {
 			$pm = $_;
 		} else {
 			my $txt = $net->umode2txt($_) or do {
-				&Debug::warn_in($net, "Unknown umode '$_'");
+				&Log::warn_in($net, "Unknown umode '$_'");
 				next;
 			};
 			push @mode, $pm.$txt;
@@ -244,13 +244,11 @@ sub _out {
 		return $net->nick2uid($itm) if $itm->is_on($net);
 		return $net->net2uid($itm->homenet());
 	} elsif ($itm->isa('Channel')) {
-		&Debug::warn_in("This channel message must have been misrouted: ".$itm->keyname())
-			unless $itm->is_on($net);
 		return $itm->str($net);
 	} elsif ($itm->isa('Network') || $itm->isa('RemoteJanus')) {
 		return $net->net2uid($itm);
 	} else {
-		&Debug::err_in($net, "Unknown item $itm");
+		&Log::err_in($net, "Unknown item $itm");
 		return '0AJ';
 	}
 }
@@ -347,7 +345,7 @@ $moddef{CORE} = {
 		$nick{mode} = +{ map {
 			my $t = $net->umode2txt($_);
 			defined $t ? ($t => 1) : do {
-				&Debug::warn_in($net, "Unknown umode '$_'");
+				&Log::warn_in($net, "Unknown umode '$_'");
 				();
 			};
 		} @m };
@@ -624,7 +622,7 @@ $moddef{CORE} = {
 			}
 		}
 		my @ksg = sort keys %sgone;
-		&Debug::info('Lost servers: '.join(' ', @ksg));
+		&Log::info_in($net, 'Lost servers: '.join(' ', @ksg));
 		delete $servers[$$net]{$_} for @ksg;
 		delete $serverdsc[$$net]{$_} for @ksg;
 		for (keys %{$servernum[$$net]}) {
@@ -774,7 +772,7 @@ $moddef{CORE} = {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
 		if ($nick->homenet eq $net) {
-			&Debug::warn_in($net, "Misdirected SVSNICK!");
+			&Log::warn_in($net, "Misdirected SVSNICK!");
 			return ();
 		} elsif (lc $nick->homenick eq lc $nick->str($net)) {
 			return +{
@@ -785,7 +783,7 @@ $moddef{CORE} = {
 				killed => 0,
 			};
 		} else {
-			&Debug::warn_in($net, "Ignoring SVSNICK on already tagged nick");
+			&Log::warn_in($net, "Ignoring SVSNICK on already tagged nick");
 			return ();
 		}
 	},
@@ -1060,7 +1058,7 @@ $moddef{CORE} = {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
 		if ($act->{src}->homenet() eq $net) {
-			&Debug::err("Trying to force channel join remotely (".$act->{src}->gid().$chan->str($net).")");
+			&Log::err_in($net,"Trying to force channel join remotely (".$act->{src}->gid().$chan->str($net).")");
 			return ();
 		}
 		my $mode = '';

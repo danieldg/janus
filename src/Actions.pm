@@ -363,7 +363,7 @@ for my $type (keys %spec) {
 	my $check = $spec{$itm};
 	unless ($check) {
 		return undef if $itm eq 'RAW';
-		&Debug::hook_err($act, "Unknown action type");
+		&Log::hook_err($act, "Unknown action type");
 		return undef;
 	}
 	KEY: for my $k (keys %$check) {
@@ -377,7 +377,7 @@ for my $type (keys %spec) {
 		} elsif (s/^\?//) {
 			next KEY unless defined $v;
 		} elsif (!defined $v) {
-			&Debug::hook_err($act, "Validate hook [$itm: $k undefined]");
+			&Log::hook_err($act, "Validate hook [$itm: $k undefined]");
 			return 1;
 		}
 		for (split /\s+/) {
@@ -388,12 +388,12 @@ for my $type (keys %spec) {
 				$v->isa($_);
 			};
 		}
-		&Debug::hook_err($act, "Validate hook [$itm: $k invalid]");
+		&Log::hook_err($act, "Validate hook [$itm: $k invalid]");
 		return 1;
 	}
 	for my $k (keys %$act) {
 		next if exists $check->{$k};
-		&Debug::warn("unknown key $k in action $itm");
+		&Log::warn("unknown key $k in action $itm");
 	}
 	undef;
 });

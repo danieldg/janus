@@ -4,7 +4,6 @@ package Link;
 use strict;
 use warnings;
 use integer;
-use Debug;
 
 if ($Janus::lmode) {
 	die "Wrong link mode" unless $Janus::lmode eq 'Link';
@@ -162,43 +161,46 @@ sub send_avail {
 		my $act = shift;
 		my $schan = $act->{chan};
 		my $snet = $schan->homenet();
-		my $snetn = $snet->name();
+		my $snetn = $snet->name;
 		my $sname = $schan->str($snet);
 		my $dnet = $act->{dst};
+		my $dnetn = $dnet->name;
+		my $dname = $act->{dlink};
+		my $logpfx = "Link request $snetn$sname -> $dnetn$dname:";
 		if ($request{$snetn}{lc $sname}{mode}) {
-			&Debug::info("Link request: not overriding created");
+			Log::info($logpfx, 'not overriding locally created');
 			return;
 		}
 		$request{$snetn}{lc $sname} = {
-			net => $dnet->name(),
-			chan => $act->{dlink},
+			net => $dnetn,
+			chan => $dname,
 			mask => $act->{reqby},
 			'time' => $act->{reqtime},
 		};
 		if ($dnet->jlink() || $dnet->isa('Interface')) {
-			&Debug::info("Link request: dst non-local");
+			Log::info($logpfx, 'dst non-local, routing');
 			return;
 		}
 		unless ($dnet->is_synced()) {
-			&Debug::info("Link request: dst not ready");
+			Log::info($logpfx, 'dst not ready, waiting');
 			return;
 		}
 		my $recip = $request{$dnet->name()}{lc $act->{dlink}};
 		unless ($recip && $recip->{mode}) {
-			&Debug::info("Link request: destination not shared");
+			Log::info($logpfx, 'destination not shared');
 			return;
 		}
 		if ($recip->{ack}{$snetn}) {
 			if ($recip->{ack}{$snetn} == 2) {
-				&Debug::info("Link request: rejected by homenet");
+				Log::info($logpfx, 'rejected explicitly by homenet');
 				return;
 			}
 		} elsif ($recip->{mode} == 2) {
-			&Debug::info("Link request: rejected by default");
+			Log::info($logpfx, 'rejected by default ACL');
 			return;
 		}
 		if (1 < scalar $schan->nets()) {
-			&Debug::info("Link request: already linked");
+			Log::info($logpfx, 'source already linked');
 			return;
 		}
 		unless ($dnet->jlink()) {

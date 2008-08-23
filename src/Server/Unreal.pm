@@ -1,7 +1,6 @@
 # Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
 package Server::Unreal;
-use Debug;
 use Nick;
 use Modes;
 use Server::BaseNick;
@@ -249,7 +248,7 @@ sub intro {
 # parse one line of input
 sub parse {
 	my ($net, $line) = @_;
-	&Debug::netin(@_);
+	&Log::netin(@_);
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
 	push @args, $msg if defined $msg;
@@ -271,7 +270,7 @@ sub parse {
 	}
 	return $net->nick_msg(@args) if $cmd =~ /^\d+$/;
 	unless (exists $fromirc{$cmd}) {
-		&Debug::err_in($net, "Unknown command '$cmd'");
+		&Log::err_in($net, "Unknown command '$cmd'");
 		return ();
 	}
 	$fromirc{$cmd}->($net,@args);
@@ -334,7 +333,7 @@ sub dump_sendq {
 		}
 	}
 	$sendq[$$net] = [];
-	&Debug::netout($net, $_) for split /[\r\n]+/, $q;
+	&Log::netout($net, $_) for split /[\r\n]+/, $q;
 	$q;
 }
 
@@ -553,7 +552,7 @@ sub _parse_umode {
 			# adjusts the services TS - which is restricted to the local network
 		} else {
 			my $txt = $umode2txt{$_} or do {
-				&Debug::warn_in($net, "Unknown umode '$_'");
+				&Log::warn_in($net, "Unknown umode '$_'");
 				next;
 			};
 			if ($txt eq 'vhost') {
@@ -659,12 +658,12 @@ sub srvname {
 		);
 		if (@_ >= 12) {
 			my @m = split //, $_[9];
-			&Debug::warn_in($net, "Invalid NICKv2") unless '+' eq shift @m;
+			&Log::warn_in($net, "Invalid NICKv2") unless '+' eq shift @m;
 			$nick{mode} = +{ map {
 				if (exists $umode2txt{$_}) {
 					$umode2txt{$_} => 1
 				} else {
-					&Debug::warn_in($net, "Unknown umode '$_'");
+					&Log::warn_in($net, "Unknown umode '$_'");
 					();
 				}
 			} @m };
@@ -688,7 +687,7 @@ sub srvname {
 					s/(.{16})/sprintf '%x:', oct "0b$1"/eg;
 					s/:[^:]*$//;
 				} else {
-					&Debug::warn_in($net, "Unknown protocol address in use");
+					&Log::warn_in($net, "Unknown protocol address in use");
 				}
 			}
 			$nick{info}{ip} = $_;
@@ -785,7 +784,7 @@ sub srvname {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
 		if ($nick->homenet eq $net) {
-			&Debug::warn_in($net, "Misdirected SVSNICK!");
+			&Log::warn_in($net, "Misdirected SVSNICK!");
 			return ();
 		} elsif (lc $nick->homenick eq lc $_[2]) {
 			return +{
@@ -797,7 +796,7 @@ sub srvname {
 				sendto => [ $net ],
 			};
 		} else {
-			&Debug::err_in($net, "Ignoring SVSNICK on already tagged nick\n");
+			&Log::err_in($net, "Ignoring SVSNICK on already tagged nick\n");
 			return ();
 		}
 	}, UMODE2 => sub {
@@ -1033,7 +1032,7 @@ sub srvname {
 			);
 			$auth[$$net] = 3;
 		}
-		&Debug::info("Server $_[2] [\@$snum] added from $src");
+		&Log::info_in($net, "Server $_[2] [\@$snum] added from $src");
 		$servers[$$net]{$name} = {
 			parent => lc $src,
 			hops => $_[3],
@@ -1089,7 +1088,7 @@ sub srvname {
 				msg => "$splitfrom $srv",
 			}
 		}
-		&Debug::info('Lost servers: '.join(' ', sort keys %sgone).' with '.(scalar @quits).' users from '.$net->name);
+		&Log::info_in('Lost servers: '.join(' ', sort keys %sgone).' with '.(scalar @quits).' users from '.$net->name);
 		@quits;
 	}, PING => sub {
 		my $net = shift;
@@ -1269,14 +1268,12 @@ sub _out {
 		return $itm->str($net) if $itm->is_on($net);
 		return $itm->homenet()->jname();
 	} elsif ($itm->isa('Channel')) {
-		&Debug::err("This channel message must have been misrouted: ".$itm->keyname())
-			unless $itm->is_on($net);
 		return $itm->str($net);
 	} elsif ($itm->isa('Network')) {
 		return $net->cparam('linkname') if $itm eq $net;
 		return $itm->jname();
 	} else {
-		&Debug::warn("Unknown item $itm");
+		&Log::warn_in($net,"Unknown item $itm");
 		$net->cparam('linkname');
 	}
 }
@@ -1309,7 +1306,7 @@ sub cmd2 {
 		my $new = $act->{net};
 		if ($net eq $new) {
 			# first link to the net
-			&Debug::info("First link, introducing all servers");
+			&Log::info_in($net, "First link, introducing all servers");
 			my @out;
 			for my $ij (values %Janus::ijnets) {
 				next unless $ij->is_linked();
@@ -1387,7 +1384,7 @@ sub cmd2 {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
 		if ($act->{src}->homenet eq $net) {
-			&Debug::err('Trying to force channel join remotely ('.$act->{src}->gid().$chan->str($net).")");
+			&Log::err_in($net, 'Trying to force channel join remotely ('.$act->{src}->gid().$chan->str($net).")");
 			return ();
 		}
 		my $sj = '';

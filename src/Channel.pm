@@ -372,12 +372,12 @@ sub add_net {
 	$names[$$chan]{$$net} = $sname;
 
 	my $dstname = $chan->homenet->name;
-	&Debug::info("Link ".$net->name."$sname into $dstname $keyname[$$chan] ($$net:$$src -> $$chan)");
+	&Log::info("Link ".$net->name."$sname into $dstname $keyname[$$chan] ($$net:$$src -> $$chan)");
 
 	my $tsctl = ($ts[$$src] <=> $ts[$$chan]);
 
 	if ($tsctl < 0) {
-		&Debug::info("Resetting timestamp from $ts[$$chan] to $ts[$$src]");
+		&Log::info("Resetting timestamp from $ts[$$chan] to $ts[$$src]");
 		&Janus::insert_full(+{
 			type => 'TIMESYNC',
 			dst => $chan,
@@ -454,7 +454,7 @@ sub add_net {
 
 sub migrate_from {
 	my $chan = shift;
-	&Debug::info("Migrating nicks to $$chan from", map $$_, @_);
+	&Log::info("Migrating nicks to $$chan from", map $$_, @_);
 	my %burstmap;
 	for my $n ($chan->nets) {
 		$burstmap{$$n} = $n;
@@ -524,7 +524,7 @@ sub unhook_destroyed {
 		my $name = $names[$$chan]{$id};
 		my $c = delete $Janus::gchans{$net->gid().lc $name};
 		if ($c && $c ne $chan) {
-			&Debug::err("Corrupted unhook! $$c found where $$chan expected");
+			&Log::err("Corrupted unhook! $$c found where $$chan expected");
 			$Janus::gchans{$net->gid().lc $name} = $c;
 			next;
 		}
@@ -575,11 +575,11 @@ sub del_remoteonly {
 			}
 		}
 		if ($act->{dst} == $schan) {
-			&Debug::err("Not linking a channel to itself ($$schan)");
+			&Log::err("Not linking a channel to itself ($$schan)");
 			return 1;
 		}
 		if (1 < scalar $schan->nets) {
-			&Debug::err("Channel already linked ($$schan)");
+			&Log::err("Channel already linked ($$schan)");
 			return 1;
 		}
 
@@ -619,7 +619,7 @@ sub del_remoteonly {
 			}
 		}
 		unless (exists $nets[$$chan]{$$net}) {
-			&Debug::warn("Cannot delink: channel $$chan is not on network #$$net");
+			&Log::warn("Cannot delink: channel $$chan is not on network #$$net");
 			return 1;
 		}
 		undef;

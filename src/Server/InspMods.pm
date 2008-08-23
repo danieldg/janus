@@ -394,7 +394,7 @@ mdef 'm_ssl_dummy.so', metadata => {
 	ssl => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[2]) or return ();
-		&Debug::warn_in($net, "Unknown SSL value $_[4]") unless $_[4] eq 'ON';
+		&Log::warn_in($net, "Unknown SSL value $_[4]") unless $_[4] eq 'ON';
 		return +{
 			type => 'UMODE',
 			dst => $nick,
@@ -407,7 +407,7 @@ mdef 'm_ssl_dummy.so', metadata => {
 		if ($pm eq '+ssl') {
 			return $net->ncmd(METADATA => $nick, ssl => 'ON');
 		} else {
-			&Debug::warn('Inspircd is incapable of unsetting SSL');
+			&Log::warn('Inspircd is incapable of unsetting SSL');
 			return ();
 		}
 	},

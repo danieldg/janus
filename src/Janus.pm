@@ -328,7 +328,7 @@ if ($modinfo{Janus}{load} == 1) {
 	# initial load, must finalize ourself
 	delete $modinfo{Janus}{load};
 	$modinfo{Janus}{active} = 1;
-	_load_run('Debug');
+	_load_run('Log');
 	_load_run('EventDump');
 }
 

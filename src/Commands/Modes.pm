@@ -44,7 +44,7 @@ use Modes;
 			} elsif ($t eq 'l') {
 				$out .= join ' ', '', $mk.'={', @$mv, '}';
 			} else {
-				&Debug::err("bad mode $mk:$mv - $t?\n");
+				&Log::err("bad mode $mk:$mv - $t?\n");
 			}
 		}
 		&Janus::jmsg($nick, $cname.$1) while $out =~ s/(.{300,450}) / /;

@@ -117,7 +117,7 @@ sub all_chans {
 			for my $cn (keys %{$chans[$$net]}) {
 				my $chan = $chans[$$net]{$cn};
 				unless ($chan->is_on($net)) {
-					&Debug::err("Channel $cn=$$chan not on network $$net as it claims");
+					&Log::err("Channel $cn=$$chan not on network $$net as it claims");
 					delete $chans[$$net]{$cn};
 					next;
 				}

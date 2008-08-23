@@ -50,7 +50,7 @@ sub intro {
 # parse one line of input
 sub parse {
 	my ($net, $line) = @_;
-	&Debug::netin(@_);
+	&Log::netin(@_);
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
 	push @args, $msg if defined $msg;
@@ -96,7 +96,7 @@ sub dump_sendq {
 		$auth[$$net] = 3 if $auth[$$net] == 2;
 	}
 	$q =~ s/\n+/\r\n/g;
-	&Debug::netout($net, $_) for split /\r\n/, $q;
+	&Log::netout($net, $_) for split /\r\n/, $q;
 	$q;
 }
 
@@ -199,7 +199,7 @@ sub _parse_umode {
 			$pm = $_;
 		} else {
 			my $txt = $net->umode2txt($_) or do {
-				&Debug::warn_in($net, "Unknown umode '$_'");
+				&Log::warn_in($net, "Unknown umode '$_'");
 				next;
 			};
 			push @mode, $pm.$txt;
@@ -222,14 +222,12 @@ sub _out {
 		return $itm->str($net) if $itm->is_on($net);
 		return $itm->homenet()->jname();
 	} elsif ($itm->isa('Channel')) {
-		&Debug::err_in($net, "This channel message must have been misrouted: ".$itm->keyname())
-			unless $itm->is_on($net);
 		return $itm->str($net);
 	} elsif ($itm->isa('Network')) {
 		return $net->cparam('linkname') if $net eq $itm;
 		return $itm->jname();
 	} else {
-		&Debug::warn_in($net, "Unknown item $itm");
+		&Log::warn_in($net, "Unknown item $itm");
 		$net->cparam('linkname');
 	}
 }
@@ -331,7 +329,7 @@ $moddef{CORE} = {
 			my $t = $net->umode2txt($_);
 			defined $t ? ($t => 1) : do {
 				# inspircd bug, fixed in 1.2: an extra + may be added to the umode at each hop
-				&Debug::warn_in($net, "Unknown umode '$_'") unless $_ eq '+';
+				&Log::warn_in($net, "Unknown umode '$_'") unless $_ eq '+';
 				();
 			};
 		} @m };
@@ -633,7 +631,7 @@ $moddef{CORE} = {
 				$sgone{$_} = 1 if $sgone{$servers[$$net]{$_}};
 			}
 		}
-		&Debug::info('Lost servers: '.join(' ', sort keys %sgone));
+		&Log::info_in($net, 'Lost servers: '.join(' ', sort keys %sgone));
 		delete $servers[$$net]{$_} for keys %sgone;
 		delete $serverdsc[$$net]{$_} for keys %sgone;
 
@@ -759,7 +757,7 @@ $moddef{CORE} = {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
 		if ($nick->homenet eq $net) {
-			&Debug::warn_in($net, "Misdirected SVSNICK!");
+			&Log::warn_in($net, "Misdirected SVSNICK!");
 			return ();
 		} elsif (lc $nick->homenick eq lc $_[2]) {
 			return +{
@@ -771,7 +769,7 @@ $moddef{CORE} = {
 				sendto => [ $net ],
 			};
 		} else {
-			&Debug::warn_in($net, "Ignoring SVSNICK on already tagged nick");
+			&Log::warn_in($net, "Ignoring SVSNICK on already tagged nick");
 			return ();
 		}
 	},
@@ -1036,7 +1034,7 @@ $moddef{CORE} = {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
 		if ($act->{src}->homenet() eq $net) {
-			&Debug::err("Trying to force channel join remotely (".$act->{src}->gid().$chan->str($net).")");
+			&Log::err_in($net, "Trying to force channel join remotely (".$act->{src}->gid().$chan->str($net).")");
 			return ();
 		}
 		my $mode = '';

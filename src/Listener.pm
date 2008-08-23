@@ -39,7 +39,7 @@ sub init_pending {
 		if ($sock->isa('IO::Socket::SSL')) {
 			$sock->accept_SSL();
 		} else {
-			&Debug::err("cannot initiate SSL pend on $id[$$self]");
+			&Log::err("cannot initiate SSL pend on $id[$$self]");
 		}
 	}
 	$net;

@@ -68,13 +68,13 @@ sub from_irc {
 			if ($txt =~ s/^t(\d+)/r/) {
 				$arg = $1;
 			} else {
-				&Debug::warn_in($net, "Invalid mode text $txt for mode $_ in network $net");
+				&Log::warn_in($net, "Invalid mode text $txt for mode $_ in network $net");
 				next;
 			}
 		} elsif ($type eq 'r') {
 			$arg = 1;
 		} else {
-			&Debug::warn_in($net, "Invalid mode text $txt for mode $_ in network $net");
+			&Log::warn_in($net, "Invalid mode text $txt for mode $_ in network $net");
 			next;
 		}
 		push @modes, substr $txt, 2;
@@ -242,51 +242,6 @@ sub delta {
 		}
 	}
 	(\@modes, \@args, \@dirs);
-}
-
-=item Modes::merge(dest, src1, src2)
-
-Merges the modes of the two channels src1 and src2 into the channel dest,
-which is assumed to have no modes currently set.
-
-=cut
-
-sub merge {
-	my($c0, $c1, $c2) = @_;
-	my %allmodes;
-	my %m1 = %{$c1->all_modes()};
-	my %m2 = %{$c2->all_modes()};
-	my $mset = $c0->all_modes();
-
-	$allmodes{$_}++ for keys %m1;
-	$allmodes{$_}++ for keys %m2;
-	for my $txt (keys %allmodes) {
-		my $type = $mtype{$txt};
-		if ($type eq 'l') {
-			my %m;
-			if (ref $m1{$txt}) {
-				defined and $m{$_} = 1 for @{$m1{$txt}};
-			}
-			if (ref $m2{$txt}) {
-				defined and $m{$_} = 1 for @{$m2{$txt}};
-			}
-			$mset->{$txt} = [ keys %m ] if %m;
-		} else {
-			if (defined $m1{$txt}) {
-				if (defined $m2{$txt} && $m1{$txt} ne $m2{$txt}) {
-					&Debug::info("Merging $txt: using $m1{$txt} over $m2{$txt}");
-				} elsif (defined $m2{$txt}) {
-					&Debug::info("Merging $txt: using $m1{$txt} by agreement");
-				} else {
-					&Debug::info("Merging $txt: using m1=$m1{$txt} by default");
-				}
-				$mset->{$txt} = $m1{$txt};
-			} else {
-				&Debug::info("Merging $txt: using m2=$m2{$txt} by default");
-				$mset->{$txt} = $m2{$txt};
-			}
-		}
-	}
 }
 
 =back

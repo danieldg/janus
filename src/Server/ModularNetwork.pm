@@ -161,7 +161,7 @@ sub from_irc {
 	$cmd = $fromirc[$$net]{$cmd} || $cmd if $cmd && !ref $cmd; # allow one layer of indirection
 	unless ($cmd && ref $cmd) {
 		$net->send($net->ncmd(OPERNOTICE => "Unknown command $cmd, janus is possibly desynced"));
-		&Debug::err_in($net, "Unknown command '$cmd'");
+		&Log::err_in($net, "Unknown command '$cmd'");
 		return ();
 	}
 	$cmd->(@_);

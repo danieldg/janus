@@ -289,7 +289,7 @@ sub _netclean {
 	delete $leave{${$homenet[$$nick]}};
 	for my $chan (@{$chans[$$nick]}) {
 		unless ($chan->is_on($home)) {
-			&Debug::err("Found nick $$nick on delinked channel $$chan");
+			&Log::err("Found nick $$nick on delinked channel $$chan");
 			$chans[$$nick] = [ grep { $_ ne $chan } @{$chans[$$nick]} ];
 			next;
 		}

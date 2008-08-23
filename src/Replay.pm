@@ -96,14 +96,14 @@ sub run {
 		do $save;
 	}
 
-	&Debug::info("Beginning debug deallocations");
+	&Log::debug("Beginning debug deallocations");
 
 	%obj_db = ();
 	($gnicks, $gchans, $gnets, $ijnets, $state, $listen, $global, $object, $arg) =
 		(undef, undef, undef,  undef,   undef,  undef,   undef,   undef,  undef);
 	@Connection::queues = grep { $_->[&Connection::NET] } @Connection::queues;
 
-	&Debug::info("State restored. Beginning replay.");
+	&Log::debug("State restored. Beginning replay.");
 }
 
 package Connection;

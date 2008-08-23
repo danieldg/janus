@@ -133,7 +133,7 @@ sub cli_hostintro {
 sub parse {
 	my ($net, $line) = @_;
 	my @out;
-	&Debug::netin(@_);
+	&Log::netin(@_);
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
 	push @args, $msg if defined $msg;
@@ -148,7 +148,7 @@ sub parse {
 	my $cmd = $args[1];
 	$cmd = $fromirc{$cmd} || $cmd;
 	unless (ref $cmd) {
-		&Debug::err_in($net, "Unknown command '$cmd'");
+		&Log::err_in($net, "Unknown command '$cmd'");
 		return ();
 	}
 	push @out, $cmd->($net,@args);
@@ -174,7 +174,7 @@ sub dump_sendq {
 	my $q = join "\n", @{$sendq[$$net]}, '';
 	$q =~ s/\n+/\r\n/g;
 	$sendq[$$net] = [];
-	&Debug::netout($net, $_) for split /\r\n/, $q;
+	&Log::netout($net, $_) for split /\r\n/, $q;
 	$q;
 }
 
@@ -245,14 +245,14 @@ sub nicklen { 40 }
 		}
 		if ($m eq 'Q') {
 			my $qpass = $net->param('qauth') || '';
-			&Debug::err_in($net, "Bad qauth syntax $qpass") unless $qpass && $qpass =~ /^\s*\S+\s+\S+\s*$/;
+			&Log::err_in($net, "Bad qauth syntax $qpass") unless $qpass && $qpass =~ /^\s*\S+\s+\S+\s*$/;
 			'PRIVMSG Q@CServe.quakenet.org :AUTH '.$qpass;
 		} elsif ($m eq 'ns') {
 			my $pass = $net->param('nspass') || ''; 
-			&Debug::err_in($net, "Bad nickserv password $pass") unless $pass;
+			&Log::err_in($net, "Bad nickserv password $pass") unless $pass;
 			"PRIVMSG NickServ :IDENTIFY $pass";
 		} else {
-			&Debug::err_in($net, "Unknown identify method $m");
+			&Log::err_in($net, "Unknown identify method $m");
 			();
 		}
 	},	
@@ -288,7 +288,7 @@ sub pm_not {
 						method => 'ns',
 					};
 				} elsif ($_[3] =~ /wrong\spassword/ ) {
-					&Debug::err("Wrong password mentioned in the config file.");
+					&Log::err_in($net, "Wrong password mentioned in the config file.");
 				}
 			} elsif (uc $_[0] eq 'Q' && $_[3] =~ /registered/i ) {
 				return +{

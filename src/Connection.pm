@@ -24,7 +24,7 @@ BEGIN {
 		Socket->import();
 	}
 }
-use Debug;
+
 use Scalar::Util qw(tainted);
 use Fcntl;
 use constant {
@@ -162,17 +162,17 @@ sub readable {
 				return unless $$l[TRY_R]++ > 30;
 				# However, if we have had more than 30 errors, assume something else is wrong
 				# and bail out.
-				&Debug::err_in($net, "30 read errors in a row, bailing out!");
+				&Log::err_in($net, "30 read errors in a row, bailing out!");
 			} elsif ($sock->errstr() eq SSL_WANT_WRITE) {
 				# since are waiting for a write, we do NOT want to come back when reads
 				# are available, at least not until we have unblocked a write.
 				@$l[TRY_R, TRY_W] = (0,1);
 				return;
 			} else {
-				&Debug::err_in($net, "SSL read error: ".$sock->errstr());
+				&Log::err_in($net, "SSL read error: ".$sock->errstr());
 			}
 		} else {
-			&Debug::err_in($net, "Delink from failed read: $!");
+			&Log::err_in($net, "Delink from failed read: $!");
 		}
 		delink($net, 'Socket read failure ('.$!.')');
 	}
@@ -195,10 +195,10 @@ sub _syswrite {
 				@$l[TRY_R,TRY_W] = (0,1);
 				return;
 			} else {
-				&Debug::err_in($net, "SSL write error: ".$sock->errstr());
+				&Log::err_in($net, "SSL write error: ".$sock->errstr());
 			}
 		} else {
-			&Debug::err_in($net, "Delink from failed write: $!");
+			&Log::err_in($net, "Delink from failed write: $!");
 		}
 		delink($net, 'Socket write failure ('.$!.')');
 	}
@@ -217,7 +217,7 @@ sub run_sendq {
 	eval {
 		$sendq .= $net->dump_sendq();
 		1;
-	} or &Debug::err_in($net, "dump_sendq died: $@");
+	} or &Log::err_in($net, "dump_sendq died: $@");
 	$$l[SENDQ] = $sendq;
 	return if $$l[TRY_W] || !$sendq;
 	# no point in trying to write if we are already waiting for writes to unblock

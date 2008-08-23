@@ -180,7 +180,7 @@ sub _run {
 		if ($@) {
 			named_hook('die', $@, find_hook($h), $act);
 		} elsif ($rv) {
-			&Debug::hook_info($act, "Check hook stole");
+			&Log::hook_info($act, "Check hook stole");
 			return;
 		}
 	}
@@ -332,12 +332,12 @@ sub timer {
 	my @q;
 	if ($last_check > $time) {
 		my $off = $last_check-$time;
-		&Debug::err("Time runs backwards! From $last_check to $time; offsetting all events by $off");
+		&Log::err("Time runs backwards! From $last_check to $time; offsetting all events by $off");
 		my %oq = %tqueue;
 		%tqueue = ();
 		$tqueue{$_ - $off} = $oq{$_} for keys %oq;
 	} elsif ($last_check < $time) {
-		&Debug::timestamp($time);
+		&Log::timestamp($time);
 		for ($last_check .. $time) {
 			# yes it will hit some times twice... that is needed if events with delay=0 are
 			# added to the queue in the same second, but after the queue has already run
@@ -385,7 +385,7 @@ sub wipe_hooks {
 
 Event::hook_add(
 	ALL => 'die' => sub {
-		&Debug::err(@_);
+		&Log::err(@_);
 	}, MODUNLOAD => act => sub {
 		wipe_hooks($_[0]->{module});
 	}, MODRELOAD => 'act:-1' => sub {

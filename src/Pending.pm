@@ -35,7 +35,7 @@ sub parse {
 				my $type = 'Server::'.$nconf->{type};
 				&Janus::load($type) or next;
 				$rnet = &Persist::new($type, id => $id);
-				&Debug::info("Shifting new connection #$$pnet to $type network $id (#$$rnet)");
+				&Log::info("Shifting new connection #$$pnet to $type network $id (#$$rnet)");
 				$rnet->intro($nconf, $addr[$$pnet]);
 				&Janus::insert_full({
 					type => 'NETLINK',
@@ -56,7 +56,7 @@ sub parse {
 		my $ij = Server::InterJanus->new();
 		my @out = $ij->parse($line);
 		if (@out && $out[0]{type} eq 'JNETLINK') {
-			&Debug::info("Shifting new connection #$$pnet to InterJanus link #$$ij ".$ij->id());
+			&Log::info("Shifting new connection #$$pnet to InterJanus link #$$ij ".$ij->id());
 			&Connection::reassign($pnet, $ij);
 			$ij->intro($Conffile::netconf{$ij->id()}, 1);
 			return @out;
