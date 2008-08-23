@@ -411,7 +411,7 @@ sub add_net {
 	});
 
 	for my $nick (@{$nicks[$$chan]}) {
-		$nick->rejoin($chan);
+		$nick->rejoin($chan, $src);
 		next if $nick->jlink;
 		if ($$nick == 1) {
 			# janus nick already on channel
@@ -458,6 +458,7 @@ sub migrate_from {
 		my $jl = $n->jlink;
 		$burstmap{$$jl} = $jl if $jl;
 	}
+
 	for my $src (@_) {
 		next if $$src == $$chan;
 		for my $net ($src->nets) {
@@ -469,7 +470,7 @@ sub migrate_from {
 		my $burstto = [ values %tomap ];
 
 		for my $nick (@{$nicks[$$src]}) {
-			$nick->rejoin($chan);
+			$nick->rejoin($chan, $src);
 			next if $$nick == 1 || $nick->jlink;
 			&Janus::append(+{
 				type => 'JOIN',
@@ -670,7 +671,7 @@ sub del_remoteonly {
 
 			warn "c$$chan/n$$nick:no HN", next unless $nick->homenet;
 			if ($nick->homenet eq $net) {
-				$nick->rejoin($split);
+				$nick->rejoin($split, $chan);
 				$part{dst} = $chan,
 			} else {
 				$part{dst} = $split;
