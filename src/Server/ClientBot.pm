@@ -555,7 +555,6 @@ sub kicked {
 			type => 'DELINK',
 			dst => $chan,
 			net => $net,
-			reason => 'Channel is full.'
 		};
 	},
 	473 => sub { # +i invited only.
@@ -565,7 +564,6 @@ sub kicked {
 			type => 'DELINK',
 			dst => $chan,
 			net => $net,
-			reason => 'Channel is invite only.',
 		};
 	},
 	474 => sub { # +b we are banned.
@@ -575,7 +573,6 @@ sub kicked {
 			type => 'DELINK',
 			dst => $chan,
 			net => $net,
-			reason => 'Banned from channel.',
 		};
 	},
 	475 => sub { # +k needs key.
@@ -585,7 +582,6 @@ sub kicked {
 			type => 'DELINK',
 			dst => $chan,
 			net => $net,
-			reason => 'Channel needs key [Not Supported].',
 		};
 	},
 	482 => sub { # kick failed (not enough information to determine which one)
@@ -602,7 +598,6 @@ sub kicked {
 	477 => sub { # Need to register.
 		my $net = shift;
 		my $cname = $lchan[$$net] || "requested channel";
-		my $msg = "Couldn't join $cname, need to register.";
 		my @out;
 		my $chan = $net->chan($cname);
 		if ($chan) {
@@ -610,7 +605,6 @@ sub kicked {
 				type => 'DELINK',
 				dst => $chan,
 				net => $net,
-				reason => $msg,
 			}
 		}
 		push @out, +{
@@ -627,7 +621,6 @@ sub kicked {
 			type => 'DELINK',
 			dst => $chan,
 			net => $net,
-			reason => 'Need to be IRC operator to join.',
 		};
 	}
 );
