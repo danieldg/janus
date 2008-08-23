@@ -46,9 +46,11 @@ sub nick_collide {
 	}
 	my $tsctl = $old->ts() <=> $new->ts();
 
+	&Log::debug("Nick collision over $name, tsctl=$tsctl");
+
 	$nicks[$$net]->{lc $name} = $new if $tsctl > 0;
 	$nicks[$$net]->{lc $name} = $old if $tsctl < 0;
-	
+
 	my @rv = ($tsctl > 0);
 	if ($tsctl >= 0) {
 		# old nick lost, reconnect it
@@ -83,7 +85,7 @@ sub request_nick {
 
 		my $tagre = $net->param('force_tag');
 		$tagged = 1 if $tagre && $given =~ /$tagre/;
-		
+
 		if ($tagged) {
 			my $tagsep = $net->param('tag_prefix');
 			$tagsep = '/' unless defined $tagsep;
