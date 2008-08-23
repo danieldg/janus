@@ -241,8 +241,12 @@ Connecting to all networks that the given channel is on
 sub rejoin {
 	my($nick,$chan,$from) = @_;
 	my $hn = $homenet[$$nick];
-	$chans[$$nick] = [ grep { $_ != $from } @{$chans[$$nick]} ] if $from;
-	push @{$chans[$$nick]}, $chan;
+	my %clist;
+	$clist{lc $_->str($hn)} = $_ for @{$chans[$$nick]};
+	delete $clist{lc $from->str($hn)} if $from;
+	$clist{lc $chan->str($hn)} = $chan;
+	$chans[$$nick] = [ values %clist ];
+
 
 	return if $nick->jlink();
 
