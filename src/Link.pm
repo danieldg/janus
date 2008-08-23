@@ -219,6 +219,7 @@ sub send_avail {
 			mask => $act->{reqby},
 			'time', $act->{reqtime},
 		};
+		return if $net->jlink;
 		my $chan = $net->chan($act->{name}, 1);
 		link_to_janus($chan);
 	}, DELINK => act => sub {

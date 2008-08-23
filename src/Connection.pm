@@ -162,7 +162,7 @@ sub readable {
 				return unless $$l[TRY_R]++ > 30;
 				# However, if we have had more than 30 errors, assume something else is wrong
 				# and bail out.
-				&Debug::err_in("30 read errors in a row, bailing out!");
+				&Debug::err_in($net, "30 read errors in a row, bailing out!");
 			} elsif ($sock->errstr() eq SSL_WANT_WRITE) {
 				# since are waiting for a write, we do NOT want to come back when reads
 				# are available, at least not until we have unblocked a write.
