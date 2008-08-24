@@ -41,10 +41,11 @@ Add commands (/msg janus <command> <cmdargs>). Should be called from module init
 Command hashref contains:
 
   cmd - command name
-  code - will be executed with two arguments: ($nick, $cmdargs)
+  code - will be executed with the arguments: ($src, $dst, @args)
   help - help text
   details - arrayref of detailed help text, one line per elt
   acl - undef/0 for all, 1 for oper-only, 2+ to be defined later
+  secret - 1 if the command should not be logged (i.e. it contains passwords)
 
 =cut
 
@@ -279,24 +280,24 @@ sub in_socket {
 }
 
 sub in_command {
-	my($cmd, $nick, $text) = @_;
+	my ($src, $dst, $cmd, @args) = @_;
 	$cmd = 'unk' unless exists $commands{$cmd};
 	my $csub = exists $commands{$cmd}{code} ? $commands{$cmd}{code} : $commands{unk}{code};
 	my $acl = $commands{$cmd}{acl} || 0;
-	if ($acl == 1 && !$nick->has_mode('oper')) {
-		&Janus::jmsg($nick, "You must be an IRC operator to use this command");
+	if ($acl == 1 && !$src->has_mode('oper')) {
+		&Janus::jmsg($dst, "You must be an IRC operator to use this command");
 		return;
 	}
 	unless ($commands{$cmd}{secret}) {
-		&Log::command($nick, $_[0], $text);
+		&Log::command(@_);
 	}
 	unshift @qstack, [];
 	eval {
-		$csub->($nick, $text);
+		$csub->($src, $dst, @args);
 		1;
 	} or do {
 		named_hook('die', $@, @_);
-		&Janus::err_jmsg(undef, "Unchecked exception in janus command '$cmd'");
+		&Janus::err_jmsg($dst, "Unchecked exception in janus command '$cmd'");
 	};
 	_runq(shift @qstack);
 }
@@ -397,20 +398,20 @@ Event::command_add({
 	cmd => 'help',
 	help => 'The text you are reading now',
 	code => sub {
-		my($nick,$arg) = @_;
-		if ($arg && $arg =~ /(\S+)/ && exists $commands{lc $1}) {
-			$arg = lc $1;
-			my $det = $commands{$arg}{details};
+		my($src,$dst,$item) = @_;
+		$item = lc $item || '';
+		if (exists $commands{lc $item}) {
+			my $det = $commands{$item}{details};
 			if (ref $det) {
-				&Janus::jmsg($nick, @$det);
-			} elsif ($commands{$arg}{help}) {
-				&Janus::jmsg($nick, "$arg - $commands{$arg}{help}");
+				&Janus::jmsg($dst, @$det);
+			} elsif ($commands{$item}{help}) {
+				&Janus::jmsg($dst, "$item - $commands{$item}{help}");
 			} else {
-				&Janus::jmsg($nick, 'No help for that command');
+				&Janus::jmsg($dst, 'No help for that command');
 			}
 		} else {
 			my @cmds;
-			my $all = $nick->has_mode('oper') || ($arg && lc $arg eq 'all');
+			my $all = $src->has_mode('oper') || $item eq 'all';
 			my $synlen = 0;
 			for my $cmd (sort keys %commands) {
 				my $h = $commands{$cmd}{help};
@@ -419,8 +420,8 @@ Event::command_add({
 				push @cmds, $cmd;
 				$synlen = length $cmd if length $cmd > $synlen;
 			}
-			&Janus::jmsg($nick, 'Available commands: ');
-			&Janus::jmsg($nick, map {
+			&Janus::jmsg($dst, 'Available commands: ');
+			&Janus::jmsg($dst, map {
 				sprintf " \002\%-${synlen}s\002  \%s", uc $_, $commands{$_}{help};
 			} @cmds);
 		}
@@ -428,7 +429,7 @@ Event::command_add({
 }, {
 	cmd => 'unk',
 	code => sub {
-		&Janus::jmsg($_[0], 'Unknown command. Use "help" to see available commands');
+		&Janus::jmsg($_[1], 'Unknown command. Use "help" to see available commands');
 	},
 });
 

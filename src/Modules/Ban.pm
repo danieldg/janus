@@ -86,10 +86,9 @@ my %timespec = (
 	],
 	acl => 1,
 	code => sub {
-		my $nick = shift;
-		my($cmd, $args) = split /\s+/, shift, 2;
-		return &Janus::jmsg($nick, "use 'help ban' to see the syntax") unless $cmd;
-		my $net = $nick->homenet;
+		my($src,$dst,$cmd,@args) = @_;
+		return &Janus::jmsg($src, "use 'help ban' to see the syntax") unless $cmd;
+		my $net = $src->homenet;
 		if ($cmd =~ /^l/i) {
 			my $c = 0;
 			@bans = grep { my $e = $_->{expire}; !$e || $e > $Janus::time } @bans;
@@ -108,15 +107,15 @@ my %timespec = (
 				$str .= $ban->{expire} ?
 					' expires in '.($ban->{expire} - $Janus::time).'s ('.gmtime($ban->{expire}) .')' :
 					' does not expire';
-				&Janus::jmsg($nick, $str);
+				&Janus::jmsg($dst, $str);
 			}
-			&Janus::jmsg($nick, 'No bans defined') unless @bans;
+			&Janus::jmsg($dst, 'No bans defined') unless @bans;
 		} elsif ($cmd =~ /^k?a/i) {
 			my %ban = (
-				setter => $nick->realhostmask,
-				to => $nick->homenet->name,
+				setter => $src->realhostmask,
+				to => $src->homenet->name,
 			);
-			local $_ = $args;
+			local $_ = join ' ', @args;
 			while (length) {
 				if (s#^(nick|ident|host|name|to|from|for|reason)\s+((?:"(?:[^\\"]|\\.)*"|\S+))\s*##i) {
 					my $k = lc $1;
@@ -127,7 +126,7 @@ my %timespec = (
 				} elsif (s#^/((?:[^\\/]|\\.)*)/\s*##) {
 					$ban{perlre} = qr($1);
 				} else {
-					return &Janus::jmsg($nick, 'Invalid syntax for ban');
+					return &Janus::jmsg($dst, 'Invalid syntax for ban');
 				}
 			}
 			if ($ban{for}) {
@@ -136,7 +135,7 @@ my %timespec = (
 				$t += $1*($timespec{lc $2} || 1) while s/^(\d+)(\D?)//;
 				$ban{expire} = $t;
 				if ($_) {
-					&Janus::jmsg($nick, 'Invalid characters in ban length');
+					&Janus::jmsg($dst, 'Invalid characters in ban length');
 					return;
 				}
 			} elsif (defined delete $ban{for}) {
@@ -146,18 +145,18 @@ my %timespec = (
 			}
 			my $itms = 0;
 			exists $ban{$_} and $itms++ for qw(nick ident host name perlre);
-			return &Janus::jmsg($nick, 'Ban too wide') unless $itms;
+			return &Janus::jmsg($dst, 'Ban too wide') unless $itms;
 			push @bans, \%ban;
-			&Janus::jmsg($nick, 'Ban added');
+			&Janus::jmsg($dst, 'Ban added');
 			# TODO kadd
 		} elsif ($cmd =~ /^d/i) {
-			for (split /\s+/, $args) {
+			for (@args) {
 				my $ban = /^\d+$/ && $bans[$_ - 1];
 				if ($ban) {
-					&Janus::jmsg($nick, "Ban $_ removed");
+					&Janus::jmsg($dst, "Ban $_ removed");
 					$ban->{expire} = 1;
 				} else {
-					&Janus::jmsg($nick, "Could not find ban $_ - use ban list to see a list of all bans");
+					&Janus::jmsg($dst, "Could not find ban $_ - use ban list to see a list of all bans");
 				}
 			}
 		}

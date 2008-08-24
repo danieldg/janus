@@ -13,24 +13,22 @@ use Modes;
 		"\002SHOWMODE\002 #channel - shows the intended modes of the channel on your network",
 	],
 	code => sub {
-		my($nick,$args) = @_;
-		my $hn = $nick->homenet();
-		$args =~ /^(#\S*)/i or return &Janus::jmsg($nick, 'Syntax: SHOWMODE #chan');
-		my $cname = $1;
+		my($src,$dst,$cname) = @_;
+		my $hn = $src->homenet;
 		my $chan = $hn->chan($cname,0);
-		return &Janus::jmsg($nick, 'That channel does not exist') unless $chan;
-		unless ($chan->has_nmode(owner => $nick) || $nick->has_mode('oper')) {
-			&Janus::jmsg($nick, "You must be a channel owner or oper to use this command");
+		return &Janus::jmsg($dst, 'That channel does not exist') unless $chan;
+		unless ($chan->has_nmode(owner => $src) || $src->has_mode('oper')) {
+			&Janus::jmsg($dst, "You must be a channel owner or oper to use this command");
 			return;
 		}
 		if ($hn->isa('LocalNetwork')) {
 			my @modes = &Modes::to_multi($hn, &Modes::delta(undef, $chan), 0, 400);
-			&Janus::jmsg($nick, join ' ', $cname, @$_) for @modes;
+			&Janus::jmsg($dst, join ' ', $cname, @$_) for @modes;
 		}
 		
 		my $modeh = $chan->all_modes();
 		unless ($modeh && scalar %$modeh) {
-			&Janus::jmsg($nick, "No modes set on $cname");
+			&Janus::jmsg($dst, "No modes set on $cname");
 			return;
 		}
 		my $out = '';
@@ -47,8 +45,8 @@ use Modes;
 				&Log::err("bad mode $mk:$mv - $t?\n");
 			}
 		}
-		&Janus::jmsg($nick, $cname.$1) while $out =~ s/(.{300,450}) / /;
-		&Janus::jmsg($nick, $cname.$out);
+		&Janus::jmsg($dst, $cname.$1) while $out =~ s/(.{300,450}) / /;
+		&Janus::jmsg($dst, $cname.$out);
 	},
 }, {
 	cmd => 'showtopic',
@@ -57,14 +55,14 @@ use Modes;
 		"\002SHOWTOPIC\002 #channel - shows the intended topic of the channel on your network",
 	],
 	code => sub {
-		my($nick,$args) = @_;
-		my $hn = $nick->homenet();
-		$args =~ /^(#\S*)/i or return &Janus::jmsg($nick, 'Syntax: SHOWMODE [raw] #chan');
+		my($src,$dst,$args) = @_;
+		my $hn = $src->homenet;
+		$args =~ /^(#\S*)/i or return &Janus::jmsg($dst, 'Syntax: SHOWMODE [raw] #chan');
 		my $cname = $1;
 		my $chan = $hn->chan($cname,0);
-		return &Janus::jmsg($nick, 'That channel does not exist') unless $chan;
+		return &Janus::jmsg($dst, 'That channel does not exist') unless $chan;
 		my $top = $chan->topic();
-		&Janus::jmsg($nick, $cname . ' ' . $top);
+		&Janus::jmsg($dst, $cname . ' ' . $top);
 	},
 }, {
 	cmd => 'setmode',
@@ -73,26 +71,24 @@ use Modes;
 		"\002SETMODE\002 #channel +mode1 -mode2 mode3=value",
 	],
 	code => sub {
-		my($nick,$args) = @_;
-		my $hn = $nick->homenet();
-		$args =~ s/^(#\S*)\s+//i or return &Janus::jmsg($nick, 'Syntax: SETMODE #chan modes');
-		my $cname = $1;
-		return &Janus::jmsg($nick, 'Local command') unless $hn->isa('LocalNetwork');
+		my($src,$dst,$cname,@argin) = @_;
+		my $hn = $src->homenet;
+		return &Janus::jmsg($dst, 'Local command') unless $hn->isa('LocalNetwork');
 		my $chan = $hn->chan($cname,0);
-		return &Janus::jmsg($nick, 'That channel does not exist') unless $chan;
-		unless ($chan->has_nmode(owner => $nick) || $nick->has_mode('oper')) {
-			&Janus::jmsg($nick, "You must be a channel owner or oper to use this command");
+		return &Janus::jmsg($dst, 'That channel does not exist') unless $chan;
+		unless ($chan->has_nmode(owner => $src) || $src->has_mode('oper')) {
+			&Janus::jmsg($dst, "You must be a channel owner or oper to use this command");
 			return;
 		}
 		my(@modes,@args,@dirs);
-		for (split /\s+/, $args) {
+		for (@argin) {
 			/^([-+]+)([^=]+)(?:=(.+))?$/ or do {
-				&Janus::jmsg($nick, "Invalid mode $_");
+				&Janus::jmsg($dst, "Invalid mode $_");
 				return;
 			};
 			my($d,$txt,$v) = ($1,$2,$3);
 			my $type = $Modes::mtype{$txt} or do {
-				&Janus::jmsg($nick, "Unknown mode $txt");
+				&Janus::jmsg($dst, "Unknown mode $txt");
 				return;
 			};
 			if ($type eq 'r') {
@@ -105,7 +101,7 @@ use Modes;
 				}
 			} elsif ($type eq 'n') {
 				$v = $hn->nick($v) or do {
-					&Janus::jmsg($nick, "Cannot find nick");
+					&Janus::jmsg($dst, "Cannot find nick");
 					return;
 				};
 			}
@@ -113,7 +109,7 @@ use Modes;
 				$v = $chan->get_mode($txt);
 			}
 			if (length $d > 1 || !defined $v) {
-				&Janus::jmsg($nick, "Invalid mode $_");
+				&Janus::jmsg($dst, "Invalid mode $_");
 				return;
 			}
 			unshift @dirs, $d;
@@ -129,9 +125,9 @@ use Modes;
 				args => \@args,
 				dirs => \@dirs,
 			});
-			&Janus::jmsg($nick, 'Done');
+			&Janus::jmsg($dst, 'Done');
 		} else {
-			&Janus::jmsg($nick, 'Nothing to do');
+			&Janus::jmsg($dst, 'Nothing to do');
 		}
 	},
 });

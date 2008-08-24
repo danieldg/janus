@@ -11,8 +11,7 @@ $perl::VERSION = sprintf '%vd', $^V;
 	cmd => 'info',
 	help => 'Provides information about janus',
 	code => sub {
-		my $nick = shift;
-		&Janus::jmsg($nick, 
+		&Janus::jmsg($_[1], 
 			'Janus is a server that allows IRC networks to share certain channels to other',
 			'linked networks without needing to share all channels and make all users visible',
 			'across both networks. If configured to allow it, users can also share their own',
@@ -27,12 +26,12 @@ $perl::VERSION = sprintf '%vd', $^V;
 	cmd => 'modules',
 	help => 'Version information on all modules loaded by janus',
 	details => [
-		"Syntax: \002MODULES\002 [all|janus|other] [columns]",
+		"Syntax: \002MODULES\002 [all|janus|other][columns]",
 	],
 	code => sub {
-		my($nick,$parm) = @_;
+		my($src,$dst,$parm) = @_;
 		$parm ||= 'a';
-		my $w = $parm =~ /(\d)/ ? $1 : 3;
+		my $w = $parm =~ /(\d+)/ ? $1 : 3;
 		my @mods;
 		if ($parm =~ /^j/) {
 			@mods = sort('main', grep { $main::INC{$_} !~ /^\// } keys %main::INC);
@@ -63,7 +62,7 @@ $perl::VERSION = sprintf '%vd', $^V;
 		my $c = 1 + $#mvs / $w;
 		my $ex = ' %-'.$m1.'s %'.$m2.'s';
 		for my $i (0..($c-1)) {
-			&Janus::jmsg($nick, join '', map $_ ? sprintf $ex, @$_ : '', 
+			&Janus::jmsg($dst, join '', map $_ ? sprintf $ex, @$_ : '', 
 				map $mvs[$c*$_ + $i], 0 .. ($w-1));
 		}
 	}
@@ -74,13 +73,13 @@ $perl::VERSION = sprintf '%vd', $^V;
 		"Syntax: \002MODINFO\002 module",
 	],
 	code => sub {
-		my($nick,$mod) = @_;
-		return &Janus::jmsg($nick, 'Module not loaded') unless $Janus::modinfo{$mod};
+		my($src,$dst,$mod) = @_;
+		return &Janus::jmsg($dst, 'Module not loaded') unless $Janus::modinfo{$mod};
 		my $ifo = $Janus::modinfo{$mod};
 		my $active = $ifo->{active} ? 'active' : 'inactive';
-		&Janus::jmsg($nick, "Module $mod is at version $ifo->{version}; hooks are $active",
+		&Janus::jmsg($dst, "Module $mod is at version $ifo->{version}; hooks are $active",
 			"Source checksum is $ifo->{sha}");
-		&Janus::jmsg($nick, ' '.$ifo->{desc}) if $ifo->{desc};
+		&Janus::jmsg($dst, ' '.$ifo->{desc}) if $ifo->{desc};
 		my(@hooks, @cmds);
 		for my $cmd (sort keys %Event::commands) {
 			next unless $Event::commands{$cmd}{class} eq $mod;
@@ -90,8 +89,8 @@ $perl::VERSION = sprintf '%vd', $^V;
 			next unless $Event::hook_mod{$lvl}{$mod};
 			push @hooks, $lvl;
 		}
-		&Janus::jmsg($nick, 'Provides commands: '. join ' ', @cmds) if @cmds;
-		&Janus::jmsg($nick, 'Hooks: '. join ' ', @hooks) if @hooks;
+		&Janus::jmsg($dst, 'Provides commands: '. join ' ', @cmds) if @cmds;
+		&Janus::jmsg($dst, 'Hooks: '. join ' ', @hooks) if @hooks;
 	},
 }, {
 	cmd => 'reload',
@@ -103,17 +102,17 @@ $perl::VERSION = sprintf '%vd', $^V;
 	],
 	acl => 1,
 	code => sub {
-		my($nick,$name) = @_;
-		return &Janus::jmsg($nick, "Invalid module name") unless $name =~ /^([0-9_A-Za-z:]+)$/;
+		my($src,$dst,$name) = @_;
+		return &Janus::jmsg($dst, "Invalid module name") unless $name =~ /^([0-9_A-Za-z:]+)$/;
 		my $n = $1;
 		my $over = $Janus::modinfo{$n}{version} || 'none';
 		if (&Janus::reload($n)) {
 			my $ver = $Janus::modinfo{$n}{version} || 'unknown';
-			&Log::audit("Module $n reloaded ($over => $ver) by " . $nick->netnick);
-			&Janus::jmsg($nick, "Module $n reloaded ($over => $ver)");
+			&Log::audit("Module $n reloaded ($over => $ver) by " . $src->netnick);
+			&Janus::jmsg($dst, "Module $n reloaded ($over => $ver)");
 		} else {
-			&Log::audit("Reload of module $n by ".$nick->netnick.' failed');
-			&Janus::err_jmsg($nick, "Module load failed");
+			&Log::audit("Reload of module $n by ".$src->netnick.' failed');
+			&Janus::err_jmsg($dst, "Module load failed");
 		}
 	},
 }, {
@@ -121,14 +120,14 @@ $perl::VERSION = sprintf '%vd', $^V;
 	help => "Unload the hooks registered by a module",
 	acl => 1,
 	code => sub {
-		my($nick,$name) = @_;
+		my($src,$dst,$name) = @_;
 		if ($name !~ /::/ || $name eq __PACKAGE__) {
-			&Janus::jmsg($nick, "You cannot unload the core module $name");
+			&Janus::jmsg($dst, "You cannot unload the core module $name");
 			return;
 		}
 		&Janus::unload($name);
-		&Log::audit("Module $name unloaded by ".$nick->netnick);
-		&Janus::jmsg($nick, "Module $name unloaded");
+		&Log::audit("Module $name unloaded by ".$src->netnick);
+		&Janus::jmsg($dst, "Module $name unloaded");
 	}
 });
 

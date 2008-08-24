@@ -15,11 +15,11 @@ sub fexec {
 	help => 'Upgrades all modules loaded by janus',
 	acl => 1,
 	code => sub {
-		my($nick,$arg) = @_;
+		my($src,$dst,$arg) = @_;
 		my @mods = sort keys %Janus::modinfo;
 		my $force = ($arg && $arg eq 'force');
 		&Log::audit(($force ? 'Full module reload' : 'Upgrade') .
-			' started by '.$nick->netnick);
+			' started by '.$src->netnick);
 		my @done;
 		for my $mod (@mods) {
 			next unless $Janus::modinfo{$mod}{active};
@@ -40,17 +40,17 @@ sub fexec {
 			}
 		}
 		&Log::info('Upgrade finished');
-		&Janus::jmsg($nick, join ' ', 'Modules reloaded:', sort @done);
+		&Janus::jmsg($dst, join ' ', 'Modules reloaded:', sort @done);
 	}
 }, {
 	cmd => 'up-tar',
 	help => 'Downloads and extracts an updated version of janus via gitweb',
 	acl => 1,
 	code => sub {
-		my $nick = shift;
-		&Log::audit('Up-tar started by '.$nick->netnick);
+		my($src,$dst) = @_;
+		&Log::audit('Up-tar started by '.$src->netnick);
 		my $p = fork;
-		return &Janus::jmsg($nick, 'Failed') unless defined $p && $p >= 0;
+		return &Janus::jmsg($dst, 'Failed') unless defined $p && $p >= 0;
 		return if $p;
 
 		$SIG{CHLD} = 'DEFAULT';
@@ -66,10 +66,10 @@ sub fexec {
 	help => 'Runs "git pull"',
 	acl => 1,
 	code => sub {
-		my $nick = shift;
-		&Log::audit('Up-git started by '.$nick->netnick);
+		my($src,$dst) = shift;
+		&Log::audit('Up-git started by '.$src->netnick);
 		my $p = fork;
-		return &Janus::jmsg($nick, 'Failed') unless defined $p && $p >= 0;
+		return &Janus::jmsg($dst, 'Failed') unless defined $p && $p >= 0;
 		return if $p;
 		fexec 'git-pull';
 	}

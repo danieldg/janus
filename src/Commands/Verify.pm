@@ -127,9 +127,8 @@ sub v_chan {
 }
 
 sub verify {
-	my($nick,$tryfix) = @_;
+	my($src, $dst) = @_;
 	my $ts = $Janus::time;
-	my $oops = 0;
 	(@err, %cseen, %nseen, %sseen, %n_c) = ();
 
 	v_nick $_,'gnicks' for values %Janus::gnicks;
@@ -150,9 +149,12 @@ sub verify {
 		open my $dump, '>', "log/verify-$ts" or return;
 		print $dump "$_\n" for @err;
 		close $dump;
-		&Janus::jmsg($nick, scalar(@err)." problems found - report is in log/verify-$ts");
+		my $c = scalar @err;
+		my $max = $c > 10 ? 10 : ($c - 1);
+		&Janus::jmsg($dst, @err[0..$max]);
+		&Janus::jmsg($dst, "$c problems found - full report is in log/verify-$ts");
 	} else {
-		&Janus::jmsg($nick, 'No problems found');
+		&Janus::jmsg($dst, 'No problems found');
 	}
 	(@err, %cseen, %nseen, %sseen, %n_c) = ();
 }

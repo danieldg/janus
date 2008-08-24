@@ -197,7 +197,7 @@ Marks the given variables for state saving and restoring.
 
 sub save_vars {
 	my $class = caller || 'Janus';
-	cluck "command_add called outside module load" unless $modinfo{$class}{load};
+	cluck "Janus::save_vars called outside module load" unless $modinfo{$class}{load};
 	$states{$class} = { @_ };
 }
 
@@ -209,7 +209,7 @@ provides information about the module (while loading)
 
 sub info {
 	my $class = caller || 'Janus';
-	cluck "command_add called outside module load" unless $modinfo{$class}{load};
+	cluck "Janus::info called outside module load" unless $modinfo{$class}{load};
 	my %add = @_;
 	for (qw(desc)) {
 		next unless exists $add{$_};

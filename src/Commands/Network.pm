@@ -8,14 +8,14 @@ use warnings;
 	cmd => 'rehash',
 	help => 'Reload the config and attempt to reconnect to split servers',
 	code => sub {
-		my($nick,$pass) = @_;
-		unless ($nick->has_mode('oper') || $pass eq $Conffile::netconf{set}{pass}) {
-			&Janus::jmsg($nick, "You must be an IRC operator or specify the rehash password to use this command");
+		my($src,$dst,$pass) = @_;
+		unless ($src->has_mode('oper') || $pass eq $Conffile::netconf{set}{pass}) {
+			&Janus::jmsg($dst, "You must be an IRC operator or specify the rehash password to use this command");
 			return;
 		}
-		&Log::audit('Rehash by '.$nick->netnick);
+		&Log::audit('Rehash by '.$src->netnick);
 		&Janus::append(+{
-			src => $nick,
+			src => $src,
 			type => 'REHASH',
 		});
 	},
@@ -28,13 +28,13 @@ use warnings;
 	acl => 1,
 	secret => 1,
 	code => sub {
-		my($nick,$pass) = @_;
-		unless ($nick->has_mode('oper') && $pass && $pass eq $Conffile::netconf{set}{diepass}) {
-			&Janus::jmsg($nick, "You must specify the 'diepass' password to use this command");
+		my($src,$dst,$pass) = @_;
+		unless ($pass && $pass eq $Conffile::netconf{set}{diepass}) {
+			&Janus::jmsg($src, "You must specify the 'diepass' password to use this command");
 			return;
 		}
 		&Conffile::save();
-		&Log::audit('DIE by '.$nick->netnick);
+		&Log::audit('DIE by '.$src->netnick);
 		for my $net (values %Janus::nets) {
 			next if $net->jlink();
 			&Janus::append(+{
@@ -58,12 +58,12 @@ use warnings;
 	acl => 1,
 	secret => 1,
 	code => sub {
-		my($nick,$pass) = @_;
-		unless ($nick->has_mode('oper') && $pass && $pass eq $Conffile::netconf{set}{diepass}) {
-			&Janus::jmsg($nick, "You must specify the 'diepass' password to use this command");
+		my($src,$dst,$pass) = @_;
+		unless ($pass && $pass eq $Conffile::netconf{set}{diepass}) {
+			&Janus::jmsg($dst, "You must specify the 'diepass' password to use this command");
 			return;
 		}
-		&Log::audit('RESTART by '.$nick->netnick);
+		&Log::audit('RESTART by '.$src->netnick);
 		&Conffile::save();
 		for my $net (values %Janus::nets) {
 			next if $net->jlink();
@@ -92,19 +92,19 @@ use warnings;
 	],
 	acl => 1,
 	code => sub {
-		my($nick, $args) = @_;
+		my($src, $dst, $args) = @_;
 		my($id, $onoff) = ($args =~ /(\S+) (\d)/) or do {
-			&Janus::jmsg($nick, "Syntax: \002AUTOCONNECT\002 network [0|1]");
+			&Janus::jmsg($dst, "Syntax: \002AUTOCONNECT\002 network [0|1]");
 			return;
 		};
 		my $nconf = $Conffile::netconf{$id} or do {
-			&Janus::jmsg($nick, 'Cannot find network');
+			&Janus::jmsg($dst, 'Cannot find network');
 			return;
 		};
-		&Log::audit("Autoconnect on $id ".($onoff ? 'enabled' : 'disabled').' by '.$nick->netnick);
+		&Log::audit("Autoconnect on $id ".($onoff ? 'enabled' : 'disabled').' by '.$src->netnick);
 		$nconf->{autoconnect} = $onoff;
 		$nconf->{backoff} = 0;
-		&Janus::jmsg($nick, 'Done');
+		&Janus::jmsg($dst, 'Done');
 	},
 }, {
 	cmd => 'netsplit',
@@ -115,21 +115,21 @@ use warnings;
 	],
 	acl => 1,
 	code => sub {
-		my $nick = shift;
-		my $net = $Janus::nets{lc $_} || $Janus::ijnets{lc $_};
+		my($src,$dst,$net) = @_;
+		$net = $Janus::nets{lc $net} || $Janus::ijnets{lc $net};
 		return unless $net;
-		&Log::audit("Network ".$net->name.' split by '.$nick->netnick);
+		&Log::audit("Network ".$net->name.' split by '.$src->netnick);
 		if ($net->isa('LocalNetwork')) {
 			&Janus::append(+{
 				type => 'NETSPLIT',
 				net => $net,
-				msg => 'Forced split by '.$nick->homenick().' on '.$nick->homenet()->name()
+				msg => 'Forced split by '.$src->netnick
 			});
 		} elsif ($net->isa('Server::InterJanus')) {
 			&Janus::append(+{
 				type => 'JNETSPLIT',
 				net => $net,
-				msg => 'Forced split by '.$nick->homenick().' on '.$nick->homenet()->name()
+				msg => 'Forced split by '.$src->netnick
 			});
 		}
 	},
@@ -137,8 +137,8 @@ use warnings;
 	cmd => 'linked',
 	help => 'Shows a list of the linked networks and channels',
 	code => sub {
-		my $nick = shift;
-		my $hnet = $nick->homenet();
+		my($src,$dst) = @_;
+		my $hnet = $src->homenet();
 		my $hnetn = $hnet->name();
 		my $head1 = 'Linked Networks:';
 		my $head2 = "\002$hnetn\002";
@@ -173,8 +173,8 @@ use warnings;
 			$len1 = length $hname if length $hname > $len1;
 			$chans{$hname} = [ $hname, $hcol, join ' ', sort @list ];
 		}
-		&Janus::jmsg($nick, sprintf '%-'.($len1+1).'s %-'.$len2.'s %s', $head1, $head2, $head3);
-		&Janus::jmsg($nick, map {
+		&Janus::jmsg($dst, sprintf '%-'.($len1+1).'s %-'.$len2.'s %s', $head1, $head2, $head3);
+		&Janus::jmsg($dst, map {
 			sprintf " \%-${len1}s \%-${len2}s \%s", @{$chans{$_}};
 		} sort keys %chans);
 	}

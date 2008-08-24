@@ -9,11 +9,11 @@ use warnings;
 	help => 'Save janus state to filesystem',
 	acl => 1,
 	code => sub {
-		my($nick,$args) = @_;
+		my($src,$dst,$args) = @_;
 		if (&Conffile::save()) {
-			&Janus::jmsg($nick, 'Saved');
+			&Janus::jmsg($dst, 'Saved');
 		} else {
-			&Janus::jmsg($nick, "Could not save: $!");
+			&Janus::jmsg($dst, "Could not save: $!");
 		}
 	}
 });

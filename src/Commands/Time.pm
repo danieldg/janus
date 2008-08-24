@@ -9,18 +9,18 @@ use warnings;
 	help => 'Get a time report from all janus servers',
 	acl => 1,
 	code => sub {
-		my($nick,$msg) = @_;
+		my($src,$dst,$msg) = @_;
 		&Janus::append(+{
 			type => 'MSG',
-			src => $nick->homenet(),
-			dst => $nick,
+			src => $src->homenet,
+			dst => $src,
 			msgtype => 'NOTICE',
 			msg => "Janus server time: ".$Janus::time,
 		}, {
 			type => 'TSREPORT',
-			src => $nick,
-			sendto => [ $nick->netlist() ],
-			except => $nick->homenet(),
+			src => $src,
+			sendto => [ $src->netlist() ],
+			except => $src->homenet(),
 		});
 	},
 });

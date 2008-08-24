@@ -20,34 +20,33 @@ our %claim;
 	],
 	acl => 1,
 	code => sub {
-		my $nick = shift;
-		my $nhome = $nick->homenet;
-		my($cname, $claims) = $_[0] =~ /(#\S*)(?: (\S+))?/;
+		my($src,$dst, $cname, $claims) = @_;
+		my $nhome = $src->homenet;
 		my $chan = $nhome->chan($cname) or return;
 		my $chnet = $chan->homenet;
 		my $chnn = $chnet->name;
 		my $chname = $chan->str($chnet);
 		if ($claims) {
 			if ($chnet != $nhome) {
-				&Janus::jmsg($nick, 'Manipulating claims must be done by the owning network');
+				&Janus::jmsg($dst, 'Manipulating claims must be done by the owning network');
 				return;
 			}
 			if ($claims =~ s/^-//) {
 				delete $claim{$chnn}{$chname};
-				&Janus::jmsg($nick, 'Deleted');
+				&Janus::jmsg($dst, 'Deleted');
 			} else {
 				my %n;
 				$n{$_}++ for split /,/, $claims;
 				$n{$chnn}++;
 				$claim{$chnn}{$chname} = join ',', sort keys %n;
-				&Janus::jmsg($nick, 'Set to '.$claim{$chnn}{$chname});
+				&Janus::jmsg($dst, 'Set to '.$claim{$chnn}{$chname});
 			}
 		} else {
 			my $nets = $claim{$chnn}{$chname};
 			if ($nets) {
-				&Janus::jmsg($nick, "Channel $cname is claimed by: $nets");
+				&Janus::jmsg($dst, "Channel $cname is claimed by: $nets");
 			} else {
-				&Janus::jmsg($nick, "Channel $cname is not claimed");
+				&Janus::jmsg($dst, "Channel $cname is not claimed");
 			}
 		}
 	},

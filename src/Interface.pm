@@ -182,11 +182,25 @@ sub parse { () }
 sub send {
 	my $net = shift;
 	for my $act (@_) {
-		if ($act->{type} eq 'MSG' && $act->{msgtype} eq 'PRIVMSG' && $act->{dst} == $janus) {
-			my $src = $act->{src} or next;
-			$_ = $act->{msg};
-			my $cmd = s/^\s*(?:@\S+\s+)?([^@ ]\S*)\s*// ? lc $1 : 'unk';
-			&Event::in_command($cmd, $src, $_);
+		if ($act->{type} eq 'MSG' && $act->{msgtype} eq 'PRIVMSG') {
+			my $src = $act->{src};
+			my $dst = $act->{dst};
+			next if !$src || $src == $janus;
+			my @args;
+			if ($dst == $janus) {
+				$dst = $src;
+				$_ = $act->{msg};
+				s/^\s*@\S+\s+//;
+				@args = split /\s+/, $_;
+			} elsif ($dst->isa('Channel') && $dst->get_mode('jcommand')) {
+				$_ = $act->{msg};
+				my $id = $RemoteJanus::self->id;
+				s/^(?:!|\@$id\s+)// or next;
+				@args = split /\s+/, $_;
+			} else {
+				next;
+			}
+			&Event::in_command($src, $dst, @args);
 		} elsif ($act->{type} eq 'WHOIS' && $act->{dst} == $janus) {
 			my $src = $act->{src} or next;
 			my $net = $src->homenet();

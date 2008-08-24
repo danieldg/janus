@@ -16,14 +16,14 @@ use warnings;
 	],
 	acl => 1,
 	code => sub {
-		my ($nick,$args) = @_;
+		my ($src,$dst,$args) = @_;
 		my ($nname, $auth) = $args =~ /(\S+)\s*(.*)/ or return;
 		my $net = $Janus::nets{lc $nname} or return;
-		return &Janus::jmsg($nick, "Network needs to be a ClientBot linked server.") unless $net->isa('Server::ClientBot');
+		return &Janus::jmsg($dst, "Network needs to be a ClientBot linked server.") unless $net->isa('Server::ClientBot');
 		if ($net->param('nspass') || $net->param('qauth')) {
-			&Janus::jmsg($nick, "Done.");
+			&Janus::jmsg($dst, "Done.");
 		} elsif (length $auth < 4) { # a NickServ pass is obviously longer than 4 :)
-			&Janus::jmsg($nick, "Network " + lc $_ + " had no identity method configured.");
+			&Janus::jmsg($dst, "Network " + lc $_ + " had no identity method configured.");
 		}
 		if ($auth =~ /(\S+)\s+(\S+)/) {
 			&Janus::append(+{

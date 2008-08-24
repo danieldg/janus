@@ -19,10 +19,10 @@ our @unfiltered;
 	],
 	acl => 1,
 	code => sub {
-		my($nick,$arg) = @_;
+		my($src,$dst,$arg) = @_;
 		my $on = $arg && $arg !~ /off/;
-		$unfiltered[$$nick] = !$on;
-		&Janus::jmsg($nick, 'Whois filtering is now '.($on ? 'on' : 'off').' for your nick');
+		$unfiltered[$$src] = !$on;
+		&Janus::jmsg($dst, 'Whois filtering is now '.($on ? 'on' : 'off').' for your nick');
 	}
 });
 

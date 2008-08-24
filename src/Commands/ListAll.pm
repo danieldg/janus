@@ -8,7 +8,7 @@ use warnings;
 	cmd => 'listall',
 	help => 'Shows a list of all shared channels visible to this janus server',
 	code => sub {
-		my $nick = shift;
+		my($src,$dst) = @_;
 		my %seen;
 		my @out;
 		for my $chan (values %Janus::gchans) {
@@ -30,7 +30,7 @@ use warnings;
 			}
 			push @out, join ' ', $name, sort @netlist;
 		}
-		&Janus::jmsg($nick, sort { lc($a) cmp lc($b) } @out);
+		&Janus::jmsg($dst, sort { lc($a) cmp lc($b) } @out);
 	}
 });
 

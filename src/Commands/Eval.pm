@@ -11,11 +11,11 @@ use Data::Dumper;
 	acl => 1,
 	secret => 1,
 	code => sub {
-		my($nick,$expr) = @_;
-		return &Janus::jmsg($nick, "Bad syntax") unless $expr =~ s/^(\S+)\s+//;
-		return &Janus::jmsg($nick, "Bad syntax") unless $1 && $1 eq $Conffile::netconf{set}{evalpass};
+		my($src,$dst,$expr) = @_;
+		return &Janus::jmsg($dst, "Bad syntax") unless $expr =~ s/^(\S+)\s+//;
+		return &Janus::jmsg($dst, "Bad syntax") unless $1 && $1 eq $Conffile::netconf{set}{evalpass};
 		print "EVAL: $expr\n";
-		&Log::audit('EVAL by '.$nick->netnick.': '.$expr);
+		&Log::audit('EVAL by '.$src->netnick.': '.$expr);
 		$expr =~ /(.*)/; # go around taint mode
 		$expr = $1;
 		my @r = eval $expr;
@@ -23,7 +23,7 @@ use Data::Dumper;
 		if (@r) {
 			$_ = eval { Data::Dumper::Dumper(\@r); };
 			s/\n//g;
-			&Janus::jmsg($nick, $_);
+			&Janus::jmsg($dst, $_);
 		}
 	},
 });

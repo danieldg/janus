@@ -68,10 +68,9 @@ my %timespec = (
 	],
 	acl => 1,
 	code => sub {
-		my $nick = shift;
-		my($cmd, @arg) = split /\s+/, shift;
-		return &Janus::jmsg($nick, "use 'help vanish' to see the syntax") unless $cmd;
-		my $net = $nick->homenet();
+		my($src,$dst, $cmd, @arg) = @_;
+		return &Janus::jmsg($dst, "use 'help vanish' to see the syntax") unless $cmd;
+		my $net = $src->homenet;
 		my @list = banlist($net);
 		if ($cmd =~ /^l/i) {
 			my $c = 0;
@@ -80,12 +79,12 @@ my %timespec = (
 					'expires in '.($ban->{expire} - $Janus::time).'s ('.gmtime($ban->{expire}) .')' :
 					'does not expire';
 				$c++;
-				&Janus::jmsg($nick, $c.' '.$ban->{expr}.' - set by '.$ban->{setter}.", $expire - ".$ban->{reason});
+				&Janus::jmsg($dst, $c.' '.$ban->{expr}.' - set by '.$ban->{setter}.", $expire - ".$ban->{reason});
 			}
-			&Janus::jmsg($nick, 'No bans defined') unless @list;
+			&Janus::jmsg($dst, 'No bans defined') unless @list;
 		} elsif ($cmd =~ /^a/i) {
 			unless ($arg[2]) {
-				&Janus::jmsg($nick, 'Use: ban add expression duration reason');
+				&Janus::jmsg($dst, 'Use: ban add expression duration reason');
 				return;
 			}
 			local $_ = $arg[1];
@@ -95,7 +94,7 @@ my %timespec = (
 				$t = $Janus::time;
 				$t += $1*($timespec{lc $2} || 1) while s/^(\d+)(\D?)//;
 				if ($_) {
-					&Janus::jmsg($nick, 'Invalid characters in ban length');
+					&Janus::jmsg($dst, 'Invalid characters in ban length');
 					return;
 				}
 			} else { 
@@ -105,18 +104,18 @@ my %timespec = (
 				expr => $arg[0],
 				expire => $t,
 				reason => $reason,
-				setter => $nick->homenick(),
+				setter => $dst->homenick,
 			};
 			push @{$bans{$net->name()}}, $ban;
-			&Janus::jmsg($nick, 'Ban added');
+			&Janus::jmsg($dst, 'Ban added');
 		} elsif ($cmd =~ /^d/i) {
 			for (@arg) {
 				my $ban = /^\d+$/ ? $list[$_ - 1] : find($net,$_);
 				if ($ban) {
-					&Janus::jmsg($nick, 'Ban '.$ban->{expr}.' removed');
+					&Janus::jmsg($dst, 'Ban '.$ban->{expr}.' removed');
 					$ban->{expire} = 1;
 				} else {
-					&Janus::jmsg($nick, "Could not find ban $_ - use ban list to see a list of all bans");
+					&Janus::jmsg($dst, "Could not find ban $_ - use ban list to see a list of all bans");
 				}
 			}
 		}
@@ -140,7 +139,7 @@ my %timespec = (
 		my $src = $act->{src} or return undef;
 		my $dst = $act->{dst} or return undef;
 		if ($src->isa('Nick') && $dst->isa('Channel')) {
-			return undef if $act->{sendto};
+			return undef if $act->{sendto} || $$src == 1;
 			my @to = $dst->sendto($act);
 			my @really = grep { $src->is_on($_) } @to;
 			$act->{sendto} = \@really if @really != @to;

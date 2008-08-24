@@ -11,7 +11,7 @@ use warnings;
 		"Syntax: \002LIST\002 network|*",
 	],
 	code => sub {
-		my($nick,$args) = @_;
+		my($src,$dst,$args) = @_;
 
 		if ($args && $args =~ /^\S+$/ && $Janus::nets{$args}) {
 			my $avail = $Link::request{$args} || {};
@@ -19,16 +19,16 @@ use warnings;
 			for my $chan (sort keys %$avail) {
 				next unless $avail->{$chan}{mode};
 				# TODO filter out rejected channels
-				if ($nick->has_mode('oper')) {
+				if ($src->has_mode('oper')) {
 					push @out, $chan.' '.$avail->{$chan}{mask}.' '.gmtime($avail->{$chan}{time});
 				} else {
 					push @out, $chan;
 				}
 			}
 			if (@out) {
-				&Janus::jmsg($nick, @out);
+				&Janus::jmsg($dst, @out);
 			} else {
-				&Janus::jmsg($nick, 'No shared channels for that network');
+				&Janus::jmsg($dst, 'No shared channels for that network');
 			}
 		} elsif ($args && $args eq '*') {
 			for my $net (sort keys %Janus::nets) {
@@ -37,16 +37,16 @@ use warnings;
 				for my $chan (sort keys %$avail) {
 					next unless $avail->{$chan}{mode};
 					# TODO filter out rejected channels
-					if ($nick->has_mode('oper')) {
+					if ($src->has_mode('oper')) {
 						push @out, $net.$chan.' '.$avail->{$chan}{mask}.' '.gmtime($avail->{$chan}{time});
 					} else {
 						push @out, $net.$chan;
 					}
 				}
-				&Janus::jmsg($nick, @out);
+				&Janus::jmsg($dst, @out);
 			}
 		} else {
-			&Janus::jmsg($nick, "Syntax: LIST network|*");
+			&Janus::jmsg($dst, "Syntax: LIST network|*");
 		}
 	},
 });

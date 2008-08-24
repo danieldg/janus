@@ -13,13 +13,13 @@ use warnings;
 	],
 	acl => 1,
 	code => sub {
-		my($nick,$msg) = @_;
-		$msg =~ s/^(\S+) // or return &Janus::jmsg($nick, "Syntax: \002CHATTO\002 network message");
-		my $net = $Janus::nets{$1};
-		return &Janus::jmsg($nick, "Could not find that network") unless $net || $1 eq '*';
+		my($src,$dst,$nname, @args) = @_;
+		my $net = $Janus::nets{$nname};
+		my $msg = join ' ', @args;
+		return &Janus::jmsg($dst, "Could not find that network") unless $net || $1 eq '*';
 		&Janus::append(+{
 			type => 'CHATOPS',
-			src => $nick,
+			src => $src,
 			msg => $msg,
 			sendto => ($1 eq '*' ? $Janus::global : [ $net ]),
 		});
