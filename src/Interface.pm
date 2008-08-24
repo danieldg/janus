@@ -249,7 +249,8 @@ sub jmsg {
 	return unless $type;
 	local $_;
 	my @o;
-	for (@_) {
+	for my $line (@_) {
+		$_ = $line;
 		push @o, $1 while s/^(.{400,450})\s+/ / or s/^(.{450})/ /;
 		push @o, $_;
 	}
