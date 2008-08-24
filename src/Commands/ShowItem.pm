@@ -57,9 +57,10 @@ my @mode_sym = qw{~ & @ % +};
 		my %nlist;
 		for my $n ($c->all_nicks) {
 			my $pfx = join '', map { $c->has_nmode($mode_txt[$_], $n) ? $mode_sym[$_] : '' } 0..4;
-			$nlist{$n->str($hn)} = $pfx . $n->str($hn);
+			my $nick = $n->str($hn) || $n->homenick;
+			$nlist{$nick} = $pfx.$nick;
 		}
-		Janus::jmsg($dst, join ' ', map $nlist{$_}, sort keys %nlist);
+		Janus::jmsg($dst, join ' ','', map $nlist{$_}, sort keys %nlist);
 	},
 }, {
 	cmd => 'shownet',
