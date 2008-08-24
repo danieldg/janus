@@ -1,7 +1,6 @@
 # Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
 package Interface;
-use Janus;
 use Network;
 use Nick;
 use Persist 'Network';
@@ -31,7 +30,7 @@ sub pmsg {
 		my $nick = $act->{msg}->[0];
 		if ($src->isa('Network') && ref $nick && $nick->isa('Nick')) {
 			return undef if $src->jlink();
-			&Janus::append(+{
+			&Event::append(+{
 				type => 'MSG',
 				msgtype => 640,
 				src => $src,
@@ -83,14 +82,14 @@ sub pmsg {
 	undef;
 }
 
-&Janus::hook_add(
+&Event::hook_add(
 	'INIT' => act => sub {
 		$network = Interface->new(
 			id => 'janus',
 			gid => 'janus',
 		);
 		$network->_set_netname('Janus');
-		&Janus::append(+{
+		&Event::append(+{
 			type => 'NETLINK',
 			net => $network,
 		});
@@ -113,14 +112,14 @@ sub pmsg {
 			mode => { oper => 1, service => 1, bot => 1 },
 		);
 		warn if $$janus != 1;
-		&Janus::append(+{
+		&Event::append(+{
 			type => 'NEWNICK',
 			dst => $janus,
 		});
 	}, KILL => act => sub {
 		my $act = shift;
 		return unless $act->{dst} eq $janus;
-		&Janus::append(+{
+		&Event::append(+{
 			type => 'CONNECT',
 			dst => $act->{dst},
 			net => $act->{net},
@@ -128,7 +127,7 @@ sub pmsg {
 	}, KICK => act => sub {
 		my $act = shift;
 		return unless $act->{kickee} eq $janus;
-		&Janus::append({
+		&Event::append({
 			type => 'JOIN',
 			dst => $act->{dst},
 			src => $janus,
@@ -171,7 +170,7 @@ sub pmsg {
 		my $net = $act->{net};
 		return if $net->jlink();
 		return if $janus->is_on($net);
-		&Janus::append(+{
+		&Event::append(+{
 			type => 'CONNECT',
 			dst => $janus,
 			net => $net,
@@ -187,7 +186,7 @@ sub send {
 			my $src = $act->{src} or next;
 			$_ = $act->{msg};
 			my $cmd = s/^\s*(?:@\S+\s+)?([^@ ]\S*)\s*// ? lc $1 : 'unk';
-			&Janus::in_command($cmd, $src, $_);
+			&Event::in_command($cmd, $src, $_);
 		} elsif ($act->{type} eq 'WHOIS' && $act->{dst} == $janus) {
 			my $src = $act->{src} or next;
 			my $net = $src->homenet();
@@ -198,7 +197,7 @@ sub send {
 				[ 317, 0, $^T, 'seconds idle, signon time'],
 				[ 318, 'End of /WHOIS list' ],
 			);
-			&Janus::append(map +{
+			&Event::append(map +{
 				type => 'MSG',
 				src => $net,
 				dst => $src,
@@ -254,7 +253,7 @@ sub jmsg {
 		push @o, $1 while s/^(.{400,450})\s+/ / or s/^(.{450})/ /;
 		push @o, $_;
 	}
-	&Janus::insert_full(map +{
+	&Event::insert_full(map +{
 		type => 'MSG',
 		src => $Interface::janus,
 		dst => $dst,

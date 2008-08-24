@@ -288,7 +288,7 @@ sub in_command {
 		return;
 	}
 	unless ($commands{$cmd}{secret}) {
-		&Log::command($nick, $cmd, $text);
+		&Log::command($nick, $_[0], $text);
 	}
 	unshift @qstack, [];
 	eval {

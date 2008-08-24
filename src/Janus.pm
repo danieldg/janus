@@ -319,7 +319,6 @@ sub insert_full { goto &Event::insert_full }
 sub append { goto &Event::append }
 sub schedule { goto &Event::schedule }
 sub in_socket { goto &Event::in_socket }
-sub in_command { goto &Event::in_command }
 sub timer { goto &Event::timer }
 sub next_event { goto &Event::next_event }
 
