@@ -15,7 +15,7 @@ use Modes;
 	code => sub {
 		my($src,$dst,$cname) = @_;
 		my $hn = $src->homenet;
-		my $chan = $hn->chan($cname,0);
+		my $chan = $hn->chan($cname,0) || $Janus::gchans{$cname};
 		return &Janus::jmsg($dst, 'That channel does not exist') unless $chan;
 		unless ($chan->has_nmode(owner => $src) || $src->has_mode('oper')) {
 			&Janus::jmsg($dst, "You must be a channel owner or oper to use this command");
@@ -55,11 +55,9 @@ use Modes;
 		"\002SHOWTOPIC\002 #channel - shows the intended topic of the channel on your network",
 	],
 	code => sub {
-		my($src,$dst,$args) = @_;
+		my($src,$dst,$cname) = @_;
 		my $hn = $src->homenet;
-		$args =~ /^(#\S*)/i or return &Janus::jmsg($dst, 'Syntax: SHOWMODE [raw] #chan');
-		my $cname = $1;
-		my $chan = $hn->chan($cname,0);
+		my $chan = $hn->chan($cname,0) || $Janus::gchans{$cname};
 		return &Janus::jmsg($dst, 'That channel does not exist') unless $chan;
 		my $top = $chan->topic();
 		&Janus::jmsg($dst, $cname . ' ' . $top);
@@ -73,8 +71,7 @@ use Modes;
 	code => sub {
 		my($src,$dst,$cname,@argin) = @_;
 		my $hn = $src->homenet;
-		return &Janus::jmsg($dst, 'Local command') unless $hn->isa('LocalNetwork');
-		my $chan = $hn->chan($cname,0);
+		my $chan = $hn->chan($cname,0) || $Janus::gchans{$cname};
 		return &Janus::jmsg($dst, 'That channel does not exist') unless $chan;
 		unless ($chan->has_nmode(owner => $src) || $src->has_mode('oper')) {
 			&Janus::jmsg($dst, "You must be a channel owner or oper to use this command");
