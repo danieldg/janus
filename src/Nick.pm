@@ -248,7 +248,7 @@ sub rejoin {
 	$chans[$$nick] = [ values %clist ];
 
 
-	return if $nick->jlink();
+	return if $nick->jlink || $nick->info('noquit');
 
 	for my $net ($chan->nets()) {
 		next if $nets[$$nick]{$$net};
