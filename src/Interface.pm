@@ -246,14 +246,20 @@ sub jmsg {
 	my $type =
 		$dst->isa('Nick') ? 'NOTICE' :
 		$dst->isa('Channel') ? 'PRIVMSG' : '';
+	return unless $type;
 	local $_;
+	my @o;
+	for (@_) {
+		push @o, $1 while s/^(.{400,450})\s+/ / or s/^(.{450})/ /;
+		push @o, $_;
+	}
 	&Janus::insert_full(map +{
 		type => 'MSG',
 		src => $Interface::janus,
 		dst => $dst,
 		msgtype => $type,
 		msg => $_,
-	}, @_) if $type;
+	}, @o);
 }
 
 1;
