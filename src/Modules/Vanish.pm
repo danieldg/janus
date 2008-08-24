@@ -141,7 +141,7 @@ my %timespec = (
 		if ($src->isa('Nick') && $dst->isa('Channel')) {
 			return undef if $act->{sendto} || $$src == 1;
 			my @to = $dst->sendto($act);
-			my @really = grep { $src->is_on($_) } @to;
+			my @really = grep { $src->is_on($_) || $_ == $Interface::network } @to;
 			$act->{sendto} = \@really if @really != @to;
 		}
 		undef;
