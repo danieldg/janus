@@ -28,7 +28,7 @@ our %claim;
 		my $chname = $chan->str($chnet);
 		if ($claims) {
 			if ($chnet != $nhome) {
-				&Janus::jmsg($dst, 'Manipulating claims must be done by the owning network');
+				&Janus::jmsg($dst, 'Manipulating claims must be done by the home network');
 				return;
 			}
 			if ($claims =~ s/^-//) {

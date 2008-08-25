@@ -108,7 +108,7 @@ use warnings;
 	help => 'Delinks a channel',
 	details => [
 		"Syntax: \002DELINK\002 #channel [network]",
-		"The owning channel must specify a network, or use \002DESTROY\002",
+		"The home newtwork must specify a network to delink, or use \002DESTROY\002",
 		"Other networks can only delink themselves from the channel",
 	],
 	code => sub {

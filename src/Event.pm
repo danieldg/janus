@@ -420,7 +420,7 @@ Event::command_add({
 				push @cmds, $cmd;
 				$synlen = length $cmd if length $cmd > $synlen;
 			}
-			&Janus::jmsg($dst, 'Available commands: ');
+			&Janus::jmsg($dst, "Use '\002HELP\002 command' for details", 'Available commands: ');
 			&Janus::jmsg($dst, map {
 				sprintf " \002\%-${synlen}s\002  \%s", uc $_, $commands{$_}{help};
 			} @cmds);
