@@ -92,11 +92,7 @@ use warnings;
 	],
 	acl => 1,
 	code => sub {
-		my($src, $dst, $args) = @_;
-		my($id, $onoff) = ($args =~ /(\S+) (\d)/) or do {
-			&Janus::jmsg($dst, "Syntax: \002AUTOCONNECT\002 network [0|1]");
-			return;
-		};
+		my($src, $dst, $id, $onoff) = @_;
 		my $nconf = $Conffile::netconf{$id} or do {
 			&Janus::jmsg($dst, 'Cannot find network');
 			return;
