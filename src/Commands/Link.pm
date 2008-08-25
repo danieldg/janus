@@ -6,11 +6,11 @@ use warnings;
 
 &Janus::command_add({
 	cmd => 'link',
-	help => 'Links a channel with a remote network.',
+	help => 'Link to a remote network\'s shared channel',
 	details => [ 
 		"Syntax: \002LINK\002 channel network [remotechan]",
-		"This command requires confirmation from the remote network before the link",
-		"will be activated",
+		"The remote network must use the \002CREATE\002 command to",
+		"share a channel before links to that channel will be accepted",
 	],
 	code => sub {
 		my($src,$dst,$cname1, $nname2, $cname2) = @_;
@@ -60,7 +60,6 @@ use warnings;
 			reqby => $src->realhostmask,
 			reqtime => $Janus::time,
 		});
-		&Janus::jmsg($dst, "Link request sent");
 	}
 }, {
 	cmd => 'create',
@@ -109,6 +108,8 @@ use warnings;
 	help => 'Delinks a channel',
 	details => [
 		"Syntax: \002DELINK\002 #channel [network]",
+		"The owning channel must specify a network, or use \002DESTROY\002",
+		"Other networks can only delink themselves from the channel",
 	],
 	code => sub {
 		my($src,$dst, $cname, $nname) = @_;

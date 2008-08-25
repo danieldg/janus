@@ -159,6 +159,7 @@ sub send_avail {
 		send_avail($ij);
 	}, LINKREQ => act => sub {
 		my $act = shift;
+		my $src = $act->{src};
 		my $schan = $act->{chan};
 		my $snet = $schan->homenet();
 		my $snetn = $snet->name;
@@ -169,6 +170,7 @@ sub send_avail {
 		my $logpfx = "Link request $snetn$sname -> $dnetn$dname:";
 		if ($request{$snetn}{lc $sname}{mode}) {
 			Log::info($logpfx, 'not overriding locally created');
+			Janus::jmsg($src, "$sname is shared by this network, and must be linked from others") if $src;
 			return;
 		}
 		$request{$snetn}{lc $sname} = {
@@ -188,15 +190,18 @@ sub send_avail {
 		my $recip = $request{$dnet->name()}{lc $act->{dlink}};
 		unless ($recip && $recip->{mode}) {
 			Log::info($logpfx, 'destination not shared');
+			Janus::jmsg($src, "The channel $dname has not been shared by $dnetn") if $src;
 			return;
 		}
 		if ($recip->{ack}{$snetn}) {
 			if ($recip->{ack}{$snetn} == 2) {
 				Log::info($logpfx, 'rejected explicitly by homenet');
+				Janus::jmsg($src, "The request to link $dname on $dnetn has been denied") if $src;
 				return;
 			}
 		} elsif ($recip->{mode} == 2) {
 			Log::info($logpfx, 'rejected by default ACL');
+			Janus::jmsg($src, "The request to link $dname on $dnetn has been denied") if $src;
 			return;
 		}
 		if (1 < scalar $schan->nets()) {
