@@ -1219,7 +1219,7 @@ sub srvname {
 		};
 	}, TSCTL => sub {
 		my $net = shift;
-		my $nick = $net->mynick($_[0]) or return ();
+		my $nick = $net->item($_[0]) or return ();
 		return () unless lc $_[2] eq 'alltime';
 		return +{
 			type => 'TSREPORT',
