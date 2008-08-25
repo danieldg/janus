@@ -195,7 +195,8 @@ sub send {
 			} elsif ($dst->isa('Channel') && $dst->get_mode('jcommand')) {
 				$_ = $act->{msg};
 				my $id = $RemoteJanus::self->id;
-				s/^(?:!|\@$id\s+)// or next;
+				s/^([!.]|\@$id\s+)// or next;
+				next if $1 eq '.' && $src->jlink;
 				@args = split /\s+/, $_;
 			} else {
 				next;
