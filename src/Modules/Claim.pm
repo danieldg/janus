@@ -111,6 +111,7 @@ sub acl_ok {
 		my $net = $act->{except};
 		my $chan = $act->{dst};
 		my $src = $act->{src};
+		return unless $src->isa('Nick');
 		&Log::info('Bouncing kick by '.$src->netnick.' on '.$chan->str($src->homenet));
 
 		&Janus::append({
