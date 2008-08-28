@@ -607,10 +607,13 @@ $moddef{CORE} = {
 				$net->send(['INIT', 'ERROR :Bad password']);
 			}
 			$serverdsc[$$net]{lc $_[2]} = $_[-1];
-			return +{
+			return ({
+				type => 'NETLINK',
+				net => $net,
+			}, {
 				type => 'BURST',
 				net => $net,
-			};
+			});
 		}
 	}, SQUIT => sub {
 		my $net = shift;

@@ -149,7 +149,7 @@ sub read_conf {
 sub connect_net {
 	my($nick,$id) = @_;
 	my $nconf = $netconf{$id};
-	return if !$nconf || exists $Janus::nets{$id} || exists $Janus::ijnets{$id};
+	return if !$nconf || $Janus::nets{$id} || $Janus::ijnets{$id} || $Janus::pending{$id};
 	if ($id =~ /^LISTEN:/) {
 		return if $Listener::open{$id};
 		&Log::info("Listening on $nconf->{addr}");
@@ -179,17 +179,11 @@ sub connect_net {
 			my $net = &Persist::new($type, id => $id);
 			# this is equivalent to $type->new(id => \$id) but without using eval
 
+			$Janus::pending{$id} = $net;
+
 			&Connection::add($sock, $net);
 
 			$net->intro($nconf);
-
-			if ($net->isa('Network')) {
-				&Janus::append({
-					type => 'NETLINK',
-					net => $net,
-				});
-			}
-			# otherwise it's interjanus, which we let report its own events
 		}
 	}
 }

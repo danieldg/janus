@@ -30,18 +30,15 @@ sub init_pending {
 
 	my $net;
 	for my $id (keys %Conffile::netconf) {
-		next if $Janus::nets{$id};
+		next if $Janus::nets{$id} || $Janus::pending{$id} || $Janus::ijnets{$id};
 		my $nconf = $Conffile::netconf{$id};
 		if ($nconf->{linkaddr} && $nconf->{linkaddr} eq $addr) {
 			my $type = 'Server::'.$nconf->{type};
 			&Janus::load($type) or next;
 			$net = Persist::new($type, id => $id);
+			$Janus::pending{$id} = $net;
 			&Log::info("Incoming connection from $addr for $type network $id (#$$net)");
 			$net->intro($nconf, $addr);
-			&Janus::insert_full({
-				type => 'NETLINK',
-				net => $net,
-			});
 			last;
 		}
 	}

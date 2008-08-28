@@ -22,6 +22,7 @@ $time ||= time;
 
 our %nets;       # by network tag
 our %ijnets;     # by name (ij tag)
+our %pending;    # by network tag
 our %gnets;      # by guid
 our %gnicks;     # by guid
 
@@ -249,7 +250,9 @@ Event::hook_add(
 		my $act = shift;
 		my $net = $act->{net};
 		my $id = $net->name();
+		delete $act->{except};
 		$gnets{$net->gid()} = $net;
+		delete $pending{$id};
 		$nets{$id} = $net;
 	}, NETSPLIT => parse => sub {
 		my $act = shift;
@@ -269,6 +272,7 @@ Event::hook_add(
 		my $act = shift;
 		my $net = $act->{net};
 		my $id = $net->id();
+		delete $pending{$id};
 		$ijnets{$id} = $net;
 	}, JNETSPLIT => act => sub {
 		my $act = shift;

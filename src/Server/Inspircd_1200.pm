@@ -596,10 +596,13 @@ $moddef{CORE} = {
 			}
 			$serverdsc[$$net]{lc $_[2]} = $_[-1];
 			$servernum[$$net]{$_[5]} = $_[2];
-			return +{
+			return ({
+				type => 'NETLINK',
+				net => $net,
+			}, {
 				type => 'BURST',
 				net => $net,
-			};
+			});
 		}
 	}, SQUIT => sub {
 		my $net = shift;

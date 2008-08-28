@@ -1036,10 +1036,13 @@ sub srvname {
 		};
 		$srvname[$$net]{$snum} = $name if $snum;
 
-		$_[0] ? () : {
+		$_[0] ? () : ({
+			type => 'NETLINK',
+			net => $net,
+		}, {
 			type => 'BURST',
 			net => $net,
-		};
+		});
 	}, SQUIT => sub {
 		my $net = shift;
 		my $srv = $net->srvname($_[2]);

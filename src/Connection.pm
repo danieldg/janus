@@ -241,14 +241,15 @@ sub pingall {
 sub delink {
 	my($net,$msg) = @_;
 	return unless $net;
-	# TODO handle specially networks that haven't completed burst
 	if ($net->isa('Server::InterJanus')) {
+		delete $Janus::pending{$net->id};
 		&Janus::insert_full(+{
 			type => 'JNETSPLIT',
 			net => $net,
 			msg => $msg,
 		});
 	} else {
+		delete $Janus::pending{$net->name};
 		&Janus::insert_full(+{
 			type => 'NETSPLIT',
 			net => $net,
