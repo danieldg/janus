@@ -6,8 +6,17 @@ use Channel;
 use Persist 'Network';
 use strict;
 use warnings;
+use constant {
+	AUTH_RECV => 1,
+	AUTH_SEND => 2,
+	AUTH_OK   => 3,
+	AUTH_DIR_IN  => 0x4,
+	AUTH_DIR_OUT => 0x8,
+	AUTH_DIR     => 0xC,
+};
 
-our(@cparms, @nickseq);
+our(@cparms, @nickseq, @auth);
+Persist::register_vars(qw(cparms nickseq auth));
 
 sub param {
 	my $net = shift;
@@ -19,7 +28,8 @@ sub cparam {
 }
 
 sub intro {
-	my $net = shift;
+	my($net,$conf,$peer) = @_;
+	$auth[$$net] = $peer ? AUTH_DIR_IN : AUTH_DIR_OUT;
 	$cparms[$$net] = { %{$Conffile::netconf{$net->name()}} };
 	$net->_set_numeric($cparms[$$net]->{numeric});
 	$net->_set_netname($cparms[$$net]->{netname});
@@ -30,10 +40,32 @@ sub next_nickgid {
 	$net->gid() . ':' . &EventDump::seq2gid(++$nickseq[$$net]);
 }
 
+sub auth_recvd {
+	my $net = shift;
+	$auth[$$net] |= AUTH_RECV;
+}
+
+sub auth_sent {
+	my $net = shift;
+	$auth[$$net] |= AUTH_SEND;
+}
+
+sub auth_ok {
+	my $net = shift;
+	($auth[$$net] & AUTH_OK) == AUTH_OK;
+}
+
+sub auth_should_send {
+	my $net = shift;
+	return 0 unless $auth[$$net] & AUTH_DIR_OUT || $auth[$$net] & AUTH_RECV;
+	return 0 if $auth[$$net] & AUTH_SEND;
+	$auth[$$net] |= AUTH_SEND;
+	1;
+}
+
 ### MODE SPLIT ###
 eval($Janus::lmode eq 'Bridge' ? '#line '.__LINE__.' "'.__FILE__.'"'.q[#[[]]
 ### BRIDGE MODE ###
-&Persist::register_vars(qw(cparms nickseq));
 
 sub chan {
 	my($net, $name, $new) = @_;
@@ -68,7 +100,7 @@ sub all_chans {
 1 ] : '#line '.__LINE__.' "'.__FILE__.'"'.q[#[[]]
 ### LINK MODE ###
 our @chans;
-&Persist::register_vars(qw(cparms chans nickseq));
+&Persist::register_vars(qw(chans));
 
 sub _init {
 	my $net = shift;

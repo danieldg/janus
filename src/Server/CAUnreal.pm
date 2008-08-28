@@ -8,13 +8,12 @@ use Persist 'Server::BaseNick';
 use strict;
 use warnings;
 
-our(@sendq, @srvname, @servers, @auth);
-&Persist::register_vars(qw(sendq srvname servers auth));
+our(@sendq, @srvname, @servers);
+&Persist::register_vars(qw(sendq srvname servers));
 
 sub _init {
 	my $net = shift;
 	$sendq[$$net] = [];
-	$auth[$$net] = 0;
 }
 
 my %fromirc;
@@ -233,9 +232,8 @@ sub str {
 
 sub intro {
 	my($net, $param, $addr) = @_;
-	$net->SUPER::intro($param);
-	unless ($addr) {
-		$auth[$$net] = 2;
+	$net->SUPER::intro($param, $addr);
+	if ($net->auth_should_send) {
 		$param->{numeric} ||= '';
 		$net->send(
 			'PASS :'.$param->{sendpass},
@@ -259,7 +257,7 @@ sub parse {
 	}
 	my $cmd = $args[1];
 	$cmd = $args[1] = $token2cmd{$cmd} if exists $token2cmd{$cmd};
-	unless ($auth[$$net] == 3 || $cmd eq 'PASS' || $cmd eq 'SERVER' || $cmd eq 'PROTOCTL' || $cmd eq 'ERROR') {
+	unless ($net->auth_ok || $cmd eq 'PASS' || $cmd eq 'SERVER' || $cmd eq 'PROTOCTL' || $cmd eq 'ERROR') {
 		return () if $cmd eq 'NOTICE'; # NOTICE AUTH ... annoying
 		$net->send('ERROR :Not authorized');
 		return +{
@@ -1023,13 +1021,12 @@ sub srvname {
 		my $snum = $net->sjb64((@_ > 5          ? $_[4] :
 				($desc =~ s/^U\d+-\S+-(\d+) //) ? $1    : 0), 1);
 
-		if ($auth[$$net] == 1) {
+		if ($net->auth_should_send) {
 			unshift @{$sendq[$$net]}, (
 				'PASS :'.$net->param('sendpass'),
 				'PROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS UMODE2 TKLEXT SJB64',
 				'SERVER '.$net->cparam('linkname').' 1 :U2309-hX6eE-'.($net->cparam('numeric')||'').' Janus Network Link',
 			);
-			$auth[$$net] = 3;
 		}
 		&Log::info_in($net, "Server $_[2] [\@$snum] added from $src");
 		$servers[$$net]{$name} = {
@@ -1099,7 +1096,7 @@ sub srvname {
 	PASS => sub {
 		my $net = shift;
 		if ($_[2] eq $net->cparam('recvpass')) {
-			$auth[$$net] |= 1;
+			$net->auth_recvd;
 		} else {
 			$net->send('ERROR :Bad password');
 		}

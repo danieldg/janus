@@ -12,16 +12,13 @@ use strict;
 use warnings;
 use integer;
 
-our(@sendq, @servers, @serverdsc, @servernum, @next_uid, @auth, @capabs);
-&Persist::register_vars(qw(sendq servers serverdsc servernum next_uid auth capabs));
-
-# auth: 0/undef = unauth connection; 1 = authed, in burst; 2 = after burst
+our(@sendq, @servers, @serverdsc, @servernum, @next_uid, @capabs);
+&Persist::register_vars(qw(sendq servers serverdsc servernum next_uid capabs));
 
 sub _init {
 	my $net = shift;
 	$sendq[$$net] = [];
 	$net->module_add('CORE');
-	$auth[$$net] = 0;
 }
 
 sub ignore { () }
@@ -59,7 +56,7 @@ sub parse {
 		unshift @args, undef;
 	}
 	my $cmd = $args[1];
-	unless ($auth[$$net] || $cmd eq 'CAPAB' || $cmd eq 'SERVER' || $cmd eq 'ERROR') {
+	unless ($net->auth_ok || $cmd eq 'CAPAB' || $cmd eq 'SERVER' || $cmd eq 'ERROR') {
 		$net->send(['INIT', 'ERROR :Not authorized yet']);
 		return ();
 	}
@@ -74,31 +71,24 @@ sub send {
 sub dump_sendq {
 	my $net = shift;
 	local $_;
-	my $q = '';
-	if ($auth[$$net] == 3) {
-		for my $i (@{$sendq[$$net]}, '') {
-			if (ref $i) {
-				$q .= join "\n", @$i[1..$#$i],'';
-			} else {
-				$q .= $i."\n" if $i;
-			}
+	my $q1 = '';
+	my $q2 = '';
+	for my $i (@{$sendq[$$net]}, '') {
+		if (ref $i && $i->[0] eq 'INIT') {
+			$q1 .= join "\n", @$i[1..$#$i],'';
+		} else {
+			$q2 .= $i."\n" if $i;
 		}
-		$sendq[$$net] = [];
-	} else {
-		my @delayed;
-		for my $i (@{$sendq[$$net]}) {
-			if (ref $i && $i->[0] eq 'INIT') {
-				$q .= join "\n", @$i[1..$#$i],'';
-			} else {
-				push @delayed, $i;
-			}
-		}
-		$sendq[$$net] = \@delayed;
-		$auth[$$net] = 3 if $auth[$$net] == 2;
 	}
-	$q =~ s/\n+/\r\n/g;
-	&Log::netout($net, $_) for split /\r\n/, $q;
-	$q;
+	if ($net->auth_ok) {
+		$sendq[$$net] = [];
+		$q1 .= $q2;
+	} else {
+		$sendq[$$net] = ($q2 =~ s/\n$//s) ? [ $q2 ] : '';
+	}
+	$q1 =~ s/\n+/\r\n/sg;
+	&Log::netout($net, $_) for split /\r\n/, $q1;
+	$q1;
 }
 
 my @letters = ('A' .. 'Z', 0 .. 9);
@@ -587,9 +577,18 @@ $moddef{CORE} = {
 
 	SERVER => sub {
 		my $net = shift;
-		unless ($auth[$$net]) {
+		if ($net->auth_ok) {
+			$servers[$$net]{lc $_[2]} = $_[0] =~ /^\d/ ? $servernum[$$net]{$_[0]} : lc $_[0];
+			$serverdsc[$$net]{lc $_[2]} = $_[-1];
+			$servernum[$$net]{$_[5]} = $_[2];
+			return ();
+		} else {
 			if ($_[3] eq $net->cparam('recvpass')) {
-				$auth[$$net] = 1;
+				$net->auth_recvd;
+				if ($net->auth_should_send) {
+					$net->send(['INIT', $net->cmd2(undef, SERVER => $net->cparam('linkname'),
+						$net->cparam('sendpass'), 0, $net, 'Janus Network Link') ]);
+				}
 				$net->send(['INIT', 'BURST '.$Janus::time ]);
 			} else {
 				$net->send(['INIT', 'ERROR :Bad password']);
@@ -601,11 +600,6 @@ $moddef{CORE} = {
 				type => 'BURST',
 				net => $net,
 			};
-		} else {
-			$servers[$$net]{lc $_[2]} = $_[0] =~ /^\d/ ? $servernum[$$net]{$_[0]} : lc $_[0];
-			$serverdsc[$$net]{lc $_[2]} = $_[-1];
-			$servernum[$$net]{$_[5]} = $_[2];
-			return ();
 		}
 	}, SQUIT => sub {
 		my $net = shift;
@@ -662,9 +656,9 @@ $moddef{CORE} = {
 	},
 	PONG => \&ignore,
 	BURST => sub {
-		my $net = shift;
-		return () if $auth[$$net] != 1;
-		$auth[$$net] = 2;
+# 		my $net = shift;
+# 		return () if $auth[$$net] != 1;
+# 		$auth[$$net] = 2;
 		();
 	}, CAPAB => sub {
 		my $net = shift;
@@ -693,7 +687,9 @@ $moddef{CORE} = {
 			push @out, 'CAPAB MODULES '.$1 while $mods =~ s/(.{1,495})(,|$)//;
 			push @out, 'CAPAB CAPABILITIES :'.$1 while $capabs =~ s/(.{1,450})( |$)//;
 			push @out, 'CAPAB END';
-			push @out, $net->cmd2(undef, SERVER => $net->cparam('linkname'), $net->cparam('sendpass'), 0, $net, 'Janus Network Link');
+			if ($net->auth_should_send) {
+				push @out, $net->cmd2(undef, SERVER => $net->cparam('linkname'), $net->cparam('sendpass'), 0, $net, 'Janus Network Link');
+			}
 			$net->send(\@out);
 		} # ignore START and any others
 		();
