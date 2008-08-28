@@ -220,10 +220,10 @@ sub autoconnect {
 			my $item = 2 * $netconf{$id}{backoff}++;
 			my $rt = int sqrt $item;
 			if ($item == $rt * ($rt + 1)) {
-				&Log::info("Backoff $item - Connecting");
+				&Log::debug("Backoff $id (#$item) - Connecting");
 				connect_net undef,$id;
 			} else {
-				&Log::info("Backoff: $item != ".$rt*($rt+1));
+				&Log::debug("Backoff $id: $item != ".$rt*($rt+1));
 			}
 		}
 	}
