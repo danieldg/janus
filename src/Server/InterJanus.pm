@@ -13,11 +13,14 @@ our $IJ_PROTO = 1.9;
 
 our(@sendq, @auth);
 &Persist::register_vars(qw(sendq auth));
-&Persist::autoget(is_linked => \@auth);
 
 sub str {
 	warn;
 	"";
+}
+
+sub is_linked {
+	$auth[${$_[0]}] == 2;
 }
 
 my %toirc;
@@ -159,9 +162,10 @@ sub kv_pairs {
 }
 
 sub intro {
-	my($ij,$nconf) = @_;
+	my($ij,$nconf, $peer) = @_;
 	$sendq[$$ij] = '';
-
+	$auth[$$ij] = $peer ? 0 : 1;
+	return if $peer;
 	$ij->send(+{
 		type => 'InterJanus',
 		version => $IJ_PROTO,
@@ -170,10 +174,6 @@ sub intro {
 		pass => $nconf->{sendpass},
 		ts => $Janus::time,
 	});
-	# If we are the first mover (initiated connection), auth will be zero, and
-	# will end up being 1 after a successful authorization. If we were listening,
-	# then to get here we must have already authorized, so change it to 2.
-	$auth[$$ij] = $auth[$$ij] ? 2 : 0;
 }
 
 sub jlink {
@@ -209,7 +209,7 @@ sub parse {
 	$act->{except} = $ij;
 	if ($act->{type} eq 'PING') {
 		$ij->send({ type => 'PONG' });
-	} elsif ($auth[$$ij]) {
+	} elsif ($auth[$$ij] == 2) {
 		return $act;
 	} elsif ($act->{type} eq 'InterJanus') {
 		my $id = $RemoteJanus::id[$$ij];
@@ -233,10 +233,20 @@ sub parse {
 		} elsif ($ts_delta >= 20) {
 			&Janus::err_jmsg(undef, "Clocks are too far off (delta=$ts_delta here=$Janus::time there=$act->{ts})");
 		} else {
-			$auth[$$ij] = 1;
 			$act->{net} = $ij;
 			$act->{type} = 'JNETLINK';
 			delete $act->{$_} for qw/pass version ts id rid IJ_RAW/;
+			unless ($auth[$ij]) {
+				$ij->send(+{
+					type => 'InterJanus',
+					version => $IJ_PROTO,
+					id => $RemoteJanus::self->id(),
+					rid => $nconf->{id},
+					pass => $nconf->{sendpass},
+					ts => $Janus::time,
+				});
+			}
+			$auth[$$ij] = 2;
 			return $act;
 		}
 		if ($Janus::ijnets{$id} && $Janus::ijnets{$id} eq $ij) {
