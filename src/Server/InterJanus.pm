@@ -165,7 +165,6 @@ sub intro {
 	my($ij,$nconf, $peer) = @_;
 	$sendq[$$ij] = '';
 	$auth[$$ij] = $peer ? 0 : 1;
-	return if $peer;
 	$ij->send(+{
 		type => 'InterJanus',
 		version => $IJ_PROTO,
@@ -173,7 +172,7 @@ sub intro {
 		rid => $nconf->{id},
 		pass => $nconf->{sendpass},
 		ts => $Janus::time,
-	});
+	}) if $auth[$$ij];
 }
 
 sub jlink {
@@ -236,7 +235,7 @@ sub parse {
 			$act->{net} = $ij;
 			$act->{type} = 'JNETLINK';
 			delete $act->{$_} for qw/pass version ts id rid IJ_RAW/;
-			unless ($auth[$ij]) {
+			unless ($auth[$$ij]) {
 				$ij->send(+{
 					type => 'InterJanus',
 					version => $IJ_PROTO,
