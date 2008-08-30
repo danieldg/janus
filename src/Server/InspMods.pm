@@ -29,6 +29,7 @@ sub mdef {
 
 mdef 'm_alias.so';
 mdef 'm_alltime.so', cmds => { ALLTIME => \&ignore };
+mdef 1200, 'm_allowinvite.so', cmode => { A => 'r_allinvite' };
 mdef 'm_antibear.so';
 mdef 'm_antibottler.so';
 
