@@ -250,7 +250,7 @@ Event::hook_add(
 		my $act = shift;
 		my $net = $act->{net};
 		my $id = $net->name();
-		delete $act->{except};
+		delete $act->{except} if $net == $act->{except};
 		$gnets{$net->gid()} = $net;
 		delete $pending{$id};
 		$nets{$id} = $net;
