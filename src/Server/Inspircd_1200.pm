@@ -132,6 +132,7 @@ sub _connect_ifo {
 			$mode .= $um;
 		}
 	}
+	$mode .= ' +' if $capabs[$$net]{PROTOCOL} >= 1201;
 
 	my $ip = $nick->info('ip') || '0.0.0.0';
 	$ip = '0.0.0.0' if $ip eq '*';
@@ -166,9 +167,9 @@ sub process_capabs {
 	# MAXGECOS=128 -TODO
 	# MAXAWAY=200 - TODO
 	# IP6NATIVE=1 IP6SUPPORT=1 - we currently require IPv6 support, and claim to be native because we're cool like that :)
-	# PROTOCOL=1200
+	# PROTOCOL=1201
 	warn "I don't know how to read protocol $capabs[$$net]{PROTOCOL}"
-		unless $capabs[$$net]{PROTOCOL} == 1200;
+		unless $capabs[$$net]{PROTOCOL} == 1200 || $capabs[$$net]{PROTOCTL} == 1201;
 
 	# PREFIX=(qaohv)~&@%+ - We don't care (anymore)
 	$capabs[$$net]{PREFIX} =~ /\((\S+)\)\S+/ or warn;
@@ -314,7 +315,7 @@ $moddef{CORE} = {
 		};
 	}, UID => sub {
 		my $net = shift;
-		my $ip = $_[9];
+		my $ip = $_[-3];
 		$ip = $1 if $ip =~ /^[0:]+:ffff:(\d+\.\d+\.\d+\.\d+)$/;
 		my %nick = (
 			net => $net,
@@ -325,11 +326,12 @@ $moddef{CORE} = {
 				host => $_[5],
 				vhost => $_[6],
 				ident => $_[7],
-				signonts => $_[10],
+				signonts => $_[-2],
 				ip => $ip,
 				name => $_[-1],
 			},
 		);
+		# $_[9] is snomasks on protocol 1201, we ignore
 		my @m = split //, $_[8];
 		warn unless '+' eq shift @m;
 		$nick{mode} = +{ map {

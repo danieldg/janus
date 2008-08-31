@@ -16,7 +16,8 @@ sub mdef {
 		push @ver, $name;
 		$name = shift;
 	}
-	@ver = qw/1105 1200 4000/ unless @ver;
+	@ver = qw/1105 1200 1201 4000/ unless @ver;
+	@ver = map { $_ eq '12' ? qw/1200 1201/ : $_ } @ver;
 	if (@_ % 2) {
 		warn 'Odd argument count';
 	}
@@ -46,7 +47,7 @@ mdef 'm_alltime.so', cmds => {
 	},
 };
 
-mdef 1200, 'm_allowinvite.so', cmode => { A => 'r_allinvite' };
+mdef 12, 'm_allowinvite.so', cmode => { A => 'r_allinvite' };
 mdef 'm_antibear.so';
 mdef 'm_antibottler.so';
 
@@ -57,11 +58,11 @@ mdef 'm_banexception.so', cmode => { e => 'l_except' };
 mdef 'm_banredirect.so'; # this just adds syntax to channel bans
 mdef 'm_blockamsg.so';
 mdef 1105, 4000, 'm_blockcaps.so', cmode => { P => 'r_blockcaps' };
-mdef 1200, 'm_blockcaps.so', cmode => { B => 'r_blockcaps' };
+mdef 12, 'm_blockcaps.so', cmode => { B => 'r_blockcaps' };
 mdef 'm_blockcolor.so', cmode => { c => 't2_colorblock' };
 mdef 'm_botmode.so', umode => { B => 'bot' };
 
-mdef 1200, 'm_callerid.so', umode => { g => 'callerid' }, cmds => { ACCEPT => \&ignore };
+mdef 12, 'm_callerid.so', umode => { g => 'callerid' }, cmds => { ACCEPT => \&ignore };
 mdef 'm_cban.so', cmds => { CBAN => \&ignore }; # janus needs localjoin to link, so we don't care
 mdef 'm_censor.so', cmode => { G => 'r_badword' }, umode => { G => 'badword' };
 mdef 'm_hidechans.so', umode => { I => 'hide_chans' };
@@ -131,7 +132,7 @@ mdef 'm_customtitle.so';
 mdef 'm_cycle.so';
 mdef 'm_dccallow.so', cmds => { DCCALLOW => \&ignore };
 mdef 'm_deaf.so', umode => { d => 'deaf_chan' };
-mdef 1200, 'm_delayjoin.so', cmode => { D => 'r_delayjoin' };
+mdef 12, 'm_delayjoin.so', cmode => { D => 'r_delayjoin' };
 mdef 'm_denychans.so';
 mdef 'm_devoice.so', cmds => {
 	DEVOICE => sub {
@@ -220,7 +221,7 @@ mdef 1105, 4000, 'm_nicklock.so', cmds => {
 	},
 	NICKUNLOCK => \&ignore,
 };
-mdef 1200, 'm_nicklock.so', cmds => {
+mdef 12, 'm_nicklock.so', cmds => {
 	NICKLOCK => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]);
@@ -259,7 +260,7 @@ mdef 'm_operlog.so';
 mdef 'm_opermodes.so';
 mdef 'm_opermotd.so';
 mdef 'm_override.so';
-mdef 1200, 'm_permchannels.so', cmode => { P => 'r_permanent' };
+mdef 12, 'm_permchannels.so', cmode => { P => 'r_permanent' };
 mdef 'm_randquote.so';
 mdef 'm_redirect.so', cmode => { L => 's_forward' };
 mdef 'm_regonlycreate.so';
@@ -303,7 +304,7 @@ mdef 1105, 4000, 'm_sanick.so', cmds => {
 		();
 	},
 };
-mdef 1200, 'm_sanick.so', cmds => {
+mdef 12, 'm_sanick.so', cmds => {
 	SANICK => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]);
@@ -350,7 +351,7 @@ mdef 'm_services_account.so', cmode => { R => 'r_reginvite', M => 'r_regmoderate
 		},
 	};
 
-mdef 1200, 'm_servprotect.so', umode => { S => 'service', k => 'no_kick' };
+mdef 12, 'm_servprotect.so', umode => { S => 'service', k => 'no_kick' };
 
 mdef 'm_sethost.so', cmds => {
 	SETHOST => sub {
