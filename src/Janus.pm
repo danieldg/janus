@@ -268,6 +268,7 @@ Event::hook_add(
 		my $id = $net->name();
 		delete $gnets{$net->gid()};
 		delete $nets{$id};
+		delete $pending{$id};
 	}, JNETLINK => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
@@ -277,7 +278,8 @@ Event::hook_add(
 	}, JNETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
-		delete $ijnets{$net->id()};
+		delete $ijnets{$net->id};
+		delete $pending{$net->id};
 		my @alljnets = values %ijnets;
 		for my $snet (@alljnets) {
 			next unless $snet->parent() && $net eq $snet->parent();
