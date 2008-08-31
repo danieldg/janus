@@ -123,6 +123,7 @@ sub _connect_ifo {
 	my @out;
 
 	my $mode = '+';
+	my @modearg;
 	for my $m ($nick->umodes()) {
 		my $um = $net->txt2umode($m);
 		next unless defined $um;
@@ -130,14 +131,15 @@ sub _connect_ifo {
 			push @out, $um->($net, $nick, '+'.$m);
 		} else {
 			$mode .= $um;
+			push @modearg, '+' if $mode eq 's' && $capabs[$$net]{PROTOCOL} >= 1201;
 		}
 	}
-	$mode .= ' +' if $capabs[$$net]{PROTOCOL} >= 1201;
 
 	my $ip = $nick->info('ip') || '0.0.0.0';
 	$ip = '0.0.0.0' if $ip eq '*';
 	unshift @out, $net->cmd2($nick->homenet(), UID => $nick, $nick->ts(), $nick->str($net), $nick->info('host'),
-		$nick->info('vhost'), $nick->info('ident'), $mode, $ip, ($nick->info('signonts') || 1), $nick->info('name'));
+		$nick->info('vhost'), $nick->info('ident'), $mode, @modearg,
+		$ip, ($nick->info('signonts') || 1), $nick->info('name'));
 	if ($nick->has_mode('oper')) {
 		my $type = $nick->info('opertype') || 'IRC Operator';
 		my $len = $net->nicklen() - 9;
