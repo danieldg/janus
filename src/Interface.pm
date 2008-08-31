@@ -219,6 +219,15 @@ sub send {
 				msgtype => $_->[0], # first part of message
 				msg => [$janus, @$_[1 .. $#$_] ], # source nick, rest of message array
 			}, @msgs);
+		} elsif ($act->{type} eq 'TSREPORT') {
+			my $src = $act->{src} or next;
+			Event::append({
+				type => 'MSG',
+				src => $src->homenet,
+				dst => $src,
+				msgtype => 'NOTICE',
+				msg => 'Time on '.$RemoteJanus::self->id.'.janus is '.gmtime($Janus::time)." ($Janus::time)",
+			});
 		}
 	}
 }

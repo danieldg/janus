@@ -35,7 +35,7 @@ mdef 'm_alltime.so', cmds => {
 		return +{
 			type => 'TSREPORT',
 			src => $nick,
-			sendto => [ $nick->netlist() ],
+			sendto => $Janus::global,
 		};
 	},
 }, acts => {

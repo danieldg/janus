@@ -1224,7 +1224,7 @@ sub srvname {
 		return +{
 			type => 'TSREPORT',
 			src => $nick,
-			sendto => [ $nick->netlist() ],
+			sendto => $Janus::global,
 		};
 	},
 	CREDITS => \&todo,
