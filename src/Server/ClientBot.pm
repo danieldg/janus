@@ -477,6 +477,9 @@ sub kicked {
 	'001' => sub {
 		my $net = shift;
 		return +{
+			type => 'NETLINK',
+			net => $net,
+		}, +{
 			type => 'LINKED',
 			net => $net,
 		}, +{
