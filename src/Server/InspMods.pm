@@ -422,13 +422,13 @@ mdef 'm_ssl_dummy.so', metadata => {
 	},
 }, umode_hook => {
 	ssl => sub {
-		my($net, $nick, $pm) = @_;
+		my($net, $nick, $pm, $out) = @_;
 		if ($pm eq '+ssl') {
-			return $net->ncmd(METADATA => $nick, ssl => 'ON');
+			push @$out, $net->ncmd(METADATA => $nick, ssl => 'ON');
 		} else {
 			&Log::warn('Inspircd is incapable of unsetting SSL');
-			return ();
 		}
+		();
 	},
 };
 

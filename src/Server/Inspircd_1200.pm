@@ -128,10 +128,9 @@ sub _connect_ifo {
 		my $um = $net->txt2umode($m);
 		next unless defined $um;
 		if (ref $um) {
-			push @out, $um->($net, $nick, '+'.$m);
+			$mode .= $um->($net, $nick, '+'.$m, \@out, \@modearg);
 		} else {
 			$mode .= $um;
-			push @modearg, '+' if $mode eq 's' && $capabs[$$net]{PROTOCOL} >= 1201;
 		}
 	}
 
@@ -288,6 +287,12 @@ $moddef{CORE} = {
 		's' => 'snomask',
 		o => 'oper',
 		w => 'wallops',
+  }, umode_hook => {
+		's' => sub {
+			my($net,$nick,$dir,$out,$marg) = @_;
+			push @$marg, '+' if $capabs[$$net]{PROTOCOL} >= 1201;
+			's';
+		},
   },
   cmds => {
 	NICK => sub {
@@ -1039,18 +1044,20 @@ $moddef{CORE} = {
 		my $pm = '';
 		my $mode = '';
 		my @out;
+		my @modearg;
 		for my $ltxt (@{$act->{mode}}) {
 			my($d,$txt) = $ltxt =~ /^([-+])(.+)/;
 			my $um = $net->txt2umode($txt);
 			if (ref $um) {
-				push @out, $um->($net, $act->{dst}, $ltxt);
-			} elsif (defined $um) {
+				$um = $um->($net, $act->{dst}, $ltxt, \@out, \@modearg);
+			}
+			if (defined $um && $um ne '') {
 				$mode .= $d if $pm ne $d;
 				$mode .= $um;
 				$pm = $d;
 			}
 		}
-		push @out, $net->cmd2($act->{dst}, MODE => $act->{dst}, $mode) if $mode;
+		unshift @out, $net->cmd2($act->{dst}, MODE => $act->{dst}, $mode, @modearg) if $mode;
 		@out;
 	}, QUIT => sub {
 		my($net,$act) = @_;

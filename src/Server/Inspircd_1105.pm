@@ -100,7 +100,7 @@ sub _connect_ifo {
 		my $um = $net->txt2umode($m);
 		next unless defined $um;
 		if (ref $um) {
-			push @out, $um->($net, $nick, '+'.$m);
+			$mode .= $um->($net, $nick, '+'.$m, \@out);
 		} else {
 			$mode .= $um;
 		}
@@ -1016,14 +1016,15 @@ $moddef{CORE} = {
 			my($d,$txt) = $ltxt =~ /^([-+])(.+)/;
 			my $um = $net->txt2umode($txt);
 			if (ref $um) {
-				push @out, $um->($net, $act->{dst}, $ltxt);
-			} elsif (defined $um) {
+				$um = $um->($net, $act->{dst}, $ltxt, \@out);
+			}
+			if (defined $um && length $um) {
 				$mode .= $d if $pm ne $d;
 				$mode .= $um;
 				$pm = $d;
 			}
 		}
-		push @out, $net->cmd2($act->{dst}, MODE => $act->{dst}, $mode) if $mode;
+		unshift @out, $net->cmd2($act->{dst}, MODE => $act->{dst}, $mode) if $mode;
 		@out;
 	}, QUIT => sub {
 		my($net,$act) = @_;
