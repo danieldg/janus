@@ -28,7 +28,24 @@ sub mdef {
 }
 
 mdef 'm_alias.so';
-mdef 'm_alltime.so', cmds => { ALLTIME => \&ignore };
+mdef 'm_alltime.so', cmds => {
+	ALLTIME => sub {
+		my $net = shift;
+		my $nick = $net->mynick($_[0]) or return ();
+		return +{
+			type => 'TSREPORT',
+			src => $nick,
+			sendto => [ $nick->netlist() ],
+		};
+	},
+}, acts => {
+	TSREPORT => sub {
+		my($net,$act) = @_;
+		return () unless $act->{src}->is_on($net);
+		$net->cmd2($act->{src}, 'ALLTIME');
+	},
+};
+
 mdef 1200, 'm_allowinvite.so', cmode => { A => 'r_allinvite' };
 mdef 'm_antibear.so';
 mdef 'm_antibottler.so';
