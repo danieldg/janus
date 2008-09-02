@@ -467,6 +467,10 @@ sub nick_msg {
 	if (ref $about && $about->isa('Nick')) {
 		$msg->[0] = $about;
 	}
+	if ($_[2] =~ /\./) {
+		&Log::warn_in($net, @$msg);
+		return ();
+	}
 	my $dst = $net->nick($_[2]) or return ();
 	return {
 		type => 'MSG',
