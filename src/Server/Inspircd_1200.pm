@@ -137,8 +137,7 @@ sub _connect_ifo {
 	my $ip = $nick->info('ip') || '0.0.0.0';
 	$ip = '0.0.0.0' if $ip eq '*';
 	unshift @out, $net->cmd2($nick->homenet(), UID => $nick, $nick->ts(), $nick->str($net), $nick->info('host'),
-		$nick->info('vhost'), $nick->info('ident'), $mode, @modearg,
-		$ip, ($nick->info('signonts') || 1), $nick->info('name'));
+		$nick->info('vhost'), $nick->info('ident'), $ip, ($nick->info('signonts') || 1), $mode, @modearg, $nick->info('name'));
 	if ($nick->has_mode('oper')) {
 		my $type = $nick->info('opertype') || 'IRC Operator';
 		my $len = $net->nicklen() - 9;
@@ -322,7 +321,7 @@ $moddef{CORE} = {
 		};
 	}, UID => sub {
 		my $net = shift;
-		my $ip = $_[-3];
+		my $ip = $_[8];
 		$ip = $1 if $ip =~ /^[0:]+:ffff:(\d+\.\d+\.\d+\.\d+)$/;
 		my %nick = (
 			net => $net,
@@ -333,13 +332,12 @@ $moddef{CORE} = {
 				host => $_[5],
 				vhost => $_[6],
 				ident => $_[7],
-				signonts => $_[-2],
+				signonts => $_[9],
 				ip => $ip,
 				name => $_[-1],
 			},
 		);
-		# $_[9] is snomasks on protocol 1201, we ignore
-		my @m = split //, $_[8];
+		my @m = split //, $_[10];
 		warn unless '+' eq shift @m;
 		$nick{mode} = +{ map {
 			my $t = $net->umode2txt($_);
