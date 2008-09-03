@@ -16,29 +16,29 @@ our %action = (
 	}, 'info' => sub {
 		(10, 'info', join ' ', @_)
 	}, 'info_in' => sub {
-		my($src, $msg) = @_;
+		my $src = shift;
 		my $name =
 			$src->isa('Network') ? ($src->name.'='.$src->gid) :
 			$src->isa('Channel') ? $src->real_keyname :
 			$src->isa('Nick') ? $src->netnick :
 			$src;
-		(10, "\@$name", $msg);
+		(10, "\@$name", join ' ', @_);
 	}, 'warn_in' => sub {
-		my($src, $msg) = @_;
+		my $src = shift;
 		my $name =
 			$src->isa('Network') ? ($src->name.'='.$src->gid) :
 			$src->isa('Channel') ? $src->real_keyname :
 			$src->isa('Nick') ? $src->netnick :
 			$src;
-		(6, "WARN\@$name", $msg);
+		(6, "WARN\@$name", join ' ', @_);
 	}, 'err_in' => sub {
-		my($src, $msg) = @_;
+		my $src = shift;
 		my $name =
 			$src->isa('Network') ? ($src->name.'='.$src->gid) :
 			$src->isa('Channel') ? $src->real_keyname :
 			$src->isa('Nick') ? $src->netnick :
 			$src;
-		(5, "ERR\@$name", $msg);
+		(5, "ERR\@$name", join ' ', @_);
 	}, 'alloc' => sub {
 		my $obj = shift;
 		(10, ref($obj), join ' ', $$obj, @_);
