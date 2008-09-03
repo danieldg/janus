@@ -1198,6 +1198,7 @@ sub srvname {
 
 	SAJOIN => \&ignore,
 	SAPART => \&ignore,
+	SILENCE => \&ignore,
 	SVSJOIN => \&ignore,
 	SVSLUSERS => \&ignore,
 	SVSNOOP => \&ignore,
