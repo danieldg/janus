@@ -316,7 +316,6 @@ sub gid {
 }
 
 sub jmsg { goto &Interface::jmsg }
-sub err_jmsg { goto &Log::err_jmsg }
 
 sub hook_add { goto &Event::hook_add }
 sub command_add { goto &Event::command_add }
@@ -324,9 +323,6 @@ sub insert_partial { goto &Event::insert_partial }
 sub insert_full { goto &Event::insert_full }
 sub append { goto &Event::append }
 sub schedule { goto &Event::schedule }
-sub in_socket { goto &Event::in_socket }
-sub timer { goto &Event::timer }
-sub next_event { goto &Event::next_event }
 
 # finalize Janus.pm loading
 if ($modinfo{Janus}{load} == 1) {

@@ -213,24 +213,24 @@ sub parse {
 	} elsif ($act->{type} eq 'InterJanus') {
 		my $id = $RemoteJanus::id[$$ij];
 		if ($id && $act->{id} ne $id) {
-			&Janus::err_jmsg(undef, "Unexpected ID reply $act->{id} from IJ $id");
+			&Log::err_in($ij, "Unexpected ID reply $act->{id} from IJ $id");
 		} else {
 			$id = $RemoteJanus::id[$$ij] = $act->{id};
 		}
 		my $ts_delta = abs($Janus::time - $act->{ts});
 		my $nconf = $Conffile::netconf{$id};
 		if ($act->{version} ne $IJ_PROTO) {
-			&Janus::err_jmsg(undef, "Unsupported InterJanus version $act->{version} (local $IJ_PROTO)");
+			&Log::err_in($ij, "Unsupported InterJanus version $act->{version} (local $IJ_PROTO)");
 		} elsif ($RemoteJanus::self->id() ne $act->{rid}) {
-			&Janus::err_jmsg(undef, "Unexpected connection: remote was trying to connect to $act->{rid}");
+			&Log::err_in($ij, "Unexpected connection: remote was trying to connect to $act->{rid}");
 		} elsif (!$nconf) {
-			&Janus::err_jmsg(undef, "Unknown InterJanus server $id");
+			&Log::err_in($ij, "Unknown InterJanus server $id");
 		} elsif ($act->{pass} ne $nconf->{recvpass}) {
-			&Janus::err_jmsg(undef, "Failed authorization");
+			&Log::err_in($ij, "Failed authorization");
 		} elsif ($Janus::ijnets{$id} && $Janus::ijnets{$id} ne $ij) {
-			&Janus::err_jmsg(undef, "Already connected");
+			&Log::err_in($ij, "Already connected");
 		} elsif ($ts_delta >= 20) {
-			&Janus::err_jmsg(undef, "Clocks are too far off (delta=$ts_delta here=$Janus::time there=$act->{ts})");
+			&Log::err_in($ij, "Clocks are too far off (delta=$ts_delta here=$Janus::time there=$act->{ts})");
 		} else {
 			$act->{net} = $ij;
 			$act->{type} = 'JNETLINK';

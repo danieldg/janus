@@ -20,7 +20,7 @@ sub read_conf {
 	my $current;
 	$conffile ||= 'janus.conf';
 	open my $conf, '<', $conffile or do {
-		&Janus::err_jmsg($nick, "Could not open configuration file: $!");
+		&Log::err("Could not open configuration file: $!");
 		return;
 	};
 	$conf->untaint();
@@ -34,11 +34,11 @@ sub read_conf {
 
 		if ($type eq 'link') {
 			if (defined $current) {
-				&Janus::err_jmsg($nick, "Missing closing brace at line $. of config file, aborting");
+				&Log::err("Missing closing brace at line $. of config file, aborting");
 				return;
 			}
 			/^(\S+)/ or do {
-				&Janus::err_jmsg($nick, "Error in line $. of config file: expected network ID");
+				&Log::err("Error in line $. of config file: expected network ID");
 				return;
 			};
 
@@ -46,42 +46,42 @@ sub read_conf {
 			$newconf{$1} = $current;
 		} elsif ($type eq 'listen') {
 			if (defined $current) {
-				&Janus::err_jmsg($nick, "Missing closing brace at line $. of config file, aborting");
+				&Log::err("Missing closing brace at line $. of config file, aborting");
 				return;
 			}
 			/^((?:\S+:)?\d+)( |$)/ or do {
-				&Janus::err_jmsg($nick, "Error in line $. of config file: expected port or IP:port");
+				&Log::err("Error in line $. of config file: expected port or IP:port");
 				return;
 			};
 			$current = { addr => $1 };
 			$newconf{'LISTEN:'.$1} = $current;
 		} elsif ($type eq 'log') {
 			if (defined $current) {
-				&Janus::err_jmsg($nick, "Missing closing brace at line $. of config file, aborting");
+				&Log::err("Missing closing brace at line $. of config file, aborting");
 				return;
 			}
 			/^(\S+)(?: |$)/ or do {
-				&Janus::err_jmsg($nick, "Error in line $. of config file: expected log name");
+				&Log::err("Error in line $. of config file: expected log name");
 				return;
 			};
 			$newconf{'LOG:'.$1} = $current = { name => $1 };
 		} elsif ($type eq 'set' || $type eq 'modules') {
 			if (defined $current) {
-				&Janus::err_jmsg($nick, "Missing closing brace at line $. of config file, aborting");
+				&Log::err("Missing closing brace at line $. of config file, aborting");
 				return;
 			}
 			$current = {};
 			$newconf{$type} = $current;
 		} elsif ($type eq '}') {
 			unless (defined $current) {
-				&Janus::err_jmsg($nick, "Extra closing brace at line $. of config file");
+				&Log::err("Extra closing brace at line $. of config file");
 				return;
 			}
 			$current = undef;
 		} elsif ($type eq '{') {
 		} else {
 			unless (defined $current) {
-				&Janus::err_jmsg($nick, "Error in line $. of config file: not in a network definition");
+				&Log::err("Error in line $. of config file: not in a network definition");
 				return;
 			}
 			$current->{$type} = $_;
@@ -90,12 +90,12 @@ sub read_conf {
 	close $conf;
 	if ($newconf{set}{name}) {
 		if ($RemoteJanus::self) {
-			&Janus::err_jmsg($nick, "You must restart the server to change the name")
+			&Log::err("You must restart the server to change the name")
 				if $RemoteJanus::self->id() ne $newconf{set}{name};
 			$newconf{set}{name} = $RemoteJanus::self->id();
 		}
 	} else {
-		&Janus::err_jmsg($nick, "Server name not set! You need set block with a 'name' entry");
+		&Log::err("Server name not set! You need set block with a 'name' entry");
 		return;
 	}
 	unless ($Janus::lmode) {
@@ -105,7 +105,7 @@ sub read_conf {
 		} elsif ($mode eq 'bridge') {
 			&Janus::load('Bridge');
 		} else {
-			&Janus::err_jmsg($nick, "Bad value $mode for set::lmode");
+			&Log::err("Bad value $mode for set::lmode");
 			return;
 		}
 	}
@@ -117,7 +117,7 @@ sub read_conf {
 		my $log = $newconf{$id};
 		my $type = 'Log::'.$log->{type};
 		&Janus::load($type) or do {
-			&Janus::err_jmsg($nick, "Could not load module $type: $@");
+			&Log::err("Could not load module $type: $@");
 			next;
 		};
 		my $name = $log->{name};
@@ -141,7 +141,7 @@ sub read_conf {
 	$newconf{modules}{$_}++ for qw(Interface Actions Commands::Core);
 	for my $mod (sort keys %{$newconf{modules}}) {
 		unless (&Janus::load($mod)) {
-			&Janus::err_jmsg($nick, "Could not load module $mod: $@");
+			&Log::err("Could not load module $mod: $@");
 		}
 	}
 }
@@ -160,13 +160,13 @@ sub connect_net {
 			my $list = Listener->new(id => $id, conf => $nconf);
 			&Connection::add($sock, $list);
 		} else {
-			&Janus::err_jmsg($nick, "Could not listen on port $nconf->{addr}: $!");
+			&Log::err("Could not listen on port $nconf->{addr}: $!");
 		}
 	} elsif ($nconf->{autoconnect}) {
 		&Log::info("Autoconnecting $id");
 		my $type = 'Server::'.$nconf->{type};
 		unless (&Janus::load($type)) {
-			&Janus::err_jmsg($nick, "Error creating $type network $id: $@");
+			&Log::err("Error creating $type network $id: $@");
 		} else {
 			&Log::info("Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}");
 

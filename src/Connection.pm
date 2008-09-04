@@ -148,7 +148,7 @@ sub readable {
 		while ($recvq =~ /\n/) {
 			my $line;
 			($line, $recvq) = split /[\r\n]+/, $recvq, 2;
-			&Janus::in_socket($$l[NET], $line);
+			&Event::in_socket($$l[NET], $line);
 		}
 		$$l[RECVQ] = $recvq;
 		$$l[TRY_R] = 1 if $$l[TRY_R]; #reset SSL error counter
@@ -243,14 +243,14 @@ sub delink {
 	return unless $net;
 	if ($net->isa('Server::InterJanus')) {
 		delete $Janus::pending{$net->id};
-		&Janus::insert_full(+{
+		&Event::insert_full(+{
 			type => 'JNETSPLIT',
 			net => $net,
 			msg => $msg,
 		});
 	} else {
 		delete $Janus::pending{$net->name};
-		&Janus::insert_full(+{
+		&Event::insert_full(+{
 			type => 'NETSPLIT',
 			net => $net,
 			msg => $msg,
@@ -266,11 +266,11 @@ sub timestep {
 		vec($w,$q->[FD],1) = 1 if $q->[TRY_W];
 	}
 
-	my $time = &Janus::next_event($lping+30);
+	my $time = &Event::next_event($lping+30);
 
 	my $fd = select $r, $w, undef, $time - time;
 
-	&Janus::timer(time);
+	&Event::timer(time);
 
 	if ($fd) {
 		for my $q (@queues) {
@@ -296,7 +296,7 @@ sub timestep {
 	scalar @queues;
 }
 
-&Janus::hook_add(
+&Event::hook_add(
 	NETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};

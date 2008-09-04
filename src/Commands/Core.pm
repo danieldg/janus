@@ -112,7 +112,7 @@ $perl::VERSION = sprintf '%vd', $^V;
 			&Janus::jmsg($dst, "Module $n reloaded ($over => $ver)");
 		} else {
 			&Log::audit("Reload of module $n by ".$src->netnick.' failed');
-			&Janus::err_jmsg($dst, "Module load failed");
+			&Janus::jmsg($dst, "Module load failed");
 		}
 	},
 }, {

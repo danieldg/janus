@@ -276,7 +276,7 @@ sub in_socket {
 		1;
 	} or do {
 		named_hook('die', $@, @_);
-		&Janus::err_jmsg(undef, "Unchecked exception in parsing");
+		&Log::err_in($src, "Unchecked exception in parsing");
 	};
 }
 
@@ -298,7 +298,6 @@ sub in_command {
 		1;
 	} or do {
 		named_hook('die', $@, @_);
-		&Janus::err_jmsg($dst, "Unchecked exception in janus command '$cmd'");
 	};
 	_runq(shift @qstack);
 }

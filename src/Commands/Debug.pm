@@ -74,13 +74,14 @@ sub dump_now {
 	$dd->Bless('findobj');
 	$dd->Seen(\%seen);
 
-	$dd->Names([qw(gnicks gchans gnets ijnets state listen)])->Values([
+	$dd->Names([qw(gnicks gchans gnets ijnets state listen pending)])->Values([
 		\%Janus::gnicks,
 		\%Janus::gchans,
 		\%Janus::gnets,
 		\%Janus::ijnets,
 		\%Janus::states,
 		\%Listener::open,
+		\%Janus::pending,
 	]);
 	$dd->Purity(1);
 	print $dump $dd->Dump();
