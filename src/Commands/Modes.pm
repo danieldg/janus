@@ -160,7 +160,7 @@ use Modes;
 				my $type = $Modes::mtype{$m};
 				my $netv = '';
 				if ($net->can('txt2cmode')) {
-					$netv .= $net->txt2cmode($_ . '_' . $m) for qw/r t1 t2 v s n/;
+					$netv .= $net->txt2cmode($_ . '_' . $m) for qw/r t1 t2 v s n l/;
 				}
 				$line .= sprintf $ex, $m, $netv, $type;
 			}
