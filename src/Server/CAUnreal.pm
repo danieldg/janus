@@ -221,6 +221,13 @@ sub txt2cmode {
 	$txt2cmode{$_[1]};
 }
 
+sub umode2txt {
+	$umode2txt{$_[1]};
+}
+sub txt2umode {
+	$txt2umode{$_[1]};
+}
+
 my $textip_table = join '', 'A'..'Z','a'..'z', 0 .. 9, '+/';
 
 sub nicklen { 30 }

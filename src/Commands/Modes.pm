@@ -66,7 +66,9 @@ use Modes;
 	cmd => 'setmode',
 	help => 'Sets a mode by its long name',
 	details => [
-		"\002SETMODE\002 #channel +mode1 -mode2 mode3=value",
+		"\002SETMODE\002 #channel +mode1 -mode2 +mode3=value",
+		"For a list of modes, see the \002LISTMODES\002 command.",
+		"For tristate modes, use multiple + signs to set a higher level",
 	],
 	code => sub {
 		my($src,$dst,$cname,@argin) = @_;
@@ -125,6 +127,44 @@ use Modes;
 			&Janus::jmsg($dst, 'Done');
 		} else {
 			&Janus::jmsg($dst, 'Nothing to do');
+		}
+	},
+}, {
+	cmd => 'listmodes',
+	help => 'Shows a list of the long modes\' names',
+	code => sub {
+		my($src,$dst,$w) = @_;
+		my $net = $src->homenet;
+		$w ||= 5;
+		my @nmodes = sort keys %Nick::umodebit;
+		my @cmodes = sort keys %Modes::mtype;
+		my $l = 0;
+		$l < length $_ and $l = length $_ for @cmodes, @nmodes;
+		my $nc = 1 + $#nmodes / $w;
+		my $cc = 1 + $#cmodes / $w;
+		my $ex = ' %-'.$l.'s %2s ';
+		&Janus::jmsg($dst, 'Nick modes:');
+		for my $i (0..($nc-1)) {
+			my $line = '';
+			for my $m (map $nmodes[$nc*$_ + $i], 0 .. ($w-1)) {
+				my $netv = $net->can('txt2umode') ? $net->txt2umode($m) : '';
+				$netv = '' if ref $netv;
+				$line .= sprintf $ex, $m, $netv, '';
+			}
+			&Janus::jmsg($dst, $line);
+		}
+		&Janus::jmsg($dst, 'Channel modes:');
+		for my $i (0..($cc-1)) {
+			my $line = '';
+			for my $m (map $cmodes[$cc*$_ + $i], 0 .. ($w-1)) {
+				my $type = $Modes::mtype{$m};
+				my $netv = '';
+				if ($net->can('txt2cmode')) {
+					$netv .= $net->txt2cmode($_ . '_' . $m) for qw/r t1 t2 v s n/;
+				}
+				$line .= sprintf $ex, $m, $netv, $type;
+			}
+			&Janus::jmsg($dst, $line);
 		}
 	},
 });
