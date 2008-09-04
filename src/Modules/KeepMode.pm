@@ -15,7 +15,7 @@ our %mode;
 		my $chan = $act->{dst};
 		my $hnet = $chan->homenet;
 		return if $hnet->jlink;
-		my $cname = $chan->str($hnet);
+		my $cname = lc $chan->str($hnet);
 		my $mcache = $mode{$hnet->name}{$cname} or return;
 		&Event::append({
 			type => 'MODE',
@@ -32,7 +32,7 @@ our %mode;
 		return unless $chan->is_on($Interface::network);
 		my $hnet = $chan->homenet;
 		return if $hnet->jlink;
-		my $cname = $chan->str($hnet);
+		my $cname = lc $chan->str($hnet);
 		$mode{$hnet->name}{$cname} = [ &Modes::dump($chan) ];
 	}
 );
