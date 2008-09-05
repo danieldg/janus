@@ -10,7 +10,7 @@ our @sets;
 
 # set => {
 #	name   banset name
-#	to     single network name
+#	to     comma-separated network names
 #	item   (nick|ident|host|ip|name)
 #	hash   { item => 1 }
 # }
@@ -20,7 +20,7 @@ sub find {
 	my $to = $netto->name;
 	my $nick = $new->homenick;
 	for my $set (@sets) {
-		next unless $set->{to} eq $to;
+		next unless grep $_ eq $to, split ',', $set->{to};
 		my $itm = $set->{item} eq 'nick' ? $nick : $new->info($set->{item});
 		next unless defined $itm;
 		next unless $set->{hash}{$itm};
@@ -36,7 +36,8 @@ sub find {
 		'Bans are matched on connects to shared channels, and generate autokicks.',
 		" \002banset list\002             List all ban sets",
 		" \002banset create\002 set type  Creates a new banset",
-		" \002banset destroy\002 set      Destroys a banset",
+		" \002banset addnet\002 set       Adds your network to the banset",
+		" \002banset remove\002 set       Removes your network from the banset",
 		" \002banset show\002 set         List the contents of a banset",
 		" \002banset add\002 set item     Adds an item to a banset",
 		" \002banset del\002 set item     Removes an item from a banset",
@@ -65,10 +66,25 @@ sub find {
 				hash => {},
 			};
 			&Janus::jmsg($dst, 'Created');
-		} elsif ($cmd eq 'destroy') {
+		} elsif ($cmd eq 'addnet') {
 			return &Janus::jmsg($dst, 'Banset not found') unless $byname{$name};
-			@sets = grep { $_->{name} ne $name } @sets;
-			&Janus::jmsg($dst, 'Deleted');
+			my $set = $byname{$name};
+			my $netn = $net->name;
+			return &Janus::jmsg($dst, 'Already in banset') if grep $_ eq $netn, split ',', $set->{to};
+			$set->{to} .= ','.$netn;
+			&Janus::jmsg($dst, 'Added');
+		} elsif ($cmd eq 'remove') {
+			return &Janus::jmsg($dst, 'Banset not found') unless $byname{$name};
+			my $set = $byname{$name};
+			my %to; $to{$_}++ for split ',', $set->{to};
+			return &Janus::jmsg($dst, 'Not in banset') unless delete $to{$net->name};
+			if (%to) {
+				$set->{to} = join ',', keys %to;
+				&Janus::jmsg($dst, 'Removed');
+			} else {
+				@sets = grep { $_->{name} ne $name } @sets;
+				&Janus::jmsg($dst, 'Removed, banset deleted');
+			}
 		} elsif ($cmd eq 'show') {
 			return &Janus::jmsg($dst, 'Banset not found') unless $byname{$name};
 			my $hash = $byname{$name}{hash};
