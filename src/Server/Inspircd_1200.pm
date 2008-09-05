@@ -736,34 +736,6 @@ $moddef{CORE} = {
 			expire => 1,
 		};
 	},
-	GLINE => sub {
-		my $net = shift;
-		my $type = substr $_[1],0,1;
-		if (@_ == 3) {
-			return +{
-				type => 'XLINE',
-				dst => $net,
-				ltype => $type,
-				mask => $_[2],
-				setter => $_[0],
-				expire => 1,
-			};
-		} else {
-			return +{
-				type => 'XLINE',
-				dst => $net,
-				ltype => $type,
-				mask => $_[2],
-				setter => $_[0],
-				settime => $Janus::time,
-				expire => ($_[3] ? $Janus::time + $_[3] : 0),
-				reason => $_[4],
-			};
-		}
-	},
-	ELINE => 'GLINE',
-	ZLINE => 'GLINE',
-	QLINE => 'GLINE',
 
 	SVSJOIN => sub {
 		my $net = shift;
