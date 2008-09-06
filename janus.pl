@@ -51,6 +51,7 @@ $SIG{CHLD} = 'IGNORE';
 
 &Janus::load('Conffile') or die;
 &Janus::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
+&Log::timestamp($Janus::time);
 &Janus::load('Connection') or die;
 &Janus::insert_full(+{ type => 'INIT', args => \@ARGV });
 &Janus::insert_full(+{ type => 'RUN' });

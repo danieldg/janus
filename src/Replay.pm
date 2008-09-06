@@ -108,7 +108,13 @@ sub run {
 
 package Connection;
 
+our @queues;
+
+sub NET { 0 }
+sub PINGT { 1 }
+
 sub add {
+	push @queues, [ $_[1], 0 ];
 }
 
 sub init_listen {
@@ -119,8 +125,37 @@ sub init_conn {
 	1;
 }
 
-sub peer_to_addr {
-	'addr';
+sub del {
+	my $net = shift;
+	for (0..$#queues) {
+		next unless $queues[$_][NET] == $net;
+		splice @queues, $_, 1;
+		return 1;
+	}
+	0;
 }
+
+&Event::hook_add(
+	NETSPLIT => act => sub {
+		my $act = shift;
+		my $net = $act->{net};
+
+		my $q = del $net;
+		return if $net->jlink();
+
+		warn "Queue for network $$net was already removed" unless $q;
+	}, JNETSPLIT => check => sub {
+		my $act = shift;
+		my $net = $act->{net};
+
+		my $q = del $net;
+		warn "Queue for network $$net was already removed" unless $q;
+
+		my $eq = $Janus::ijnets{$net->id()};
+		return 1 if $eq && $eq ne $net;
+		undef;
+	}
+);
+
 
 1;

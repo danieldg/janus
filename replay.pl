@@ -98,9 +98,10 @@ while (<$log>) {
 	} elsif (/^\e\[33mACTION: <RUN>/) {
 		&Janus::insert_full({ type => 'RUN' });
 	} elsif (/^\e\[36minfo: Autoconnecting (\S+)\e\[m$/) {
+		print "Fake autoconnect $1\n";
 		$state = NONE;
 		my $id = $1;
-		next if $Janus::nets{$id} || $Janus::ijnets{$id};
+		next if $Janus::nets{$id} || $Janus::ijnets{$id} || $Janus::pending{$id};
 		my $nconf = $Conffile::netconf{$id} or die $id;
 		$nconf->{autoconnect} = 1;
 		unshift @Event::qstack, [];
@@ -115,11 +116,7 @@ while (<$log>) {
 		my $id = 'LISTEN:'.$1;
 		my $l = find_ij $id;
 		$l->close();
-		&Connection::reassign($l, undef);
-	} elsif (/^\e\[34mOUT\@(\S+):/) {
-		next if $state == DUMP || !$Janus::nets{$1};
-		$state = DUMP;
-		$_->[&Connection::NET]->dump_sendq() for @Connection::queues;
+		&Connection::del($l);
 	} elsif (/^\e\[32mIN\@(\S*): (<InterJanus( .*>))\e\[0?m$/) {
 		$state = IN;
 		my($cid,$line,$ij,$tmp) = ($1,$2,undef,{});
@@ -141,12 +138,16 @@ while (<$log>) {
 	} elsif (/^\e\[32mIN\@(\S+): (.*)\e\[m$/) {
 		$state = IN;
 		my($nid, $line) = ($1,$2);
-		my $net = $Janus::nets{$nid} || $Janus::ijnets{$nid};
+		my $net = $Janus::nets{$nid} || $Janus::ijnets{$nid} || $Janus::pending{$nid};
 		if (!$net) {
 			print "Unknown network in: $_\n";
 			die;
 		}
-		&Janus::in_socket($net, $line);
+		&Event::in_socket($net, $line);
+	} elsif (/^\e\[34mOUT\@(\S+): /) {
+		next if $state == DUMP || $Janus::ijnets{$1};
+		$state = DUMP;
+		$_->[0]->dump_sendq() for @Connection::queues;
 	} elsif (/^\e\[33mACTION <(J?NETSPLIT)( .*>)\e\[m$/) {
 		$state = IN;
 		my $act = { type => $1 };
@@ -159,15 +160,14 @@ while (<$log>) {
 			}
 		}
 		&Janus::insert_full($act);
-	} elsif (/^\e\[33mACTION <LOCKACK .* expire="(\d+)" .* src=j:(\S+)>\e\[m$/) {
-		next unless $2 eq $RemoteJanus::self->id();
-		&Janus::timer($1-40);
 	} elsif (/^\e\[1;30mTimestamp: (\d+)\e\[m$/) {
-		&Janus::timer($1);
+		my $ts = $1;
+		$_->[0]->dump_sendq() for @Connection::queues;
+		&Event::timer($ts);
 	} else {
 		$state = NONE;
 	}
 }
 
-eval { &Janus::load('Commands::Debug'); &Commands::Debug::dump_now(); };
+eval { &Janus::load('Commands::Debug'); &Commands::Debug::dump_now('End of replay'); };
 eval { &Janus::load('Commands::Verify'); &Commands::Verify::verify(); };

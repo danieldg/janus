@@ -41,8 +41,6 @@ use constant {
 
 our @queues;
 # net number => [ fd, IO::Socket, net, recvq, sendq, try_recv, try_send, ping ]
-our $lping;
-$lping ||= 100;
 
 our $tblank;
 unless (defined $tblank) {
@@ -56,7 +54,7 @@ sub add {
 	warn "Cannot find fileno for $sock" unless defined $fn;
 	my $q = [ $fn, $sock, $net, $tblank, '', 0, 1, $Janus::time ];
 	if ($net->isa('Listener')) {
-		@$q[RECVQ,SENDQ,TRY_R,TRY_W] = ($tblank, undef, 1, 0);
+		@$q[SENDQ,TRY_R,TRY_W,PINGT] = (undef, 1, 0, 0);
 		warn "Subclassing Listener is a dumb idea" unless ref $net eq 'Listener';
 	}
 	push @queues, $q;
@@ -224,20 +222,6 @@ sub run_sendq {
 	&_syswrite;
 }
 
-sub pingall {
-	my $timeout = $_[0];
-	my @all = @queues;
-	for my $q (@all) {
-		my($net,$last) = @$q[NET,PINGT];
-		next if ref $net eq 'Listener';
-		if ($last < $timeout) {
-			delink($net, 'Ping Timeout');
-		} else {
-			$net->send(+{ type => 'PING', ts => $Janus::time });
-		}
-	}
-}
-
 sub delink {
 	my($net,$msg) = @_;
 	return unless $net;
@@ -266,7 +250,7 @@ sub timestep {
 		vec($w,$q->[FD],1) = 1 if $q->[TRY_W];
 	}
 
-	my $time = &Event::next_event($lping+30);
+	my $time = &Event::next_event($Janus::time + 60);
 
 	my $fd = select $r, $w, undef, $time - time;
 
@@ -277,14 +261,6 @@ sub timestep {
 			writable $q if vec($w,$q->[FD],1);
 			readable $q if vec($r,$q->[FD],1);
 		}
-	}
-
-	# Send out pings to servers that need it, once every 30 seconds
-	if ($lping + 30 <= $Janus::time) {
-		# time out if it was 60 seconds since the PREVIOUS ping was sent
-		# (this will be around 90 seconds ago)
-		pingall($lping - 60);
-		$lping = $Janus::time;
 	}
 
 	for my $q (@queues) {
