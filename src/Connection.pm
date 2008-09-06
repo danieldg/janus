@@ -225,15 +225,15 @@ sub run_sendq {
 }
 
 sub pingall {
-	my($timeout, $minpong) = @_;
+	my $timeout = $_[0];
 	my @all = @queues;
 	for my $q (@all) {
 		my($net,$last) = @$q[NET,PINGT];
 		next if ref $net eq 'Listener';
 		if ($last < $timeout) {
 			delink($net, 'Ping Timeout');
-		} elsif ($last < $minpong) {
-			$net->send(+{ type => 'PING' });
+		} else {
+			$net->send(+{ type => 'PING', ts => $Janus::time });
 		}
 	}
 }
@@ -283,9 +283,7 @@ sub timestep {
 	if ($lping + 30 <= $Janus::time) {
 		# time out if it was 60 seconds since the PREVIOUS ping was sent
 		# (this will be around 90 seconds ago)
-		# send a ping if no traffic was received for 25 seconds
-		# (this is so we don't bother pinging active networks)
-		pingall($lping - 60, $Janus::time - 25);
+		pingall($lping - 60);
 		$lping = $Janus::time;
 	}
 

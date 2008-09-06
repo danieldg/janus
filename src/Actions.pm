@@ -298,8 +298,11 @@ my %spec = (
 		'split' => '?Channel',
 	},
 
-	PING => {},
-	PONG => {},
+	PING => { ts => '$' },
+	PONG => {
+		ts => '?$',
+		pingts => '?$',
+	},
 	IDENTIFY => {
 		dst => 'Network',
 		method => '?$',

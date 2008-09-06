@@ -207,7 +207,7 @@ sub parse {
 	&Log::err_in($ij, "bad line: $_[0]") unless /^\s*>\s*$/;
 	$act->{except} = $ij;
 	if ($act->{type} eq 'PING') {
-		$ij->send({ type => 'PONG' });
+		$ij->send({ type => 'PONG', pingts => $act->{ts}, ts => $Janus::time });
 	} elsif ($auth[$$ij] == 2) {
 		return $act;
 	} elsif ($act->{type} eq 'InterJanus') {
