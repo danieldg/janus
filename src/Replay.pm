@@ -106,6 +106,29 @@ sub run {
 	&Log::debug("State restored. Beginning replay.");
 }
 
+&Event::hook_add(
+	NETSPLIT => act => sub {
+		my $act = shift;
+		my $net = $act->{net};
+
+		my $q = &Connection::del($net);
+		return if $net->jlink();
+
+		warn "Queue for network $$net was already removed" unless $q;
+	}, JNETSPLIT => check => sub {
+		my $act = shift;
+		my $net = $act->{net};
+
+		my $q = &Connection::del($net);
+		warn "Queue for network $$net was already removed" unless $q;
+
+		my $eq = $Janus::ijnets{$net->id()};
+		return 1 if $eq && $eq ne $net;
+		undef;
+	}
+);
+
+
 package Connection;
 
 our @queues;
@@ -134,28 +157,5 @@ sub del {
 	}
 	0;
 }
-
-&Event::hook_add(
-	NETSPLIT => act => sub {
-		my $act = shift;
-		my $net = $act->{net};
-
-		my $q = del $net;
-		return if $net->jlink();
-
-		warn "Queue for network $$net was already removed" unless $q;
-	}, JNETSPLIT => check => sub {
-		my $act = shift;
-		my $net = $act->{net};
-
-		my $q = del $net;
-		warn "Queue for network $$net was already removed" unless $q;
-
-		my $eq = $Janus::ijnets{$net->id()};
-		return 1 if $eq && $eq ne $net;
-		undef;
-	}
-);
-
 
 1;

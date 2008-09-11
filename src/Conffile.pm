@@ -131,7 +131,7 @@ sub read_conf {
 		require Log::Debug;
 		push @loggers, $Log::Debug::INST;
 	}
-	unless ($^P && !$nick) { # first load on a debug run skips this
+	unless ($^P && @Log::listeners && !$nick) { # first load on a debug run skips this
 		@Log::listeners = @loggers;
 		&Log::dump_queue();
 	}
