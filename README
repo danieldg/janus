@@ -16,6 +16,10 @@ Modules::Claim
   Prevents opers and other network's services from changing modes in a shared
   channel if that channel has been claimed to certain home network(s)
 
+Modules::KeepMode
+  Stores the modes of a channel and restores them on a relink.
+  Useful if you use "setmode" to change mode not available on the home network's ircd.
+
 Modules::Services
   Prevents communcation to and from remote services, and prevents services kills
   from being translated into kicks unless they are repeated.
@@ -32,3 +36,6 @@ Modules::Vanish
 
 Modules::WhoisFilter
   Filters the /whois notification sent for remote nicks.
+
+Modules::Xline
+  Caches G-, Z-, and Q-lines for all networks, and optionally applies them to incoming nicks
