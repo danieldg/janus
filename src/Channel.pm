@@ -267,6 +267,10 @@ sub str {
 	$keyname[$$chan];
 }
 
+sub real_keyname {
+	$keyname[${$_[0]}];
+}
+
 sub is_on {
 	1
 }

@@ -23,15 +23,8 @@ our %request;
 #  mode 2: deny default
 #   ack{net} => =1 allows
 
-our %avail;
-if (%avail) {
-	for my $n (keys %avail) {
-		for my $c (keys %{$avail{$n}}) {
-			$request{$n}{lc $c} = $avail{$n}{$c};
-		}
-	}
-	%avail = ();
-}
+our %def_ack;
+# {network} = default contents of the "ack" entry
 
 for my $n (keys %request) {
 	for my $c (keys %{$request{$n}}) {
@@ -41,6 +34,7 @@ for my $n (keys %request) {
 }
 &Janus::save_vars(
 	request => \%request,
+	def_ack => \%def_ack,
 );
 
 sub link_to_janus {
@@ -87,7 +81,7 @@ sub autolink_from {
 			linkfile => 1,
 		};
 	}
-	&Janus::append(@acts);
+	&Event::append(@acts);
 }
 
 sub autolink_to {
@@ -101,7 +95,7 @@ sub autolink_to {
 			my $ifo = $request{$src}{$cname};
 			next if $ifo->{mode};
 			next unless $netok{$ifo->{net}};
-			my $net = $Janus::nets{$ifo->{net}} or next;
+			my $net = $Event::nets{$ifo->{net}} or next;
 			my $chan = $snet->chan($cname, 1);
 			push @acts, +{
 				type => 'LINKREQ',
@@ -114,7 +108,7 @@ sub autolink_to {
 			};
 		}
 	}
-	&Janus::append(@acts);
+	&Event::append(@acts);
 }
 
 sub send_avail {
@@ -138,7 +132,7 @@ sub send_avail {
 	$ij->send(@acts);
 }
 
-&Janus::hook_add(
+&Event::hook_add(
 	NETLINK => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
@@ -210,7 +204,7 @@ sub send_avail {
 		}
 		unless ($dnet->jlink()) {
 			my $dchan = $dnet->chan($act->{dlink}, 1);
-			&Janus::append({
+			&Event::append({
 				type => 'CHANLINK',
 				dst => $dchan,
 				in => $schan,
@@ -221,13 +215,16 @@ sub send_avail {
 	}, LINKOFFER => act => sub {
 		my $act = shift;
 		my $net = $act->{src};
-		$request{$net->name()}{lc $act->{name}} = {
+		my $name = lc $act->{name};
+		my %req = (
 			mode => 1,
 			mask => $act->{reqby},
 			'time', $act->{reqtime},
-		};
+		);
+		$req{ack} = { %{$def_ack{$net->name}} } if $def_ack{$net->name};
+		$request{$net->name}{$name} = \%req;
 		return if $net->jlink;
-		my $chan = $net->chan($act->{name}, 1);
+		my $chan = $net->chan($name, 1);
 		link_to_janus($chan);
 	}, DELINK => act => sub {
 		my $act = shift;
