@@ -16,9 +16,7 @@ our(@txt2cmode, @cmode2txt, @txt2umode, @umode2txt); # quick lookup hashes for t
 sub module_add {
 	my($net,$name) = @_;
 	my $mod = $net->find_module($name) or do {
-		$net->send($net->ncmd(OPERNOTICE =>
-			"Unknown module $name, janus may become desynced if it is used"));
-		# TODO inspircd specific
+		&Log::err_in($net, "Unknown module $name, janus may become desynced if it is used");
 		return;
 	};
 	return if $modules[$$net]{$name};
@@ -67,7 +65,7 @@ sub module_add {
 sub module_remove {
 	my($net,$name) = @_;
 	my $mod = delete $modules[$$net]{$name} or do {
-		$net->send($net->ncmd(OPERNOTICE => "Could not unload moule $name: not loaded"));
+		&Log::err_in($net, "Could not unload moule $name: not loaded");
 		return;
 	};
 	if ($mod->{cmode}) {
@@ -160,7 +158,6 @@ sub from_irc {
 	$cmd = $fromirc[$$net]{$cmd} || $cmd;
 	$cmd = $fromirc[$$net]{$cmd} || $cmd if $cmd && !ref $cmd; # allow one layer of indirection
 	unless ($cmd && ref $cmd) {
-		$net->send($net->ncmd(OPERNOTICE => "Unknown command $cmd, janus is possibly desynced"));
 		&Log::err_in($net, "Unknown command '$cmd'");
 		return ();
 	}
