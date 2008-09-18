@@ -17,11 +17,11 @@ my @mode_sym = qw{~ & @ % +};
 		my $net = @_ > 3 ? $Janus::nets{$_[2]} : $src->homenet;
 		my $n = $_[-1];
 		if ($n =~ /:/) {
-			$n = $Janus::gnicks{$n} or return Janus::jmsg($src, 'Cannot find nick by gid');
+			$n = $Janus::gnicks{$n} or return Janus::jmsg($dst, 'Cannot find nick by gid');
 		} elsif ($net->isa('LocalNetwork')) {
-			$n = $net->nick($n, 1) or return Janus::jmsg($src, 'Cannot find nick by name');
+			$n = $net->nick($n, 1) or return Janus::jmsg($dst, 'Cannot find nick by name');
 		} else {
-			return Janus::jmsg($src, 'Remote networks must be queried by gid');
+			return Janus::jmsg($dst, 'Remote networks must be queried by gid');
 		}
 		Janus::jmsg($dst, join ' ', "\002Nick\002",$$n,$n->homenick,'on',$n->homenet->name,$n->gid,
 			$n->ts.'='.gmtime($n->ts));
@@ -45,11 +45,11 @@ my @mode_sym = qw{~ & @ % +};
 		my $c = $_[-1];
 		if ($c =~ /^#/) {
 			unless ($net->isa('LocalNetwork')) {
-				return Janus::jmsg($src, 'Remote networks must be queried by gid');
+				return Janus::jmsg($dst, 'Remote networks must be queried by gid');
 			}
-			$c = $net->chan($c, 0) or return Janus::jmsg($src, 'Cannot find channel by name');
+			$c = $net->chan($c, 0) or return Janus::jmsg($dst, 'Cannot find channel by name');
 		} else {
-			$c = $Janus::gchans{$c} or return Janus::jmsg($src, 'Cannot find channel by gid');
+			$c = $Janus::gchans{$c} or return Janus::jmsg($dst, 'Cannot find channel by gid');
 		}
 		Janus::jmsg($dst, join ' ', "\002Channel\002",$$c,$c->real_keyname,'on',$c->homenet->name,
 			$c->ts.'='.gmtime($c->ts));

@@ -206,6 +206,10 @@ my %spec = (
 		dst => 'Channel',
 		msg => '?$',
 		delink => '?$',
+		# 0 - standard part
+		# 1 - standard delink command (of single net)
+		# 2 - delink from a non-homenet netsplit
+		# 3 - delink from a homenet netsplit
 	},
 	KICK => {
 		dst => 'Channel',
