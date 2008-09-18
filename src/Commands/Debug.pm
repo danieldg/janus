@@ -102,7 +102,7 @@ sub dump_now {
 	acl => 1,
 	code => sub {
 		my $fn = dump_now(@_);
-		&Janus::jmsg($_[0], 'State dumped to file '.$fn);
+		&Janus::jmsg($_[1], 'State dumped to file '.$fn);
 	},
 }, {
 	cmd => 'testdie',
