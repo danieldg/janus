@@ -274,8 +274,14 @@ sub _netpart {
 	return unless $jl;
 	$jl = $jl->parent() while $jl->parent();
 	for my $net (values %{$nets[$$nick]}) {
+		next if $net == $Interface::network;
 		return unless $jl->jparent($net);
 	}
+	&Event::append({
+		type => 'POISON',
+		item => $nick,
+		reason => 'final netpart',
+	});
 	delete $Janus::gnicks{$nick->gid()};
 }
 
