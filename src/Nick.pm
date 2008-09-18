@@ -442,9 +442,7 @@ sub str {
 		my $chan = $act->{dst};
 
 		$chans[$$nick] = [ grep { $_ ne $chan } @{$chans[$$nick]} ];
-		unless ($act->{delink} && $act->{delink} == 2) {
-			$nick->_netclean($chan->nets());
-		}
+		$nick->_netclean($chan->nets());
 	}, KICK => cleanup => sub {
 		my $act = $_[0];
 		my $nick = $act->{kickee};
