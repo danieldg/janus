@@ -58,6 +58,7 @@ my @mode_sym = qw{~ & @ % +};
 		for my $n ($c->all_nicks) {
 			my $pfx = join '', map { $c->has_nmode($mode_txt[$_], $n) ? $mode_sym[$_] : '' } 0..4;
 			my $nick = $n->str($hn) || $n->homenick || '#'.$$n;
+			$nick =~ s/(?:\002!(\d+)\002)?$/"\002!".(1 + ($1||0))."\002"/e while $nlist{$nick};
 			$nlist{$nick} = $pfx.$nick;
 		}
 		Janus::jmsg($dst, join ' ','', map $nlist{$_}, sort keys %nlist);
