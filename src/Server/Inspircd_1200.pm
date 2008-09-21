@@ -169,7 +169,7 @@ sub process_capabs {
 	# IP6NATIVE=1 IP6SUPPORT=1 - we currently require IPv6 support, and claim to be native because we're cool like that :)
 	# PROTOCOL=1201
 	warn "I don't know how to read protocol $capabs[$$net]{PROTOCOL}"
-		unless $capabs[$$net]{PROTOCOL} == 1200 || $capabs[$$net]{PROTOCTL} == 1201;
+		unless $capabs[$$net]{PROTOCOL} == 1200 || $capabs[$$net]{PROTOCOL} == 1201;
 
 	# PREFIX=(qaohv)~&@%+ - We don't care (anymore)
 	$capabs[$$net]{PREFIX} =~ /\((\S+)\)\S+/ or warn;
@@ -192,6 +192,11 @@ sub process_capabs {
 		$net->send($net->ncmd(SNONOTICE => 'l', 'Possible desync - CHANMODES do not match module list: '.
 				"expected $expect, got $capabs[$$net]{CHANMODES}"));
 	}
+}
+
+sub protoctl {
+	my $net = shift;
+	$capabs[$$net]{PROTOCOL}
 }
 
 # IRC Parser
@@ -1168,9 +1173,13 @@ $moddef{CORE} = {
 	},
 }};
 
-sub find_module {
-	my($net,$name) = @_;
-	$moddef{$name} || $Server::InspMods::modules{$capabs[$$net]{PROTOCOL}}{$name};
-}
+&Event::hook_add(
+	Server => find_module => sub {
+		my($net, $name, $d) = @_;
+		return unless $net->isa(__PACKAGE__);
+		return unless $moddef{$name};
+		$$d = $moddef{$name};
+	}
+);
 
 1;

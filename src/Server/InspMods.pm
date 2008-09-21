@@ -22,11 +22,38 @@ sub mdef {
 		warn 'Odd argument count';
 	}
 	my %args = @_;
-	for (@ver) {
-		warn "Module $name redefined" if $modules{$_}{$name};
-		$modules{$_}{$name} = \%args;
+	if ($modules{$name} && $modules{$name}{for}) {
+		my $old = $modules{$name};
+		my $for = delete $old->{for};
+		$modules{$name} = {};
+		$modules{$name}{$_} = $old for @$for;
+	}
+	if ($modules{$name}) {
+		for (@ver) {
+			warn "Module $name (for $_) redefined" if $modules{$name}{$_};
+			$modules{$name}{$_} = \%args;
+		}
+	} else {
+		$args{for} = \@ver;
+		$modules{$name} = \%args;
 	}
 }
+
+&Event::hook_add(
+	Server => find_module => sub {
+		my($net, $name, $d) = @_;
+		return if ref($net) !~ /Server::Inspircd/;
+		my $ver = $net->protoctl;
+		return unless $modules{$name};
+		if ($modules{$name}{for}) {
+			return unless grep { $ver == $_ } @{$modules{$name}{for}};
+			$$d = $modules{$name};
+		} else {
+			return unless $modules{$name}{$ver};
+			$$d = $modules{$name}{$ver};
+		}
+	},
+);
 
 mdef 'm_alias.so';
 mdef 'm_alltime.so', cmds => {
@@ -432,9 +459,7 @@ mdef 'm_ssl_dummy.so', metadata => {
 	},
 };
 
-for my $mt (qw/m_ssl_gnutls.so m_ssl_openssl.so/) {
-	$modules{$_}{$mt} = $modules{$_}{'m_ssl_dummy.so'} for keys %modules;
-}
+$modules{$_} = $modules{'m_ssl_dummy.so'} for qw/m_ssl_gnutls.so m_ssl_openssl.so/;
 
 mdef 'm_stripcolor.so', umode => { S => 'colorstrip' }, cmode => { S => 't1_colorblock' };
 mdef 'm_svshold.so';

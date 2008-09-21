@@ -15,11 +15,13 @@ our(@txt2cmode, @cmode2txt, @txt2umode, @umode2txt); # quick lookup hashes for t
 
 sub module_add {
 	my($net,$name) = @_;
-	my $mod = $net->find_module($name) or do {
+	return if $modules[$$net]{$name};
+	my $mod;
+	&Event::named_hook('Server/find_module', $net, $name, \$mod);
+	unless ($mod) {
 		&Log::err_in($net, "Unknown module $name, janus may become desynced if it is used");
 		return;
 	};
-	return if $modules[$$net]{$name};
 	$modules[$$net]{$name} = $mod;
 	if ($mod->{cmode}) {
 		for my $cm (keys %{$mod->{cmode}}) {

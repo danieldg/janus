@@ -171,6 +171,11 @@ sub process_capabs {
 	}
 }
 
+sub protoctl {
+	my $net = shift;
+	$capabs[$$net]{PROTOCOL}
+}
+
 # IRC Parser
 # Arguments:
 #	$_[0] = Network
@@ -1172,10 +1177,13 @@ $moddef{CORE} = {
 	},
 }};
 
-
-sub find_module {
-	my($net,$name) = @_;
-	$moddef{$name} || $Server::InspMods::modules{$capabs[$$net]{PROTOCOL}}{$name};
-}
+&Event::hook_add(
+	Server => find_module => sub {
+		my($net, $name, $d) = @_;
+		return unless $net->isa(__PACKAGE__);
+		return unless $moddef{$name};
+		$$d = $moddef{$name};
+	}
+);
 
 1;
