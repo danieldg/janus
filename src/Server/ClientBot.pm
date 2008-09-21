@@ -51,6 +51,7 @@ my %cmode2txt = (qw/
 	v n_voice
 
 	b l_ban
+	l s_limit
 	i r_invite
 	m r_moderated
 	n r_mustjoin
