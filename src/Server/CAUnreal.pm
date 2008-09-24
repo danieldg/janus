@@ -885,8 +885,8 @@ sub srvname {
 		@act;
 	}, SJOIN => sub {
 		my $net = shift;
-		my $chan = $net->chan($_[3], 1);
 		my $ts = $net->sjbint($_[2]);
+		my $chan = $net->chan($_[3], $ts);
 		my $applied = ($chan->ts() >= $ts);
 		my $joins = pop;
 		push @_, '+' if @_ < 5;
@@ -894,14 +894,33 @@ sub srvname {
 
 		my @acts;
 
-		push @acts, +{
-			type => 'TIMESYNC',
-			src => $net,
-			dst => $chan,
-			ts => $ts,
-			oldts => $chan->ts(),
-			wipe => 1,
-		} if $chan->ts() > $ts;
+		if ($chan->ts > $ts) {
+			push @acts, +{
+				type => 'CHANTSSYNC',
+				src => $net,
+				dst => $chan,
+				newts => $ts,
+				oldts => $chan->ts(),
+			};
+			my($modes,$args,$dirs) = &Modes::dump($chan);
+			if ($chan->homenet == $net) {
+				# this is a TS wipe, justified. Wipe janus's side.
+				$_ = '-' for @$dirs;
+				push @acts, +{
+					type => 'MODE',
+					src => $net,
+					dst => $chan,
+					mode => $modes,
+					args => $args,
+					dirs => $dirs,
+				};
+			} else {
+				# someone else owns the channel. Fix.
+				$net->send(map {
+					$net->cmd1(MODE => $chan, @$_, 0);
+				} &Modes::to_multi($net, $modes, $args, $dirs));
+			}
+		}
 
 		for (split /\s+/, $joins) {
 			if (/^([&"'])(.+)/) {
@@ -967,11 +986,10 @@ sub srvname {
 		if ($src->isa('Network') && $_[-1] =~ /^(\d+)$/) {
 			#TS update
 			push @out, +{
-				type => 'TIMESYNC',
+				type => 'CHANTSSYNC',
 				dst => $chan,
-				ts => $1,
+				newts => $1,
 				oldts => $chan->ts(),
-				wipe => 0,
 			} if $1 && $1 < $chan->ts();
 		}
 		my $mode = $_[3];
@@ -1429,20 +1447,10 @@ sub cmd2 {
 			}
 		}
 		@out;
-	}, TIMESYNC => sub {
+	}, CHANTSSYNC => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
-		if ($act->{wipe}) {
-			if ($act->{ts} == $act->{oldts}) {
-				return map {
-					$net->cmd1(MODE => $chan, @$_, 0);
-				} &Modes::to_multi($net, &Modes::delta($chan, undef), 12);
-			} else {
-				return $net->cmd1(SJOIN => $net->sjb64($act->{ts}), $chan, '+', '');
-			}
-		} else {
-			return $net->cmd1(MODE => $chan, '+', $act->{ts});
-		}
+		return $net->cmd1(MODE => $chan, '+', $act->{newts});
 	}, CHANBURST => sub {
 		my($net,$act) = @_;
 		my $old = $act->{before};

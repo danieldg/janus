@@ -64,6 +64,10 @@ Basic descriptions and checking of all internal janus actions
 
 =over
 
+=item CHANBURST Post-channel-link mode synchronization
+
+=item CHANTSSYNC Updates to channel timestamp (which do NOT reset modes)
+
 =item MODE Basic mode change
 
 =over
@@ -81,8 +85,6 @@ Basic descriptions and checking of all internal janus actions
 =item t tristate (private/secret)
 
 =back
-
-=item TIMESYNC Channel creation timestamp modification
 
 =item TOPIC Channel topic change
 
@@ -229,11 +231,15 @@ my %spec = (
 		args => '@',
 		dirs => '@',
 	},
-	TIMESYNC => {
+	CHANBURST => {
+		before => 'Channel',
+		after => 'Channel',
+	},
+	CHANTSSYNC => {
 		dst => 'Channel',
-		wipe => '$',
-		ts => '$',
 		oldts => '$',
+		newts => '$',
+		# note: 100 000 000 < newts < oldts
 	},
 	TOPIC => {
 		dst => 'Channel',

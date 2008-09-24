@@ -433,14 +433,35 @@ $moddef{CORE} = {
 		my $chan = $net->chan($_[2], $ts);
 		my $applied = ($chan->ts() >= $ts);
 		my @acts;
-		push @acts, +{
-			type => 'TIMESYNC',
-			src => $net,
-			dst => $chan,
-			ts => $ts,
-			oldts => $chan->ts(),
-			wipe => 1,
-		} if $chan->ts() > $ts;
+
+		if ($chan->ts > $ts) {
+			push @acts, +{
+				type => 'CHANTSSYNC',
+				src => $net,
+				dst => $chan,
+				newts => $ts,
+				oldts => $chan->ts(),
+			};
+			my($modes,$args,$dirs) = &Modes::dump($chan);
+			if ($chan->homenet == $net) {
+				# this is a TS wipe, justified. Wipe janus's side.
+				$_ = '-' for @$dirs;
+				push @acts, +{
+					type => 'MODE',
+					src => $net,
+					dst => $chan,
+					mode => $modes,
+					args => $args,
+					dirs => $dirs,
+				};
+			} else {
+				# someone else owns the channel. Fix.
+				$net->send(map {
+					$net->ncmd(FMODE => $chan, $ts, @$_);
+				} &Modes::to_multi($net, $modes, $args, $dirs, $capabs[$$net]{MAXMODES}));
+			}
+		}
+
 		if (@_ > 5 && $applied) {
 			my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, @_[4 .. ($#_ - 1)]);
 			push @acts, +{
@@ -1000,7 +1021,7 @@ $moddef{CORE} = {
 				my $mode = join '', map {
 					$chan->has_nmode($_, $nick) ? ($net->txt2cmode("n_$_") || '') : ''
 				} qw/voice halfop op admin owner/;
-				my @cmodes = &Modes::to_multi($net, &Modes::dump($chan));
+				my @cmodes = &Modes::to_multi($net, &Modes::dump($chan), $capabs[$$net]{MAXMODES});
 				@cmodes = (['+']) unless @cmodes && @{$cmodes[0]};
 				warn "w00t said this wouldn't happen" if @cmodes != 1;
 
@@ -1050,7 +1071,7 @@ $moddef{CORE} = {
 		if ($act->{mode}) {
 			$mode .= ($net->txt2cmode("n_$_") || '') for keys %{$act->{mode}};
 		}
-		my @cmodes = &Modes::to_multi($net, &Modes::dump($chan));
+		my @cmodes = &Modes::to_multi($net, &Modes::dump($chan), $capabs[$$net]{MAXMODES});
 		@cmodes = (['+']) unless @cmodes && @{$cmodes[0]};
 		warn "w00t said this wouldn't happen" if @cmodes != 1;
 
@@ -1105,23 +1126,12 @@ $moddef{CORE} = {
 			return $net->cmd2($act->{dst}, OPERTYPE => $type);
 		}
 		return ();
-	}, TIMESYNC => sub {
+	}, CHANTSSYNC => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
-		if ($act->{wipe}) {
-			if ($act->{ts} == $act->{oldts}) {
-				# TODO must revert all modes
-			} else {
-				# TODO this is still an ugly hack
-				return (
-					$net->cmd2($Interface::janus, PART => $chan, 'Timestamp reset'),
-					$net->ncmd(FJOIN => $chan, $act->{ts}, ','.$net->_out($Interface::janus)),
-				);
-			}
-		} else {
-			my @interp = &Modes::to_multi($net, &Modes::delta(undef, $chan));
-			return $net->ncmd(FMODE => $chan, $act->{ts}, @interp);
-		}
+		return map {
+			$net->ncmd(FMODE => $chan, $act->{newts}, @$_);
+		} &Modes::to_multi($net, &Modes::dump($chan), $capabs[$$net]{MAXMODES});
 	}, CHANBURST => sub {
 		my($net,$act) = @_;
 		my $old = $act->{before};
@@ -1132,7 +1142,7 @@ $moddef{CORE} = {
 		push @out, $net->ncmd(FJOIN => $new, $new->ts, @sjmodes, ','.$net->_out($Interface::janus));
 		push @out, map {
 			$net->ncmd(FMODE => $new, $new->ts, @$_);
-		} &Modes::to_multi($net, &Modes::delta($new->ts < $old->ts ? undef : $old, $new));
+		} &Modes::to_multi($net, &Modes::delta($new->ts < $old->ts ? undef : $old, $new), $capabs[$$net]{MAXMODES});
 		if ($new->topic && (!$old->topic || $old->topic ne $new->topic)) {
 			push @out, $net->ncmd(FTOPIC => $new, $new->topicts, $new->topicset, $new->topic);
 		}

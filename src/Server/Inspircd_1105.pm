@@ -442,14 +442,34 @@ $moddef{CORE} = {
 		my $chan = $net->chan($_[2], $ts);
 		my $applied = ($chan->ts() >= $ts);
 		my @acts;
-		push @acts, +{
-			type => 'TIMESYNC',
-			src => $net,
-			dst => $chan,
-			ts => $ts,
-			oldts => $chan->ts(),
-			wipe => 1,
-		} if $chan->ts() > $ts;
+
+		if ($chan->ts > $ts) {
+			push @acts, +{
+				type => 'CHANTSSYNC',
+				src => $net,
+				dst => $chan,
+				newts => $ts,
+				oldts => $chan->ts(),
+			};
+			my($modes,$args,$dirs) = &Modes::dump($chan);
+			if ($chan->homenet == $net) {
+				# this is a TS wipe, justified. Wipe janus's side.
+				$_ = '-' for @$dirs;
+				push @acts, +{
+					type => 'MODE',
+					src => $net,
+					dst => $chan,
+					mode => $modes,
+					args => $args,
+					dirs => $dirs,
+				};
+			} else {
+				# someone else owns the channel. Fix.
+				$net->send(map {
+					$net->ncmd(FMODE => $chan, $ts, @$_);
+				} &Modes::to_multi($net, $modes, $args, $dirs, $capabs[$$net]{MAXMODES}));
+			}
+		}
 
 		for my $nm (split / /, $_[-1]) {
 			$nm =~ /(?:(.*),)?(\S+)$/ or next;
@@ -515,13 +535,15 @@ $moddef{CORE} = {
 	}, REMSTATUS => sub {
 		my $net = shift;
 		my $chan = $net->chan($_[2]) or return ();
+		my($modes,$args,$dirs) = &Modes::dump($chan);
+		$_ = '-' for @$dirs;
 		return +{
-			type => 'TIMESYNC',
+			type => 'MODE',
 			src => $net,
 			dst => $chan,
-			ts => $chan->ts(),
-			oldts => $chan->ts(),
-			wipe => 1,
+			mode => $modes,
+			args => $args,
+			dirs => $dirs,
 		};
 	}, FTOPIC => sub {
 		my $net = shift;
@@ -1103,23 +1125,12 @@ $moddef{CORE} = {
 			);
 		}
 		return ();
-	}, TIMESYNC => sub {
+	}, CHANTSSYNC => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
-		if ($act->{wipe}) {
-			if ($act->{ts} == $act->{oldts}) {
-				return $net->ncmd(REMSTATUS => $chan);
-			} else {
-				# XXX this is needed sometimes, but not all the time. Do we really need the part?
-				return (
-					$net->cmd2($Interface::janus, PART => $chan, 'Timestamp reset'),
-					$net->ncmd(FJOIN => $chan, $act->{ts}, ','.$net->_out($Interface::janus)),
-				);
-			}
-		} else {
-			my @interp = &Modes::to_multi($net, &Modes::delta(undef, $chan));
-			return $net->ncmd(FMODE => $chan, $act->{ts}, @interp);
-		}
+		return map {
+			$net->ncmd(FMODE => $chan, $act->{newts}, @$_);
+		} &Modes::to_multi($net, &Modes::dump($chan), $capabs[$$net]{MAXMODES});
 	}, CHANBURST => sub {
 		my($net,$act) = @_;
 		my $old = $act->{before};
@@ -1128,7 +1139,7 @@ $moddef{CORE} = {
 		push @out, $net->ncmd(FJOIN => $new, $new->ts, ','.$net->_out($Interface::janus));
 		push @out, map {
 			$net->ncmd(FMODE => $new, $new->ts, @$_);
-		} &Modes::to_multi($net, &Modes::delta($new->ts < $old->ts ? undef : $old, $new));
+		} &Modes::to_multi($net, &Modes::delta($new->ts < $old->ts ? undef : $old, $new), $capabs[$$net]{MAXMODES});
 		if ($new->topic && (!$old->topic || $old->topic ne $new->topic)) {
 			push @out, $net->ncmd(FTOPIC => $new, $new->topicts, $new->topicset, $new->topic);
 		}

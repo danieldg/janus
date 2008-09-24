@@ -159,20 +159,17 @@ sub part {
 		my $nick = $act->{kickee};
 		my $chan = $act->{dst};
 		$chan->part($nick, 0);
-	}, TIMESYNC => act => sub {
+	}, CHANTSSYNC => check => sub {
 		my $act = $_[0];
 		my $chan = $act->{dst};
-		my $ts = $act->{ts};
-		if ($ts < 1000000) {
-			#don't EVER destroy channel TSes with that annoying Unreal message
-			warn "Not destroying channel timestamp; mode desync may happen!" if $ts;
-			return;
-		}
+		my $ts = $act->{newts};
+		return 1 if $ts < 100000000 || $ts > $chan->ts;
+		0
+	}, CHANTSSYNC => act => sub {
+		my $act = $_[0];
+		my $chan = $act->{dst};
+		my $ts = $act->{newts};
 		$ts[$$chan] = $ts;
-		if ($act->{wipe}) {
-			$nmode[$$chan] = {};
-			$mode[$$chan] = {};
-		}
 	}, MODE => act => sub {
 		my $act = $_[0];
 		local $_;
@@ -383,10 +380,9 @@ sub add_net {
 	if ($tsctl < 0) {
 		&Log::info("Resetting timestamp from $ts[$$chan] to $ts[$$src]");
 		&Janus::insert_full(+{
-			type => 'TIMESYNC',
+			type => 'CHANTSSYNC',
 			dst => $chan,
-			wipe => 0,
-			ts => $ts[$$src],
+			newts => $ts[$$src],
 			oldts => $ts[$$chan],
 		});
 	}
