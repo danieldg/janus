@@ -63,6 +63,9 @@ sub findline {
 	cmd => 'xline',
 	help => 'Enables or disables bans according to G/Z-lines',
 	details => [
+		'Enables or disables bans according to G/Z-lines',
+		'These bans are enforced for your network only, and are only listable',
+		"via your server's tracking of glines",
 		"Syntax: \002XLINE\002 [on|off]",
 		'With no argument, displays the current state',
 	],
