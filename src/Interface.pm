@@ -124,12 +124,14 @@ sub pmsg {
 			dst => $act->{dst},
 			net => $act->{net},
 		});
-	}, KICK => act => sub {
+	}, KICK => 'act:-1' => sub {
 		my $act = shift;
 		return unless $act->{kickee} eq $janus;
+		my $chan = $act->{dst};
+		return unless grep { $_ == $janus } $chan->all_nicks;
 		&Event::append({
 			type => 'JOIN',
-			dst => $act->{dst},
+			dst => $chan,
 			src => $janus,
 		});
 	},
