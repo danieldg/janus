@@ -95,7 +95,7 @@ sub autolink_to {
 			my $ifo = $request{$src}{$cname};
 			next if $ifo->{mode};
 			next unless $netok{$ifo->{net}};
-			my $net = $Event::nets{$ifo->{net}} or next;
+			my $net = $Janus::nets{$ifo->{net}} or next;
 			my $chan = $snet->chan($cname, 1);
 			push @acts, +{
 				type => 'LINKREQ',
