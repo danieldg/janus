@@ -88,7 +88,8 @@ use warnings;
 	details => [
 		"Syntax: \002AUTOCONNECT\002 network [0|1]",
 		"Enables or disables the automatic reconnection that janus makes to a network.",
-		"A rehash will reread the value for the network from the janus configuration",
+		'A rehash will reread the value for the network from the janus configuration',
+		'Without parameters, displays the current state',
 	],
 	acl => 1,
 	code => sub {
@@ -97,10 +98,15 @@ use warnings;
 			&Janus::jmsg($dst, 'Cannot find network');
 			return;
 		};
-		&Log::audit("Autoconnect on $id ".($onoff ? 'enabled' : 'disabled').' by '.$src->netnick);
-		$nconf->{autoconnect} = $onoff;
-		$nconf->{backoff} = 0;
-		&Janus::jmsg($dst, 'Done');
+		if (defined $onoff) {
+			&Log::audit("Autoconnect on $id ".($onoff ? 'enabled' : 'disabled').' by '.$src->netnick);
+			$nconf->{autoconnect} = $onoff;
+			$nconf->{backoff} = 0;
+			&Janus::jmsg($dst, 'Done');
+		} else {
+			&Janus::jmsg($dst, 'Autoconnect is '.($nconf->{autoconnect} ? 'on' : 'off').
+				" for $id (backoff=$nconf->{backoff})");
+		}
 	},
 }, {
 	cmd => 'netsplit',
