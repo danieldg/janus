@@ -19,6 +19,28 @@ our %hook_run;
 
 our %commands;
 
+=head1 Event
+
+Primary event hook registration and dispatch point
+
+=head2 Hook Registration
+
+All hook registration must happen during a module load.
+
+=over
+
+=item Event::hook_add($type1, $level1, $sub1, $type2, $level2, $sub2, ...)
+
+Registers the given subref as an event hook for the type/level specified.
+
+For normal event hooks, $type is the name of the action; for named hooks, $type
+is either "ALL" or a name specified in the name. The level can either be a simple
+string of the level, or a string of the form "level:priority" where priority is
+a signed decimal number. A hook with a lower priority is guarunteed to run before hooks
+of higher priority; if priority is not specified, it defaults to zero.
+
+=cut
+
 sub hook_add {
 	my $module = caller;
 	cluck "hook_add called outside module load" unless $Janus::modinfo{$module}{load};
@@ -34,9 +56,9 @@ sub hook_add {
 	}
 }
 
-=item Janus::command_add($cmdhash+)
+=item Event::command_add($cmdhash+)
 
-Add commands (/msg janus <command> <cmdargs>). Should be called from module init
+Add commands (/msg janus <command> <cmdargs>).
 
 Command hashref contains:
 
@@ -46,6 +68,8 @@ Command hashref contains:
   details - arrayref of detailed help text, one line per elt
   acl - undef/0 for all, 1 for oper-only, 2+ to be defined later
   secret - 1 if the command should not be logged (i.e. it contains passwords)
+
+If you set the "secret" flag, log the command in your code after stripping out sensitive information.
 
 =cut
 
@@ -129,6 +153,7 @@ sub _send {
 
 $hook_mod{'ALL/send'}{Event} = \&_send;
 
+# Finds a hook name given the subref
 sub find_hook {
 	my $hook = shift;
 	for my $lvl (keys %hook_mod) {
@@ -151,6 +176,7 @@ sub _runq {
 	}
 }
 
+# Return the properly sorted list for hooks on the given type/level
 sub enum_hooks {
 	my $pfx = $_[0];
 	return
@@ -194,14 +220,16 @@ sub _run {
 	}
 }
 
-=head2 Command generation
+=back
+
+=head2 Event Sending
 
 =over
 
-=item Janus::insert_partial($action,...)
+=item Event::insert_partial($action,...)
 
 Run the given actions right now, but run any generated actions later
-(use insert_full unless you need this behaviour)
+(use insert_full unless you need this behaviour).
 
 =cut
 
@@ -211,9 +239,9 @@ sub insert_partial {
 	}
 }
 
-=item Janus::insert_full($action,...)
+=item Event::insert_full($action,...)
 
-Fully run the given actions (including generated ones) before returning
+Fully run the given actions before returning
 
 =cut
 
@@ -225,7 +253,7 @@ sub insert_full {
 	}
 }
 
-=item Janus::append($action,...)
+=item Event::append($action,...)
 
 Run the given actions after this one is done executing
 
@@ -235,31 +263,11 @@ sub append {
 	push @{$qstack[0]}, @_;
 }
 
-=item Janus::schedule(TimeEvent,...)
+=item Event::in_socket($src,$line)
 
-schedule the given events for later execution
-
-specify {time} as the time to execute
-
-specify {repeat} to repeat the action every N seconds (the action should remove this when it is done)
-
-specify {delay} to run the event once, N seconds from now
-
-{code} is the subref, which is passed the event as its single argument
-
-All other fields are available for use in passing additional arguments to the sub
+Processes the line which came from the given source network
 
 =cut
-
-sub schedule {
-	for my $event (@_) {
-		my $t = $Janus::time;
-		$t = $event->{time} if $event->{time} && $event->{time} > $t;
-		$t += $event->{repeat} if $event->{repeat};
-		$t += $event->{delay} if $event->{delay};
-		push @{$tqueue{$t}}, $event;
-	}
-}
 
 sub in_socket {
 	my($src,$line) = @_;
@@ -279,6 +287,13 @@ sub in_socket {
 		&Log::err_in($src, "Unchecked exception in parsing");
 	};
 }
+
+=item Event::in_command($src, $dst, @args)
+
+Processes the split arguments as a command initiated by the nick $src, with results
+written to the nick or channel $dst. The first argument is the command name.
+
+=cut
 
 sub in_command {
 	my ($src, $dst, $cmd, @args) = @_;
@@ -302,6 +317,13 @@ sub in_command {
 	};
 	_runq(shift @qstack);
 }
+
+=item Event::named_hook($name, @args)
+
+Dispatches an event of the given name. The name is the "level" of the event if it
+does not contain a "/"; if it contains a "/" it is of the form "type/level".
+
+=cut
 
 sub named_hook {
 	my($name, @args) = @_;
@@ -327,6 +349,44 @@ sub named_hook {
 		};
 	}
 }
+
+=back
+
+=head2 Time-based events
+
+=over
+
+=item Event::schedule(TimeEvent,...)
+
+schedule the given events for later execution. TimeEvent is a hashref containing:
+
+time - the unix timestamp to execute
+
+repeat - repeat the action every N seconds (the action should remove this when it is done)
+
+delay - to run the event once, N seconds from now
+
+code - must be specified; subref, which is passed the event as its single argument
+
+All other fields are available for use in passing additional arguments to the coderef
+
+=cut
+
+sub schedule {
+	for my $event (@_) {
+		my $t = $Janus::time;
+		$t = $event->{time} if $event->{time} && $event->{time} > $t;
+		$t += $event->{repeat} if $event->{repeat};
+		$t += $event->{delay} if $event->{delay};
+		push @{$tqueue{$t}}, $event;
+	}
+}
+
+=item Event::timer($now)
+
+Updates the janus time and runs timed events
+
+=cut
 
 sub timer {
 	my $time = $_[0];
@@ -362,6 +422,15 @@ sub timer {
 		}
 	}
 }
+
+=item Event::next_event(max)
+
+Returns the unix timestamp of the next event, if one will happen before $max when interpreted as a
+timestamp.
+
+=back
+
+=cut
 
 sub next_event {
 	my $max = shift;

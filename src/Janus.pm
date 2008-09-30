@@ -11,7 +11,59 @@ our $RELEASE;
 
 =head1 Janus
 
-Primary event multiplexer and module loader/unloader
+Module loader/unloader, global variable namespace
+
+=head2 Public variables
+
+=over
+
+=item $Janus::time
+
+Current server timestamp, used to avoid calls to time() and to prevent time from jumping during an
+event.
+
+=item $Janus::global
+
+Message target which sends to all servers
+
+=item %Janus::nets
+
+Map of network tag to network object
+
+=item %Janus::ijnets
+
+Map of interjanus tag to interjanus network object
+
+=item %Janus::pending
+
+Map of network tag to (unsynchronized) network object
+
+=item %Janus::gnets
+
+Map of network gid to network object
+
+=item %Janus::gnicks
+
+Map of nick gid to nick object
+
+=item %Janus::gchans
+
+Map of channel keyname to channel object. This is only used in link mode,
+and only for channels that are shared.
+
+=item %Janus::chans
+
+Map of channel name to channel object. This is only used in bridge mode.
+
+=item $Janus::lmode
+
+Either "link" or "bridge" depending on the link mode.
+
+=item %Janus::modinfo
+
+Map of module name to module information hash.
+
+=back
 
 =cut
 
@@ -162,6 +214,25 @@ sub csum_read {
 	$INC{$fn} = $ver.'/'.$fn;
 }
 
+=head2 Module load commands
+
+=over
+
+=item Janus::reload(modulename)
+
+Load or reload the given module. Returns true if successful
+
+=item Janus::load(modulename)
+
+Load the given module (does nothing if the module is already loaded).
+Return true if the module is loaded
+
+=item Janus::unload(modulename)
+
+Removes all hooks registered by the given module
+
+=cut
+
 sub reload {
 	my $module = $_[0];
 	if ($modinfo{$module}{active}) {
@@ -192,7 +263,7 @@ sub unload {
 
 =item Janus::save_vars(varname => \%value, ...)
 
-Marks the given variables for state saving and restoring.
+Marks the given variables for state saving and restoring. Must be called in module init
 
 =cut
 
@@ -204,7 +275,7 @@ sub save_vars {
 
 =item Janus::info(%info)
 
-provides information about the module (while loading)
+Provides information about the module. Must be called in module init
 
 =cut
 
@@ -218,6 +289,10 @@ sub info {
 	}
 	cluck "Ignoring unknown info keys for $class" if scalar %add;
 }
+
+=back
+
+=cut
 
 unless ($global) {
 	# first-time run
