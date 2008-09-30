@@ -74,6 +74,12 @@ sub acl_ok {
 }
 
 &Janus::hook_add(
+	INFO => 'Channel:1' => sub {
+		my($dst, $chan, $asker) = @_;
+		my $hnet = $chan->homenet;
+		my $claim = $claim{$hnet->name}{$chan->str($hnet)} or return;
+		&Janus::jmsg($dst, "\002Claim:\002 $claim");
+	},
 	MODE => check => sub {
 		my $act = shift;
 		return undef if acl_ok($act);
