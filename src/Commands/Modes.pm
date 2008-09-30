@@ -50,20 +50,6 @@ use Modes;
 		&Janus::jmsg($dst, $cname.$out);
 	},
 }, {
-	cmd => 'showtopic',
-	help => 'Shows the current intended topic of a channel',
-	details => [
-		"\002SHOWTOPIC\002 #channel - shows the intended topic of the channel on your network",
-	],
-	code => sub {
-		my($src,$dst,$cname) = @_;
-		my $hn = $src->homenet;
-		my $chan = $hn->chan($cname,0) || $Janus::gchans{$cname};
-		return &Janus::jmsg($dst, 'That channel does not exist') unless $chan;
-		my $top = $chan->topic();
-		&Janus::jmsg($dst, $cname . ' ' . $top);
-	},
-}, {
 	cmd => 'setmode',
 	help => 'Sets a mode by its long name',
 	details => [

@@ -28,6 +28,34 @@ my @mode_sym = qw{~ & @ % +};
 		&Janus::jmsg($dst, join ' ', "\002Channel\002",$$c,$c->real_keyname,'on',$c->homenet->name,
 			$c->ts.'='.gmtime($c->ts));
 		&Janus::jmsg($dst, join ' ', "\002Names:\002", sort map { '@'.$_->name.'='.$c->str($_) } $c->nets);
+		&Janus::jmsg($dst, "\002Topic:\002 ".$c->topic);
+
+		if ($all) {
+			my $modeh = $c->all_modes();
+			unless ($modeh && scalar %$modeh) {
+				&Janus::jmsg($dst, "No modes set");
+				return;
+			}
+			my $out = '';
+			for my $mk (sort keys %$modeh) {
+				my $t = $Modes::mtype{$mk} || '?';
+				my $mv = $modeh->{$mk};
+				if ($t eq 'r') {
+					$out .= ' '.$mk.('+'x($mv - 1));
+				} elsif ($t eq 'v') {
+					$out .= ' '.$mk.'='.$mv;
+				} elsif ($t eq 'l') {
+					$out .= join ' ', '', $mk.'={', @$mv, '}';
+				} else {
+					&Log::err("bad mode $mk:$mv - $t?\n");
+				}
+			}
+			&Janus::jmsg($dst, "\002Modes:\002".$out);
+			if ($hn->isa('LocalNetwork')) {
+				my @modes = &Modes::to_multi($hn, &Modes::delta(undef, $c), 0, 400);
+				&Janus::jmsg($dst, join ' ','', @$_) for @modes;
+			}
+		}
 
 		my %nlist;
 		for my $n ($c->all_nicks) {
@@ -36,34 +64,7 @@ my @mode_sym = qw{~ & @ % +};
 			$nick =~ s/(?:\002!(\d+)\002)?$/"\002!".(1 + ($1||0))."\002"/e while $nlist{$nick};
 			$nlist{$nick} = $pfx.$nick;
 		}
-		&Janus::jmsg($dst, join ' ','', map $nlist{$_}, sort keys %nlist);
-
-		return unless $all;
-
-		my $modeh = $c->all_modes();
-		unless ($modeh && scalar %$modeh) {
-			&Janus::jmsg($dst, "No modes set");
-			return;
-		}
-		my $out = '';
-		for my $mk (sort keys %$modeh) {
-			my $t = $Modes::mtype{$mk} || '?';
-			my $mv = $modeh->{$mk};
-			if ($t eq 'r') {
-				$out .= ' '.$mk.('+'x($mv - 1));
-			} elsif ($t eq 'v') {
-				$out .= ' '.$mk.'='.$mv;
-			} elsif ($t eq 'l') {
-				$out .= join ' ', '', $mk.'={', @$mv, '}';
-			} else {
-				&Log::err("bad mode $mk:$mv - $t?\n");
-			}
-		}
-		&Janus::jmsg($dst, "\002Modes:\002".$out);
-		if ($hn->isa('LocalNetwork')) {
-			my @modes = &Modes::to_multi($hn, &Modes::delta(undef, $c), 0, 400);
-			&Janus::jmsg($dst, join ' ','', @$_) for @modes;
-		}
+		&Janus::jmsg($dst, join ' ',"\002Nicks:\002", map $nlist{$_}, sort keys %nlist);
 	},
 	INFO => Network => sub {
 		my($dst, $n, $asker) = @_;
