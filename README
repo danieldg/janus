@@ -39,3 +39,7 @@ Modules::WhoisFilter
 
 Modules::Xline
   Caches G-, Z-, and Q-lines for all networks, and optionally applies them to incoming nicks
+
+
+If you make changes to any of the modules in janus, you must either load the SHOWSOURCE
+command or update the URL in the ABOUT command to one that contains the modified source.

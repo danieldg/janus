@@ -16,10 +16,7 @@ $perl::VERSION = sprintf '%vd', $^V;
 			'linked networks without needing to share all channels and make all users visible',
 			'across both networks. If configured to allow it, users can also share their own',
 			'channels across any linked network.',
-			'-------------------------',
 			'The source code can be found at http://sourceforge.net/projects/janus-irc/',
-			'If you make any modifications to this software, you must change this URL',
-			'to one which allows downloading the version of the code you are running.'
 		);
 	}
 }, {
