@@ -282,6 +282,7 @@ sub in_socket {
 
 sub in_command {
 	my ($src, $dst, $cmd, @args) = @_;
+	$cmd = lc $cmd;
 	$cmd = 'unk' unless exists $commands{$cmd};
 	my $csub = exists $commands{$cmd}{code} ? $commands{$cmd}{code} : $commands{unk}{code};
 	my $acl = $commands{$cmd}{acl} || 0;
