@@ -8,7 +8,7 @@ use integer;
 $perl::VERSION = sprintf '%vd', $^V;
 
 &Janus::command_add({
-	cmd => 'info',
+	cmd => 'about',
 	help => 'Provides information about janus',
 	code => sub {
 		&Janus::jmsg($_[1], 
