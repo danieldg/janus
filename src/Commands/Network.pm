@@ -9,7 +9,8 @@ use warnings;
 	help => 'Reload the config and attempt to reconnect to split servers',
 	code => sub {
 		my($src,$dst,$pass) = @_;
-		unless ($src->has_mode('oper') || $pass eq $Conffile::netconf{set}{pass}) {
+		unless (&Account::acl_check($src, 'oper') || &Account::acl_check($src,'rehash') ||
+				$pass eq $Conffile::netconf{set}{rehashpass}) {
 			&Janus::jmsg($dst, "You must be an IRC operator or specify the rehash password to use this command");
 			return;
 		}
@@ -22,17 +23,9 @@ use warnings;
 }, {
 	cmd => 'die',
 	help => "Kill the janus server; does \002NOT\002 restart it",
-	details => [
-		"Syntax: \002DIE\002 diepass",
-	],
-	acl => 1,
-	secret => 1,
+	acl => 'die',
 	code => sub {
 		my($src,$dst,$pass) = @_;
-		unless ($pass && $pass eq $Conffile::netconf{set}{diepass}) {
-			&Janus::jmsg($src, "You must specify the 'diepass' password to use this command");
-			return;
-		}
 		&Conffile::save();
 		&Log::audit('DIE by '.$src->netnick);
 		for my $net (values %Janus::nets) {
@@ -52,17 +45,9 @@ use warnings;
 }, {
 	cmd => 'restart',
 	help => "Restart the janus server",
-	details => [
-		"Syntax: \002RESTART\002 diepass",
-	],
-	acl => 1,
-	secret => 1,
+	acl => 'die',
 	code => sub {
 		my($src,$dst,$pass) = @_;
-		unless ($pass && $pass eq $Conffile::netconf{set}{diepass}) {
-			&Janus::jmsg($dst, "You must specify the 'diepass' password to use this command");
-			return;
-		}
 		&Log::audit('RESTART by '.$src->netnick);
 		&Conffile::save();
 		for my $net (values %Janus::nets) {

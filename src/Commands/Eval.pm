@@ -6,14 +6,12 @@ use warnings;
 use Data::Dumper;
 
 &Janus::command_add({
-	cmd => 'eeval',
-	# nope. Not existing
-	acl => 1,
-	secret => 1,
+	cmd => 'eval',
+	help => "Evaluates a perl expression. \002DANGEROUS\002",
+	acl => 'eval',
 	code => sub {
-		my($src,$dst,$pass, @expr) = @_;
+		my($src, $dst, @expr) = @_;
 		my $expr = join ' ', @expr;
-		return &Janus::jmsg($dst, "Bad syntax") unless $pass && $pass eq $Conffile::netconf{set}{evalpass};
 		print "EVAL: $expr\n";
 		&Log::audit('EVAL by '.$src->netnick.': '.$expr);
 		$expr =~ /(.*)/; # go around taint mode

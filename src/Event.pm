@@ -484,12 +484,15 @@ Event::command_add({
 			}
 		} else {
 			my @cmds;
-			my $all = $src->has_mode('oper') || $item eq 'all';
 			my $synlen = 0;
 			for my $cmd (sort keys %commands) {
 				my $h = $commands{$cmd}{help};
+				my $acl = $commands{$cmd}{acl};
 				next unless $h;
-				next if $commands{$cmd}{acl} && !$all;
+				if ($acl && $item ne 'all') {
+					$acl = 'oper' if $acl eq '1';
+					next unless &Account::acl_check($src, $acl);
+				}
 				push @cmds, $cmd;
 				$synlen = length $cmd if length $cmd > $synlen;
 			}
