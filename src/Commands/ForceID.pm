@@ -1,6 +1,6 @@
 # Copyright (C) 2007-2008 Nima Gardideh
 # Released under the GNU Affero General Public License v3
-package Commands::Identify;
+package Commands::ForceID;
 use strict;
 use warnings;
 
