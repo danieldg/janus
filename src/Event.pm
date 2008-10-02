@@ -300,10 +300,13 @@ sub in_command {
 	$cmd = lc $cmd;
 	$cmd = 'unk' unless exists $commands{$cmd};
 	my $csub = exists $commands{$cmd}{code} ? $commands{$cmd}{code} : $commands{unk}{code};
-	my $acl = $commands{$cmd}{acl} || 0;
-	if ($acl == 1 && !$src->has_mode('oper')) {
-		&Janus::jmsg($dst, "You must be an IRC operator to use this command");
-		return;
+	my $acl = $commands{$cmd}{acl};
+	if ($acl) {
+		$acl = 'oper' if $acl eq '1';
+		unless (&Account::acl_check($src, $acl)) {
+			&Janus::jmsg($dst, "You must have access to the '$acl' ACL to use this command");
+			return;
+		}
 	}
 	unless ($commands{$cmd}{secret}) {
 		&Log::command(@_);
@@ -313,7 +316,7 @@ sub in_command {
 		$csub->($src, $dst, @args);
 		1;
 	} or do {
-		named_hook('die', $@, @_);
+		&Event::named_hook('die', $@, @_);
 	};
 	_runq(shift @qstack);
 }
