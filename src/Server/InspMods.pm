@@ -378,7 +378,7 @@ mdef 'm_services_account.so', cmode => { R => 'r_reginvite', M => 'r_regmoderate
 		},
 	};
 
-mdef 12, 'm_servprotect.so', umode => { S => 'service', k => 'no_kick' };
+mdef 12, 'm_servprotect.so', umode => { k => 'service' };
 
 mdef 'm_sethost.so', cmds => {
 	SETHOST => sub {
