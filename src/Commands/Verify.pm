@@ -40,10 +40,17 @@ sub v_nick {
 	}
 
 	for my $net ($nick->netlist) {
-		v_serv $net, "nick $$nick (list)";
+		v_serv $net, "nick $$nick (netlist) <= $path";
+		if ($net->isa('LocalNetwork')) {
+			my $name = $nick->str($net);
+			my $byname = $net->nick($name, 1);
+			if ($byname != $nick) {
+				push @err, "nick $$nick not associated with '$name' in net $$net; found in $path";
+			}
+		}
 	}
 	for my $chan ($nick->all_chans) {
-		v_chan $chan, "nick $$nick (list)";
+		v_chan $chan, "nick $$nick (chanlist) <= $path";
 		$n_c{$$nick.'-'.$$chan} |= 1;
 	}
 }
@@ -74,11 +81,11 @@ sub v_serv {
 	}
 
 	for my $nick ($net->all_nicks) {
-		v_nick $nick, "network $$net (list)";
+		v_nick $nick, "network $$net (nicklist) <= $path";
 	}
 
 	for my $chan ($net->all_chans) {
-		v_chan $chan, "network $$net (list)";
+		v_chan $chan, "network $$net (chanlist) <= $path";
 	}
 }
 
@@ -113,7 +120,7 @@ sub v_chan {
 	}
 
 	for my $net ($chan->nets) {
-		v_serv $net, "channel $$chan (list)";
+		v_serv $net, "channel $$chan (netlist) <= $path";
 		my $name = $chan->str($net);
 		if ($net->isa('LocalNetwork') && $net->chan($name) != $chan) {
 			push @err, "channel $$chan not associated with $name in network $$net; found in $path";
@@ -121,7 +128,7 @@ sub v_chan {
 	}
 
 	for my $nick ($chan->all_nicks) {
-		v_nick $nick, "channel $$chan (list)";
+		v_nick $nick, "channel $$chan (nicklist) <= $path";
 		$n_c{$$nick.'-'.$$chan} |= 2;
 	}
 }
