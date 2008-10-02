@@ -99,14 +99,14 @@ sub dump_now {
 &Janus::command_add({
 	cmd => 'dump',
 	help => 'Dumps current janus internal state to a file',
-	acl => 1,
+	acl => 'debug',
 	code => sub {
 		my $fn = dump_now(@_);
 		&Janus::jmsg($_[1], 'State dumped to file '.$fn);
 	},
 }, {
 	cmd => 'testdie',
-	acl => 1,
+	acl => 'debug',
 	code => sub {
 		die "You asked for it!";
 	},

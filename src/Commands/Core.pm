@@ -97,7 +97,7 @@ $perl::VERSION = sprintf '%vd', $^V;
 		"\002WARNING\002: Reloading core modules may introduce bugs because of persistance",
 		"of old code by the perl interpreter."
 	],
-	acl => 1,
+	acl => 'admin',
 	code => sub {
 		my($src,$dst,$name) = @_;
 		return &Janus::jmsg($dst, "Invalid module name") unless $name =~ /^([0-9_A-Za-z:]+)$/;
@@ -115,7 +115,7 @@ $perl::VERSION = sprintf '%vd', $^V;
 }, {
 	cmd => 'unload',
 	help => "Unload the hooks registered by a module",
-	acl => 1,
+	acl => 'admin',
 	code => sub {
 		my($src,$dst,$name) = @_;
 		if ($name !~ /::/ || $name eq __PACKAGE__) {
