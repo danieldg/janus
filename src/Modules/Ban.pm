@@ -87,9 +87,10 @@ my %timespec = (
 	acl => 1,
 	code => sub {
 		my($src,$dst,$cmd,@args) = @_;
+		$cmd = lc $cmd;
 		return &Janus::jmsg($src, "use 'help ban' to see the syntax") unless $cmd;
 		my $net = $src->homenet;
-		if ($cmd =~ /^l/i) {
+		if ($cmd eq 'list') {
 			my $c = 0;
 			@bans = grep { my $e = $_->{expire}; !$e || $e > $Janus::time } @bans;
 			for my $ban (@bans) {
@@ -110,7 +111,7 @@ my %timespec = (
 				&Janus::jmsg($dst, $str);
 			}
 			&Janus::jmsg($dst, 'No bans defined') unless @bans;
-		} elsif ($cmd =~ /^k?a/i) {
+		} elsif ($cmd eq 'add') {
 			my %ban = (
 				setter => $src->realhostmask,
 				to => $src->homenet->name,
@@ -124,7 +125,12 @@ my %timespec = (
 					$ban{$k} = $v;
 					delete $ban{$k} if $v eq '*';
 				} elsif (s#^/((?:[^\\/]|\\.)*)/\s*##) {
-					$ban{perlre} = qr($1);
+					eval {
+						$ban{perlre} = qr($1);
+						1;
+					} or do {
+						&Janus::jmsg($dst, "Could not parse: $@");
+					};
 				} else {
 					return &Janus::jmsg($dst, 'Invalid syntax for ban');
 				}
@@ -149,7 +155,7 @@ my %timespec = (
 			push @bans, \%ban;
 			&Janus::jmsg($dst, 'Ban added');
 			# TODO kadd
-		} elsif ($cmd =~ /^d/i) {
+		} elsif ($cmd eq 'del') {
 			for (@args) {
 				my $ban = /^\d+$/ && $bans[$_ - 1];
 				if ($ban) {
@@ -159,9 +165,12 @@ my %timespec = (
 					&Janus::jmsg($dst, "Could not find ban $_ - use ban list to see a list of all bans");
 				}
 			}
+		} else {
+			&Janus::jmsg($dst, 'Invalid syntax. See "help ban" for the syntax');
 		}
 	}
 });
+
 &Janus::hook_add(
 	CONNECT => check => sub {
 		my $act = shift;
