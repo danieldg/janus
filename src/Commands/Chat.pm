@@ -7,6 +7,7 @@ use warnings;
 &Janus::command_add({
 	cmd => 'chatto',
 	help => 'Send a message to all opers on a specific network',
+	section => 'Network',
 	details => [
 		"Syntax: \002CHATTO\002 network|* message",
 		'Note: The command /chatops, if available, may be relayed to all networks',

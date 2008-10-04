@@ -7,6 +7,7 @@ use warnings;
 &Janus::command_add({
 	cmd => 'forceid',
 	help => 'Forcibly tries to identify a ClientBot with whatever method possible.',
+	section => 'Network',
 	details => [
 		"Syntax: \002FORCEID\002 network [pass]",
 		'Tries to identify to the network with a method mentioned in the config, serever has to be a ClientBot.',
@@ -14,7 +15,7 @@ use warnings;
 		"To identify to NickServ, use: 	\002FORCEID\002 network [password]",
 		"To identify to Q(uakeNet)use: 	\002FORCEID\002 network [user] [password]",
 	],
-	acl => 1,
+	acl => 'clink',
 	code => sub {
 		my ($src,$dst,$args) = @_;
 		my ($nname, $auth) = $args =~ /(\S+)\s*(.*)/ or return;

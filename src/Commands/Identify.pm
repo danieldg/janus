@@ -8,6 +8,7 @@ use Account;
 &Janus::command_add({
 	cmd => 'identify',
 	help => 'Identify yourself to janus',
+	section => 'Account',
 	details => [
 		"Syntax: identify [username] password",
 		'Your nick is the default username',
@@ -40,6 +41,7 @@ use Account;
 }, {
 	cmd => 'setpass',
 	help => 'Set your janus identify password',
+	section => 'Account',
 	details => [
 		"Syntax: \002setpass\002 [user] password",
 	],

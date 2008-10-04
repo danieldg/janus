@@ -7,6 +7,7 @@ use warnings;
 &Janus::command_add({
 	cmd => 'list',
 	help => 'List channels available for linking',
+	section => 'Channel',
 	details => [
 		"Syntax: \002LIST\002 network|*",
 	],

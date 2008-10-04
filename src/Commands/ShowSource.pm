@@ -7,6 +7,7 @@ use warnings;
 &Event::command_add({
 	cmd => 'showsource',
 	help => 'Shows lines of the janus source',
+	section => 'Info',
 	details => [
 		"\002SHOWSOURCE\002 module line[-line]",
 	],

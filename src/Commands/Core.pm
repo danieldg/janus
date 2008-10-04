@@ -10,6 +10,7 @@ $perl::VERSION = sprintf '%vd', $^V;
 &Janus::command_add({
 	cmd => 'about',
 	help => 'Provides information about janus',
+	section => 'Info',
 	code => sub {
 		&Janus::jmsg($_[1], 
 			'Janus is a server that allows IRC networks to share certain channels to other',
@@ -22,6 +23,7 @@ $perl::VERSION = sprintf '%vd', $^V;
 }, {
 	cmd => 'modules',
 	help => 'Version information on all modules loaded by janus',
+	section => 'Info',
 	details => [
 		"Syntax: \002MODULES\002 [all|janus|other][columns]",
 	],
@@ -66,6 +68,7 @@ $perl::VERSION = sprintf '%vd', $^V;
 }, {
 	cmd => 'modinfo',
 	help => 'Provides information about a module',
+	section => 'Info',
 	details => [
 		"Syntax: \002MODINFO\002 module",
 	],
@@ -92,6 +95,7 @@ $perl::VERSION = sprintf '%vd', $^V;
 }, {
 	cmd => 'reload',
 	help => "Load or reload a module, live.",
+	section => 'Admin',
 	details => [
 		"Syntax: \002RELOAD\002 module",
 		"\002WARNING\002: Reloading core modules may introduce bugs because of persistance",
@@ -115,6 +119,7 @@ $perl::VERSION = sprintf '%vd', $^V;
 }, {
 	cmd => 'unload',
 	help => "Unload the hooks registered by a module",
+	section => 'Admin',
 	acl => 'admin',
 	code => sub {
 		my($src,$dst,$name) = @_;

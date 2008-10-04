@@ -99,6 +99,7 @@ sub dump_now {
 &Janus::command_add({
 	cmd => 'dump',
 	help => 'Dumps current janus internal state to a file',
+	section => 'Admin',
 	acl => 'debug',
 	code => sub {
 		my $fn = dump_now(@_);

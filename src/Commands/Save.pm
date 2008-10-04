@@ -7,6 +7,7 @@ use warnings;
 &Janus::command_add({
 	cmd => 'save',
 	help => 'Save janus state to filesystem',
+	section => 'Admin',
 	acl => 1,
 	code => sub {
 		my($src,$dst,$args) = @_;

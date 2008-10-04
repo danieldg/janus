@@ -11,6 +11,7 @@ our %claim;
 &Janus::command_add({
 	cmd => 'claim',
 	help => 'Claim network ownership of a channel',
+	section => 'Channel',
 	details => [
 		"\002CLAIM\002 #channel            Lists claims on the channel",
 		"\002CLAIM\002 #channel net,net    Sets the claiming networks of the channel",

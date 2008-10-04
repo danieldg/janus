@@ -7,6 +7,7 @@ use warnings;
 &Janus::command_add({
 	cmd => 'link',
 	help => 'Link to a remote network\'s shared channel',
+	section => 'Channel',
 	details => [ 
 		"Syntax: \002LINK\002 channel network [remotechan]",
 		"The remote network must use the \002CREATE\002 command to",
@@ -64,6 +65,7 @@ use warnings;
 }, {
 	cmd => 'create',
 	help => 'Creates a channel that other networks can link to',
+	section => 'Channel',
 	details => [
 		"Syntax: \002CREATE\002 #channel"
 	],
@@ -106,6 +108,7 @@ use warnings;
 }, {
 	cmd => 'delink',
 	help => 'Delinks a channel',
+	section => 'Channel',
 	details => [
 		"Syntax: \002DELINK\002 #channel [network]",
 		"The home newtwork must specify a network to delink, or use \002DESTROY\002",
@@ -152,6 +155,7 @@ use warnings;
 }, {
 	cmd => 'destroy',
 	help => 'Removes a channel that other networks can link to',
+	section => 'Channel',
 	details => [
 		"Syntax: \002DESTROY\002 #channel",
 	],

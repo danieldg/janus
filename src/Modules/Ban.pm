@@ -71,6 +71,7 @@ my %timespec = (
 &Janus::command_add({
 	cmd => 'ban',
 	help => 'Manages Janus bans (bans remote users)',
+	section => 'Network',
 	details => [
 		'Bans are matched on connects to shared channels, and generate autokicks.',
 		" \002ban list\002               List all active janus bans",

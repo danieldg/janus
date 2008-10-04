@@ -7,10 +7,11 @@ use warnings;
 &Janus::command_add({
 	cmd => 'clink',
 	help => 'Requests a link from a clientbot network',
+	section => 'Channel',
 	details => [
 		"\002CLINK\002 cb-net #channel [dest-net] [#dest-chan]"
 	],
-	acl => 1,
+	acl => 'clink',
 	code => sub {
 		my($src,$dst, $bnet, $bchan, $dnet, $dchan) = @_;
 		if ($dnet && $dnet =~ /#/) {

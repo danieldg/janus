@@ -62,6 +62,7 @@ sub findline {
 &Janus::command_add({
 	cmd => 'xline',
 	help => 'Enables or disables bans according to G/Z-lines',
+	section => 'Network',
 	details => [
 		'Enables or disables bans according to G/Z-lines',
 		'These bans are enforced for your network only, and are only listable',

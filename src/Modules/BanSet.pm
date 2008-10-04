@@ -32,6 +32,7 @@ sub find {
 &Janus::command_add({
 	cmd => 'banset',
 	help => 'Manages Janus ban sets (bans many remote users)',
+	section => 'Network',
 	details => [
 		'Bans are matched on connects to shared channels, and generate autokicks.',
 		" \002banset list\002             List all ban sets",

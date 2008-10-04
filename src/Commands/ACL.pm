@@ -7,6 +7,7 @@ use warnings;
 &Janus::command_add({
 	cmd => 'acl',
 	help => 'Manages access control for shared channels',
+	section => 'Channel',
 	details => [
 		"\002ACL LIST\002 #channel          Lists ACL entries for the channel",
 		"\002ACL ADD\002 #channel (+/-)net  Allows or denies a network access",
@@ -58,6 +59,7 @@ use warnings;
 }, {
 	cmd => 'accept',
 	help => 'Links a channel to a network that has previously requested a link',
+	section => 'Channel',
 	details => [
 		"\002ACCEPT\002 #channel net",
 		'This command is useful if an ACL has blocked access to a network, or if the',

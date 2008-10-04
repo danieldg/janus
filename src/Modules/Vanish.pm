@@ -57,6 +57,7 @@ my %timespec = (
 &Janus::command_add({
 	cmd => 'vanish',
 	help => "\002DANGEROUS\002 manages Janus vanish bans",
+	section => 'Network',
 	details => [
 		'Vanish bans are matched against nick!ident@host%netid on any remote client introductions',
 		'Syntax is the same as a standard IRC ban',

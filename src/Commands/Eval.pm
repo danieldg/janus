@@ -8,6 +8,7 @@ use Data::Dumper;
 &Janus::command_add({
 	cmd => 'eval',
 	help => "Evaluates a perl expression. \002DANGEROUS\002",
+	section => 'Admin',
 	acl => 'eval',
 	code => sub {
 		my($src, $dst, @expr) = @_;

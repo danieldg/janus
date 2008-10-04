@@ -7,6 +7,7 @@ use warnings;
 &Janus::command_add({
 	cmd => 'rehash',
 	help => 'Reload the config and attempt to reconnect to split servers',
+	section => 'Admin',
 	code => sub {
 		my($src,$dst,$pass) = @_;
 		unless (&Account::acl_check($src, 'oper') || &Account::acl_check($src,'rehash') ||
@@ -23,6 +24,7 @@ use warnings;
 }, {
 	cmd => 'die',
 	help => "Kill the janus server; does \002NOT\002 restart it",
+	section => 'Admin',
 	acl => 'die',
 	code => sub {
 		my($src,$dst,$pass) = @_;
@@ -45,6 +47,7 @@ use warnings;
 }, {
 	cmd => 'restart',
 	help => "Restart the janus server",
+	section => 'Admin',
 	acl => 'die',
 	code => sub {
 		my($src,$dst,$pass) = @_;
@@ -70,6 +73,7 @@ use warnings;
 }, {
 	cmd => 'autoconnect',
 	help => 'Enable or disable autoconnect on a network',
+	section => 'Network',
 	details => [
 		"Syntax: \002AUTOCONNECT\002 network [0|1]",
 		"Enables or disables the automatic reconnection that janus makes to a network.",
@@ -96,6 +100,7 @@ use warnings;
 }, {
 	cmd => 'netsplit',
 	help => 'Split a network and reconnect to it',
+	section => 'Network',
 	details => [
 		"Syntax: \002NETSPLIT\002 network",
 		"Disconnects the given network from janus and then rehashes to (possibly) reconnect",
@@ -123,6 +128,7 @@ use warnings;
 }, {
 	cmd => 'linked',
 	help => 'Shows a list of the linked networks and channels',
+	section => 'Info',
 	code => sub {
 		my($src,$dst) = @_;
 		my $hnet = $src->homenet();

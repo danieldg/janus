@@ -8,6 +8,7 @@ use warnings;
 	cmd => 'account',
 	help => 'Manages janus accounts',
 	acl => 'admin',
+	section => 'Account',
 	details => [
 		"\002ACCOUNT LIST\002               Lists all accounts",
 		"\002ACCOUNT SHOW\002 account       Shows details on an account",

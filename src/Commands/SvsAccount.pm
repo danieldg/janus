@@ -34,6 +34,7 @@ sub find_account {
 &Event::command_add({
 	cmd => 'svsaccount',
 	help => 'Associates a services account with a janus account',
+	section => 'Account',
 	details => [
 		"\002svsaccount add\002       Authorizes your current login for your current account",
 		"\002svsaccount list\002      Lists the accounts allowed for your account",

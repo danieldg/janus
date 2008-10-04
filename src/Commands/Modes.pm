@@ -10,6 +10,7 @@ use Modes;
 &Janus::command_add({
 	cmd => 'showmode',
 	help => 'Shows the current intended modes of a channel',
+	section => 'Channel',
 	details => [
 		"\002SHOWMODE\002 #channel - shows the intended modes of the channel on your network",
 	],
@@ -52,6 +53,7 @@ use Modes;
 }, {
 	cmd => 'setmode',
 	help => 'Sets a mode by its long name',
+	section => 'Channel',
 	details => [
 		"\002SETMODE\002 #channel +mode1 -mode2 +mode3=value",
 		"For a list of modes, see the \002LISTMODES\002 command.",
@@ -119,6 +121,7 @@ use Modes;
 }, {
 	cmd => 'listmodes',
 	help => 'Shows a list of the long modes\' names',
+	section => 'Info',
 	code => sub {
 		my($src,$dst,$w) = @_;
 		my $net = $src->homenet;

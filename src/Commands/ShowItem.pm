@@ -76,6 +76,7 @@ my @mode_sym = qw{~ & @ % +};
 &Event::command_add({
 	cmd => 'shownick',
 	help => 'Shows internal details on a nick',
+	section => 'Info',
 	details => [
 		"\002SHOWNICK\002 [net] nick|gid",
 	],
@@ -95,6 +96,7 @@ my @mode_sym = qw{~ & @ % +};
 }, {
 	cmd => 'showchan',
 	help => 'Shows internal details on a channel',
+	section => 'Info',
 	details => [
 		"\002SHOWCHAN\002 [net] chan|gid",
 	],
@@ -116,6 +118,7 @@ my @mode_sym = qw{~ & @ % +};
 }, {
 	cmd => 'shownet',
 	help => 'Shows internal details on a network',
+	section => 'Info',
 	details => [
 		"\002SHOWCHAN\002 netid|gid",
 	],

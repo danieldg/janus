@@ -13,6 +13,7 @@ sub fexec {
 &Janus::command_add({
 	cmd => 'upgrade',
 	help => 'Upgrades all modules loaded by janus',
+	section => 'Admin',
 	acl => 'admin',
 	code => sub {
 		my($src,$dst,$arg) = @_;
@@ -45,6 +46,7 @@ sub fexec {
 }, {
 	cmd => 'up-tar',
 	help => 'Downloads and extracts an updated version of janus via gitweb',
+	section => 'Admin',
 	acl => 'admin',
 	code => sub {
 		my($src,$dst) = @_;
@@ -64,6 +66,7 @@ sub fexec {
 }, {
 	cmd => 'up-git',
 	help => 'Runs "git pull"',
+	section => 'Admin',
 	acl => 'admin',
 	code => sub {
 		my($src,$dst) = shift;

@@ -66,7 +66,8 @@ Command hashref contains:
   code - will be executed with the arguments: ($src, $dst, @args)
   help - help text
   details - arrayref of detailed help text, one line per elt
-  acl - undef/0 for all, 1 for oper-only, 2+ to be defined later
+  section - section of the help this command will appear in
+  acl - name of ACL, or omit for all access
   secret - 1 if the command should not be logged (i.e. it contains passwords)
 
 If you set the "secret" flag, log the command in your code after stripping out sensitive information.
@@ -86,6 +87,15 @@ sub command_add {
 		$commands{$cmd} = $h;
 	}
 }
+
+my %help_section = (
+	Account => 'Account managment',
+	Admin => 'Administration',
+	Channel => 'Channel managment',
+	Info => 'Information',
+	Network => 'Network managment',
+	Other => 'Other',
+);
 
 sub _send {
 	my $act = $_[0];
@@ -469,7 +479,11 @@ Event::hook_add(
 
 Event::command_add({
 	cmd => 'help',
-	help => 'The text you are reading now',
+	help => 'Help on janus commands. See "help help" for use.',
+	section => 'Info',
+	details => [
+		'Use: help [command|all]'
+	],
 	code => sub {
 		my($src,$dst,$item) = @_;
 		$item = lc $item || '';
@@ -483,7 +497,7 @@ Event::command_add({
 				&Janus::jmsg($dst, 'No help for that command');
 			}
 		} else {
-			my @cmds;
+			my %cmds;
 			my $synlen = 0;
 			for my $cmd (sort keys %commands) {
 				my $h = $commands{$cmd}{help};
@@ -493,13 +507,18 @@ Event::command_add({
 					$acl = 'oper' if $acl eq '1';
 					next unless &Account::acl_check($src, $acl);
 				}
-				push @cmds, $cmd;
+				my $section = $commands{$cmd}{section} || 'Other';
+				$cmds{$section} ||= [];
+				push @{$cmds{$section}}, $cmd;
 				$synlen = length $cmd if length $cmd > $synlen;
 			}
-			&Janus::jmsg($dst, "Use '\002HELP\002 command' for details", 'Available commands: ');
-			&Janus::jmsg($dst, map {
-				sprintf " \002\%-${synlen}s\002  \%s", uc $_, $commands{$_}{help};
-			} @cmds);
+			&Janus::jmsg($dst, "Use '\002HELP\002 command' for details");
+			for my $section (sort keys %cmds) {
+				my $sname = $help_section{$section} || $section;
+				&Janus::jmsg($dst, $sname.':', map {
+					sprintf " \002\%-${synlen}s\002  \%s", uc $_, $commands{$_}{help};
+				} @{$cmds{$section}});
+			}
 		}
 	}
 }, {
