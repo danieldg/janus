@@ -259,6 +259,7 @@ my %spec = (
 		mode => '@',
 	},
 	NICKINFO => {
+		src => '?Nick Network RemoteJanus',
 		dst => 'Nick',
 		item => '$',
 		value => '?$',

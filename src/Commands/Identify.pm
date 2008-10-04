@@ -17,11 +17,19 @@ use Account;
 		my $nick = $_[0];
 		my $user = lc (@_ == 3 ? $nick->homenick : $_[2]);
 		my $pass = $_[-1];
+		$user =~ s/[^0-9a-z_]//g;
 		if ($Account::accounts{$user}) {
 			# TODO hash the password
 			if ($Account::accounts{$user}{pass} eq $pass) {
-				$Account::account[$$nick] = $user;
+				my $id = $RemoteJanus::self->id;
 				&Log::info($nick->netnick. ' identified as '.$user);
+				&Janus::append({
+					type => 'NICKINFO',
+					src => $RemoteJanus::self,
+					dst => $nick,
+					item => "account:$id",
+					value => $user,
+				})
 				&Janus::jmsg($nick, "You are now identified as $user");
 				return;
 			}
