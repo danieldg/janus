@@ -37,6 +37,29 @@ use Account;
 		&Log::info($nick->netnick.' failed identify as '.$user);
 		&Janus::jmsg($nick, 'Invalid username or password');
 	},
+}, {
+	cmd => 'setpass',
+	help => 'set your janus identify password',
+	details => [
+		"Syntax: setpass [user] <password>",
+	],
+	secret => 1,
+	code => sub {
+		my($src,$dst) = @_;
+		my $acctid = $src->info('account:'.$RemoteJanus::self->id);
+		my $user = @_ == 3 ? $acctid : $_[2];
+		my $acct = $user ? $Account::accounts{$user} : undef;
+		if ($acct && $user eq $acctid) {
+			&Log::info($src->netnick .' changed their password (account "'.$user.'")');
+		} elsif (&Account::acl_check($src, 'admin')) {
+			return &Janus::jmsg($dst, 'Cannot find that user') unless $acct;
+			&Log::audit($src->netnick .' changed '.$user."\'s password");
+		} else {
+			return &Janus::jmsg($dst, 'You can only change your own password');
+		}
+		$acct->{pass} = $_[-1];
+		&Janus::jmsg($dst, 'Done');
+	},
 });
 
 1;
