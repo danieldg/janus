@@ -11,26 +11,29 @@ our %accounts;
 
 sub acl_check {
 	my($nick, $acl) = @_;
-	if ($acl eq 'oper') {
-		return $nick->has_mode('oper');
-	}
 	my @accts;
 	my $selfid = $nick->info('account:'.$RemoteJanus::self->id);
-	push @accts, $accounts{$selfid} if $accounts{$selfid};
+	my %has = (
+		oper => $nick->has_mode('oper'),
+	);
+
+	if ($accounts{$selfid}) {
+		push @accts, $accounts{$selfid};
+	}
 
 	for my $ij (values %Janus::ijnets) {
 		my $id = $ij->id;
 		my $login = $nick->info('account:'.$id) or next;
 		push @accts, $accounts{$id.':'.$login} if $accounts{$id.':'.$login};
 	}
+
 	for my $acct (@accts) {
+		$has{user}++;
 		next unless $acct->{acl};
-		return 1 if $acct->{acl} eq '*';
-		for (split /\s+/, $acct->{acl}) {
-			return 1 if $acl eq $_;
-		}
+		$has{$_}++ for split /\s+/, $acct->{acl};
 	}
-	0;
+	return 1 if $has{'*'};
+	$has{$acl};
 }
 
 #&Event::hook_add(

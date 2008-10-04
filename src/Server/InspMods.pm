@@ -371,6 +371,11 @@ mdef 'm_services_account.so', cmode => { R => 'r_reginvite', M => 'r_regmoderate
 			my $net = shift;
 			my $nick = $net->mynick($_[2]) or return ();
 			return +{
+				type => 'NICKINFO',
+				dst => $nick,
+				item => 'svsaccount',
+				value => $_[4],
+			}, +{
 				type => 'UMODE',
 				dst => $nick,
 				mode => [ $_[4] eq '' ? '-registered' : '+registered' ],

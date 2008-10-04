@@ -548,6 +548,7 @@ sub operlevel {
 
 sub _parse_umode {
 	my($net, $nick, $mode) = @_;
+	my @out;
 	my @mode;
 	my $pm = '+';
 	my $vh_pre = $nick->has_mode('vhost') ? 3 : $nick->has_mode('vhost_x') ? 1 : 0;
@@ -558,7 +559,14 @@ sub _parse_umode {
 		if (/[-+]/) {
 			$pm = $_;
 		} elsif (/d/ && $_[3]) {
-			# adjusts the services TS - which is restricted to the local network
+			# adjusts the services TS.
+			# This event should be sent before the UMODE event
+			push @out, +{
+				type => 'NICKINFO',
+				dst => $nick,
+				item => 'svsts',
+				value => $_[3],
+			};
 		} else {
 			my $txt = $umode2txt{$_} or do {
 				&Log::warn_in($net, "Unknown umode '$_'");
@@ -574,7 +582,6 @@ sub _parse_umode {
 			push @mode, $pm.$txt;
 		}
 	}
-	my @out;
 	push @out, +{
 		type => 'UMODE',
 		dst => $nick,
@@ -660,7 +667,7 @@ sub srvname {
 				host => $_[6],
 				vhost => $_[6],
 				home_server => $net->srvname($_[7]),
-				#servicests => $net->sjbint($_[8]),
+				svsts => $net->sjbint($_[8]),
 				name => $_[-1],
 			},
 		);
