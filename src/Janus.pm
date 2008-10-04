@@ -377,9 +377,16 @@ Event::hook_add(
 				nojlink => 1,
 			});
 		}
-	}, POISON => cleanup => sub {
+	}, POISON => parse => sub {
 		my $act = shift;
 		weaken($act->{item});
+		if ('Persist::Poison' eq ref $act->{item}) {
+			$act->{item} = undef;
+		}
+		return 1 unless $act->{item};
+		0;
+	}, POISON => cleanup => sub {
+		my $act = shift;
 		if ($act->{item}) {
 			&Persist::poison($act->{item});
 		}
