@@ -36,6 +36,27 @@ sub acl_check {
 	$has{$acl};
 }
 
+sub has_local {
+	my $nick = shift;
+	my $selfid = $nick->info('account:'.$RemoteJanus::self->id);
+	defined $selfid && defined $accounts{$selfid};
+}
+
+sub get {
+	my($nick, $item) = @_;
+	my $selfid = $nick->info('account:'.$RemoteJanus::self->id) or return undef;
+	return undef unless $accounts{$selfid};
+	return $accounts{$selfid}{$item};
+}
+
+sub set {
+	my($nick, $item, $value) = @_;
+	my $selfid = $nick->info('account:'.$RemoteJanus::self->id) or return 0;
+	return 0 unless $accounts{$selfid};
+	$accounts{$selfid}{$item} = $value;
+	1;
+}
+
 #&Event::hook_add(
 #	NICKINFO => check => sub {
 #		my $act = shift;

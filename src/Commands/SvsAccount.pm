@@ -44,13 +44,12 @@ sub find_account {
 	acl => 'user',
 	code => sub {
 		my($src,$dst,$cmd,$idx) = @_;
-		my $acct = $Account::accounts{$src->info('account:'.$RemoteJanus::self->id)};
-		return &Janus::jmsg($dst, 'You need a local account for this command') unless $acct;
-		my $auth = $acct->{svsauth};
+		return &Janus::jmsg($dst, 'You need a local account for this command') unless &Account::has_local($src);
+		my $auth = &Account::get($src, 'svsauth');
 		if ($cmd eq 'add') {
 			my $acctid = get_aid($src);
 			if ($acctid) {
-				$acct->{svsauth} = $auth ? "$auth $acctid" : $acctid;
+				&Account::set($src, 'svsauth', $auth ? "$auth $acctid" : $acctid);
 				&Janus::jmsg($dst, "Account $acctid authorized for your account");
 			} else {
 				&Janus::jmsg($dst, 'You are not logged into services');
@@ -65,7 +64,7 @@ sub find_account {
 			my %ids;
 			$ids{$_}++ for split /\s+/, $auth;
 			if (delete $ids{$idx}) {
-				$acct->{svsauth} = join ' ', keys %ids;
+				&Account::set($src, 'svsauth', join ' ', keys %ids);
 				&Janus::jmsg($dst, 'Deleted');
 			} else {
 				&Janus::jmsg($dst, 'Not found');
