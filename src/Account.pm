@@ -24,7 +24,7 @@ sub acl_check {
 		push @accts, $accounts{$id.':'.$login} if $accounts{$id.':'.$login};
 	}
 	for my $acct (@accts) {
-		return 0 unless $acct->{acl};
+		next unless $acct->{acl};
 		return 1 if $acct->{acl} eq '*';
 		for (split /\s+/, $acct->{acl}) {
 			return 1 if $acl eq $_;
