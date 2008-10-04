@@ -510,6 +510,7 @@ sub kicked {
 	331 => \&ignore, # no topic
 	332 => \&ignore, # topic
 	333 => \&ignore, # topic setter & ts
+	TOPIC => \&ignore, # we ignore topic
 
 	315 => \&ignore, # end of /WHO
 	352 => sub {

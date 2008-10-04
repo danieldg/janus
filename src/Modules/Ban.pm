@@ -130,6 +130,7 @@ my %timespec = (
 						1;
 					} or do {
 						&Janus::jmsg($dst, "Could not parse: $@");
+						return;
 					};
 				} else {
 					return &Janus::jmsg($dst, 'Invalid syntax for ban');
