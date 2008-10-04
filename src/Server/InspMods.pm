@@ -26,7 +26,7 @@ sub mdef {
 		my $old = $modules{$name};
 		my $for = delete $old->{for};
 		$modules{$name} = {};
-		$modules{$name}{$_} = $old for @$for;
+		$modules{$name}{$_} = $old for split / /, $for;
 	}
 	if ($modules{$name}) {
 		for (@ver) {
@@ -34,7 +34,7 @@ sub mdef {
 			$modules{$name}{$_} = \%args;
 		}
 	} else {
-		$args{for} = \@ver;
+		$args{for} = join ' ', @ver;
 		$modules{$name} = \%args;
 	}
 }
@@ -46,7 +46,7 @@ sub mdef {
 		my $ver = $net->protoctl;
 		return unless $modules{$name};
 		if ($modules{$name}{for}) {
-			return unless grep { $ver == $_ } @{$modules{$name}{for}};
+			return unless grep { $ver == $_ } split / /, $modules{$name}{for};
 			$$d = $modules{$name};
 		} else {
 			return unless $modules{$name}{$ver};
