@@ -7,7 +7,7 @@ use Account;
 
 &Janus::command_add({
 	cmd => 'identify',
-	help => 'identify yourself to janus',
+	help => 'Identify yourself to janus',
 	details => [
 		"Syntax: identify [username] password",
 		'Your nick is the default username',
@@ -39,11 +39,12 @@ use Account;
 	},
 }, {
 	cmd => 'setpass',
-	help => 'set your janus identify password',
+	help => 'Set your janus identify password',
 	details => [
-		"Syntax: setpass [user] <password>",
+		"Syntax: \002setpass\002 [user] password",
 	],
 	secret => 1,
+	acl => 'user',
 	code => sub {
 		my($src,$dst) = @_;
 		my $acctid = $src->info('account:'.$RemoteJanus::self->id);
