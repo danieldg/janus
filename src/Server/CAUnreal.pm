@@ -365,47 +365,29 @@ sub umode_text {
 }
 
 sub _connect_ifo {
-	my ($net, $nick) = @_;
+	my ($net, $nick, $althost) = @_;
 
 	my $mode = $net->umode_text($nick);
+	my $rhost = $nick->info('host');
 	my $vhost = $nick->info('vhost');
-	if ($vhost eq 'unknown.cloaked') {
-		$vhost = '*'; # XXX: CA HACK
+	if ($net->param('untrusted')) {
+		$vhost = 'cloak.unavailable' if $vhost eq '*';
+		$rhost = $vhost;
+	} elsif ($vhost eq 'unknown.cloaked') {
+		$vhost = '*'; # hack
 		$mode =~ s/t//;
 	}
+	if ($althost) {
+		$rhost = $nick->homenet->id . '/' . $rhost;
+	}
+
 	my($hc, $srv) = (2,$nick->homenet()->jname());
 	$hc = 3 if $nick->jlink();
 	($hc, $srv) = (1, $net->cparam('linkname')) if $srv eq 'janus.janus';
 
-	my $ip = $nick->info('ip') || '*';
-	if ($ip =~ /^[0-9.]+$/) {
-		$ip =~ s/(\d+)\.?/sprintf '%08b', $1/eg; #convert to binary
-		$ip .= '0000=='; # base64 uses up 36 bits, so add 4 from the 32...
-		$ip =~ s/([01]{6})/substr $textip_table, oct("0b$1"), 1/eg;
-	} elsif ($ip =~ /^[0-9a-f:]+$/) {
-		$ip .= ':';
-		$ip =~ s/::/:::/ while $ip =~ /::/ && $ip !~ /(.*:){8}/;
-		# fully expanded IPv6 address, with an additional : at the end
-		$ip =~ s/([0-9a-f]*):/sprintf '%016b', hex $1/eg;
-		$ip .= '0000==';
-		$ip =~ s/([01]{6})/substr $textip_table, oct("0b$1"), 1/eg;
-	} else {
-		warn "Unrecognized IP address '$ip'" unless $ip eq '*';
-		$ip = '*';
-	}
-	unless ($ip eq '*' || length $ip == 8 || length $ip == 24) {
-		warn "Dropping NICKIP to avoid crashing unreal!";
-		$ip = '*';
-	}
 	my @out;
-	if ($net->param('untrusted')) {
-		$vhost = 'cloak.unavailable' if $vhost eq '*';
-		push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $vhost,
-			$srv, 0, $mode, $vhost, $nick->info('name'));
-	} else {
-		push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $nick->info('host'),
-			$srv, 0, $mode, $vhost, $nick->info('name'));
-	}
+	push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $rhost,
+		$srv, 0, $mode, $vhost, $nick->info('name'));
 	my $whois = $nick->info('swhois');
 	push @out, $net->cmd1(SWHOIS => $nick, $whois) if defined $whois && $whois ne '';
 	my $away = $nick->info('away');
@@ -1404,7 +1386,7 @@ sub cmd2 {
 		my $nick = $act->{dst};
 
 		if ($act->{killed}) {
-			my @out = $net->_connect_ifo($nick);
+			my @out = $net->_connect_ifo($nick, $act->{althost});
 			for my $chan (@{$act->{reconnect_chans}}) {
 				next unless $chan->is_on($net);
 				my $mode = '';

@@ -185,6 +185,7 @@ my %spec = (
 		dst => 'Nick',
 		net => 'Network',
 		killed => '$', # 1 = reintroduce, 0 = renick
+		althost => '?$', # 1 = try alternate real host on reintroduce
 	},
 	KILL => {
 		dst => 'Nick',

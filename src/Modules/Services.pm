@@ -11,9 +11,11 @@ use constant {
 	NO_KILL_UNTAG => 4,
 	NO_KILL_ALL => 8,
 	JOIN_ALL => 16,
+	KILL_ALTHOST => 32,
 };
 
-our @cache;
+# clear the cache on each module load, to force new values
+our @cache = ();
 &Persist::register_vars('Nick::cache' => \@cache);
 
 sub svs_type {
@@ -54,6 +56,7 @@ sub svs_type {
 		$r = CACHED | JOIN_ALL | NO_KILL_UNTAG;
 	}
 	$r |= NO_KILL_ALL if $nick eq 'nickserv';
+	$r |= KILL_ALTHOST if $nick eq 'operserv';
 
 	$cache[$$n] = $r;
 }
@@ -86,6 +89,7 @@ sub svs_type {
 			dst => $nick,
 			net => $net,
 			killed => 1,
+			($type & KILL_ALTHOST ? (althost => 1) : ()),
 		});
 		1;
 	}, NEWNICK => act => sub {
