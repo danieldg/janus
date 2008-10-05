@@ -24,7 +24,7 @@ sub close {
 }
 
 sub init_pending {
-	my($self, $sock, $addr) = @_;
+	my($self, $addr) = @_;
 	my $conf = $Conffile::netconf{$id[$$self]};
 	return undef unless $conf;
 
@@ -43,24 +43,12 @@ sub init_pending {
 		}
 	}
 	unless ($net) {
-		Log::info("Rejecting connection from $addr, no matching network definition found");
+		&Log::info("Rejecting connection from $addr, no matching network definition found");
 		return undef;
 	}
-
-	if ($conf->{linktype} =~ /ssl/) {
-		IO::Socket::SSL->start_SSL($sock, 
-			SSL_server => 1, 
-			SSL_startHandshake => 0,
-			SSL_key_file => $conf->{keyfile},
-			SSL_cert_file => $conf->{certfile},
-		);
-		if ($sock->isa('IO::Socket::SSL')) {
-			$sock->accept_SSL();
-		} else {
-			&Log::err("cannot initiate SSL accept on $id[$$self]");
-		}
-	}
-	$net;
+	
+	my $ssl = ($conf->{linktype} =~ /ssl/) ? $conf : undef;
+	($net, $ssl);
 }
 
 sub dump_sendq { '' }

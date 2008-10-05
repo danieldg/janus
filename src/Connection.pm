@@ -129,9 +129,22 @@ sub readable {
 		my $fd = $sock ? fileno $sock : undef;
 		return unless defined $fd;
 		my $addr = peer_to_addr($peer);
-		$net = $net->init_pending($sock, $addr);
-		return unless $net;
-		push @queues, [ $fd, $sock, $net, $tblank, '', 1, 0, $Janus::time ];
+		my($newnet, $ssl) = $net->init_pending($addr);
+		return unless $newnet;
+		if ($ssl) {
+			IO::Socket::SSL->start_SSL($sock, 
+				SSL_server => 1, 
+				SSL_startHandshake => 0,
+				SSL_key_file => $ssl->{keyfile},
+				SSL_cert_file => $ssl->{certfile},
+			);
+			if ($sock->isa('IO::Socket::SSL')) {
+				$sock->accept_SSL();
+			} else {
+				&Log::err_in($newnet, "cannot initiate SSL accept");
+			}
+		}
+		push @queues, [ $fd, $sock, $newnet, $tblank, '', 1, 0 ];
 		return;
 	}
 
