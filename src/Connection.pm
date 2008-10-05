@@ -146,13 +146,13 @@ sub readable {
 		while ($recvq =~ /\n/) {
 			my $line;
 			($line, $recvq) = split /[\r\n]+/, $recvq, 2;
-			&Event::in_socket($$l[NET], $line);
+			$net->in_socket($line);
+			last unless $$l[NET]; # abort f.e. on ERROR
 		}
 		$$l[RECVQ] = $recvq;
 		$$l[TRY_R] = 1 if $$l[TRY_R]; #reset SSL error counter
 		$$l[PINGT] = $Janus::time;
 	} else {
-		my $net = $$l[NET] or return;
 		if ($sock->isa('IO::Socket::SSL')) {
 			if ($sock->errstr() eq SSL_WANT_READ) {
 				# we were trying to read, and want another read: act just like reading

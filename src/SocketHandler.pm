@@ -20,6 +20,28 @@ sub pingall {
 	}
 }
 
+=item SocketHandler::in_socket($src,$line)
+
+Processes a single line which came in from the given network's socket.
+No terminating newline.
+
+=cut
+
+sub in_socket {
+	my($src,$line) = @_;
+	my @act;
+	eval {
+		@act = $src->parse($line);
+		1;
+	} or do {
+		&Event::named_hook('die', $@, @_);
+		&Log::err_in($src, "Unchecked exception in parsing");
+	};
+	$_->{except} = $src for @act;
+	&Event::insert_full(@act);
+}
+
+
 if ($ping) {
 	$ping->{code} = \&pingall;
 } else {

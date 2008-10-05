@@ -273,31 +273,6 @@ sub append {
 	push @{$qstack[0]}, @_;
 }
 
-=item Event::in_socket($src,$line)
-
-Processes the line which came from the given source network
-
-=cut
-
-sub in_socket {
-	my($src,$line) = @_;
-	return unless $src;
-	eval {
-		my @act = $src->parse($line);
-		for my $act (@act) {
-			$act->{except} = $src;
-			unshift @qstack, [];
-			_run($act);
-			$act = undef;
-			_runq(shift @qstack);
-		}
-		1;
-	} or do {
-		named_hook('die', $@, @_);
-		&Log::err_in($src, "Unchecked exception in parsing");
-	};
-}
-
 =item Event::in_command($src, $dst, @args)
 
 Processes the split arguments as a command initiated by the nick $src, with results
