@@ -186,6 +186,16 @@ sub send {
 	$sendq[$$ij] .= join '', map "$_\n", @out;
 }
 
+sub delink {
+	my($net,$msg) = @_;
+	delete $Janus::pending{$net->id};
+	&Event::insert_full(+{
+		type => 'JNETSPLIT',
+		net => $net,
+		msg => $msg,
+	});
+}
+
 sub dump_sendq {
 	my $ij = shift;
 	my $q = $sendq[$$ij];

@@ -166,7 +166,7 @@ sub readable {
 		} else {
 			&Log::err_in($net, "Delink from failed read: $!");
 		}
-		delink($net, 'Socket read failure ('.$!.')');
+		$net->delink('Socket read failure ('.$!.')');
 	}
 }
 
@@ -192,7 +192,7 @@ sub _syswrite {
 		} else {
 			&Log::err_in($net, "Delink from failed write: $!");
 		}
-		delink($net, 'Socket write failure ('.$!.')');
+		$net->delink('Socket write failure ('.$!.')');
 	}
 }
 
@@ -214,26 +214,6 @@ sub run_sendq {
 	return if $$l[TRY_W] || !$sendq;
 	# no point in trying to write if we are already waiting for writes to unblock
 	&_syswrite;
-}
-
-sub delink {
-	my($net,$msg) = @_;
-	return unless $net;
-	if ($net->isa('Server::InterJanus')) {
-		delete $Janus::pending{$net->id};
-		&Event::insert_full(+{
-			type => 'JNETSPLIT',
-			net => $net,
-			msg => $msg,
-		});
-	} else {
-		delete $Janus::pending{$net->name};
-		&Event::insert_full(+{
-			type => 'NETSPLIT',
-			net => $net,
-			msg => $msg,
-		});
-	}
 }
 
 

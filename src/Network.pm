@@ -96,6 +96,17 @@ sub netnick {
 	$_[0]->name;
 }
 
+sub delink {
+	my($net,$msg) = @_;
+	delete $Janus::pending{$net->name};
+	&Event::insert_full(+{
+		type => 'NETSPLIT',
+		net => $net,
+		msg => $msg,
+	});
+}
+
+
 =back
 
 =cut

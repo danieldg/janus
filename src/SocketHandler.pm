@@ -17,7 +17,7 @@ sub pingall {
 		$pingt[$$net] ||= $Janus::time; # first-time ping
 		my $last = $pingt[$$net];
 		if ($last && $last < $timeout) {
-			&Connection::delink($net, 'Ping Timeout');
+			$net->delink('Ping Timeout');
 		} else {
 			$net->send(+{ type => 'PING', ts => $Janus::time });
 		}
@@ -45,7 +45,6 @@ sub in_socket {
 	$_->{except} = $src for @act;
 	&Event::insert_full(@act);
 }
-
 
 if ($ping) {
 	$ping->{code} = \&pingall;
