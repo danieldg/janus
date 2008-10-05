@@ -82,6 +82,14 @@ our %action = (
 		(14, 'Timestamp', $_[0])
 	}, 'debug' => sub {
 		(14, 'debug', $_[0])
+	}, 'debug_in' => sub {
+		my $src = shift;
+		my $name =
+			$src->isa('Network') ? ($src->name.'='.$src->gid) :
+			$src->isa('Channel') ? $src->real_keyname :
+			$src->isa('Nick') ? $src->netnick :
+			$src;
+		(14, "debug\@$name", join ' ', @_);
 	}, 'audit' => sub {
 		(9, 'AUDIT', $_[0])
 	}, 'command' => sub {

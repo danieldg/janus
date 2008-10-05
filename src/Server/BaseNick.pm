@@ -19,7 +19,7 @@ sub mynick {
 	my($net, $name) = @_;
 	my $nick = $nicks[$$net]{lc $name};
 	unless ($nick) {
-		&Log::warn_in($net, "Nick '$name' does not exist; ignoring");
+		&Log::debug_in($net, "Nick '$name' does not exist; ignoring");
 		return undef;
 	}
 	if ($nick->homenet() ne $net) {
@@ -33,7 +33,7 @@ sub mynick {
 sub nick {
 	my($net, $name) = @_;
 	return $nicks[$$net]{lc $name} if $nicks[$$net]{lc $name};
-	&Log::warn_in($net, "Nick '$name' does not exist; ignoring") unless $_[2];
+	&Log::debug_in($net, "Nick '$name' does not exist; ignoring") unless $_[2];
 	undef;
 }
 
@@ -55,7 +55,7 @@ sub nick_collide {
 	if ($tsctl >= 0) {
 		# old nick lost, reconnect it
 		if ($old->homenet() eq $net) {
-			warn "Nick collision on home network!";
+			&Log::err_in($net, "Nick collision on home network!");
 		} else {
 			push @rv, +{
 				type => 'RECONNECT',
