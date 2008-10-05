@@ -208,7 +208,7 @@ sub send {
 			my $src = $act->{src} or next;
 			my $net = $src->homenet();
 			my @msgs = (
-				[ 311, $src->info('ident'), $src->info('vhost'), '*', $src->info('name') ],
+				[ 311, $janus->info('ident'), $janus->info('vhost'), '*', $janus->info('name') ],
 				[ 312, 'janus.janus', "Janus Interface" ],
 				[ 319, join ' ', map { $_->is_on($net) ? $_->str($net) : () } $janus->all_chans() ],
 				[ 317, 0, $^T, 'seconds idle, signon time'],
