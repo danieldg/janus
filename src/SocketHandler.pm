@@ -5,15 +5,19 @@ use Persist;
 # base class for objects handling socket input
 
 our $ping;
+our @pingt;
+&Persist::register_vars(qw(pingt));
 
 sub pingall {
 	my $timeout = $Janus::time - 100;
 	my @all = @Connection::queues;
 	for my $q (@all) {
-		my($net,$last) = @$q[&Connection::NET,&Connection::PINGT];
+		my $net = $q->[&Connection::NET];
 		next if ref $net eq 'Listener';
+		$pingt[$$net] ||= $Janus::time; # first-time ping
+		my $last = $pingt[$$net];
 		if ($last && $last < $timeout) {
-			Connection::delink($net, 'Ping Timeout');
+			&Connection::delink($net, 'Ping Timeout');
 		} else {
 			$net->send(+{ type => 'PING', ts => $Janus::time });
 		}
@@ -29,6 +33,7 @@ No terminating newline.
 
 sub in_socket {
 	my($src,$line) = @_;
+	$pingt[$$src] = $Janus::time;
 	my @act;
 	eval {
 		@act = $src->parse($line);

@@ -35,7 +35,6 @@ use constant {
 	SENDQ => 4,
 	TRY_R => 5,
 	TRY_W => 6,
-	PINGT => 7,
 	IPV6 => $ipv6,
 };
 
@@ -52,9 +51,9 @@ sub add {
 	my($sock, $net) = @_;
 	my $fn = fileno $sock;
 	warn "Cannot find fileno for $sock" unless defined $fn;
-	my $q = [ $fn, $sock, $net, $tblank, '', 0, 1, $Janus::time ];
+	my $q = [ $fn, $sock, $net, $tblank, '', 0, 1 ];
 	if ($net->isa('Listener')) {
-		@$q[SENDQ,TRY_R,TRY_W,PINGT] = (undef, 1, 0, 0);
+		@$q[SENDQ,TRY_R,TRY_W] = (undef, 1, 0);
 		warn "Subclassing Listener is a dumb idea" unless ref $net eq 'Listener';
 	}
 	push @queues, $q;
@@ -147,7 +146,6 @@ sub readable {
 		}
 		$$l[RECVQ] = $recvq;
 		$$l[TRY_R] = 1 if $$l[TRY_R]; #reset SSL error counter
-		$$l[PINGT] = $Janus::time;
 	} else {
 		if ($sock->isa('IO::Socket::SSL')) {
 			if ($sock->errstr() eq SSL_WANT_READ) {
