@@ -195,7 +195,7 @@ sub rehash {
 	delete $toclose{$_} for keys %netconf;
 	for my $net (values %toclose) {
 		$net->close();
-		&Connection::reassign($net, undef);
+		&Connection::del($net);
 	}
 	connect_net $nick,$_ for keys %netconf;
 

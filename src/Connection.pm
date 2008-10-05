@@ -60,19 +60,15 @@ sub add {
 	push @queues, $q;
 }
 
-sub reassign {
-	my($old, $new) = @_;
-	my $q;
+sub del {
+	my $old = shift;
 	for (0..$#queues) {
 		next unless $queues[$_][NET] == $old;
-		$q = $queues[$_];
+		my $q = $queues[$_];
 		splice @queues, $_, 1;
-		last;
+		return $q;
 	}
-	return $q unless $new;
-	return warn unless $q;
-	$$q[NET] = $new;
-	push @queues, $q;
+	undef;
 }
 
 sub init_listen {
@@ -275,7 +271,7 @@ sub timestep {
 		my $act = shift;
 		my $net = $act->{net};
 
-		my $q = reassign $net, undef;
+		my $q = del $net;
 		return if $net->jlink();
 
 		warn "Queue for network $$net was already removed" unless $q;
@@ -283,7 +279,7 @@ sub timestep {
 		my $act = shift;
 		my $net = $act->{net};
 
-		my $q = reassign $net, undef;
+		my $q = del $net;
 		warn "Queue for network $$net was already removed" unless $q;
 
 		my $eq = $Janus::ijnets{$net->id()};
