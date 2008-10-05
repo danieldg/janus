@@ -494,7 +494,12 @@ Event::command_add({
 			} elsif ($commands{$item}{help}) {
 				&Janus::jmsg($dst, "$item - $commands{$item}{help}");
 			} else {
-				&Janus::jmsg($dst, 'No help for that command');
+				&Janus::jmsg($dst, 'No help exists for that command');
+			}
+			my $acl = $commands{$item}{acl};
+			if ($acl) {
+				$acl = 'oper' if $acl eq '1';
+				&Janus::jmsg($dst, "Requires access to the '$acl' acl");
 			}
 		} else {
 			my %cmds;
