@@ -10,7 +10,8 @@ use warnings;
 	section => 'Channel',
 	details => [
 		"\002ACL LIST\002 #channel          Lists ACL entries for the channel",
-		"\002ACL ADD\002 #channel (+/-)net  Allows or denies a network access",
+		"\002ACL ALLOW\002 #channel net     Allows a network access to link",
+		"\002ACL DENY\002 #channel net      Denies a network access to link",
 		"\002ACL DEL\002 #channel net       Removes a network's ACL entry",
 		"\002ACL DEFAULT\002 #channel (+/-) Sets the default access for networks",
 	],
@@ -35,13 +36,14 @@ use warnings;
 				&Interface::jmsg($dst, sprintf '%8s %s', $nn,
 					($ifo->{ack}{$nn} == 1 ? 'allow' : 'deny'));
 			}
-		} elsif ($m eq 'add' && $arg) {
-			my $v = 3 - $ifo->{mode};
-			$v = 1 if $arg =~ s/^\+//;
-			$v = 2 if $arg =~ s/^\-//;
+		} elsif ($m eq 'allow') {
 			return &Interface::jmsg($dst, 'Cannot find that network') unless $Janus::nets{$arg};
-			$ifo->{ack}{$arg} = $v;
-			Interface::jmsg($dst, 'Done');
+			$ifo->{ack}{$arg} = 1;
+			&Interface::jmsg($dst, 'Done');
+		} elsif ($m eq 'deny') {
+			return &Interface::jmsg($dst, 'Cannot find that network') unless $Janus::nets{$arg};
+			$ifo->{ack}{$arg} = 2;
+			&Interface::jmsg($dst, 'Done');
 		} elsif ($m eq 'del' && $arg) {
 			if (delete $ifo->{ack}{$arg}) {
 				&Interface::jmsg($dst, 'Deleted');
