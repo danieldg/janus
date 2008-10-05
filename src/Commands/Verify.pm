@@ -168,7 +168,9 @@ sub verify {
 
 &Janus::command_add({
 	cmd => 'verify',
-	acl => 1,
+	acl => 'debug',
+	help => 'Verifies janus internal state',
+	section => 'Admin',
 	code => \&verify,
 });
 

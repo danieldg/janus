@@ -11,6 +11,7 @@ our %accounts;
 
 sub acl_check {
 	my($nick, $acl) = @_;
+	local $_;
 	my @accts;
 	my $selfid = $nick->info('account:'.$RemoteJanus::self->id);
 	my %has = (
@@ -39,7 +40,8 @@ sub acl_check {
 sub has_local {
 	my $nick = shift;
 	my $selfid = $nick->info('account:'.$RemoteJanus::self->id);
-	defined $selfid && defined $accounts{$selfid};
+	return '' unless $selfid && defined $accounts{$selfid};
+	$selfid;
 }
 
 sub get {

@@ -4,6 +4,15 @@ package Commands::Account;
 use strict;
 use warnings;
 
+&Event::hook_add(
+	INFO => Account => sub {
+		my($dst, $acctid, $src) = @_;
+		my $all = &Account::acl_check($src, 'admin') || $acctid eq &Account::has_local($src);
+		if ($all) {
+			&Janus::jmsg($dst, 'ACL: '.$Account::accounts{$acctid}{acl});
+		}
+	},
+);
 &Janus::command_add({
 	cmd => 'account',
 	help => 'Manages janus accounts',
@@ -18,14 +27,14 @@ use warnings;
 		"\002ACCOUNT REVOKE\002 account acl Revokes an account's access to the given command ACL",
 	],
 	code => sub {
-		my($src,$dst,$cmd,$acctid,$acl) = @_;
+		my($src,$dst,$cmd,$acctid,@acls) = @_;
 		$cmd = lc $cmd;
 		my $acct = $Account::accounts{$acctid};
 		if ($cmd eq 'list') {
 			&Janus::jmsg($dst, join ' ', sort keys %Account::accounts);
 		} elsif ($cmd eq 'show') {
 			return &Janus::jmsg($dst, 'No such account') unless $acct;
-			&Janus::jmsg($dst, 'ACL: '.$acct->{acl});
+			&Event::named_hook('INFO/Account', $dst, $acctid, $src);
 		} elsif ($cmd eq 'create') {
 			$Account::accounts{$acctid} = {};
 			&Janus::jmsg($dst, 'Done');
@@ -33,18 +42,28 @@ use warnings;
 			return &Janus::jmsg($dst, 'No such account') unless $acct;
 			delete $Account::accounts{$acctid};
 			&Janus::jmsg($dst, 'Done');
-		} elsif ($cmd eq 'grant' && $acl) {
+		} elsif ($cmd eq 'grant' && @acls) {
 			return &Janus::jmsg($dst, 'No such account') unless $acct;
 			my %acl;
 			$acl{$_}++ for split / /, ($acct->{acl} || '');
-			$acl{$acl}++;
+			for (@acls) {
+				$acl{$_}++;
+				unless (&Account::acl_check($src, $_)) {
+					return &Janus::jmsg($dst, "You cannot grant access to permissions you don't have");
+				}
+			}
 			$acct->{acl} = join ' ', sort keys %acl;
 			&Janus::jmsg($dst, 'Done');
-		} elsif ($cmd eq 'revoke' && $acl) {
+		} elsif ($cmd eq 'revoke' && @acls) {
 			return &Janus::jmsg($dst, 'No such account') unless $acct;
 			my %acl;
 			$acl{$_}++ for split / /, ($acct->{acl} || '');
-			delete $acl{$acl};
+			for (@acls) {
+				delete $acl{$_};
+				unless (&Account::acl_check($src, $_)) {
+					return &Janus::jmsg($dst, "You cannot revoke access to permissions you don't have");
+				}
+			}
 			$acct->{acl} = join ' ', sort keys %acl;
 			&Janus::jmsg($dst, 'Done');
 		} else {
