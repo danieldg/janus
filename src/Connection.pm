@@ -39,7 +39,7 @@ use constant {
 };
 
 our @queues;
-# net number => [ fd, IO::Socket, net, recvq, sendq, try_recv, try_send, ping ]
+# net number => [ fd, IO::Socket, net, recvq, sendq, try_recv, try_send ]
 
 our $tblank;
 unless (defined $tblank) {
@@ -68,6 +68,10 @@ sub del {
 		return $q;
 	}
 	undef;
+}
+
+sub list {
+	map { $_->[NET] } @queues;
 }
 
 sub init_listen {
@@ -256,27 +260,5 @@ sub timestep {
 
 	scalar @queues;
 }
-
-&Event::hook_add(
-	NETSPLIT => act => sub {
-		my $act = shift;
-		my $net = $act->{net};
-
-		my $q = del $net;
-		return if $net->jlink();
-
-		warn "Queue for network $$net was already removed" unless $q;
-	}, JNETSPLIT => check => sub {
-		my $act = shift;
-		my $net = $act->{net};
-
-		my $q = del $net;
-		warn "Queue for network $$net was already removed" unless $q;
-
-		my $eq = $Janus::ijnets{$net->id()};
-		return 1 if $eq && $eq ne $net;
-		undef;
-	}
-);
 
 1;

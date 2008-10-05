@@ -10,9 +10,8 @@ our @pingt;
 
 sub pingall {
 	my $timeout = $Janus::time - 100;
-	my @all = @Connection::queues;
-	for my $q (@all) {
-		my $net = $q->[&Connection::NET];
+	my @all = &Connection::list();
+	for my $net (@all) {
 		next if ref $net eq 'Listener';
 		$pingt[$$net] ||= $Janus::time; # first-time ping
 		my $last = $pingt[$$net];
@@ -55,5 +54,27 @@ if ($ping) {
 	};
 	Event::schedule($ping);
 }
+
+&Event::hook_add(
+	NETSPLIT => act => sub {
+		my $act = shift;
+		my $net = $act->{net};
+
+		my $q = &Connection::del($net);
+		return if $net->jlink();
+
+		warn "Queue for network $$net was already removed" unless $q;
+	}, JNETSPLIT => check => sub {
+		my $act = shift;
+		my $net = $act->{net};
+
+		my $q = &Connection::del($net);
+		warn "Queue for network $$net was already removed" unless $q;
+
+		my $eq = $Janus::ijnets{$net->id()};
+		return 1 if $eq && $eq ne $net;
+		undef;
+	}
+);
 
 1;
