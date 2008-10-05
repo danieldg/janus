@@ -59,7 +59,7 @@ sub module_add {
 	if ($mod->{metadata}) {
 		for my $i (keys %{$mod->{metadata}}) {
 			warn "Overriding metadata $i" if $meta[$$net]{$i};
-			$meta[$$net]{$i} = $mod->{acts}{$i};
+			$meta[$$net]{$i} = $mod->{metadata}{$i};
 		}
 	}
 }
