@@ -10,8 +10,6 @@ eval {
 	# BUG in Data::Dumper, running this is needed before using Seen
 };
 
-our %static;
-
 sub dump_all_globals {
 	my %rv;
 	for my $pkg (@_) {
@@ -36,7 +34,9 @@ sub dump_all_globals {
 
 sub dump_to {
 	my($dump,$pure,$arg) = @_;
-	my $gbls = dump_all_globals(keys %Janus::modinfo);
+	my @modlist = keys %Janus::modinfo;
+	my $gbls = dump_all_globals(@modlist);
+	my $stat = {};
 	my $objs = &Persist::dump_all_refs();
 	my %seen;
 	my @tmp = keys %$gbls;
@@ -44,8 +44,11 @@ sub dump_to {
 		next unless $var =~ s/^&//;
 		$seen{'*'.$var} = delete $gbls->{'&'.$var};
 	}
-	for my $static (keys %Snapshot::static) {
-		delete $gbls{$static};
+	for my $var (keys %Janus::static) {
+		for ('$', '@', '%') {
+			my $v = delete $gbls->{$_.$var};
+			$stat->{$_.$var} = $v if $v;
+		}
 	}
 	for my $pkg (keys %Persist::vars) {
 		for my $var (keys %{$Persist::vars{$pkg}}) {
@@ -71,18 +74,22 @@ sub dump_to {
 		}
 	}
 
-	$dd->Names([qw(gnicks chanlist nets ijnets pending listen states)])->Values([
+	$dd->Names([qw(gnicks chanlist nets ijnets pending listen modules states)])->Values([
 		\%Janus::gnicks,
 		\%chanlist,
 		\%Janus::nets,
 		\%Janus::ijnets,
 		\%Janus::pending,
 		\%Listener::open,
+		\@modlist,
 		\%Janus::states,
 	]);
 	$dd->Purity(1);
 	print $dump $dd->Dump();
-
+	$dd->Purity(0);
+	$dd->Names(['static'])->Values([ $stat ]);
+	my $staticdump = $dd->Dump();
+	print $dump $staticdump unless $pure;
 	$dd->Purity($pure);
 	$dd->Names([qw(global object arg)])->Values([
 		$gbls,

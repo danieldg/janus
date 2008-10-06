@@ -13,6 +13,8 @@ unless (defined $tblank) {
 	print "WARNING: not running in taint mode\n" unless tainted($tblank);
 }
 
+&Janus::static(qw(sock tblank));
+
 sub cmd {
 #	print ">>> $_[0]\n";
 	print $sock "$_[0]\n";

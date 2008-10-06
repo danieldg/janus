@@ -19,6 +19,8 @@ our %hook_run;
 
 our %commands;
 
+&Janus::static(qw(qstack hook_mod hook_chk hook_run commands));
+
 =head1 Event
 
 Primary event hook registration and dispatch point

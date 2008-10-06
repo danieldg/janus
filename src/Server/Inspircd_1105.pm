@@ -245,6 +245,7 @@ sub cmd2 {
 }
 
 our %moddef = ();
+&Janus::static('moddef');
 $moddef{CAPAB_HALFOP} = {
 	cmode => {
 		h => 'n_halfop',

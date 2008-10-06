@@ -8,6 +8,7 @@ use warnings;
 sub ignore { () }
 
 our %modules = ();
+&Janus::static('modules');
 
 sub mdef {
 	my $name = shift;

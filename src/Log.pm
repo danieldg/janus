@@ -111,6 +111,8 @@ our @ANSI = ('',qw(30 34 32 1;31 31 35 33 1;33 1;32 36 1;35 1;34 1;35 1;30 37 1;
 our($AUTOLOAD,$ftime,$fcount);
 $ftime ||= 0;
 
+&Janus::static(qw(action ANSI ftime fcount));
+
 sub AUTOLOAD {
 	local $_;
 	$AUTOLOAD =~ s/Log:://;

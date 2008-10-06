@@ -11,6 +11,7 @@ use Data::Dumper;
 
 our $conffile;
 our %netconf;
+&Janus::static(qw(netconf));
 
 sub read_conf {
 	my $nick = shift;
@@ -240,6 +241,9 @@ sub save {
 	return 1;
 }
 
+our $autoevent;
+$autoevent->{code} = \&Conffile::autoconnect if $autoevent;
+
 &Janus::hook_add(
 	REHASH => act => sub {
 		my $act = shift;
@@ -257,11 +261,12 @@ sub save {
 			do $save;
 		}
 		connect_net undef,$_ for keys %netconf;
-		&Janus::schedule({
+		$autoevent = {
 			repeat => 30,
-			code => sub { &Conffile::autoconnect; }, # to allow reloads
+			code => \&Conffile::autoconnect,
 			desc => 'autoconnect',
-		});
+		};
+		&Event::schedule($autoevent);
 	},
 );
 

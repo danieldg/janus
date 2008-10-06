@@ -90,6 +90,7 @@ our %modinfo;    # by module name
 $modinfo{Janus}{load}++;
 
 our %states;
+our %static;
 our %rel_csum;
 
 sub Janus::INC {
@@ -290,6 +291,13 @@ sub info {
 	cluck "Ignoring unknown info keys for $class" if scalar %add;
 }
 
+sub static {
+	my $pkg = caller;
+	for my $var (@_) {
+		$static{$pkg.'::'.$var}++;
+	}
+}
+
 =back
 
 =cut
@@ -304,6 +312,7 @@ unless ($global) {
 }
 
 Janus::info(desc => 'Core module loader');
+Janus::static(qw(global new_sha1 static modinfo));
 
 Event::hook_add(
 	MODLOAD => check => sub {
