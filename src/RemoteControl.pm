@@ -49,7 +49,11 @@ sub timestep {
 			$net->in_socket($tblank . $line) if $net;
 		} elsif ($now =~ /^DELINK (\d+) (.*)/) {
 			my $net = &Connection::find($1);
-			$net->delink($2) if $net;
+			if ($net) {
+				$net->delink($2);
+			} else {
+				cmd("DELNET $1");
+			}
 		} elsif ($now =~ /^PEND (\d+) (\S+)/) {
 			my($lid, $addr) = ($1,$2);
 			my $lnet = &Connection::find($lid);
@@ -61,12 +65,13 @@ sub timestep {
 			} else {
 				cmd("DROP");
 			}
+			push @active, $net if $net;
 		} else {
 			&Log::err('Bad RemoteControl response '.$now);
 		}
 	}
 	
-	for my $net (&Connection::list()) {
+	for my $net (@active) {
 		eval {
 			my $sendq = $net->dump_sendq();
 			for (split /\n+/, $sendq) {
@@ -108,6 +113,7 @@ sub del {
 sub find {
 	local $_;
 	my @r = grep { $$_ == $_[0] } @RemoteControl::active;
+	&Log::err("Find on unknown network $_[0]") unless @r;
 	$r[0];
 }
 
