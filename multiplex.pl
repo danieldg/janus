@@ -19,10 +19,10 @@ BEGIN {
 }
 use POSIX 'setsid';
 
-my $flag = '-T';
-$flag = shift @ARGV if @ARGV && $ARGV[0] =~ /^-/;
+my @flag = '-T';
+$flag[0] = shift @ARGV if @ARGV && $ARGV[0] =~ /^-/;
 
-if (!$^P && $flag !~ /d/) {
+if (!$^P && $flag[0] !~ /d/) {
 	open STDIN, '/dev/null' or die $!;
 	if (-t STDOUT) {
 		open STDOUT, '>daemon.log' or die $!;
@@ -55,12 +55,13 @@ sub start_child {
 	if ($rc) {
 		close $rcsock;
 		$cmd->autoflush(1);
+		@flag = () if $flag[0] eq '-T';
 		return $cmd;
 	} else {
 		open STDIN, '+>&', $rcsock;
 		close $cmd;
 		close $rcsock;
-		exec 'perl', $flag, 'src/worker.pl', @ARGV;
+		exec 'perl', @flag, 'src/worker.pl', @ARGV;
 		exit 1;
 	}
 }

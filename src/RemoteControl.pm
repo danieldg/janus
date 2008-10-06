@@ -9,6 +9,8 @@ use Scalar::Util qw(tainted);
 our $reboot;
 our $sock;
 our $tblank;
+
+our @active;
 unless (defined $tblank) {
 	$tblank = ``;
 	print "WARNING: not running in taint mode\n" unless tainted($tblank);
@@ -85,20 +87,18 @@ sub timestep {
 
 package Connection;
 
-our @active;
-
 sub add {
 	my($fd, $net) = @_;
 	&RemoteControl::cmd("ADDNET $fd $$net");
-	push @active, $net;
+	push @RemoteControl::active, $net;
 }
 
 sub del {
 	my $net = shift;
 	local $_;
-	for (0..$#active) {
-		next unless $active[$_] == $net;
-		splice @active, $_, 1;
+	for (0..$#RemoteControl::active) {
+		next unless $RemoteControl::active[$_] == $net;
+		splice @RemoteControl::active, $_, 1;
 		&RemoteControl::cmd("DELNET $$net");
 		return 1;
 	}
@@ -107,12 +107,12 @@ sub del {
 
 sub find {
 	local $_;
-	my @r = grep { $$_ == $_[0] } @active;
+	my @r = grep { $$_ == $_[0] } @RemoteControl::active;
 	$r[0];
 }
 
 sub list {
-	@active
+	@RemoteControl::active
 }
 
 sub init_listen {
