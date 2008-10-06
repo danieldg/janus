@@ -19,9 +19,10 @@ BEGIN {
 }
 use POSIX 'setsid';
 
-our $VERSION = '1.12';
+my $flag = '-T';
+$flag = shift @ARGV if ($ARGV[0] =~ /^-/);
 
-if (!$^P) {
+if (!$^P && $flag !~ /d/) {
 	open STDIN, '/dev/null' or die $!;
 	if (-t STDOUT) {
 		open STDOUT, '>daemon.log' or die $!;
@@ -46,8 +47,6 @@ $SIG{CHLD} = 'IGNORE';
 
 my($cmd,$rcsock);
 socketpair $cmd, $rcsock, AF_UNIX, SOCK_STREAM, PF_UNSPEC;
-$cmd->autoflush(1);
-$rcsock->autoflush(1);
 
 my $rc = fork;
 die $! unless defined $rc;
@@ -55,31 +54,15 @@ die $! unless defined $rc;
 no warnings 'once';
 if ($rc) {
 	close $rcsock;
+	$cmd->autoflush(1);
+	print $cmd "BOOT\n";
 	my $line = <$cmd>;
 	$Multiplex::ipv6 = ($line =~ /^1/);
 	do './src/Multiplex.pm' or die $@;
 	&Multiplex::run($cmd);
 } else {
+	open STDIN, '+>&', $rcsock;
 	close $cmd;
-	$RemoteControl::sock = $rcsock;
-	do './src/Janus.pm' or die $@;
-	if ($^P) {
-		# $^P is nonzero if run inside perl -d
-		require Log::Debug;
-		no warnings 'once';
-		@Log::listeners = $Log::Debug::INST;
-		&Log::dump_queue();
-	}
-	&Janus::load('Conffile') or die;
-	&Janus::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
-	&Log::timestamp($Janus::time);
-	print $rcsock $Conffile::netconf{set}{ipv6} ? "1\n" : "0\n";
-	&Janus::load('RemoteControl') or die;
-	&Janus::insert_full(+{ type => 'INIT', args => \@ARGV });
-	&Janus::insert_full(+{ type => 'RUN' });
-
-	eval { 
-		&RemoteControl::timestep while 1;
-		1;
-	} ? &Log::info("Goodbye!\n") : &Log::err("Aborting, error=$@");
+	close $rcsock;
+	exec 'perl', $flag, 'src/worker.pl', @ARGV;
 }
