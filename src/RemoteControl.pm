@@ -74,7 +74,7 @@ sub timestep {
 
 package Connection;
 
-my @active;
+our @active;
 
 sub add {
 	my($fd, $net) = @_;
@@ -130,10 +130,6 @@ sub init_conn {
 		&Log::err('Bad RemoteControl response '.$resp);
 	}
 	return undef;
-}
-
-sub timestep {
-	goto &RemoteControl::timestep;
 }
 
 1;

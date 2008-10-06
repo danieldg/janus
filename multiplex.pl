@@ -52,6 +52,7 @@ $rcsock->autoflush(1);
 my $rc = fork;
 die $! unless defined $rc;
 
+no warnings 'once';
 if ($rc) {
 	close $rcsock;
 	my $line = <$cmd>;
@@ -59,7 +60,6 @@ if ($rc) {
 	do './src/Multiplex.pm' or die $@;
 	&Multiplex::run($cmd);
 } else {
-	no warnings 'once';
 	close $cmd;
 	$RemoteControl::sock = $rcsock;
 	do './src/Janus.pm' or die $@;
@@ -79,7 +79,7 @@ if ($rc) {
 	&Janus::insert_full(+{ type => 'RUN' });
 
 	eval { 
-		&Connection::timestep while 1;
+		&RemoteControl::timestep while 1;
 		1;
 	} ? &Log::info("Goodbye!\n") : &Log::err("Aborting, error=$@");
 }
