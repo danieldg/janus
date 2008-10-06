@@ -30,7 +30,7 @@ use Account;
 					dst => $nick,
 					item => "account:$id",
 					value => $user,
-				})
+				});
 				&Janus::jmsg($nick, "You are now identified as $user");
 				return;
 			}
