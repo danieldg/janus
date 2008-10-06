@@ -17,7 +17,7 @@ sub get_aid {
 	}
 	my $acctid = $nick->info('svsaccount');
 	$acctid = lc $nick->homenick unless defined $acctid;
-	return $net->id . ':' . $acctid;
+	return $net->name . ':' . $acctid;
 }
 
 # TODO this is slow
