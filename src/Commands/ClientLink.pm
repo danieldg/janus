@@ -21,9 +21,12 @@ use warnings;
 			$dnet ||= $src->homenet->name;
 			$dchan ||= $bchan;
 		}
+		$bchan = lc $bchan;
+		$dchan = lc $dchan;
 		my $cb = $Janus::nets{$bnet}  or return &Interface::jmsg($dst, 'Client network not found');
 		$cb->isa('Server::ClientBot') or return &Interface::jmsg($dst, 'Client network must be a clientbot');
 		my $dn = $Janus::nets{$dnet}  or return &Interface::jmsg($dst, 'Destination network not found');
+		$Link::request{$dnet}{$dchan} or return &Interface::jmsg($dst, 'Channel must be shared');
 		$Link::request{$dnet}{$dchan}{mode} or return &Interface::jmsg($dst, 'Channel must be shared');
 		&Log::audit("Channel $bchan on $bnet linked to $dchan on $dnet by ".$src->netnick);
 		&Janus::append(+{

@@ -26,12 +26,6 @@ our %request;
 our %def_ack;
 # {network} = default contents of the "ack" entry
 
-for my $n (keys %request) {
-	for my $c (keys %{$request{$n}}) {
-		next if $c eq lc $c;
-		$request{$n}{lc $c} = delete $request{$n}{$c};
-	}
-}
 &Janus::save_vars(
 	request => \%request,
 	def_ack => \%def_ack,

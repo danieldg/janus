@@ -35,7 +35,7 @@ use warnings;
 			&Janus::jmsg($dst, "Cannot find network $nname2");
 			return;
 		};
-		my $chan1 = $net1->chan($cname1,0) or do {
+		my $chan1 = $net1->chan(lc $cname1,0) or do {
 			&Janus::jmsg($dst, "Cannot find channel $cname1");
 			return;
 		};
@@ -48,7 +48,7 @@ use warnings;
 			&Janus::jmsg($dst, 'That channel is already linked');
 			return;
 		}
-		if ($Link::request{$net1->name()}{$cname1}{mode}) {
+		if ($Link::request{$net1->name()}{lc $cname1}{mode}) {
 			&Janus::jmsg($dst, 'This network is the owner for that channel. Use DESTROY to change this');
 			return;
 		}
@@ -99,7 +99,7 @@ use warnings;
 		&Janus::append(+{
 			type => 'LINKOFFER',
 			src => $net,
-			name => $cname,
+			name => lc $cname,
 			reqby => $src->realhostmask(),
 			reqtime => $Janus::time,
 		});
