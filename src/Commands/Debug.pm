@@ -3,36 +3,10 @@
 package Commands::Debug;
 use strict;
 use warnings;
-use Data::Dumper;
-use Modes;
 use POSIX qw(strftime);
+use Snapshot;
 
-eval {
-	&Data::Dumper::init_refaddr_format();
-	# BUG in Data::Dumper, running this is needed before using Seen
-};
-
-sub dump_all_globals {
-	my %rv;
-	for my $pkg (@_) {
-		my $ns = do { no strict 'refs'; \%{$pkg.'::'} };
-		next unless $ns;
-		for my $var (keys %$ns) {
-			next if $var =~ /:/ || $var eq 'ISA'; # perl internal variable
-			next if ref $ns->{$var}; # Perl 5.10 constants
-
-			my $scv = *{$ns->{$var}}{SCALAR};
-			my $arv = *{$ns->{$var}}{ARRAY};
-			my $hsv = *{$ns->{$var}}{HASH};
-			my $cdv = *{$ns->{$var}}{CODE};
-			$rv{'$'.$pkg.'::'.$var} = $$scv if $scv && defined $$scv;
-			$rv{'@'.$pkg.'::'.$var} = $arv  if $arv && scalar @$arv;
-			$rv{'%'.$pkg.'::'.$var} = $hsv  if $hsv && scalar keys %$hsv;
-			$rv{'&'.$pkg.'::'.$var} = $cdv  if $cdv;
-		}
-	}
-	\%rv;
-}
+our $pure;
 
 sub dump_now {
 	my $fmt = $Conffile::netconf{set}{datefmt};
@@ -50,48 +24,7 @@ sub dump_now {
 	}
 
 	open my $dump, '>', $fn or return undef;
-	my $gbls = dump_all_globals(keys %Janus::modinfo);
-	my $objs = &Persist::dump_all_refs();
-	my %seen;
-	my @tmp = keys %$gbls;
-	for my $var (@tmp) {
-		next unless $var =~ s/^&//;
-		$seen{'*'.$var} = delete $gbls->{'&'.$var};
-	}
-	for my $pkg (keys %Persist::vars) {
-		for my $var (keys %{$Persist::vars{$pkg}}) {
-			$seen{"\$Replay::thaw_var->('$pkg','$var')"} = $Persist::vars{$pkg}{$var};
-		}
-	}
-	for my $q (@Connection::queues) {
-		my $sock = $q->[&Connection::SOCK()];
-		next unless ref $sock;
-		$seen{'$Replay::thaw_fd->('.$q->[&Connection::FD()].", '".ref($sock)."')"} = $sock;
-	}
-
-	my $dd = Data::Dumper->new([]);
-	$dd->Sortkeys(1);
-	$dd->Bless('findobj');
-	$dd->Seen(\%seen);
-
-	$dd->Names([qw(gnicks gchans gnets ijnets state listen pending)])->Values([
-		\%Janus::gnicks,
-		\%Janus::gchans,
-		\%Janus::gnets,
-		\%Janus::ijnets,
-		\%Janus::states,
-		\%Listener::open,
-		\%Janus::pending,
-	]);
-	$dd->Purity(1);
-	print $dump $dd->Dump();
-	$dd->Purity(0);
-	$dd->Names([qw(global object arg)])->Values([
-		$gbls,
-		$objs,
-		\@_,
-	]);
-	print $dump $dd->Dump();
+	&Snapshot::dump_to($dump, $pure, \@_);
 	close $dump;
 	$fn;
 }
@@ -102,6 +35,7 @@ sub dump_now {
 	section => 'Admin',
 	acl => 'debug',
 	code => sub {
+		$pure = ($_[2] eq 'pure' ? 1 : 0);
 		my $fn = dump_now(@_);
 		&Janus::jmsg($_[1], 'State dumped to file '.$fn);
 	},
