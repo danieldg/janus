@@ -20,7 +20,7 @@ BEGIN {
 use POSIX 'setsid';
 
 my $flag = '-T';
-$flag = shift @ARGV if ($ARGV[0] =~ /^-/);
+$flag = shift @ARGV if @ARGV && $ARGV[0] =~ /^-/;
 
 if (!$^P && $flag !~ /d/) {
 	open STDIN, '/dev/null' or die $!;
@@ -45,24 +45,29 @@ $| = 1;
 $SIG{PIPE} = 'IGNORE';
 $SIG{CHLD} = 'IGNORE';
 
-my($cmd,$rcsock);
-socketpair $cmd, $rcsock, AF_UNIX, SOCK_STREAM, PF_UNSPEC;
+sub start_child {
+	my($cmd,$rcsock);
+	socketpair $cmd, $rcsock, AF_UNIX, SOCK_STREAM, PF_UNSPEC;
 
-my $rc = fork;
-die $! unless defined $rc;
+	my $rc = fork;
+	die $! unless defined $rc;
 
-no warnings 'once';
-if ($rc) {
-	close $rcsock;
-	$cmd->autoflush(1);
-	print $cmd "BOOT\n";
-	my $line = <$cmd>;
-	$Multiplex::ipv6 = ($line =~ /^1/);
-	do './src/Multiplex.pm' or die $@;
-	&Multiplex::run($cmd);
-} else {
-	open STDIN, '+>&', $rcsock;
-	close $cmd;
-	close $rcsock;
-	exec 'perl', $flag, 'src/worker.pl', @ARGV;
+	if ($rc) {
+		close $rcsock;
+		$cmd->autoflush(1);
+		return $cmd;
+	} else {
+		open STDIN, '+>&', $rcsock;
+		close $cmd;
+		close $rcsock;
+		exec 'perl', $flag, 'src/worker.pl', @ARGV;
+		exit 1;
+	}
 }
+
+my $cmd = start_child;
+print $cmd "BOOT\n";
+my $line = <$cmd>;
+$Multiplex::ipv6 = ($line =~ /^1/);
+do './src/Multiplex.pm' or die $@;
+&Multiplex::run($cmd);

@@ -261,6 +261,11 @@ sub run {
 			$queues[$2] = $q;
 		} elsif (/^DELNET (\d+)/) {
 			delete $queues[$1];
+		} elsif (/^REBOOT (\S+)/) {
+			my $save = $1;
+			close $cmd;
+			$cmd = &main::start_child();
+			print $cmd "RESTORE $save\n";
 		} elsif ($_ eq '') {
 		} else {
 			die "bad line $_";
