@@ -110,14 +110,15 @@ use warnings;
 		my($src,$dst,$net) = @_;
 		$net = $Janus::nets{lc $net} || $Janus::ijnets{lc $net};
 		return unless $net;
-		&Log::audit("Network ".$net->name.' split by '.$src->netnick);
 		if ($net->isa('LocalNetwork')) {
+			&Log::audit("Network ".$net->name.' split by '.$src->netnick);
 			&Janus::append(+{
 				type => 'NETSPLIT',
 				net => $net,
 				msg => 'Forced split by '.$src->netnick
 			});
 		} elsif ($net->isa('Server::InterJanus')) {
+			&Log::audit("Network ".$net->id.' split by '.$src->netnick);
 			&Janus::append(+{
 				type => 'JNETSPLIT',
 				net => $net,
