@@ -52,13 +52,13 @@ sub dump_to {
 	}
 	for my $pkg (keys %Persist::vars) {
 		for my $var (keys %{$Persist::vars{$pkg}}) {
-			$seen{"\$Snapshot::thaw_var->('$pkg','$var')"} = $Persist::vars{$pkg}{$var};
+			$seen{"\$thaw_var->('$pkg','$var')"} = $Persist::vars{$pkg}{$var};
 		}
 	}
 	for my $q (@Connection::queues) {
 		my $sock = $q->[&Connection::SOCK()];
 		next unless ref $sock;
-		$seen{'$Snapshot::thaw_fd->('.$q->[&Connection::FD()].", '".ref($sock)."')"} = $sock;
+		$seen{'$thaw_fd->('.$q->[&Connection::FD()].", '".ref($sock)."')"} = $sock;
 	}
 
 	my $dd = Data::Dumper->new([]);
@@ -90,6 +90,7 @@ sub dump_to {
 	$dd->Names(['static'])->Values([ $stat ]);
 	my $staticdump = $dd->Dump();
 	print $dump $staticdump unless $pure;
+	print $dump "load_all();\n";
 	$dd->Purity($pure);
 	$dd->Names([qw(global object arg)])->Values([
 		$gbls,
@@ -98,5 +99,91 @@ sub dump_to {
 	]);
 	print $dump $dd->Dump();
 }
+
+sub restore_from {
+	my($file) = @_;
+	&Restore::Var::run($file);
+	for my $var (keys %$Restore::Var::global) {
+		my $val = $Restore::Var::global->{$var};
+		no strict 'refs';
+		$var =~ s/^(.)//;
+		if ($1 eq '$') {
+			${$var} = $val;
+		} elsif ($1 eq '@') {
+			@{$var} = @$val;
+		} elsif ($1 eq '%') {
+			%{$var} = %$val;
+		} else {
+			die "Unknown global variable type $1$var";
+		}
+	}
+
+	for my $pkg (keys %$Restore::Var::object) {
+		for my $oid (keys %{$Restore::Var::object->{$pkg}}) {
+			for my $var (keys %{$Restore::Var::object->{$pkg}{$oid}}) {
+				$Persist::vars{$pkg}{$var}[$oid] = $Restore::Var::object->{$pkg}{$oid}{$var};
+			}
+		}
+	}
+
+	&Log::debug("Beginning debug deallocations");
+	&Restore::Var::clear();
+
+	&Log::debug("State restored.");
+	&Janus::insert_full({
+		type => 'RESTORE',
+	});
+}
+
+package Restore::Var;
+use Scalar::Util 'blessed';
+
+our($gnicks, $chanlist, $nets, $ijnets, $pending, $listen, $modules, $states);
+our($static, $global, $object, $args);
+our(%obj_db, $thaw_var, $thaw_fd);
+
+sub clear {
+	($gnicks, $chanlist, $nets, $ijnets, $pending, $listen,
+	 $modules, $states, $static, $global, $object, $args) = 
+	(undef, undef, undef, undef, undef, undef, 
+	 undef, undef, undef, undef, undef,	undef);
+	%obj_db = ();
+}
+
+sub run {
+	do $_[0];
+	my $err = $@;
+	die "Failed to restore: $err" unless $object;
+}
+
+sub regobj {
+	for my $o (@_) {
+		next unless $o && blessed($o);
+		my $class = ref $o;
+		$obj_db{$class}{$$o} = $o;
+	}
+}
+
+sub findobj {
+	my($o, $class) = @_;
+	return bless($o,$class) unless 'SCALAR' eq ref $o && $$o;
+	my $c = $obj_db{$class}{$$o};
+	$c || bless($o,$class);
+}
+
+sub load_all {
+	for my $mod (@$modules) {
+		&Janus::load($mod);
+	}
+	regobj %Janus::gnicks, %Janus::gnets, $Janus::global, $RemoteJanus::self;
+	$static = &Snapshot::dump_all_globals(@$modules);
+}
+
+$thaw_var = sub {
+	my($class, $var) = @_;
+	$Persist::vars{$class}{$var};
+};
+
+$thaw_fd = sub { die "Tried to thaw FD @_" };
 
 1;

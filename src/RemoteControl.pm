@@ -6,6 +6,7 @@ use warnings;
 use integer;
 use Scalar::Util qw(tainted);
 
+our $reboot;
 our $sock;
 our $tblank;
 unless (defined $tblank) {
@@ -13,7 +14,7 @@ unless (defined $tblank) {
 	print "WARNING: not running in taint mode\n" unless tainted($tblank);
 }
 
-&Janus::static(qw(sock tblank));
+&Janus::static(qw(reboot sock tblank));
 
 sub cmd {
 #	print ">>> $_[0]\n";
@@ -71,6 +72,14 @@ sub timestep {
 			}
 			1;
 		} or &Log::err_in($net, "dump_sendq died: $@");
+	}
+
+	if ($reboot) {
+		open my $dump, '>janus-state.dat';
+		&Janus::load('Snapshot');
+		&Snapshot::dump_to($dump, 1);
+		cmd("REBOOT janus-state.dat");
+		exit 0;
 	}
 }
 

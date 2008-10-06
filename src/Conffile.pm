@@ -254,6 +254,9 @@ $autoevent->{code} = \&Conffile::autoconnect if $autoevent;
 		$conffile = $act->{file};
 		read_conf;
 	},
+	RESTORE => act => sub {
+		&Conffile::rehash();
+	},
 	RUN => act => sub {
 		my $save = $netconf{set}{save};
 		if ($save && -f $save) {
