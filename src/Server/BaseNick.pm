@@ -110,7 +110,9 @@ sub request_cnick {
 	my($net, $nick, $reqnick, $tagged) = @_;
 	my $b4 = $nick->str($net);
 	my $gv = request_nick(@_);
-	delete $nicks[$$net]->{lc $b4};
+	if ($nicks[$$net]{lc $b4} == $nick) {
+		delete $nicks[$$net]{lc $b4};
+	}
 	$gv;
 }
 
