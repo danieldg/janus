@@ -59,10 +59,18 @@ sub set {
 	1;
 }
 
-#&Event::hook_add(
+&Event::hook_add(
+	ACCOUNT => add => sub {
+		my $acctid = shift;
+		$Account::accounts{$acctid} = {};
+	},
+	ACCOUNT => del => sub {
+		my $acctid = shift;
+		delete $Account::accounts{$acctid};
+	},
 #	NICKINFO => check => sub {
 #		my $act = shift;
 #	},
-#);
+);
 
 1;

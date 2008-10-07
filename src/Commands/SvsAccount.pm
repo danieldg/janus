@@ -20,15 +20,20 @@ sub get_aid {
 	return $net->name . ':' . $acctid;
 }
 
-# TODO this is slow
+our %auth_cache;
+&Janus::static(qw(auth_cache)); # is a cache, so not part of state
+
 sub find_account {
 	my $id = shift;
-	keys %Account::accounts;
-	while (my($aid, $acct) = each %Account::accounts) {
-		my $auth = $acct->{svsauth} or next;
-		return $aid if grep { $_ eq $id } split / /, $auth;
+	unless ($auth_cache{''}) {
+		$auth_cache{''}++;
+		keys %Account::accounts;
+		while (my($aid, $acct) = each %Account::accounts) {
+			my $auth = $acct->{svsauth} or next;
+			$auth_cache{$_} = $aid for split / /, $auth;
+		}
 	}
-	undef;
+	$auth_cache{$id};
 }
 
 &Event::command_add({
@@ -44,12 +49,14 @@ sub find_account {
 	acl => 'user',
 	code => sub {
 		my($src,$dst,$cmd,$idx) = @_;
-		return &Janus::jmsg($dst, 'You need a local account for this command') unless &Account::has_local($src);
+		my $local_id = &Account::has_local($src);
+		return &Janus::jmsg($dst, 'You need a local account for this command') unless $local_id;
 		my $auth = &Account::get($src, 'svsauth');
 		if ($cmd eq 'add') {
 			my $acctid = get_aid($src);
 			if ($acctid) {
 				&Account::set($src, 'svsauth', $auth ? "$auth $acctid" : $acctid);
+				$auth_cache{$acctid} = $local_id;
 				&Janus::jmsg($dst, "Account $acctid authorized for your account");
 			} else {
 				&Janus::jmsg($dst, 'You are not logged into services');
@@ -65,6 +72,7 @@ sub find_account {
 			$ids{$_}++ for split /\s+/, $auth;
 			if (delete $ids{$idx}) {
 				&Account::set($src, 'svsauth', join ' ', keys %ids);
+				delete $auth_cache{$idx};
 				&Janus::jmsg($dst, 'Deleted');
 			} else {
 				&Janus::jmsg($dst, 'Not found');
@@ -99,7 +107,9 @@ sub find_account {
 			item => 'account:'.$RemoteJanus::self->id,
 			value => $jacct,
 		});
-	}
+	}, ACCOUNT => del => sub {
+		%auth_cache = ();
+	},
 );
 
 1;

@@ -37,11 +37,11 @@ use warnings;
 			return &Janus::jmsg($dst, 'No such account') unless $acct;
 			&Event::named_hook('INFO/Account', $dst, $acctid, $src);
 		} elsif ($cmd eq 'create') {
-			$Account::accounts{$acctid} = {};
+			&Event::named_hook('ACCOUNT/add', $acctid);
 			&Janus::jmsg($dst, 'Done');
 		} elsif ($cmd eq 'delete') {
 			return &Janus::jmsg($dst, 'No such account') unless $acct;
-			delete $Account::accounts{$acctid};
+			&Event::named_hook('ACCOUNT/del', $acctid);
 			&Janus::jmsg($dst, 'Done');
 		} elsif ($cmd eq 'grant' && @acls) {
 			return &Janus::jmsg($dst, 'No such account') unless $acct;
