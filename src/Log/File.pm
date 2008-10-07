@@ -52,10 +52,11 @@ sub openlog {
 	open my $fh, '>', $fn or die $!;
 	$fh->autoflush(1);
 	$fh[$$log] = $fh;
-	if ($dump[$$log] && &Janus::load('Commands::Debug')) {
+	if ($dump[$$log] && &Janus::load('Snapshot')) {
 		for (1..10) {
+			open my $dumpto, '>', $fn . '.dump';
 			eval {
-				&Commands::Debug::dump_now("New log $fn", $log);
+				&Snapshot::dump_to($dumpto);
 				1;
 			} and last;
 		}
