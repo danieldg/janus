@@ -28,6 +28,8 @@ use warnings;
 	acl => 'die',
 	code => sub {
 		my($src,$dst,$pass) = @_;
+		return &Janus::jmsg($dst, "Specify the argument '".$RemoteJanus::self->id."' to confirm")
+			unless $pass && $pass eq $RemoteJanus::self->id;
 		&Conffile::save();
 		&Log::audit('DIE by '.$src->netnick);
 		for my $net (values %Janus::nets) {
@@ -51,8 +53,10 @@ use warnings;
 	acl => 'die',
 	code => sub {
 		my($src,$dst,$pass) = @_;
-		&Log::audit('RESTART by '.$src->netnick);
+		return &Janus::jmsg($dst, "Specify the argument '".$RemoteJanus::self->id."' to confirm")
+			unless $pass && $pass eq $RemoteJanus::self->id;
 		&Conffile::save();
+		&Log::audit('RESTART by '.$src->netnick);
 		for my $net (values %Janus::nets) {
 			next if $net->jlink();
 			&Janus::append(+{
