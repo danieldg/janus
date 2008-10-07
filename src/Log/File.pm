@@ -13,6 +13,11 @@ our(@filename, @fh, @rotate, @closeact, @dump);
 &Persist::register_vars(qw(filename fh rotate closeact dump));
 &Persist::autoinit(qw(rotate closeact dump));
 
+for my $rot (@rotate) {
+	next unless $rot;
+	$rot->{code} = \&rotate;
+}
+
 sub rotate {
 	my $e = shift;
 	my $s = $e->{log};
