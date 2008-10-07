@@ -29,6 +29,7 @@ use warnings;
 	code => sub {
 		my($src,$dst,$cmd,$acctid,@acls) = @_;
 		$cmd = lc $cmd;
+		$acctid = lc $acctid;
 		my $acct = $Account::accounts{$acctid};
 		if ($cmd eq 'list') {
 			&Janus::jmsg($dst, join ' ', sort keys %Account::accounts);

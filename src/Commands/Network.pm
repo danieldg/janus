@@ -80,7 +80,7 @@ use warnings;
 		'A rehash will reread the value for the network from the janus configuration',
 		'Without parameters, displays the current state',
 	],
-	acl => 1,
+	acl => 'network',
 	code => sub {
 		my($src, $dst, $id, $onoff) = @_;
 		my $nconf = $Conffile::netconf{$id} or do {
@@ -105,7 +105,7 @@ use warnings;
 		"Syntax: \002NETSPLIT\002 network",
 		"Disconnects the given network from janus and then rehashes to (possibly) reconnect",
 	],
-	acl => 1,
+	acl => 'network',
 	code => sub {
 		my($src,$dst,$net) = @_;
 		$net = $Janus::nets{lc $net} || $Janus::ijnets{lc $net};

@@ -122,7 +122,6 @@ my @mode_sym = qw{~ & @ % +};
 	details => [
 		"\002SHOWCHAN\002 netid|gid",
 	],
-	acl => 1,
 	code => sub {
 		my($src, $dst, $args) = @_;
 		my $n = $Janus::nets{$args} || $Janus::gnets{$args};
