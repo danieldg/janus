@@ -241,7 +241,8 @@ sub save {
 	return 1;
 }
 
-our $autoevent;
+our($saveevent, $autoevent);
+$saveevent->{code} = \&Conffile::save if $saveevent;
 $autoevent->{code} = \&Conffile::autoconnect if $autoevent;
 
 &Janus::hook_add(
@@ -269,7 +270,12 @@ $autoevent->{code} = \&Conffile::autoconnect if $autoevent;
 			code => \&Conffile::autoconnect,
 			desc => 'autoconnect',
 		};
-		&Event::schedule($autoevent);
+		$saveevent = {
+			repeat => 3600,
+			code => \&Conffile::save,
+			desc => 'autosave',
+		};
+		&Event::schedule($autoevent, $saveevent);
 	},
 );
 
