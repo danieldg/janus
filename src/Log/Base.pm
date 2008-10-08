@@ -20,10 +20,15 @@ sub _init {
 sub log {
 	my($log, $lvl) = (shift,shift);
 	for (split /\s+/, $filter[$$log]) {
-		if ($_ eq '*' || $lvl =~ /^$_$/) {
+		if ($_ eq '*' || $lvl eq $_) {
 			return $log->output(@_);
 		}
 	}
+}
+
+sub reconfigure {
+	my($log,$conf) = @_;
+	$filter[$$log] = $conf->{filter} || '*';
 }
 
 1

@@ -74,6 +74,7 @@ use warnings;
 }, {
 	cmd => 'listacls',
 	help => 'Lists all janus command ACLs',
+	section => 'Info',
 	code => sub {
 		my($src,$dst) = @_;
 		my %by_acl;

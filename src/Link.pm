@@ -88,7 +88,7 @@ sub autolink_to {
 		for my $cname (sort keys %{$request{$src}}) {
 			my $ifo = $request{$src}{$cname};
 			next if $ifo->{mode};
-			next unless $netok{$ifo->{net}};
+			next unless $ifo->{net} && $netok{$ifo->{net}};
 			my $net = $Janus::nets{$ifo->{net}} or next;
 			my $chan = $snet->chan($cname, 1);
 			push @acts, +{

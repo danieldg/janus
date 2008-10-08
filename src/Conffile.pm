@@ -123,7 +123,9 @@ sub read_conf {
 		};
 		my $name = $log->{name};
 		if ($pre_loggers{$name} && $type eq ref $pre_loggers{$name}) {
-			push @loggers, delete $pre_loggers{$name};
+			my $running = delete $pre_loggers{$name};
+			$running->reconfigure($log) if $running->can('reconfigure');
+			push @loggers, $running;
 		} else {
 			push @loggers, $type->new(%$log);
 		}
