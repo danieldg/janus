@@ -90,15 +90,6 @@ sub command_add {
 	}
 }
 
-my %help_section = (
-	Account => 'Account managment',
-	Admin => 'Administration',
-	Channel => 'Channel managment',
-	Info => 'Information',
-	Network => 'Network managment',
-	Other => 'Other',
-);
-
 sub _send {
 	my $act = $_[0];
 	&EventDump::debug_send($act);
@@ -453,61 +444,5 @@ Event::hook_add(
 		wipe_hooks($_[0]->{module});
 	}
 );
-
-Event::command_add({
-	cmd => 'help',
-	help => 'Help on janus commands. See "help help" for use.',
-	section => 'Info',
-	details => [
-		'Use: help [command|all]'
-	],
-	code => sub {
-		my($src,$dst,$item) = @_;
-		$item = lc $item || '';
-		if (exists $commands{lc $item}) {
-			my $det = $commands{$item}{details};
-			if (ref $det) {
-				&Janus::jmsg($dst, @$det);
-			} elsif ($commands{$item}{help}) {
-				&Janus::jmsg($dst, "$item - $commands{$item}{help}");
-			} else {
-				&Janus::jmsg($dst, 'No help exists for that command');
-			}
-			my $acl = $commands{$item}{acl};
-			if ($acl) {
-				$acl = 'oper' if $acl eq '1';
-				&Janus::jmsg($dst, "Requires access to the '$acl' acl");
-			}
-		} else {
-			my %cmds;
-			my $synlen = 0;
-			for my $cmd (sort keys %commands) {
-				my $h = $commands{$cmd}{help};
-				my $acl = $commands{$cmd}{acl};
-				next unless $h;
-				if ($acl && $item ne 'all') {
-					$acl = 'oper' if $acl eq '1';
-					next unless &Account::acl_check($src, $acl);
-				}
-				my $section = $commands{$cmd}{section} || 'Other';
-				$cmds{$section} ||= [];
-				push @{$cmds{$section}}, $cmd;
-				$synlen = length $cmd if length $cmd > $synlen;
-			}
-			&Janus::jmsg($dst, "Use '\002HELP\002 command' for details");
-			for my $section (sort keys %cmds) {
-				my $sname = $help_section{$section} || $section;
-				&Janus::jmsg($dst, $sname.':', map {
-					sprintf " \002\%-${synlen}s\002  \%s", uc $_, $commands{$_}{help};
-				} @{$cmds{$section}});
-			}
-		}
-	}
-}, {
-	cmd => 'unk',
-	code => sub {
-		&Janus::jmsg($_[1], 'Unknown command. Use "help" to see available commands');
-	},
-});
 
 1;

@@ -16,7 +16,7 @@ use warnings;
 &Janus::command_add({
 	cmd => 'account',
 	help => 'Manages janus accounts',
-	acl => 'admin',
+	acl => 'useradmin',
 	section => 'Account',
 	details => [
 		"\002ACCOUNT LIST\002               Lists all accounts",
@@ -71,6 +71,20 @@ use warnings;
 			&Janus::jmsg($dst, 'See "help account" for the correct syntax');
 		}
 	}
+}, {
+	cmd => 'listacls',
+	help => 'Lists all janus command ACLs',
+	code => sub {
+		my($src,$dst) = @_;
+		my %by_acl;
+		for my $cmdname (sort keys %Event::commands) {
+			my $cmd = $Event::commands{$cmdname};
+			my $acl = $cmd->{acl} or next;
+			$acl = 'oper' if $acl eq '1';
+			$by_acl{$acl} .= ' '.$cmdname;
+		}
+		&Janus::jmsg($dst, map { sprintf "\002%-10s\002\%s", $_, $by_acl{$_} } sort keys %by_acl);
+	},
 });
 
 1;

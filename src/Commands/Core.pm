@@ -7,7 +7,16 @@ use integer;
 
 $perl::VERSION = sprintf '%vd', $^V;
 
-&Janus::command_add({
+my %help_section = (
+	Account => 'Account managment',
+	Admin => 'Administration',
+	Channel => 'Channel managment',
+	Info => 'Information',
+	Network => 'Network managment',
+	Other => 'Other',
+);
+
+&Event::command_add({
 	cmd => 'about',
 	help => 'Provides information about janus',
 	section => 'Info',
@@ -131,6 +140,61 @@ $perl::VERSION = sprintf '%vd', $^V;
 		&Log::audit("Module $name unloaded by ".$src->netnick);
 		&Janus::jmsg($dst, "Module $name unloaded");
 	}
+}, {
+	cmd => 'help',
+	help => 'Help on janus commands. See "help help" for use.',
+	section => 'Info',
+	details => [
+		'Use: help [command|all]'
+	],
+	code => sub {
+		my($src,$dst,$item) = @_;
+		$item = lc $item || '';
+		if (exists $Event::commands{lc $item}) {
+			my $det = $Event::commands{$item}{details};
+			if (ref $det) {
+				&Janus::jmsg($dst, @$det);
+			} elsif ($Event::commands{$item}{help}) {
+				&Janus::jmsg($dst, "$item - $Event::commands{$item}{help}");
+			} else {
+				&Janus::jmsg($dst, 'No help exists for that command');
+			}
+			my $acl = $Event::commands{$item}{acl};
+			if ($acl) {
+				$acl = 'oper' if $acl eq '1';
+				my $allow = &Account::acl_check($src, $acl) ? 'you' : 'you do not';
+				&Janus::jmsg($dst, "Requires access to the '$acl' acl ($allow currently have access)");
+			}
+		} else {
+			my %cmds;
+			my $synlen = 0;
+			for my $cmd (sort keys %Event::commands) {
+				my $h = $Event::commands{$cmd}{help};
+				my $acl = $Event::commands{$cmd}{acl};
+				next unless $h;
+				if ($acl && $item ne 'all') {
+					$acl = 'oper' if $acl eq '1';
+					next unless &Account::acl_check($src, $acl);
+				}
+				my $section = $Event::commands{$cmd}{section} || 'Other';
+				$cmds{$section} ||= [];
+				push @{$cmds{$section}}, $cmd;
+				$synlen = length $cmd if length $cmd > $synlen;
+			}
+			&Janus::jmsg($dst, "Use '\002HELP\002 command' for details");
+			for my $section (sort keys %cmds) {
+				my $sname = $help_section{$section} || $section;
+				&Janus::jmsg($dst, $sname.':', map {
+					sprintf " \002\%-${synlen}s\002  \%s", uc $_, $Event::commands{$_}{help};
+				} @{$cmds{$section}});
+			}
+		}
+	}
+}, {
+	cmd => 'unk',
+	code => sub {
+		&Janus::jmsg($_[1], 'Unknown command. Use "help" to see available commands');
+	},
 });
 
 1;
