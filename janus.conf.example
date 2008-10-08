@@ -17,16 +17,14 @@ set {
 	# Janus nick - change this if you want a different interface nick
 	# ident and host are similarly settable
 	janus_nick janus
-	# Rehash password - if set, this password is required for non-opers to
-	# rehash the configuration.
-	pass rehashdude
+	# Administrator password - if set, this enables an "admin" account with 
+	# full access to all commands. Once you have created normal accounts,
+	# this should be disabled as the password is stored in plaintext.
+	password verysecret
 	# Link mode - use janus as a network partition or a transparent bridge
 	#  link - network partition, channels must be explicitly linked
 	#  bridge - transpaent link, all channels linked, opers are more global
 	lmode link
-	# This password is required for opers to be able to kill or restart the
-	# janus server. If unset, those commands are unavailable
-#	diepass killme
 
 	# Other parameters as defined by modules may be present here
 	# Example: Modules::LogRotate takes a logfile format and an
@@ -47,8 +45,9 @@ modules {
 log log/%Y-%m-%d-%H:%M:%S {
 	# Type - a module in the Log package
 	type File
-	# Filter - what events to send to the log. Space-separated values, see Log.pm for the list
-	filter *
+	# Filter - what events to send to the log. Space-separated values
+	# See Log.pm for a full list; this will produce a reasonable log.
+	filter debug info warn err audit command debug_in info_in warn_in err_in hook_err
 	## SPECIFIC TO File type
 	# Run a dump before opening the log file (for possible replays)
 	dump 1

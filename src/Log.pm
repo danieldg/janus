@@ -7,7 +7,6 @@ use Carp;
 
 # log level => \&stringifier
 #  Output: (IRC-color, header, message)
-#  Send to Event::named_hook("LOG/$lvl")
 our %action = (
 	'err' => sub {
 		(5, 'ERR', join ' ', @_);

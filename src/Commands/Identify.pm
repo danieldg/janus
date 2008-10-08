@@ -41,7 +41,17 @@ sub hash {
 		my $user = lc (@_ == 3 ? $nick->homenick : $_[2]);
 		my $pass = $_[-1];
 		$user =~ s/[^0-9a-z_]//g;
-		if ($Account::accounts{$user}) {
+		if ($user eq 'admin') {
+			# special-case: admin password is in configuration
+			my $confpass = $Conffile::netconf{set}{password};
+			if ($confpass && $pass eq $confpass) {
+				&Log::audit($_[0]->netnick . ' logged in as admin');
+				$Account::accounts{admin}{acl} = '*';
+				&Janus::jmsg($nick, 'You are logged in as admin. '.
+					'Please create named accounts for normal use using the "account" command.');
+				return;
+			}
+		} elsif ($Account::accounts{$user}) {
 			my $salt = $Account::accounts{$user}{salt} || '';
 			my $hash = hash($pass, $salt);
 			if ($Account::accounts{$user}{pass} eq $hash) {
