@@ -12,7 +12,7 @@ use warnings;
 		my($src,$dst) = @_;
 		my $detail = &Account::acl_check($src, 'oper');
 
-		my @lines = [ 'Channel', 'net', ($detail ? ('Created by') : ()) ];
+		my @lines;
 
 		for my $net (sort keys %Janus::nets) {
 			my $avail = $Link::request{$net} or next;
@@ -24,7 +24,8 @@ use warnings;
 				push @lines, \@line;
 			}
 		}
-
+		@lines = sort { $a->[0] cmp $b->[0] } @lines;
+		unshift @lines, [ 'Channel', 'net', ($detail ? ('Created by') : ()) ];
 		&Interface::msgtable($dst, \@lines, 1);
 	},
 });
