@@ -1543,23 +1543,6 @@ sub cmd2 {
 		return () if $act->{netsplit_quit};
 		return () unless $act->{dst}->is_on($net);
 		$net->cmd2($act->{dst}, QUIT => $act->{msg});
-	}, LINK => sub {
-		my($net,$act) = @_;
-		my $chan = $act->{dst}->str($net);
-		return () if $act->{linkfile};
-		[ FLOAT_ALL => $net->cmd1(GLOBOPS => "Channel $chan linked") ];
-	}, DELINK => sub {
-		my($net,$act) = @_;
-		return () if $act->{netsplit_quit};
-		if ($act->{net} eq $net) {
-			my $split = $act->{split} || $act->{dst};
-			my $name = $split->str($net);
-			my $nick = $act->{src} ? $act->{src}->str($net) : 'janus';
-			$net->cmd1(GLOBOPS => "Channel $name delinked by $nick");
-		} else {
-			my $name = $act->{dst}->str($net);
-			$net->cmd1(GLOBOPS => "Network ".$act->{net}->netname()." dropped channel $name");
-		}
 	}, KILL => sub {
 		my($net,$act) = @_;
 		my $killfrom = $act->{net};
