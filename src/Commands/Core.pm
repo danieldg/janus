@@ -48,7 +48,6 @@ my %help_section = (
 		} else {
 			@mods = sort('main', 'perl', keys %main::INC);
 		}
-		my($m1, $m2) = (10,3); #min lengths
 		my @mvs;
 		for (@mods) {
 			s/\.pmc?$//;
@@ -63,16 +62,9 @@ my %help_section = (
 				$v = ${$_.'::VERSION'};
 			}
 			next unless $v;
-			$m1 = length $_ if $m1 < length $_;
-			$m2 = length $v if $m2 < length $v;
 			push @mvs, [ $_, $v ];
 		}
-		my $c = 1 + $#mvs / $w;
-		my $ex = ' %-'.$m1.'s %'.$m2.'s';
-		for my $i (0..($c-1)) {
-			&Janus::jmsg($dst, join '', map $_ ? sprintf $ex, @$_ : '', 
-				map $mvs[$c*$_ + $i], 0 .. ($w-1));
-		}
+		&Interface::msgtable($dst, \@mvs, $w);
 	}
 }, {
 	cmd => 'modinfo',

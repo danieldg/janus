@@ -8,47 +8,24 @@ use warnings;
 	cmd => 'list',
 	help => 'List channels available for linking',
 	section => 'Channel',
-	details => [
-		"Syntax: \002LIST\002 network|*",
-	],
 	code => sub {
-		my($src,$dst,$args) = @_;
+		my($src,$dst) = @_;
+		my $detail = &Account::acl_check($src, 'oper');
 
-		if ($args && $args =~ /^\S+$/ && $Janus::nets{$args}) {
-			my $avail = $Link::request{$args} || {};
-			my @out;
-			for my $chan (sort keys %$avail) {
+		my @lines = [ 'Channel', 'net', ($detail ? ('Created by') : ()) ];
+
+		for my $net (sort keys %Janus::nets) {
+			my $avail = $Link::request{$net} or next;
+
+			for my $chan (keys %$avail) {
 				next unless $avail->{$chan}{mode};
-				# TODO filter out rejected channels
-				if ($src->has_mode('oper')) {
-					push @out, $chan.' '.$avail->{$chan}{mask}.' '.gmtime($avail->{$chan}{time});
-				} else {
-					push @out, $chan;
-				}
+				my @line = ($chan, $net);
+				push @line, $avail->{$chan}{mask}.' '.gmtime($avail->{$chan}{time}) if $detail;
+				push @lines, \@line;
 			}
-			if (@out) {
-				&Janus::jmsg($dst, @out);
-			} else {
-				&Janus::jmsg($dst, 'No shared channels for that network');
-			}
-		} elsif ($args && $args eq '*') {
-			for my $net (sort keys %Janus::nets) {
-				my $avail = $Link::request{$net} or next;
-				my @out;
-				for my $chan (sort keys %$avail) {
-					next unless $avail->{$chan}{mode};
-					# TODO filter out rejected channels
-					if ($src->has_mode('oper')) {
-						push @out, $net.$chan.' '.$avail->{$chan}{mask}.' '.gmtime($avail->{$chan}{time});
-					} else {
-						push @out, $net.$chan;
-					}
-				}
-				&Janus::jmsg($dst, @out);
-			}
-		} else {
-			&Janus::jmsg($dst, "Syntax: LIST network|*");
 		}
+
+		&Interface::msgtable($dst, \@lines, 1);
 	},
 });
 

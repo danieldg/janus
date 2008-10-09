@@ -288,4 +288,23 @@ sub jmsg {
 	}, @o);
 }
 
+sub msgtable {
+	my($dst, $table, $cols) = @_;
+	$cols ||= 1;
+	my @maxw = map 0, @{$table->[0]};
+	for my $line (@$table) {
+		for my $i (0..$#$line) {
+			my $len = length $line->[$i];
+			$maxw[$i] = $len if $maxw[$i] < $len;
+		}
+	}
+	my $fmt = join ' ', map '%-'.$_.'s', @maxw;
+
+	my $c = 1 + $#$table / $cols; # height of table
+	for my $i (0..($c-1)) {
+		jmsg($dst, join ' ', map $_ ? sprintf $fmt, @$_ : '',
+			map $table->[$c*$_ + $i], 0 .. ($cols-1));
+	}
+}
+
 1;

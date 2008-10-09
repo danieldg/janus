@@ -134,12 +134,7 @@ use warnings;
 		my($src,$dst) = @_;
 		my $hnet = $src->homenet();
 		my $hnetn = $hnet->name();
-		my $head1 = 'Linked Networks:';
-		my $head2 = "\002$hnetn\002";
-		my $head3 = join ' ', grep !($_ eq 'janus' || $_ eq $hnetn), sort keys %Janus::nets;
 		my %chans;
-		my $len1 = length($head1) - 1;
-		my $len2 = length($head2);
 		for my $chan ($hnet->all_chans()) {
 			my %nets = map { $$_ => $_ } $chan->nets();
 			delete $nets{$$hnet};
@@ -155,7 +150,6 @@ use warnings;
 				@list = ();
 			} elsif ($cname eq $hname) {
 				$hcol = "\002".$cnet->name()."\002";
-				$len2 = length $hcol if length $hcol > $len2;
 			} else {
 				$hcol = "\002".$cnet->name()."$cname\002";
 			}
@@ -164,13 +158,12 @@ use warnings;
 				my $oname = lc $chan->str($net);
 				push @list, $net->name().($cname eq $oname ? '' : $oname);
 			}
-			$len1 = length $hname if length $hname > $len1;
 			$chans{$hname} = [ $hname, $hcol, join ' ', sort @list ];
 		}
-		&Janus::jmsg($dst, sprintf '%-'.($len1+1).'s %-'.$len2.'s %s', $head1, $head2, $head3);
-		&Janus::jmsg($dst, map {
-			sprintf " \%-${len1}s \%-${len2}s \%s", @{$chans{$_}};
-		} sort keys %chans);
+		my @table = map $chans{$_}, sort keys %chans;
+		my $netlist = join ' ', grep !($_ eq 'janus' || $_ eq $hnetn), sort keys %Janus::nets;
+		unshift @table, [ 'Linked Networks:', "\002$hnetn\002", $netlist ];
+		&Interface::msgtable($dst, \@table);
 	}
 });
 
