@@ -228,7 +228,7 @@ sub send_avail {
 		my $nname = $net->name();
 		my $chan = $act->{dst};
 		my $cname = $chan->str($net);
-		my $hnet = $act->{src}->homenet();
+		my $hnet = $chan->homenet();
 		if ($hnet == $net) {
 			delete $request{$nname}{$cname};
 		} else {

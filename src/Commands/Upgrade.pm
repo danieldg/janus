@@ -74,7 +74,7 @@ sub fexec {
 		my $p = fork;
 		return &Janus::jmsg($dst, 'Failed') unless defined $p && $p >= 0;
 		return if $p;
-		fexec 'git-pull';
+		fexec 'git', 'pull';
 	}
 });
 
