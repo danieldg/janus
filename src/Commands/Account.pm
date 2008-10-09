@@ -7,7 +7,7 @@ use warnings;
 &Event::hook_add(
 	INFO => Account => sub {
 		my($dst, $acctid, $src) = @_;
-		my $all = &Account::acl_check($src, 'admin') || $acctid eq &Account::has_local($src);
+		my $all = &Account::acl_check($src, 'useradmin') || $acctid eq &Account::has_local($src);
 		if ($all) {
 			&Janus::jmsg($dst, 'ACL: '.$Account::accounts{$acctid}{acl});
 		}
@@ -80,9 +80,12 @@ use warnings;
 		my %by_acl;
 		for my $cmdname (sort keys %Event::commands) {
 			my $cmd = $Event::commands{$cmdname};
-			my $acl = $cmd->{acl} or next;
-			$acl = 'oper' if $acl eq '1';
-			$by_acl{$acl} .= ' '.$cmdname;
+			my $acl = $cmd->{acl};
+			if ($acl) {
+				$acl = 'oper' if $acl eq '1';
+				$by_acl{$_} .= ' '.$cmdname for split /\|/, $acl;
+			}
+			$by_acl{$cmd->{aclchk}} .= ' '.$cmdname if $cmd->{aclchk};
 		}
 		&Janus::jmsg($dst, map { sprintf "\002%-10s\002\%s", $_, $by_acl{$_} } sort keys %by_acl);
 	},

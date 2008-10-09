@@ -25,6 +25,7 @@ use warnings;
 			&Interface::jmsg($dst, 'Cannot find that channel');
 			return;
 		}
+		return unless &Account::chan_access_chk($src, $chan, 'link', $dst);
 		unless ($ifo && $ifo->{mode}) {
 			&Interface::jmsg($dst, 'That channel is not shared');
 			return;
@@ -75,8 +76,9 @@ use warnings;
 		return Interface::jmsg($dst, 'Cannot find that network') unless $dnet;
 		unless ($hn->jlink) {
 			my $chan = $hn->chan($cname, 0);
-			my $difo = $Link::request{$hname}{lc $cname};
 			return Interface::jmsg($dst, 'Cannot find that channel') unless $chan;
+			return unless &Account::chan_access_chk($src, $chan, 'link', $dst);
+			my $difo = $Link::request{$hname}{lc $cname};
 			unless ($difo && $difo->{mode}) {
 				&Interface::jmsg($dst, 'That channel is not shared');
 				return;
@@ -88,7 +90,7 @@ use warnings;
 			}
 		}
 		if ($dnet->jlink) {
-			# TODO this may not be the best way to do it
+			# TODO is not be the best way to do it
 			&Janus::append(+{
 				type => 'MSG',
 				src => $src,

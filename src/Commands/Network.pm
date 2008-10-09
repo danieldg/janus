@@ -8,13 +8,9 @@ use warnings;
 	cmd => 'rehash',
 	help => 'Reload the config and attempt to reconnect to split servers',
 	section => 'Admin',
+	acl => 'oper|rehash',
 	code => sub {
-		my($src,$dst,$pass) = @_;
-		unless (&Account::acl_check($src, 'oper') || &Account::acl_check($src,'rehash') ||
-				$pass eq $Conffile::netconf{set}{rehashpass}) {
-			&Janus::jmsg($dst, "You must be an IRC operator or specify the rehash password to use this command");
-			return;
-		}
+		my($src,$dst) = @_;
 		&Log::audit('Rehash by '.$src->netnick);
 		&Janus::append(+{
 			src => $src,

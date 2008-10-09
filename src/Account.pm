@@ -34,7 +34,26 @@ sub acl_check {
 		$has{$_}++ for split /\s+/, $acct->{acl};
 	}
 	return 1 if $has{'*'};
-	$has{$acl};
+	for my $itm (split /\|/, $acl) {
+		return 1 if $has{$itm};
+	}
+}
+
+sub chan_access_chk {
+	my($nick, $chan, $acl, $errs) = @_;
+	my $net = $nick->homenet;
+	unless ($chan->homenet == $net) {
+		&Janus::jmsg($errs, "This command must be run from the channel's home network");
+		return 0;
+	}
+	return 1 if acl_chk($nick, 'oper');
+	if (($acl eq 'link' || $acl eq 'create') && $net->param('oper_only_link')) {
+		&Janus::jmsg($errs, 'You must be an IRC operator to use this command');
+		return 0;
+	}
+	return 1 if $chan->has_nmode(owner => $nick);
+	&Janus::jmsg($errs, "You must be a channel owner to use this command");
+	return 0;
 }
 
 sub has_local {

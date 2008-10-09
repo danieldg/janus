@@ -165,6 +165,11 @@ my %help_section = (
 				my $allow = &Account::acl_check($src, $acl) ? 'you' : 'you do not';
 				&Janus::jmsg($dst, "Requires access to the '$acl' acl ($allow currently have access)");
 			}
+			my $aclchk = $Event::commands{$item}{aclchk};
+			if ($aclchk) {
+				my $allow = &Account::acl_check($src, $aclchk) ? 'you' : 'you do not';
+				&Janus::jmsg($dst, "May require access to the '$aclchk' acl ($allow currently have access)");
+			}
 		} else {
 			my %cmds;
 			my $synlen = 0;

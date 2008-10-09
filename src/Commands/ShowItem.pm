@@ -9,20 +9,20 @@ my @mode_sym = qw{~ & @ % +};
 &Event::hook_add(
 	INFO => Nick => sub {
 		my($dst, $n, $asker) = @_;
-		my $all = $asker->has_mode('oper') || $asker == $n;
+		my $all = &Account::acl_check($asker, 'useradmin') || $asker == $n;
 		&Janus::jmsg($dst, join ' ', "\002Nick\002",$$n,$n->homenick,'on',$n->homenet->name,$n->gid,
 			$all ? $n->ts.'='.gmtime($n->ts) : ());
 		if ($all) {
 			&Janus::jmsg($dst, join ' ', "\002Mode:\002", $n->umodes);
 			&Janus::jmsg($dst, join ' ', "\002Channels:\002", map $_->real_keyname, $n->all_chans);
 			my @ifokeys = sort keys %{$Nick::info[$$n]};
-			Janus::jmsg($dst, join ' ', '', map $_.'='.$n->info($_), @ifokeys);
+			&Janus::jmsg($dst, join ' ', '', map $_.'='.$n->info($_), @ifokeys);
 		}
 		&Janus::jmsg($dst, join ' ', "\002Nicks:\002", sort map { '@'.$_->name.'='.$n->str($_) } $n->netlist);
 	},
 	INFO => Channel => sub {
 		my($dst, $c, $asker) = @_;
-		my $all = $asker->has_mode('oper') || $c->has_nmode(owner => $asker);
+		my $all = &Account::chan_access_chk($asker, $c, 'mode', undef);
 		my $hn = $asker->homenet;
 
 		&Janus::jmsg($dst, join ' ', "\002Channel\002",$$c,$c->real_keyname,'on',$c->homenet->name,
@@ -77,6 +77,7 @@ my @mode_sym = qw{~ & @ % +};
 	cmd => 'shownick',
 	help => 'Shows internal details on a nick',
 	section => 'Info',
+	aclchk => 'useradmin',
 	details => [
 		"\002SHOWNICK\002 [net] nick|gid",
 	],

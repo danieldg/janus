@@ -80,6 +80,7 @@ sub hash {
 	],
 	secret => 1,
 	acl => 'user',
+	aclchk => 'useradmin',
 	code => sub {
 		my($src,$dst) = @_;
 		my $acctid = $src->info('account:'.$RemoteJanus::self->id);
@@ -87,7 +88,7 @@ sub hash {
 		my $acct = $user ? $Account::accounts{$user} : undef;
 		if ($acct && $user eq $acctid) {
 			&Log::info($src->netnick .' changed their password (account "'.$user.'")');
-		} elsif (&Account::acl_check($src, 'admin')) {
+		} elsif (&Account::acl_check($src, 'useradmin')) {
 			return &Janus::jmsg($dst, 'Cannot find that user') unless $acct;
 			&Log::audit($src->netnick .' changed '.$user."\'s password");
 		} else {

@@ -19,10 +19,7 @@ use Modes;
 		my $hn = $src->homenet;
 		my $chan = $hn->chan($cname,0) || $Janus::gchans{$cname};
 		return &Janus::jmsg($dst, 'That channel does not exist') unless $chan;
-		unless ($chan->has_nmode(owner => $src) || $src->has_mode('oper')) {
-			&Janus::jmsg($dst, "You must be a channel owner or oper to use this command");
-			return;
-		}
+		return unless &Account::chan_access_chk($src, $chan, 'mode', $dst);
 		if ($hn->isa('LocalNetwork')) {
 			my @modes = &Modes::to_multi($hn, &Modes::delta(undef, $chan), 0, 400);
 			&Janus::jmsg($dst, join ' ', $cname, @$_) for @modes;
@@ -64,10 +61,7 @@ use Modes;
 		my $hn = $src->homenet;
 		my $chan = $hn->chan($cname,0) || $Janus::gchans{$cname};
 		return &Janus::jmsg($dst, 'That channel does not exist') unless $chan;
-		unless ($chan->has_nmode(owner => $src) || $src->has_mode('oper')) {
-			&Janus::jmsg($dst, "You must be a channel owner or oper to use this command");
-			return;
-		}
+		return unless &Account::chan_access_chk($src, $chan, 'mode', $dst);
 		my(@modes,@args,@dirs);
 		for (@argin) {
 			/^([-+]+)([^=]+)(?:=(.+))?$/ or do {
