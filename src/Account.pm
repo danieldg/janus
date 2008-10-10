@@ -46,7 +46,7 @@ sub chan_access_chk {
 		&Janus::jmsg($errs, "This command must be run from the channel's home network");
 		return 0;
 	}
-	return 1 if acl_chk($nick, 'oper');
+	return 1 if acl_check($nick, 'oper');
 	if (($acl eq 'link' || $acl eq 'create') && $net->param('oper_only_link')) {
 		&Janus::jmsg($errs, 'You must be an IRC operator to use this command');
 		return 0;
@@ -65,16 +65,16 @@ sub has_local {
 
 sub get {
 	my($nick, $item) = @_;
-	my $selfid = $nick->info('account:'.$RemoteJanus::self->id) or return undef;
-	return undef unless $accounts{$selfid};
-	return $accounts{$selfid}{$item};
+	my $id = ref $nick ? $nick->info('account:'.$RemoteJanus::self->id) : $nick;
+	return undef unless $id && $accounts{$id};
+	return $accounts{$id}{$item};
 }
 
 sub set {
 	my($nick, $item, $value) = @_;
-	my $selfid = $nick->info('account:'.$RemoteJanus::self->id) or return 0;
-	return 0 unless $accounts{$selfid};
-	$accounts{$selfid}{$item} = $value;
+	my $id = ref $nick ? $nick->info('account:'.$RemoteJanus::self->id) : $nick;
+	return 0 unless $id && $accounts{$id};
+	$accounts{$id}{$item} = $value;
 	1;
 }
 

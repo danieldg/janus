@@ -30,42 +30,42 @@ use warnings;
 		my($src,$dst,$cmd,$acctid,@acls) = @_;
 		$cmd = lc $cmd;
 		$acctid = lc $acctid;
-		my $acct = $Account::accounts{$acctid};
-		if ($cmd eq 'list') {
-			&Janus::jmsg($dst, join ' ', sort keys %Account::accounts);
-		} elsif ($cmd eq 'show') {
-			return &Janus::jmsg($dst, 'No such account') unless $acct;
-			&Event::named_hook('INFO/Account', $dst, $acctid, $src);
-		} elsif ($cmd eq 'create') {
+		if ($cmd eq 'create') {
+			return &Janus::jmsg($dst, 'Account already exists') if $Account::accounts{$acctid};
 			&Event::named_hook('ACCOUNT/add', $acctid);
-			&Janus::jmsg($dst, 'Done');
+			return &Janus::jmsg($dst, 'Done');
+		} elsif ($cmd eq 'list') {
+			&Janus::jmsg($dst, join ' ', sort keys %Account::accounts);
+			return;
+		}
+
+		return &Janus::jmsg($dst, 'No such account') unless $Account::accounts{$acctid};
+		if ($cmd eq 'show') {
+			&Event::named_hook('INFO/Account', $dst, $acctid, $src);
 		} elsif ($cmd eq 'delete') {
-			return &Janus::jmsg($dst, 'No such account') unless $acct;
 			&Event::named_hook('ACCOUNT/del', $acctid);
 			&Janus::jmsg($dst, 'Done');
 		} elsif ($cmd eq 'grant' && @acls) {
-			return &Janus::jmsg($dst, 'No such account') unless $acct;
 			my %acl;
-			$acl{$_}++ for split / /, ($acct->{acl} || '');
+			$acl{$_}++ for split / /, (&Account::get($acctid, 'acl') || '');
 			for (@acls) {
 				$acl{$_}++;
 				unless (&Account::acl_check($src, $_)) {
 					return &Janus::jmsg($dst, "You cannot grant access to permissions you don't have");
 				}
 			}
-			$acct->{acl} = join ' ', sort keys %acl;
+			&Account::set($acctid, 'acl', join ' ', sort keys %acl);
 			&Janus::jmsg($dst, 'Done');
 		} elsif ($cmd eq 'revoke' && @acls) {
-			return &Janus::jmsg($dst, 'No such account') unless $acct;
 			my %acl;
-			$acl{$_}++ for split / /, ($acct->{acl} || '');
+			$acl{$_}++ for split / /, (&Account::get($acctid, 'acl') || '');
 			for (@acls) {
 				delete $acl{$_};
 				unless (&Account::acl_check($src, $_)) {
 					return &Janus::jmsg($dst, "You cannot revoke access to permissions you don't have");
 				}
 			}
-			$acct->{acl} = join ' ', sort keys %acl;
+			&Account::set($acctid, 'acl', join ' ', sort keys %acl);
 			&Janus::jmsg($dst, 'Done');
 		} else {
 			&Janus::jmsg($dst, 'See "help account" for the correct syntax');
