@@ -61,7 +61,7 @@ sub pmsg {
 
 	return undef unless $src->isa('Nick') && $dst->isa('Nick');
 
-	unless ($$src == 1 || $src->is_on($dst->homenet())) {
+	unless ($$src == 1 || $$dst == 1 || $src->is_on($dst->homenet())) {
 		&Interface::jmsg($src, 'You must join a shared channel to speak with remote users') if $act->{msgtype} eq 'PRIVMSG';
 		return 1;
 	}
@@ -296,7 +296,8 @@ sub msgtable {
 			$maxw[$i] = $len if $maxw[$i] < $len;
 		}
 	}
-	my $fmt = join ' ', map '%-'.$_.'s', @maxw;
+	# Regex required because the length of a tainted string is tainted
+	my $fmt = join ' ', map /(\d+)/ && '%-'.$1.'s', @maxw;
 
 	my $c = 1 + $#$table / $cols; # height of table
 	for my $i (0..($c-1)) {
