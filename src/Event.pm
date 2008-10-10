@@ -418,23 +418,44 @@ Event::hook_add(
 		my $run = $dst == $RemoteJanus::self || $dst == $Janus::global;
 		my $reply = ($dst == $RemoteJanus::self || !$src->jlink) ? $act->{replyto} : undef;
 
-		my $api = $cmd->{api} || [ qw(=src =replyto @) ];
+		my $api = $cmd->{api} || "=src =replyto @";
 		my @argin = @{$act->{args}};
 
+		my $hnet = $src->homenet;
 		my @args;
-		for (@$api) {
+		my $fail;
+		my $idx = 0;
+		for (split / /, $api) {
+			$idx++;
+			my $opt = s/^\?//;
 			if (/^=(.*)/) {
 				push @args, $act->{$1};
 			} elsif ($_ eq '@') {
 				push @args, @argin;
 			} elsif ($_ eq '$') {
+				$fail = 'Not enough arguments' unless $opt || @argin;
 				push @args, shift @argin;
+			} elsif ($_ eq 'homenet') {
+				push @args, $hnet;
+			} elsif ($_ eq 'chan') {
+				my $cname = shift @argin;
+				$act->{$idx} = $hnet->chan($cname, 0) if defined $cname && !$hnet->jlink;
+				$fail = 'Could not find channel '.$cname unless $opt || $act->{$idx};
+				push @args, $act->{$idx};
+			} elsif ($_ eq 'net') {
+				my $id = shift @argin;
+				$fail = 'Could not find network '.$id unless $opt || $Janus::nets{$id};
+				push @args, $Janus::nets{$id};
 			} else {
 				warn "Skipping unknown command API $_";
 			}
 		}
 
 		return unless $run;
+		if ($fail) {
+			&Janus::jmsg($reply, $fail);
+			return;
+		}
 		my $acl = $cmd->{acl};
 		if ($acl) {
 			$acl = 'oper' if $acl eq '1';
@@ -449,7 +470,7 @@ Event::hook_add(
 			$csub->(@args);
 			1;
 		} or do {
-			&Event::named_hook('die', $@, 'command', $cmd, $act);
+			&Event::named_hook('die', $@, 'command', $cmd, \@args, $act);
 		};
 	}
 );

@@ -13,25 +13,17 @@ use warnings;
 		"The remote network must use the \002CREATE\002 command to",
 		"share a channel before links to that channel will be accepted",
 	],
+	api => '=src =replyto homenet $ net ?$',
 	code => sub {
-		my($src,$dst,$cname1, $nname2, $cname2) = @_;
+		my($src,$dst,$net1,$cname1,$net2,$cname2) = @_;
 
-		if ($src->jlink) {
+		if ($net1->jlink) {
 			return &Janus::jmsg($dst, 'Please execute this command on your own server');
 		}
 		$cname2 ||= $cname1;
-		unless ($nname2) {
-			&Janus::jmsg($dst, 'Usage: LINK localchan network [remotechan]');
-			return;
-		}
 
-		my $net1 = $src->homenet;
-		my $net2 = $Janus::nets{lc $nname2} or do {
-			&Janus::jmsg($dst, "Cannot find network $nname2");
-			return;
-		};
 		my $chan1 = $net1->chan(lc $cname1,0) or do {
-			&Janus::jmsg($dst, "Cannot find channel $cname1");
+			&Janus::jmsg($dst, "Could not find channel $cname1");
 			return;
 		};
 
@@ -54,6 +46,7 @@ use warnings;
 			reqby => $src->realhostmask,
 			reqtime => $Janus::time,
 		});
+		&Janus::jmsg($dst, 'Done');
 	}
 }, {
 	cmd => 'create',
@@ -62,25 +55,24 @@ use warnings;
 	details => [
 		"Syntax: \002CREATE\002 #channel"
 	],
+	api => '=src homenet =replyto $',
 	code => sub {
-		my($src,$dst,$cname) = @_;
+		my($src,$net,$dst,$cname) = @_;
 
-		my $net = $src->homenet;
-
-		if ($net->jlink()) {
+		if ($net->jlink) {
 			return &Janus::jmsg($dst, 'Please execute this command on your own server');
 		}
 
-		my $chan = $cname && $net->chan($cname, 0);
+		my $chan = $net->chan($cname, 0);
 		unless ($chan) {
-			&Janus::jmsg($dst, $cname ? 'Cannot find that channel' : 'Syntax: CREATE #channel');
+			&Janus::jmsg($dst, "Could not find channel $cname");
 			return;
 		}
-		return unless &Account::chan_access_chk($src, $chan, 'create', $dst);
 		if (1 < scalar $chan->nets) {
 			&Janus::jmsg($dst, 'That channel is already linked');
 			return;
 		}
+		return unless &Account::chan_access_chk($src, $chan, 'create', $dst);
 		&Log::audit("New channel $cname shared by ".$src->netnick);
 		&Janus::append(+{
 			type => 'LINKOFFER',
@@ -100,36 +92,29 @@ use warnings;
 		"The home newtwork must specify a network to delink, or use \002DESTROY\002",
 		"Other networks can only delink themselves from the channel",
 	],
+	api => '=src homenet =replyto chan ?net',
 	code => sub {
-		my($src,$dst, $cname, $nname) = @_;
-		my $snet = $src->homenet;
-		my $chan = $snet->chan($cname) or do {
-			&Janus::jmsg($dst, "Cannot find channel $cname");
-			return;
-		};
+		my($src, $snet, $dst, $chan, $dnet) = @_;
 		return unless &Account::chan_access_chk($src, $chan, 'link', $dst);
-		if ($snet == $chan->homenet() && 1 < scalar $chan->nets()) {
-			unless ($nname) {
+		if ($snet == $chan->homenet) {
+			$snet = $dnet;
+			unless ($dnet) {
 				&Janus::jmsg($dst, 'Please specify the network to delink, or use DESTROY');
 				return;
 			}
-			$snet = $Janus::nets{$nname};
-			unless ($snet) {
-				&Janus::jmsg($dst, 'Could not find that network');
-				return;
-			}
-		} elsif ($nname) {
+		} elsif ($dnet) {
 			&Janus::jmsg($dst, 'You cannot specify the network to delink');
 			return;
 		}
 
-		&Log::audit("Channel $cname delinked from $nname by ".$src->netnick);
+		&Log::audit('Channel '.$chan->homename.' delinked from '.$snet->name.' by '.$src->netnick);
 		&Janus::append(+{
 			type => 'DELINK',
 			src => $src,
 			dst => $chan,
 			net => $snet,
 		});
+		&Janus::jmsg($dst, 'Done');
 	},
 }, {
 	cmd => 'destroy',
@@ -138,22 +123,15 @@ use warnings;
 	details => [
 		"Syntax: \002DESTROY\002 #channel",
 	],
+	api => '=src homenet =replyto chan',
 	code => sub {
-		my($src,$dst,$cname) = @_;
-
-		my $net = $src->homenet();
+		my($src,$net,$dst,$chan) = @_;
 
 		if ($net->jlink()) {
 			return &Janus::jmsg($dst, 'Please execute this command on your own server');
 		}
-
-		my $chan = $cname && $net->chan($cname, 0);
-		unless ($chan) {
-			&Janus::jmsg($dst, $cname ? 'Cannot find that channel' : 'Syntax: DESTROY #channel');
-			return;
-		}
 		return unless &Account::chan_access_chk($src, $chan, 'create', $dst);
-		&Log::audit("Channel $cname destroyed by ".$src->netnick);
+		&Log::audit('Channel '.$chan->homename.' destroyed by '.$src->netnick);
 		&Janus::append(+{
 			type => 'DELINK',
 			src => $src,
@@ -161,6 +139,7 @@ use warnings;
 			net => $net,
 			sendto => $Janus::global,
 		});
+		&Janus::jmsg($dst, 'Done');
 	},
 });
 

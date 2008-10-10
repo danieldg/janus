@@ -14,23 +14,22 @@ use Modes;
 	details => [
 		"\002SHOWMODE\002 #channel - shows the intended modes of the channel on your network",
 	],
+	api => '=src =replyto homenet chan',
 	code => sub {
-		my($src,$dst,$cname) = @_;
-		my $hn = $src->homenet;
-		my $chan = $hn->chan($cname,0) || $Janus::gchans{$cname};
+		my($src,$dst,$hn,$chan) = @_;
 		return &Janus::jmsg($dst, 'That channel does not exist') unless $chan;
-		return unless &Account::chan_access_chk($src, $chan, 'mode', $dst);
+		return unless &Account::chan_access_chk($src, $chan, 'info', $dst);
 		if ($hn->isa('LocalNetwork')) {
 			my @modes = &Modes::to_multi($hn, &Modes::delta(undef, $chan), 0, 400);
-			&Janus::jmsg($dst, join ' ', $cname, @$_) for @modes;
+			&Janus::jmsg($dst, join ' ', @$_) for @modes;
 		}
 		
 		my $modeh = $chan->all_modes();
 		unless ($modeh && scalar %$modeh) {
-			&Janus::jmsg($dst, "No modes set on $cname");
+			&Janus::jmsg($dst, "No modes set");
 			return;
 		}
-		my $out = '';
+		my $out = 'Modes:';
 		for my $mk (sort keys %$modeh) {
 			my $t = $Modes::mtype{$mk} || '?';
 			my $mv = $modeh->{$mk};
@@ -44,8 +43,7 @@ use Modes;
 				&Log::err("bad mode $mk:$mv - $t?\n");
 			}
 		}
-		&Janus::jmsg($dst, $cname.$1) while $out =~ s/(.{300,450}) / /;
-		&Janus::jmsg($dst, $cname.$out);
+		&Janus::jmsg($dst, $out);
 	},
 }, {
 	cmd => 'setmode',
@@ -56,10 +54,9 @@ use Modes;
 		"For a list of modes, see the \002LISTMODES\002 command.",
 		"For tristate modes, use multiple + signs to set a higher level",
 	],
+	api => '=src =replyto homenet chan @',
 	code => sub {
-		my($src,$dst,$cname,@argin) = @_;
-		my $hn = $src->homenet;
-		my $chan = $hn->chan($cname,0) || $Janus::gchans{$cname};
+		my($src,$dst,$hn,$chan,@argin) = @_;
 		return &Janus::jmsg($dst, 'That channel does not exist') unless $chan;
 		return unless &Account::chan_access_chk($src, $chan, 'mode', $dst);
 		my(@modes,@args,@dirs);
@@ -116,9 +113,9 @@ use Modes;
 	cmd => 'listmodes',
 	help => 'Shows a list of the long modes\' names',
 	section => 'Info',
+	api => 'homenet =replyto $',
 	code => sub {
-		my($src,$dst,$w) = @_;
-		my $net = $src->homenet;
+		my($net,$dst,$w) = @_;
 		$w ||= 5;
 		my @nmodes = sort keys %Nick::umodebit;
 		my @cmodes = sort keys %Modes::mtype;

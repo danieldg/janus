@@ -295,6 +295,11 @@ sub nets {
 	values %{$nets[${$_[0]}]};
 }
 
+sub homename {
+	my $c = $_[0];
+	$names[$$c]{${$homenet[$$c]}};
+}
+
 sub to_ij {
 	my($chan,$ij) = @_;
 	my $out = '';
