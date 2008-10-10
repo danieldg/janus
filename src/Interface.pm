@@ -174,7 +174,7 @@ sub send {
 			my $src = $act->{src};
 			my $dst = $act->{dst};
 			next if !$src || $src == $janus;
-			my $chancmd = $dst->isa('Channel') && $dst->get_mode('jcommand');
+			my $chancmd = $dst->isa('Channel') && $dst->get_mode('jcommand') && !$src->jlink;
 			next unless $chancmd || $dst == $janus;
 			my $rjto;
 			if ($dst == $janus) {
