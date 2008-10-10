@@ -446,6 +446,8 @@ Event::hook_add(
 				my $id = shift @argin;
 				$fail = 'Could not find network '.$id unless $opt || $Janus::nets{$id};
 				push @args, $Janus::nets{$id};
+			} elsif ($_ eq 'act') {
+				push @args, $act;
 			} else {
 				warn "Skipping unknown command API $_";
 			}

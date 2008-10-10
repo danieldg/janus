@@ -68,19 +68,19 @@ use warnings;
 		'This command is useful if an ACL has blocked access to a network, or if the',
 		'link request was made before the destination channel was created.',
 	],
+	api => 'act =src =replyto =tochan homenet chan net',
 	code => sub {
-		my($src,$dst,$cname, $dnname) = @_;
-		my $hn = $src->homenet;
-		my $hname = $hn->name;
-		my $dnet = $Janus::nets{$dnname};
-		return Interface::jmsg($dst, 'Cannot find that network') unless $dnet;
-		unless ($hn->jlink) {
-			my $chan = $hn->chan($cname, 0);
-			return Interface::jmsg($dst, 'Cannot find that channel') unless $chan;
-			return unless &Account::chan_access_chk($src, $chan, 'link', $dst);
-			my $difo = $Link::request{$hname}{lc $cname};
+		my($genact, $src, $dst, $tochan, $snet, $chan, $dnet) = @_;
+		my $dnname = $dnet->name;
+		unless ($tochan) {
+			&Janus::jmsg('Run this command on your own server') if $snet->jlink;
+
+			return unless &Account::chan_access_chk($src, $chan, 'create', $dst);
+			$tochan = lc $chan->homename;
+
+			my $difo = $Link::request{$snet->name}{$tochan};
 			unless ($difo && $difo->{mode}) {
-				&Interface::jmsg($dst, 'That channel is not shared');
+				&Janus::jmsg($dst, 'That channel is not shared');
 				return;
 			}
 			if ($difo->{mode} == 2) {
@@ -88,33 +88,30 @@ use warnings;
 			} else {
 				delete $difo->{ack}{$dnname};
 			}
+
+			if ($dnet->jlink) {
+				my %act = %$genact;
+				$act{dst} = $dnet->jlink;
+				$act{tochan} = $tochan;
+				&Event::append(\%act);
+			}
 		}
-		if ($dnet->jlink) {
-			# TODO is not be the best way to do it
+		return if $dnet->jlink;
+		my $hname = $snet->name;
+		for my $dcname (keys %{$Link::request{$dnname}}) {
+			my $ifo = $Link::request{$dnname}{$dcname};
+			next unless $ifo->{net} eq $hname && lc $ifo->{chan} eq $tochan;
+			next if $ifo->{mode};
+			my $chan = $dnet->chan($dcname, 1);
 			&Janus::append(+{
-				type => 'MSG',
-				src => $src,
-				dst => $Interface::janus,
-				msgtype => 'PRIVMSG',
-				sendto => $dnet->jlink,
-				msg => '@'.$dnet->jlink->id." accept $cname $dnname",
+				type => 'LINKREQ',
+				chan => $chan,
+				dst => $snet,
+				dlink => $tochan,
+				reqby => $ifo->{mask},
+				reqtime => $ifo->{time},
+				linkfile => 1,
 			});
-		} else {
-			for my $dcname (keys %{$Link::request{$dnname}}) {
-				my $ifo = $Link::request{$dnname}{$dcname};
-				next unless $ifo->{net} eq $hname && lc $ifo->{chan} eq lc $cname;
-				next if $ifo->{mode};
-				my $chan = $dnet->chan($dcname, 1);
-				&Janus::append(+{
-					type => 'LINKREQ',
-					chan => $chan,
-					dst => $hn,
-					dlink => $cname,
-					reqby => $ifo->{mask},
-					reqtime => $ifo->{time},
-					linkfile => 1,
-				});
-			};
 		}
 	},
 });
