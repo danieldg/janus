@@ -10,18 +10,21 @@ use Data::Dumper;
 	help => "Evaluates a perl expression. \002DANGEROUS\002",
 	section => 'Admin',
 	acl => 'eval',
+	api => '=src =replyto =raw',
 	code => sub {
-		my($src, $dst, @expr) = @_;
-		my $expr = join ' ', @expr;
+		my($src, $dst, $expr) = @_;
 		print "EVAL: $expr\n";
 		&Log::audit('EVAL by '.$src->netnick.': '.$expr);
-		$expr =~ /(.*)/; # go around taint mode
+		$expr =~ /^eval (.*)/i; # go around taint mode
 		$expr = $1;
-		my @r = eval $expr;
-		@r = $@ if $@ && !@r;
-		if (@r) {
-			$_ = eval { Data::Dumper::Dumper(\@r); };
-			s/\n//g;
+		my $r = eval $expr;
+		$r = $@ if $@ && !$r;
+		if ($r) {
+			$_ = eval {
+				my $d = new Data::Dumper([$r]);
+				$d->Indent(0)->Terse(1)->Dump;
+			};
+			s/\n/ /g;
 			&Janus::jmsg($dst, $_);
 		}
 	},
