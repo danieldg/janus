@@ -231,7 +231,7 @@ sub send_avail {
 		my $hnet = $chan->homenet();
 		if ($hnet == $net) {
 			delete $request{$nname}{$cname};
-		} else {
+		} elsif ($act->{src}->homenet == $hnet) {
 			# forced delink
 			$request{$hnet->name()}{$chan->str($hnet)}{ack}{$nname} = 2;
 		}
