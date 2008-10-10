@@ -41,12 +41,20 @@ sub hash {
 		my $user = lc (@_ == 3 ? $nick->homenick : $_[2]);
 		my $pass = $_[-1];
 		$user =~ s/[^0-9a-z_]//g;
+		my $id = $RemoteJanus::self->id;
 		if ($user eq 'admin') {
 			# special-case: admin password is in configuration
 			my $confpass = $Conffile::netconf{set}{password};
 			if ($confpass && $pass eq $confpass) {
 				&Log::audit($_[0]->netnick . ' logged in as admin');
 				$Account::accounts{admin}{acl} = '*';
+				&Janus::append({
+					type => 'NICKINFO',
+					src => $RemoteJanus::self,
+					dst => $nick,
+					item => "account:$id",
+					value => $user,
+				});
 				&Janus::jmsg($nick, 'You are logged in as admin. '.
 					'Please create named accounts for normal use using the "account" command.');
 				return;
@@ -55,7 +63,6 @@ sub hash {
 			my $salt = $Account::accounts{$user}{salt} || '';
 			my $hash = hash($pass, $salt);
 			if ($Account::accounts{$user}{pass} eq $hash) {
-				my $id = $RemoteJanus::self->id;
 				&Log::info($nick->netnick. ' identified as '.$user);
 				&Janus::append({
 					type => 'NICKINFO',
