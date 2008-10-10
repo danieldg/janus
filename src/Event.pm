@@ -103,7 +103,7 @@ sub _send {
 	} elsif (!ref $act->{dst}) {
 		# this must be an internal command, otherwise we have already complained in Actions
 		return;
-	} elsif ($act->{dst}->isa('Network')) {
+	} elsif ($act->{dst}->isa('SocketHandler') || $act->{dst} == $Janus::global) {
 		@to = $act->{dst};
 	} else {
 		@to = $act->{dst}->sendto($act);
@@ -195,7 +195,7 @@ sub _run {
 	my($chk,$run) = ($hook_chk{$type}, $hook_run{$type});
 	unless ($chk && $run) {
 		($chk, $run) = ([], []);
-		
+
 		push @$chk, enum_hooks($type . '/parse');
 		push @$chk, enum_hooks('ALL/validate');
 		push @$chk, enum_hooks($type . '/check');
@@ -264,39 +264,6 @@ Run the given actions after this one is done executing
 
 sub append {
 	push @{$qstack[0]}, @_;
-}
-
-=item Event::in_command($src, $dst, @args)
-
-Processes the split arguments as a command initiated by the nick $src, with results
-written to the nick or channel $dst. The first argument is the command name.
-
-=cut
-
-sub in_command {
-	my ($src, $dst, $cmd, @args) = @_;
-	$cmd = lc $cmd;
-	$cmd = 'unk' unless exists $commands{$cmd};
-	my $csub = exists $commands{$cmd}{code} ? $commands{$cmd}{code} : $commands{unk}{code};
-	my $acl = $commands{$cmd}{acl};
-	if ($acl) {
-		$acl = 'oper' if $acl eq '1';
-		unless (&Account::acl_check($src, $acl)) {
-			&Janus::jmsg($dst, "You must have access to the '$acl' ACL to use this command");
-			return;
-		}
-	}
-	unless ($commands{$cmd}{secret}) {
-		&Log::command(@_);
-	}
-	unshift @qstack, [];
-	eval {
-		$csub->($src, $dst, @args);
-		1;
-	} or do {
-		&Event::named_hook('die', $@, @_);
-	};
-	_runq(shift @qstack);
 }
 
 =item Event::named_hook($name, @args)
@@ -442,6 +409,48 @@ Event::hook_add(
 		wipe_hooks($_[0]->{module});
 	}, MODRELOAD => 'act:-1' => sub {
 		wipe_hooks($_[0]->{module});
+	}, REMOTECALL => act => sub {
+		my $act = shift;
+		my $src = $act->{src};
+		my $dst = $act->{dst};
+		my $cmd = $commands{lc $act->{call}} || $commands{unk};
+
+		my $run = $dst == $RemoteJanus::self || $dst == $Janus::global;
+		my $reply = ($dst == $RemoteJanus::self || !$src->jlink) ? $act->{replyto} : undef;
+
+		my $api = $cmd->{api} || [ qw(=src =replyto @) ];
+		my @argin = @{$act->{args}};
+
+		my @args;
+		for (@$api) {
+			if (/^=(.*)/) {
+				push @args, $act->{$1};
+			} elsif ($_ eq '@') {
+				push @args, @argin;
+			} elsif ($_ eq '$') {
+				push @args, shift @argin;
+			} else {
+				warn "Skipping unknown command API $_";
+			}
+		}
+
+		return unless $run;
+		my $acl = $cmd->{acl};
+		if ($acl) {
+			$acl = 'oper' if $acl eq '1';
+			unless (&Account::acl_check($src, $acl)) {
+				&Janus::jmsg($reply, "You must have access to the '$acl' ACL to use this command");
+				return;
+			}
+		}
+		&Log::command($act->{src}, $act->{raw}) unless $cmd->{secret};
+		eval {
+			my $csub = $cmd->{code};
+			$csub->(@args);
+			1;
+		} or do {
+			&Event::named_hook('die', $@, 'command', $cmd, $act);
+		};
 	}
 );
 

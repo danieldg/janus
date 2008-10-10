@@ -281,6 +281,14 @@ my %spec = (
 		src => 'Nick',
 		msg => '$',
 	},
+	REMOTECALL => {
+		src => 'Nick',
+		dst => 'RemoteJanus Janus',
+		replyto => 'Nick Channel',
+		call => '$',
+		args => '@',
+		OTHER => '?',
+	},
 
 	LINKREQ => {
 		dst => 'Network',
@@ -408,6 +416,7 @@ for my $type (keys %spec) {
 		&Log::hook_err($act, "Validate hook [$itm: $k invalid]");
 		return 1;
 	}
+	return undef if $check->{OTHER};
 	for my $k (keys %$act) {
 		next if exists $check->{$k};
 		&Log::warn("unknown key $k in action $itm");

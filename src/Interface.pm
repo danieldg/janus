@@ -60,20 +60,6 @@ sub pmsg {
 	}
 
 	return undef unless $src->isa('Nick') && $dst->isa('Nick');
-	if ($$dst == 1) {
-		if ($act->{msg} =~ /^@(\S+)\s*/) {
-			my $rto = $Janus::ijnets{$1};
-			if ($rto) {
-				$act->{sendto} = $rto;
-			} elsif ($1 eq $RemoteJanus::self->id) {
-				delete $act->{sendto};
-			} else {
-				&Interface::jmsg($src, 'Network not found') if $act->{msgtype} eq 'PRIVMSG';
-				return 1;
-			}
-		}
-		return 0;
-	}
 
 	unless ($$src == 1 || $src->is_on($dst->homenet())) {
 		&Interface::jmsg($src, 'You must join a shared channel to speak with remote users') if $act->{msgtype} eq 'PRIVMSG';
@@ -188,22 +174,34 @@ sub send {
 			my $src = $act->{src};
 			my $dst = $act->{dst};
 			next if !$src || $src == $janus;
-			my @args;
+			my $chancmd = $dst->isa('Channel') && $dst->get_mode('jcommand');
+			next unless $chancmd || $dst == $janus;
+			my $rjto;
 			if ($dst == $janus) {
 				$dst = $src;
-				$_ = $act->{msg};
-				s/^\s*@\S+\s+//;
-				@args = split /\s+/, $_;
-			} elsif ($dst->isa('Channel') && $dst->get_mode('jcommand')) {
-				$_ = $act->{msg};
-				my $id = $RemoteJanus::self->id;
-				s/^([!.]|\@$id\s+)// or next;
-				next if $1 eq '.' && $src->jlink;
-				@args = split /\s+/, $_;
-			} else {
-				next;
+				$rjto = $RemoteJanus::self;
 			}
-			&Event::in_command($src, $dst, @args);
+			$_ = $act->{msg};
+			if (s/^\.//) {
+				$rjto = $RemoteJanus::self;
+			} elsif (s/^!//) {
+				$rjto = $Janus::global;
+			} elsif (s/^\@(\S+)//) {
+				$rjto = $Janus::nets{$1};
+				&Janus::jmsg($dst, 'Cannot find that network') unless $rjto;
+			}
+			next unless $rjto;
+			my @args = split /\s+/, $_;
+			my $cmd = shift @args;
+			&Event::append({
+				type => 'REMOTECALL',
+				src => $src,
+				dst => $rjto,
+				replyto => $dst,
+				call => $cmd,
+				raw => $_,
+				args => \@args,
+			});
 		} elsif ($act->{type} eq 'WHOIS' && $act->{dst} == $janus) {
 			my $src = $act->{src} or next;
 			my $net = $src->homenet();
