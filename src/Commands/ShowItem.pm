@@ -22,7 +22,7 @@ my @mode_sym = qw{~ & @ % +};
 	},
 	INFO => Channel => sub {
 		my($dst, $c, $asker) = @_;
-		my $all = &Account::chan_access_chk($asker, $c, 'mode', undef);
+		my $all = &Account::chan_access_chk($asker, $c, 'info', undef);
 		my $hn = $asker->homenet;
 
 		&Janus::jmsg($dst, join ' ', "\002Channel\002",$$c,$c->real_keyname,'on',$c->homenet->name,
@@ -121,7 +121,7 @@ my @mode_sym = qw{~ & @ % +};
 	help => 'Shows internal details on a network',
 	section => 'Info',
 	details => [
-		"\002SHOWCHAN\002 netid|gid",
+		"\002SHOWNET\002 netid|gid",
 	],
 	code => sub {
 		my($src, $dst, $args) = @_;

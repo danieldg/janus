@@ -42,7 +42,7 @@ sub acl_check {
 sub chan_access_chk {
 	my($nick, $chan, $acl, $errs) = @_;
 	my $net = $nick->homenet;
-	unless ($chan->homenet == $net) {
+	if ($acl eq 'create' && $chan->homenet != $net) {
 		&Janus::jmsg($errs, "This command must be run from the channel's home network");
 		return 0;
 	}
