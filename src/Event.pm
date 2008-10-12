@@ -432,20 +432,40 @@ Event::hook_add(
 				push @args, $act->{$1};
 			} elsif ($_ eq '@') {
 				push @args, @argin;
+				@argin = ();
 			} elsif ($_ eq '$') {
 				$fail = 'Not enough arguments' unless $opt || @argin;
 				push @args, shift @argin;
 			} elsif ($_ eq 'homenet') {
 				push @args, $hnet;
 			} elsif ($_ eq 'chan') {
-				my $cname = shift @argin;
+				my $cname = $argin[0];
 				$act->{$idx} = $hnet->chan($cname, 0) if defined $cname && !$hnet->jlink;
 				$fail = 'Could not find channel '.$cname unless $opt || $act->{$idx};
+				shift @argin if $act->{$idx};
 				push @args, $act->{$idx};
+			} elsif ($_ eq 'localnet') {
+				my $id = $argin[0];
+				my $net = $Janus::nets{$id};
+				if ($net && $net->jlink && $dst != $net->jlink) {
+					my $nact = { %$act };
+					$nact->{dst} = $net->jlink;
+					if (1 < ++$nact->{loop}) {
+						$fail = "Loop in finding local server for argument $idx";
+					} else {
+						Event::append($nact);
+						return;
+					}
+				}
+				$fail = 'Could not find network '.$id unless $opt || $net;
+				shift @argin if $net;
+				push @args, $net;
 			} elsif ($_ eq 'net') {
-				my $id = shift @argin;
-				$fail = 'Could not find network '.$id unless $opt || $Janus::nets{$id};
-				push @args, $Janus::nets{$id};
+				my $id = $argin[0];
+				my $net = $Janus::nets{$id};
+				$fail = 'Could not find network '.$id unless $opt || $net;
+				shift @argin if $net;
+				push @args, $net;
 			} elsif ($_ eq 'act') {
 				push @args, $act;
 			} else {

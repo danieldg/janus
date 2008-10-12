@@ -12,15 +12,9 @@ use warnings;
 		"\002CLINK\002 cb-net #channel [dest-net] [#dest-chan]"
 	],
 	acl => 'clink',
-	api => '=src =replyto act net $ @',
+	api => '=src =replyto localnet $ @',
 	code => sub {
-		my($src,$dst, $ract, $cb, $bchan, $dnet, $dchan) = @_;
-		if ($cb->jlink) {
-			my %act = %$ract;
-			$act{dst} = $cb->jlink;
-			&Event::append(\%act);
-			return;
-		}
+		my($src,$dst, $cb, $bchan, $dnet, $dchan) = @_;
 
 		if ($dnet && $dnet =~ /#/) {
 			$dchan = $dnet;
@@ -54,16 +48,9 @@ use warnings;
 		"\002CLINKRM\002 cb-net #channel"
 	],
 	acl => 'clink',
-	api => '=src =replyto act net $',
+	api => '=src =replyto localnet $',
 	code => sub {
-		my($src,$dst, $ract, $cb, $bchan) = @_;
-
-		if ($cb->jlink) {
-			my %act = %$ract;
-			$act{dst} = $cb->jlink;
-			&Event::append(\%act);
-			return;
-		}
+		my($src,$dst, $cb, $bchan) = @_;
 
 		$cb->isa('Server::ClientBot') or return &Interface::jmsg($dst, 'Source network must be a clientbot');
 		my $req = delete $Link::request{$cb->name}{lc $bchan};

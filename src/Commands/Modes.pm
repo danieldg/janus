@@ -112,10 +112,14 @@ use Modes;
 }, {
 	cmd => 'listmodes',
 	help => 'Shows a list of the long modes\' names',
+	details => [
+		"Syntax: \002LISTMODES\002 [network] [width]",
+	],
 	section => 'Info',
-	api => 'homenet =replyto $',
+	api => 'homenet =replyto ?localnet ?$',
 	code => sub {
-		my($net,$dst,$w) = @_;
+		my($net,$dst,$dnet,$w) = @_;
+		$net = $dnet if $dnet;
 		$w ||= 5;
 		my @nmodes = sort keys %Nick::umodebit;
 		my @cmodes = sort keys %Modes::mtype;
