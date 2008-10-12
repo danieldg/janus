@@ -46,6 +46,34 @@ use warnings;
 			reqtime => $Janus::time,
 		});
 	}
+}, {
+	cmd => 'clinkrm',
+	help => 'Removes a clientbot channel link',
+	section => 'Channel',
+	details => [
+		"\002CLINKRM\002 cb-net #channel"
+	],
+	acl => 'clink',
+	api => '=src =replyto act net $',
+	code => sub {
+		my($src,$dst, $ract, $cb, $bchan) = @_;
+
+		if ($cb->jlink) {
+			my %act = %$ract;
+			$act{dst} = $cb->jlink;
+			&Event::append(\%act);
+			return;
+		}
+
+		$cb->isa('Server::ClientBot') or return &Interface::jmsg($dst, 'Source network must be a clientbot');
+		my $req = delete $Link::request{$cb->name}{lc $bchan};
+		if ($req) {
+			&Log::audit("Channel $bchan on ".$cb->name." delinked from $req->{chan} on $req->{net} by ".$src->netnick);
+			&Janus::jmsg($dst, 'Done');
+		} else {
+			&Janus::jmsg($dst, 'Not found');
+		}
+	},
 });
 
 1;
