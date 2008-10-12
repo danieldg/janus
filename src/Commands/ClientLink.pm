@@ -12,8 +12,16 @@ use warnings;
 		"\002CLINK\002 cb-net #channel [dest-net] [#dest-chan]"
 	],
 	acl => 'clink',
+	api => '=src =replyto act net $ @',
 	code => sub {
-		my($src,$dst, $bnet, $bchan, $dnet, $dchan) = @_;
+		my($src,$dst, $ract, $cb, $bchan, $dnet, $dchan) = @_;
+		if ($cb->jlink) {
+			my %act = %$ract;
+			$act{dst} = $cb->jlink;
+			&Event::append(\%act);
+			return;
+		}
+
 		if ($dnet && $dnet =~ /#/) {
 			$dchan = $dnet;
 			$dnet = $src->homenet->name;
@@ -23,12 +31,11 @@ use warnings;
 		}
 		$bchan = lc $bchan;
 		$dchan = lc $dchan;
-		my $cb = $Janus::nets{$bnet}  or return &Interface::jmsg($dst, 'Client network not found');
-		$cb->isa('Server::ClientBot') or return &Interface::jmsg($dst, 'Client network must be a clientbot');
+		$cb->isa('Server::ClientBot') or return &Interface::jmsg($dst, 'Source network must be a clientbot');
 		my $dn = $Janus::nets{$dnet}  or return &Interface::jmsg($dst, 'Destination network not found');
 		$Link::request{$dnet}{$dchan} or return &Interface::jmsg($dst, 'Channel must be shared');
 		$Link::request{$dnet}{$dchan}{mode} or return &Interface::jmsg($dst, 'Channel must be shared');
-		&Log::audit("Channel $bchan on $bnet linked to $dchan on $dnet by ".$src->netnick);
+		&Log::audit("Channel $bchan on ".$cb->name." linked to $dchan on $dnet by ".$src->netnick);
 		&Janus::append(+{
 			type => 'LINKREQ',
 			src => $src,

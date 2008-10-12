@@ -153,7 +153,7 @@ sub pmsg {
 			}
 		}
 		undef;
-	}, BURST => act => sub {
+	}, NETLINK => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		return if $net->jlink();
@@ -201,7 +201,7 @@ sub send {
 				call => $cmd,
 				raw => $_,
 				args => \@args,
-			});
+			}) if $cmd;
 		} elsif ($act->{type} eq 'WHOIS' && $act->{dst} == $janus) {
 			my $src = $act->{src} or next;
 			my $net = $src->homenet();

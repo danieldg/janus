@@ -67,7 +67,9 @@ sub cmode2txt {
 sub cli_hostintro {
 	my($net, $nname, $ident, $host, $gecos) = @_;
 	my @out;
+	return if $nname eq $self[$$net];
 	my $nick = $net->item($nname);
+
 	unless ($nick && $nick->homenet() eq $net) {
 		if ($nick) {
 			# someone already exists, but remote. They get booted off their current nick
@@ -179,20 +181,40 @@ sub dump_sendq {
 	$q;
 }
 
+sub request_newnick {
+	my($net, $nick, $reqnick, $tag) = @_;
 # uncomment to force tags
-#sub request_nick {
-#	my($net, $nick, $reqnick) = @_;
-#	&LocalNetwork::request_nick($net, $nick, $reqnick, 1);
-#}
+#	$tag = 1;
+	$reqnick = $self[$$net] if $nick == $Interface::janus;
+	&Server::BaseNick::request_nick($net, $nick, $reqnick, $tag);
+}
+
+sub request_cnick {
+	my($net, $nick, $reqnick, $tag) = @_;
+	$reqnick = $self[$$net] if $nick == $Interface::janus;
+	&Server::BaseNick::request_nick($net, $nick, $reqnick, $tag);
+}
 
 sub nicklen { 40 }
 
 %toirc = (
-	CHANLINK => sub {
+	JOIN => sub {
 		my($net,$act) = @_;
-		my $chan = $act->{dst}->str($net);
+		my $src = $act->{src};
+		my $dst = $act->{dst};
+		return () unless $src == $Interface::janus;
+		my $chan = $dst->str($net);
 		$lchan[$$net] = $chan;
 		"JOIN $chan";
+	},
+	PART => sub {
+		my($net,$act) = @_;
+		my $src = $act->{src};
+		my $dst = $act->{dst};
+		return () unless $src == $Interface::janus;
+		my $chan = $dst->str($net);
+		$lchan[$$net] = $chan;
+		"PART $chan :$act->{msg}";
 	},
 	MSG => sub {
 		my($net,$act) = @_;
@@ -381,12 +403,12 @@ sub kicked {
 	},
 	PART => sub {
 		my $net = shift;
-		if (lc $_[0] eq lc $self[$$net]) {
-			# SAPART gives an auto-rejoin just to spite the people who think it's better than kick
-			return $net->kicked($_[2], $_[3],$_[1]);
-		}
 		my $nick = $net->nick($_[0]) or return ();
 		my $chan = $net->chan($_[2]) or return ();
+		if (lc $_[0] eq lc $self[$$net] && grep $_ == $chan, $Interface::janus->all_chans) {
+			# SAPART == same as kick
+			return $net->kicked($_[2], $_[3],$_[1]);
+		}
 		delete $kicks[$$net]{$$nick}{$_[2]};
 		my @out = +{
 			type => 'PART',
@@ -406,12 +428,12 @@ sub kicked {
 	},
 	KICK => sub {
 		my $net = shift;
-		if (lc $_[3] eq lc $self[$$net]) {
-			return $net->kicked($_[2], $_[4],$_[0]);
-		}
 		my $src = $net->nick($_[0]);
 		my $chan = $net->chan($_[2]) or return ();
 		my $victim = $net->nick($_[3]) or return ();
+		if ($victim == $Interface::janus && grep $_ == $chan, $victim->all_chans) {
+			return $net->kicked($_[2], $_[4],$_[0]);
+		}
 		delete $kicks[$$net]{$$victim}{$_[2]};
 		my @out;
 		push @out, +{
