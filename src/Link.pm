@@ -216,10 +216,15 @@ sub send_avail {
 			'time', $act->{reqtime},
 		);
 		$req{ack} = { %{$def_ack{$net->name}} } if $def_ack{$net->name};
-		$request{$net->name}{$name} = \%req;
-		return if $net->jlink;
-		my $chan = $net->chan($name, 1);
-		link_to_janus($chan);
+		if ($act->{remove}) {
+			delete $request{$net->name}{$name};
+			return if $net->jlink;
+		} else {
+			$request{$net->name}{$name} = \%req;
+			return if $net->jlink;
+			my $chan = $net->chan($name, 1);
+			link_to_janus($chan);
+		}
 	}, DELINK => act => sub {
 		my $act = shift;
 		# do not process derived actions
@@ -229,7 +234,10 @@ sub send_avail {
 		my $chan = $act->{dst};
 		my $cname = $chan->str($net);
 		my $hnet = $chan->homenet();
-		if ($act->{src}->homenet == $hnet) {
+		if ($net == $hnet) {
+			# destroy
+			delete $request{$nname}{$cname};
+		} elsif ($act->{src}->homenet == $hnet) {
 			# forced delink
 			$request{$hnet->name}{lc $chan->homename}{ack}{$nname} = 2;
 		} else {

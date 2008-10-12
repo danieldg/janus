@@ -137,7 +137,13 @@ use warnings;
 			src => $src,
 			dst => $chan,
 			net => $net,
-			sendto => $Janus::global,
+		}, {
+			type => 'LINKOFFER',
+			src => $net,
+			name => lc $chan->homename,
+			remove => 1,
+			reqby => $src->realhostmask(),
+			reqtime => $Janus::time,
 		});
 		&Janus::jmsg($dst, 'Done');
 	},

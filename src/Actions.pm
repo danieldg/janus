@@ -303,6 +303,7 @@ my %spec = (
 		name => '$',
 		reqby => '$',
 		reqtime => '$',
+		remove => '?$',
 		sendto => '=$Janus::global= Janus @',
 	},
 	CHANLINK => {
