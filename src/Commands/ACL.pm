@@ -93,6 +93,7 @@ use warnings;
 				my %act = %$genact;
 				$act{dst} = $dnet->jlink;
 				$act{tochan} = $tochan;
+				delete $act{IJ_RAW};
 				&Event::append(\%act);
 			}
 		}

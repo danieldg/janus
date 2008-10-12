@@ -452,6 +452,7 @@ Event::hook_add(
 				if ($net && $net->jlink && $dst != $net->jlink) {
 					my $nact = { %$act };
 					$nact->{dst} = $net->jlink;
+					delete $nact->{IJ_RAW};
 					if (1 < ++$nact->{loop}) {
 						$fail = "Loop in finding local server for argument $idx";
 					} else {
