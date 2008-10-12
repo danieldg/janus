@@ -8,6 +8,7 @@ use warnings;
 	cmd => 'list',
 	help => 'List channels available for linking',
 	section => 'Channel',
+	api => '=src =replyto',
 	code => sub {
 		my($src,$dst) = @_;
 		my $detail = &Account::acl_check($src, 'oper');
