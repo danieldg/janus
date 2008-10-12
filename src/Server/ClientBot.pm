@@ -70,21 +70,15 @@ sub cli_hostintro {
 	return if $nname eq $self[$$net];
 	my $nick = $net->item($nname);
 
-	unless ($nick && $nick->homenet() eq $net) {
+	unless ($nick && $nick->homenet == $net) {
+		my $ts = $Janus::time;
 		if ($nick) {
 			# someone already exists, but remote. They get booted off their current nick
-			# we have to deal with this before the new nick is created
-			&Janus::insert_full(+{
-				type => 'RECONNECT',
-				dst => $nick,
-				net => $net,
-				killed => 0,
-				sendto => [ $net ],
-			});
+			$ts = $nick->ts - 1;
 		}
 		$nick = Nick->new(
 			net => $net,
-			ts => $Janus::time,
+			ts => $ts,
 			nick => $nname,
 			info => {
 				host => $host,
@@ -96,18 +90,19 @@ sub cli_hostintro {
 				invisible => 1,
 			},
 		);
-		push @out, +{
+		my($ok, @acts) = $net->nick_collide($nname, $nick);
+		warn 'Invalid clientbot collision' unless $ok;
+		push @out, @acts, +{
 			type => 'NEWNICK',
 			dst => $nick,
 		};
-		$net->nick_collide($nname, $nick);
 	}
-	if ($nick->info('host') ne $host) {
+	if ($nick->info('vhost') ne $host) {
 		push @out, +{
 			type => 'NICKINFO',
 			src => $nick,
 			dst => $nick,
-			item => 'host',
+			item => 'vhost',
 			value => $host,
 		};
 	}
@@ -151,7 +146,7 @@ sub parse {
 	my $cmd = $args[1];
 	$cmd = $fromirc{$cmd} || $cmd;
 	unless (ref $cmd) {
-		&Log::err_in($net, "Unknown command '$cmd'");
+		&Log::warn_in($net, "Unknown command '$cmd'");
 		return ();
 	}
 	push @out, $cmd->($net,@args);
@@ -192,7 +187,7 @@ sub request_newnick {
 sub request_cnick {
 	my($net, $nick, $reqnick, $tag) = @_;
 	$reqnick = $self[$$net] if $nick == $Interface::janus;
-	&Server::BaseNick::request_nick($net, $nick, $reqnick, $tag);
+	&Server::BaseNick::request_cnick($net, $nick, $reqnick, $tag);
 }
 
 sub nicklen { 40 }
@@ -275,7 +270,7 @@ sub nicklen { 40 }
 			&Log::err_in($net, "Bad nickserv password $pass") unless $pass;
 			"PRIVMSG NickServ :IDENTIFY $pass";
 		} else {
-			&Log::err_in($net, "Unknown identify method $m");
+			&Log::warn_in($net, "Unknown identify method $m");
 			();
 		}
 	},	
