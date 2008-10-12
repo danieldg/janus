@@ -56,6 +56,7 @@ my %v_type; %v_type = (
 	}, 'j' => sub {
 		s/^j:([^ >]+)// or return undef;
 		return $Janus::global if $1 eq '*';
+		return $RemoteJanus::self if $1 eq $RemoteJanus::self->id;
 		$Janus::ijnets{$1};
 	}, '<a' => sub {
 		my @arr;
