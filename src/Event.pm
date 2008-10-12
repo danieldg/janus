@@ -433,6 +433,8 @@ Event::hook_add(
 			} elsif ($_ eq '@') {
 				push @args, @argin;
 				@argin = ();
+			} elsif ($_ eq '*') {
+				@argin = ();
 			} elsif ($_ eq '$') {
 				$fail = 'Not enough arguments' unless $opt || @argin;
 				push @args, shift @argin;
@@ -472,6 +474,7 @@ Event::hook_add(
 				warn "Skipping unknown command API $_";
 			}
 		}
+		$fail = 'Too many arguments' if @argin;
 
 		return unless $run;
 		if ($fail) {

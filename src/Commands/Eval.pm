@@ -10,7 +10,7 @@ use Data::Dumper;
 	help => "Evaluates a perl expression. \002DANGEROUS\002",
 	section => 'Admin',
 	acl => 'eval',
-	api => '=src =replyto =raw',
+	api => '=src =replyto =raw *',
 	code => sub {
 		my($src, $dst, $expr) = @_;
 		print "EVAL: $expr\n";

@@ -12,7 +12,7 @@ use warnings;
 		"\002CLINK\002 cb-net #channel [dest-net] [#dest-chan]"
 	],
 	acl => 'clink',
-	api => '=src =replyto localnet $ @',
+	api => '=src =replyto localnet $ ?$ ?$',
 	code => sub {
 		my($src,$dst, $cb, $bchan, $dnet, $dchan) = @_;
 
