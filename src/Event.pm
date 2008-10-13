@@ -424,10 +424,12 @@ Event::hook_add(
 		my $hnet = $src->homenet;
 		my @args;
 		my $fail;
+		my $bncto;
 		my $idx = 0;
 		for (split / /, $api) {
 			$idx++;
 			my $opt = s/^\?//;
+			my $forceloc = s/^local//;
 			if (/^=(.*)/) {
 				push @args, $act->{$1};
 			} elsif ($_ eq '@') {
@@ -446,23 +448,6 @@ Event::hook_add(
 				$fail = 'Could not find channel '.$cname unless $opt || $act->{$idx};
 				shift @argin if $act->{$idx};
 				push @args, $act->{$idx};
-			} elsif ($_ eq 'localnet') {
-				my $id = $argin[0];
-				my $net = $Janus::nets{$id};
-				if ($net && $net->jlink && $dst != $net->jlink) {
-					my $nact = { %$act };
-					$nact->{dst} = $net->jlink;
-					delete $nact->{IJ_RAW};
-					if (1 < ++$nact->{loop}) {
-						$fail = "Loop in finding local server for argument $idx";
-					} else {
-						Event::append($nact);
-						return;
-					}
-				}
-				$fail = 'Could not find network '.$id unless $opt || $net;
-				shift @argin if $net;
-				push @args, $net;
 			} elsif ($_ eq 'net') {
 				my $id = $argin[0];
 				my $net = $Janus::nets{$id};
@@ -473,6 +458,30 @@ Event::hook_add(
 				push @args, $act;
 			} else {
 				warn "Skipping unknown command API $_";
+			}
+			if ($forceloc && $args[-1]) {
+				my $itm = $args[-1];
+				warn "Ambiguous local* API spec" if $bncto;
+				if ($itm->isa('Network')) {
+					$bncto = $itm->jlink;
+				} elsif ($itm->isa('Channel')) {
+					$bncto = $itm->homenet->jlink;
+				} elsif ($itm->isa('Nick')) {
+					$bncto = $itm->homenet->jlink;
+				} else {
+					warn 'Unknown item';
+				}
+			}
+		}
+		if ($bncto && $bncto != $dst) {
+			my $nact = { %$act };
+			$nact->{dst} = $bncto;
+			delete $nact->{IJ_RAW};
+			if (1 < ++$nact->{loop}) {
+				$fail = 'Loop in finding local server for argument';
+			} else {
+				&Event::append($nact);
+				return;
 			}
 		}
 		$fail = 'Too many arguments' if @argin;
