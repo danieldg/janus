@@ -116,7 +116,7 @@ sub _send {
 			$sockto{$_} = $_ for values %Janus::ijnets;
 			$sockto{$_} = $_ for $Interface::network;
 		} elsif ($net == $RemoteJanus::self) {
-			$_->jlink() or $sockto{$_} = $_ for values %Janus::nets;
+			$sockto{$Interface::network} = $Interface::network;
 		} else {
 			$sockto{$net} = $net;
 		}
