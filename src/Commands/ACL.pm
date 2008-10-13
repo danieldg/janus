@@ -15,17 +15,15 @@ use warnings;
 		"\002ACL DEL\002 #channel net       Removes a network's ACL entry",
 		"\002ACL DEFAULT\002 #channel (+/-) Sets the default access for networks",
 	],
+	api => '=src =replyto $ localchan ?$',
 	code => sub {
-		my($src,$dst, $m, $cname, $arg) = @_;
+		my($src,$dst, $m, $chan, $arg) = @_;
 		$m = lc $m;
-		my $hn = $src->homenet;
-		my $chan = $hn->chan($cname,0);
-		my $ifo = $Link::request{$hn->name}{lc $cname};
-		unless ($chan) {
-			&Interface::jmsg($dst, 'Cannot find that channel');
-			return;
-		}
-		return unless &Account::chan_access_chk($src, $chan, 'link', $dst);
+		my $acl = $m eq 'list' ? 'info' : 'create';
+		return unless &Account::chan_access_chk($src, $chan, $acl, $dst);
+		my $hn = $chan->homenet;
+		my $cname = lc $chan->str($hn);
+		my $ifo = $Link::request{$hn->name}{$cname};
 		unless ($ifo && $ifo->{mode}) {
 			&Interface::jmsg($dst, 'That channel is not shared');
 			return;

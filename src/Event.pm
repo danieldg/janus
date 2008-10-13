@@ -484,7 +484,7 @@ Event::hook_add(
 				return;
 			}
 		}
-		$fail = 'Too many arguments' if @argin;
+		$fail ||= 'Too many arguments' if @argin;
 
 		return unless $run;
 		if ($fail) {
