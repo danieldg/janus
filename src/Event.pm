@@ -445,13 +445,13 @@ Event::hook_add(
 			} elsif ($_ eq 'chan') {
 				my $cname = $argin[0];
 				$act->{$idx} = $hnet->chan($cname, 0) if defined $cname && !$hnet->jlink;
-				$fail = 'Could not find channel '.$cname unless $opt || $act->{$idx};
+				$fail = 'Could not find channel "'.$cname.'"' unless $opt || $act->{$idx};
 				shift @argin if $act->{$idx};
 				push @args, $act->{$idx};
 			} elsif ($_ eq 'net') {
 				my $id = $argin[0];
 				my $net = $Janus::nets{$id};
-				$fail = 'Could not find network '.$id unless $opt || $net;
+				$fail = 'Could not find network "'.$id.'"' unless $opt || $net;
 				shift @argin if $net;
 				push @args, $net;
 			} elsif ($_ eq 'act') {
