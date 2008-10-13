@@ -8,6 +8,15 @@ use Persist;
 our %claim;
 &Janus::save_vars(claim => \%claim);
 
+for my $n (sort keys %claim) {
+	if ($n !~ /#/ && ref $claim{$n}) {
+		for my $c (keys %{$claim{$n}}) {
+			$claim{$n.lc $c} = $claim{$n}{$c};
+		}
+		delete $claim{$n};
+	}
+}
+
 &Janus::command_add({
 	cmd => 'claim',
 	help => 'Claim network ownership of a channel',
@@ -19,35 +28,29 @@ our %claim;
 		"This command claims network ownership for a channel. Unless the list is empty, only",
 		"networks on the list can have services or opers act on the channel.",
 	],
-	acl => 1,
+	api => '=src =replyto localchan ?$',
 	code => sub {
-		my($src,$dst, $cname, $claims) = @_;
+		my($src, $dst, $chan, $claims) = @_;
 		my $nhome = $src->homenet;
-		my $chan = $nhome->chan($cname) or return;
-		my $chnet = $chan->homenet;
-		my $chnn = $chnet->name;
-		my $chname = $chan->str($chnet);
+		my $chome = $chan->homenet;
 		if ($claims) {
-			if ($chnet != $nhome) {
-				&Janus::jmsg($dst, 'Manipulating claims must be done by the home network');
-				return;
-			}
+			return unless &Account::chan_access_chk($src, $chan, 'create', $dst);
 			if ($claims =~ s/^-//) {
-				delete $claim{$chnn}{$chname};
+				delete $claim{$chan->netname};
 				&Janus::jmsg($dst, 'Deleted');
 			} else {
 				my %n;
 				$n{$_}++ for split /,/, $claims;
-				$n{$chnn}++;
-				$claim{$chnn}{$chname} = join ',', sort keys %n;
-				&Janus::jmsg($dst, 'Set to '.$claim{$chnn}{$chname});
+				$n{$nhome->name}++;
+				$claim{$chan->netname} = join ',', sort keys %n;
+				&Janus::jmsg($dst, 'Set to '.$claim{$chan->netname});
 			}
 		} else {
-			my $nets = $claim{$chnn}{$chname};
+			my $nets = $claim{$chan->netname};
 			if ($nets) {
-				&Janus::jmsg($dst, "Channel $cname is claimed by: $nets");
+				&Janus::jmsg($dst, "Channel is claimed by: $nets");
 			} else {
-				&Janus::jmsg($dst, "Channel $cname is not claimed");
+				&Janus::jmsg($dst, "Channel is not claimed");
 			}
 		}
 	},

@@ -300,6 +300,12 @@ sub homename {
 	$names[$$c]{${$homenet[$$c]}};
 }
 
+sub netname {
+	my $c = $_[0];
+	my $n = $homenet[$$c];
+	$n->name . lc $names[$$c]{$$n};
+}
+
 sub to_ij {
 	my($chan,$ij) = @_;
 	my $out = '';
