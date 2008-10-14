@@ -6,7 +6,7 @@ use strict;
 use warnings;
 use Carp;
 
-our %mtype = ();
+our %mtype;
 
 $mtype{$_} = 'n' for qw/voice halfop op admin owner/;
 $mtype{$_} = 'l' for qw/ban except invex badwords/;
