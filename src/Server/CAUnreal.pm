@@ -1226,17 +1226,7 @@ sub srvname {
 	UNSQLINE => \&ignore,
 	SVSREDIR => \&ignore,
 
-	VERSION => sub {
-		my $net = shift;
-		my $nick = $net->mynick($_[0]) or return ();
-		return +{
-			type => 'MSG',
-			src => $nick,
-			dst => $Interface::janus,
-			msgtype => 'PRIVMSG',
-			msg => 'version',
-		};
-	}, TSCTL => sub {
+	TSCTL => sub {
 		my $net = shift;
 		my $nick = $net->item($_[0]) or return ();
 		return () unless lc $_[2] eq 'alltime';
@@ -1246,6 +1236,7 @@ sub srvname {
 			sendto => $Janus::global,
 		};
 	},
+	VERSION => \&todo,
 	CREDITS => \&todo,
 	DALINFO => \&todo,
 	LICENSE => \&todo,
