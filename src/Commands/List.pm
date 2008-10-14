@@ -21,13 +21,14 @@ use warnings;
 			for my $chan (keys %$avail) {
 				next unless $avail->{$chan}{mode};
 				my @line = ($chan, $net);
-				push @line, $avail->{$chan}{mask}.' '.gmtime($avail->{$chan}{time}) if $detail;
+				push @line, $avail->{$chan}{mask},
+					scalar gmtime($avail->{$chan}{time}) if $detail;
 				push @lines, \@line;
 			}
 		}
 		@lines = sort { $a->[0] cmp $b->[0] } @lines;
-		unshift @lines, [ 'Channel', 'net', ($detail ? ('Created by') : ()) ];
-		&Interface::msgtable($dst, \@lines, 1);
+		unshift @lines, [ 'Channel', 'Net', ($detail ? ('Created by', 'Created on') : ()) ];
+		&Interface::msgtable($dst, \@lines);
 	},
 });
 

@@ -125,32 +125,24 @@ use Modes;
 		my @cmodes = sort keys %Modes::mtype;
 		my $l = 0;
 		$l < length $_ and $l = length $_ for @cmodes, @nmodes;
-		my $nc = 1 + $#nmodes / $w;
-		my $cc = 1 + $#cmodes / $w;
-		my $ex = ' %-'.$l.'s %2s ';
-		&Janus::jmsg($dst, 'Nick modes:');
-		for my $i (0..($nc-1)) {
-			my $line = '';
-			for my $m (map $nmodes[$nc*$_ + $i], 0 .. ($w-1)) {
-				my $netv = $net->can('txt2umode') ? $net->txt2umode($m) : '';
+		&Interface::jmsg($dst, 'Nick modes:');
+		&Interface::msgtable($dst, [
+			map {
+				my $netv = $net->can('txt2umode') ? $net->txt2umode($_) : '';
 				$netv = '' if ref $netv;
-				$line .= sprintf $ex, $m, $netv, '';
-			}
-			&Janus::jmsg($dst, $line);
-		}
-		&Janus::jmsg($dst, 'Channel modes:');
-		for my $i (0..($cc-1)) {
-			my $line = '';
-			for my $m (map $cmodes[$cc*$_ + $i], 0 .. ($w-1)) {
+				[ $_, $netv ]
+			} @nmodes ], cols => $w, fmtfmt => [ '%%-'.$l.'s', '%%2s' ], pfx => ' ');
+		&Interface::jmsg($dst, 'Channel modes:');
+		&Interface::msgtable($dst, [
+			map {
+				my $m = $_;
 				my $type = $Modes::mtype{$m};
 				my $netv = '';
 				if ($net->can('txt2cmode')) {
 					$netv .= $net->txt2cmode($_ . '_' . $m) for qw/r t1 t2 v s n l/;
 				}
-				$line .= sprintf $ex, $m, $netv, $type;
-			}
-			&Janus::jmsg($dst, $line);
-		}
+				[ $m, $netv ]
+			} @cmodes ], cols => $w, fmtfmt => [ '%%-'.$l.'s', '%%2s' ], pfx => ' ');
 	},
 });
 

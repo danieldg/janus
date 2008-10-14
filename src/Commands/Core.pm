@@ -64,7 +64,7 @@ my %help_section = (
 			next unless $v;
 			push @mvs, [ $_, $v ];
 		}
-		&Interface::msgtable($dst, \@mvs, $w);
+		&Interface::msgtable($dst, \@mvs, cols => $w, fmtfmt => [ '%%-%ds', '%%%ds' ]);
 	}
 }, {
 	cmd => 'modinfo',

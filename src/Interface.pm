@@ -286,10 +286,26 @@ sub jmsg {
 	}, @o);
 }
 
+=item Interface::msgtable($dst, $table, arghash)
+
+Table is a list of table items; each table item is a list of strings.
+The table is formatted according to arghash, as follows:
+
+  minw - list of minimum widths of each column
+  fmtfmt - list of printf formats $ff such that the result of
+	sprintf($ff, $w) will be used to format the corresponding
+	column; $w is the calculated width. Default is '%%-%ds'.
+  isep - separator for columns in an entry
+  cols - number of columns of entries, defaults to 1
+  pfs - prefix before each row sent to the user
+  osep - separator betweenc columns of entries
+
+=cut
+
 sub msgtable {
-	my($dst, $table, $cols) = @_;
-	$cols ||= 1;
-	my @maxw = map 0, @{$table->[0]};
+	my($dst, $table, %a) = @_;
+	my @maxw = $a{minw} ? @{$a{minw}} : map 0, @{$table->[0]};
+	my @fmtfmt = $a{fmtfmt} ? @{$a{fmtfmt}} : ();
 	for my $line (@$table) {
 		for my $i (0..$#$line) {
 			my $len = length $line->[$i];
@@ -297,12 +313,18 @@ sub msgtable {
 		}
 	}
 	# Regex required because the length of a tainted string is tainted
-	my $fmt = join ' ', map /(\d+)/ && '%-'.$1.'s', @maxw;
+	my $fmt = join(($a{isep} || ' '), map {
+		my $ff = $fmtfmt[$_] || '%%-%ds';
+		$maxw[$_] =~ /(\d+)/;
+		sprintf $ff, $1;
+	} 0..$#maxw);
 
+	my $cols = $a{cols} || 1;
 	my $c = 1 + $#$table / $cols; # height of table
+	my $pfx = $a{pfx} || '';
 	for my $i (0..($c-1)) {
-		jmsg($dst, join ' ', map $_ ? sprintf $fmt, @$_ : '',
-			map $table->[$c*$_ + $i], 0 .. ($cols-1));
+		jmsg($dst, $pfx . join( ($a{osep} || ' '), map $_ ? sprintf $fmt, @$_ : '',
+			map $table->[$c*$_ + $i], 0 .. ($cols-1)));
 	}
 }
 
