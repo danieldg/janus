@@ -48,9 +48,7 @@ if ($line eq 'BOOT') {
 	&Janus::insert_full(+{ type => 'RUN' });
 } elsif ($line =~ /^RESTORE (\S+)/) {
 	my $file = $1;
-	&Janus::load('Conffile') or die;
-	&Janus::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
-	&Janus::load('Snapshot');
+	&Janus::load('Snapshot') or die;
 	&Snapshot::restore_from($file);
 } else {
 	die "Bad line from control socket: $line";

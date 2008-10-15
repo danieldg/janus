@@ -110,6 +110,7 @@ sub read_conf {
 			return;
 		}
 	}
+	return if $Snapshot::preread;
 
 	my %pre_loggers = map { $_->name, $_ } @Log::listeners;
 	my @loggers;

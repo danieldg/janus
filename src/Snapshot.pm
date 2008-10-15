@@ -10,6 +10,8 @@ eval {
 	# BUG in Data::Dumper, running this is needed before using Seen
 };
 
+our $preread;
+
 sub dump_all_globals {
 	my %rv;
 	for my $pkg (@_) {
@@ -102,7 +104,13 @@ sub dump_to {
 
 sub restore_from {
 	my($file) = @_;
+	$preread = 1;
+	require Conffile;
+	$Conffile::conffile = $main::ARGV[0] if @main::ARGV;
+	&Conffile::read_conf();
+	$preread = 0;
 	&Restore::Var::run($file);
+	my @logq = @Log::queue;
 	for my $var (keys %$Restore::Var::global) {
 		my $val = $Restore::Var::global->{$var};
 		no strict 'refs';
@@ -126,6 +134,8 @@ sub restore_from {
 		}
 	}
 
+	&Log::debug('Pre-restore events:');
+	push @Log::queue, @logq;
 	&Log::debug("Beginning debug deallocations");
 	&Restore::Var::clear();
 
