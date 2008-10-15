@@ -35,6 +35,7 @@ set {
 
 # Modules block: this is a list of modules which are loaded at startup.
 # Modules can also be loaded or unloaded while janus is running.
+# See README for a short description of each module.
 modules {
 	Commands::*
 	Modules::Ban

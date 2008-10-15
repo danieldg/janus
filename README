@@ -1,6 +1,10 @@
 See the example configuration for a description of what is needed there.
 
-Start janus using the command line: perl -T janus.pl
+In normal use, start janus using the command line: perl -T janus.pl
+
+Because perl's memory usage will climb with time, an alternative two-process
+runner is available. Start it using "perl multiplex.pl" and use the REBOOT
+command when the memory usage of the worker process climbs too high.
 
 
 Available modules:
