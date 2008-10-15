@@ -4,7 +4,6 @@ package Commands::Modes;
 use strict;
 use warnings;
 use integer;
-use Data::Dumper;
 use Modes;
 
 &Janus::command_add({

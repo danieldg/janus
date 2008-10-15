@@ -258,6 +258,7 @@ $autoevent->{code} = \&Conffile::autoconnect if $autoevent;
 		read_conf;
 	},
 	RESTORE => act => sub {
+		@Log::listeners = ();
 		&Conffile::rehash();
 	},
 	RUN => act => sub {

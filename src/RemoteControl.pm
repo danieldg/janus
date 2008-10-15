@@ -18,6 +18,19 @@ unless (defined $tblank) {
 
 &Janus::static(qw(reboot sock tblank));
 
+&Event::command_add({
+	cmd => 'reboot',
+	help => 'Restarts the worker process of janus',
+	acl => 'die',
+	code => sub {
+		$reboot++;
+		&Log::audit($_[0]->netnick . ' initiated a worker reboot');
+		@Log::listeners = (); # will be restored on a rehash
+		&Log::info('Worker reboot complete'); # will be complete when displayed
+		&Janus::jmsg($_[1], 'Done');
+	},
+});
+
 sub cmd {
 #	print ">>> $_[0]\n";
 	print $sock "$_[0]\n";
