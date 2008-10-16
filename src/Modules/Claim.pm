@@ -61,7 +61,7 @@ sub acl_ok {
 	my $src = $act->{src} or return 1;
 	my $chan = $act->{dst};
 	my $hnet = $chan->homenet;
-	my $claim = $claim{$hnet->name}{$chan->str($hnet)} or return 1;
+	my $claim = $claim{$chan->netname} or return 1;
 	my $snet = $src->isa('Network') ? $src : $src->homenet;
 	$snet->name() eq $_ and return 1 for split /,/, $claim;
 	if ($src->isa('Nick')) {
@@ -81,7 +81,7 @@ sub acl_ok {
 	INFO => 'Channel:1' => sub {
 		my($dst, $chan, $asker) = @_;
 		my $hnet = $chan->homenet;
-		my $claim = $claim{$hnet->name}{$chan->str($hnet)} or return;
+		my $claim = $claim{$chan->netname} or return;
 		&Janus::jmsg($dst, "\002Claim:\002 $claim");
 	},
 	MODE => check => sub {
