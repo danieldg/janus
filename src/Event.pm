@@ -451,7 +451,7 @@ Event::hook_add(
 				@argin = ();
 			} elsif ($_ eq '$') {
 				$fail = 'Not enough arguments' unless $opt || @argin;
-				push @args, shift @argin;
+				push @args, shift @argin if @argin;
 			} elsif ($_ eq 'homenet') {
 				push @args, $hnet;
 			} elsif ($_ eq 'chan') {

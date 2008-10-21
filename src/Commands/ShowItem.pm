@@ -84,7 +84,7 @@ my @mode_sym = qw{~ & @ % +};
 	api => '=src =replyto act $ ?$',
 	code => sub {
 		my($src, $dst, $act) = @_;
-		my $net = @_ > 4 ? $Janus::nets{$_[2]} : $src->homenet;
+		my $net = @_ > 4 ? $Janus::nets{$_[3]} : $src->homenet;
 		my $n = $_[-1];
 		if ($n =~ /:/) {
 			$n = $Janus::gnicks{$n} or return Janus::jmsg($dst, 'Cannot find nick by gid');
@@ -106,8 +106,7 @@ my @mode_sym = qw{~ & @ % +};
 	api => '=src =replyto act $ ?$',
 	code => sub {
 		my($src, $dst, $act) = @_;
-		my $hn = $src->homenet;
-		my $net = @_ > 3 ? $Janus::nets{$_[2]} : $hn;
+		my $net = @_ > 4 ? $Janus::nets{$_[3]} : $src->homenet;
 		my $c = $_[-1];
 		if ($c =~ /^#/) {
 			if ($net->isa('LocalNetwork')) {
