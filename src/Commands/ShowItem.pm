@@ -81,16 +81,18 @@ my @mode_sym = qw{~ & @ % +};
 	details => [
 		"\002SHOWNICK\002 [net] nick|gid",
 	],
+	api => '=src =replyto act $ ?$',
 	code => sub {
-		my($src, $dst) = @_;
-		my $net = @_ > 3 ? $Janus::nets{$_[2]} : $src->homenet;
+		my($src, $dst, $act) = @_;
+		my $net = @_ > 4 ? $Janus::nets{$_[2]} : $src->homenet;
 		my $n = $_[-1];
 		if ($n =~ /:/) {
 			$n = $Janus::gnicks{$n} or return Janus::jmsg($dst, 'Cannot find nick by gid');
 		} elsif ($net->isa('LocalNetwork')) {
 			$n = $net->nick($n, 1) or return Janus::jmsg($dst, 'Cannot find nick by name');
 		} else {
-			return Janus::jmsg($dst, 'Remote networks must be queried by gid');
+			&Event::reroute_cmd($act, $dst);
+			return;
 		}
 		&Event::named_hook('INFO/Nick', $dst, $n, $src);
 	},
@@ -101,16 +103,19 @@ my @mode_sym = qw{~ & @ % +};
 	details => [
 		"\002SHOWCHAN\002 [net] chan|gid",
 	],
+	api => '=src =replyto act $ ?$',
 	code => sub {
-		my($src, $dst) = @_;
+		my($src, $dst, $act) = @_;
 		my $hn = $src->homenet;
 		my $net = @_ > 3 ? $Janus::nets{$_[2]} : $hn;
 		my $c = $_[-1];
 		if ($c =~ /^#/) {
-			unless ($net->isa('LocalNetwork')) {
-				return Janus::jmsg($dst, 'Remote networks must be queried by gid');
+			if ($net->isa('LocalNetwork')) {
+				$c = $net->chan($c, 0) or return Janus::jmsg($dst, 'Cannot find channel by name');
+			} else {
+				&Event::reroute_cmd($act, $dst);
+				return;
 			}
-			$c = $net->chan($c, 0) or return Janus::jmsg($dst, 'Cannot find channel by name');
 		} else {
 			$c = $Janus::gchans{$c} or return Janus::jmsg($dst, 'Cannot find channel by gid');
 		}

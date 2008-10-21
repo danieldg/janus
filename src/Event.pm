@@ -402,6 +402,18 @@ sub wipe_hooks {
 	}
 }
 
+sub reroute_cmd {
+	my($act, $dst) = @_;
+	my $nact = { %$act };
+	$nact->{dst} = $dst;
+	delete $nact->{IJ_RAW};
+	if (1 < ++$nact->{loop}) {
+		&Log::warn('Loop in finding local server for command');
+	} else {
+		&Event::append($nact);
+	}
+}
+
 Event::hook_add(
 	ALL => 'die' => sub {
 		&Log::err(@_);
@@ -474,15 +486,8 @@ Event::hook_add(
 			}
 		}
 		if ($bncto && $bncto != $dst) {
-			my $nact = { %$act };
-			$nact->{dst} = $bncto;
-			delete $nact->{IJ_RAW};
-			if (1 < ++$nact->{loop}) {
-				$fail = 'Loop in finding local server for argument';
-			} else {
-				&Event::append($nact);
-				return;
-			}
+			reroute_cmd($act, $bncto);
+			return;
 		}
 		$fail ||= 'Too many arguments' if @argin;
 

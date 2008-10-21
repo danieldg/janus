@@ -87,13 +87,7 @@ use warnings;
 				delete $difo->{ack}{$dnname};
 			}
 
-			if ($dnet->jlink) {
-				my %act = %$genact;
-				$act{dst} = $dnet->jlink;
-				$act{tochan} = $tochan;
-				delete $act{IJ_RAW};
-				&Event::append(\%act);
-			}
+			&Event::reroute_cmd($genact, $dnet->jlink);
 		}
 		return if $dnet->jlink;
 		my $hname = $snet->name;
