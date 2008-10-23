@@ -91,7 +91,7 @@ my @mode_sym = qw{~ & @ % +};
 		} elsif ($net->isa('LocalNetwork')) {
 			$n = $net->nick($n, 1) or return Janus::jmsg($dst, 'Cannot find nick by name');
 		} else {
-			&Event::reroute_cmd($act, $dst);
+			&Event::reroute_cmd($act, $net->jlink);
 			return;
 		}
 		&Event::named_hook('INFO/Nick', $dst, $n, $src);
@@ -112,7 +112,7 @@ my @mode_sym = qw{~ & @ % +};
 			if ($net->isa('LocalNetwork')) {
 				$c = $net->chan($c, 0) or return Janus::jmsg($dst, 'Cannot find channel by name');
 			} else {
-				&Event::reroute_cmd($act, $dst);
+				&Event::reroute_cmd($act, $net->jlink);
 				return;
 			}
 		} else {
