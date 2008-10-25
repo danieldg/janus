@@ -81,7 +81,7 @@ sub from_irc {
 		push @args, $arg;
 		push @dirs, $pm;
 	}
-	(\@modes, \@args, \@dirs);
+	(\@modes, \@args, \@dirs, @_);
 }
 
 =item (mode, args...) Modes::to_irc(net, modes, args, dirs)

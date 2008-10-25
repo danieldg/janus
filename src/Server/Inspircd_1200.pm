@@ -463,8 +463,8 @@ $moddef{CORE} = {
 			}
 		}
 
-		if (@_ > 5 && $applied) {
-			my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, @_[4 .. ($#_ - 1)]);
+		my($modes,$args,$dirs,$users) = &Modes::from_irc($net, $chan, @_[4 .. $#_]);
+		if ($applied && @$dirs) {
 			push @acts, +{
 				type => 'MODE',
 				src => $net,
@@ -475,8 +475,9 @@ $moddef{CORE} = {
 			};
 		}
 
-		for my $nm (split / /, $_[-1]) {
-			$nm =~ /(?:(.*),)?(\S+)$/ or next;
+		$users = '' unless defined $users;
+		for my $nm (split / /, $users) {
+			$nm =~ /^(.*),(\S+)$/ or next;
 			my $nmode = $1;
 			my $nick = $net->mynick($2) or next;
 			my %mh = map {
