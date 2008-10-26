@@ -365,7 +365,7 @@ sub kicked {
 	JOIN => sub {
 		my $net = shift;
 		return () if $_[0] eq $self[$$net];
-		my $src = $net->nick($_[0]) or return ();
+		my $src = $net->mynick($_[0]) or return ();
 		return +{
 			type => 'JOIN',
 			src => $src,
@@ -374,7 +374,7 @@ sub kicked {
 	},
 	NICK => sub {
 		my $net = shift;
-		my $nick = $net->nick($_[0]) or return ();
+		my $nick = $net->mynick($_[0]) or return ();
 		my $replace = (lc $_[0] eq lc $_[2]) ? undef : $net->item($_[2]);
 		my @out;
 		if ($replace && $replace->homenet() eq $net) {
@@ -402,12 +402,12 @@ sub kicked {
 	},
 	PART => sub {
 		my $net = shift;
-		my $nick = $net->nick($_[0]) or return ();
 		my $chan = $net->chan($_[2]) or return ();
 		if (lc $_[0] eq lc $self[$$net] && grep $_ == $chan, $Interface::janus->all_chans) {
 			# SAPART == same as kick
 			return $net->kicked($_[2], $_[3],$_[1]);
 		}
+		my $nick = $net->mynick($_[0]) or return ();
 		delete $kicks[$$net]{$$nick}{$_[2]};
 		my @out = +{
 			type => 'PART',
@@ -430,8 +430,12 @@ sub kicked {
 		my $src = $net->nick($_[0]);
 		my $chan = $net->chan($_[2]) or return ();
 		my $victim = $net->nick($_[3]) or return ();
-		if ($victim == $Interface::janus && grep $_ == $chan, $victim->all_chans) {
-			return $net->kicked($_[2], $_[4],$_[0]);
+		if ($victim == $Interface::janus) {
+			if (grep $_ == $chan, $victim->all_chans) {
+				return $net->kicked($_[2], $_[4],$_[0]);
+			} else {
+				return ();
+			}
 		}
 		delete $kicks[$$net]{$$victim}{$_[2]};
 		my @out;
@@ -454,7 +458,7 @@ sub kicked {
 	},
 	QUIT => sub {
 		my $net = shift;
-		my $src = $net->nick($_[0]) or return ();
+		my $src = $net->mynick($_[0]) or return ();
 		delete $kicks[$$net]{$$src};
 		return +{
 			type => 'QUIT',
@@ -550,7 +554,7 @@ sub kicked {
 		$mode{voice} = 1 if $_[8] =~ /\+/;
 		push @out, +{
 			type => 'JOIN',
-			src => $net->nick($_[7]),
+			src => $net->mynick($_[7]),
 			dst => $chan,
 			mode => \%mode,
 		};
