@@ -20,7 +20,7 @@ $mtype{$_} = 'r' for qw/
 	nokick noknock nooperover norenick noticeblock
 	oper operadmin opernetadm opersvsadm reginvite
 	register regmoderated sslonly topic delayjoin
-	allinvite permanent jcommand
+	allinvite permanent jcommand cbdirect
 /;
 
 =head1 IRC Mode utilities

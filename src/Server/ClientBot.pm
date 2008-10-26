@@ -220,12 +220,16 @@ sub nicklen { 40 }
 		my $msg = $act->{msg};
 		return () unless ref $src && $src->isa('Nick');
 		return () unless ref $dst && ($dst->isa('Nick') || $dst->isa('Channel'));
-		$src = $src->str($net);
-		$dst = $dst->str($net);
-		if ($msg =~ /^\001ACTION (.*?)\001?$/) {
-			return "$type $dst :* $src $1";
+		my $dstr = $dst->str($net);
+		if ($dst->isa('Channel') && $dst->get_mode('cbdirect')) {
+			return "$type $dstr :$msg";
 		} else {
-			return "$type $dst :<$src> $msg";
+			$src = $src->str($net);
+			if ($msg =~ /^\001ACTION (.*?)\001?$/) {
+				return "$type $dstr :* $src $1";
+			} else {
+				return "$type $dstr :<$src> $msg";
+			}
 		}
 	},
 	KICK => sub {
