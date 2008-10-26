@@ -9,6 +9,7 @@ our %vars;
 our %init_args;
 our %reuse;
 our %max_gid;
+our %gid_shrink;
 
 sub dump_all_refs {
 	my %out;
@@ -76,9 +77,17 @@ sub new {
 	my @pkgs = gid_find $target;
 	my $pk = $pkgs[0];
 
-	my $n = $reuse{$pk} && @{$reuse{$pk}} ?
-		(shift @{$reuse{$pk}}) :
-		(++$max_gid{$pk});
+	my $re = $reuse{$pk} || [];
+	if (@$re < 2*++$gid_shrink{$pk}) {
+		$re = $reuse{$pk} = [ sort { $a <=> $b } @$re ];
+		$gid_shrink{$pk} = 0;
+		while (@$re && $max_gid{$pk} == $re->[-1]) {
+			pop @$re; $max_gid{$pk}--;
+		}
+	}
+	push @$re, ++$max_gid{$pk} unless @$re;
+
+	my $n = shift @$re;
 	my $s = bless \$n, $target;
 
 	for my $pkg (@pkgs) {
