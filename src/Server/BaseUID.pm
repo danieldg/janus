@@ -173,4 +173,17 @@ sub item {
 	return undef;
 }
 
+&Event::hook_add(
+	INFO => 'Nick:1' => sub {
+		my($dst, $nick) = @_;
+		my $out;
+		for my $net ($nick->netlist) {
+			next unless $net->isa(__PACKAGE__);
+			$out .= ' @'.$net->name.'='.$net->nick2uid($nick);
+		}
+		return unless $out;
+		&Janus::jmsg($dst, 'Protocol UIDs:'.$out);
+	},
+);
+
 1;

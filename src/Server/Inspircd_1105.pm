@@ -169,6 +169,8 @@ sub process_capabs {
 		$net->send($net->ncmd(OPERNOTICE => 'Possible desync - CHANMODES do not match module list: '.
 				"expected $expect, got $capabs[$$net]{CHANMODES}"));
 	}
+
+	delete $capabs[$$net]{CHALLENGE};
 }
 
 sub protoctl {
@@ -706,9 +708,7 @@ $moddef{CORE} = {
 			# and then lie to match it
 			my $mods = join ',', sort grep /so$/, $net->all_modules();
 			my $capabs = join ' ', sort map {
-				my($k,$v) = ($_, $capabs[$$net]{$_});
-				$k = undef if $k eq 'CHALLENGE'; # TODO generate our own challenge and use SHA256 passwords
-				$k ? "$k=$v" : ();
+				$_ . '=' . $capabs[$$net]{$_};
 			} keys %{$capabs[$$net]};
 
 			my @out = 'INIT';
@@ -1190,6 +1190,14 @@ $moddef{CORE} = {
 }};
 
 &Event::hook_add(
+	INFO => 'Network:1' => sub {
+		my($dst, $net, $asker) = @_;
+		return unless $net->isa(__PACKAGE__);
+		&Janus::jmsg($dst, 'Server CAP line: '.join ' ', sort map
+			"$_=$capabs[$$net]{$_}", keys %{$capabs[$$net]});
+		&Janus::jmsg($dst, 'Modules: '. join ' ', sort $net->all_modules);
+		# TODO maybe server list?
+	},
 	Server => find_module => sub {
 		my($net, $name, $d) = @_;
 		return unless $net->isa(__PACKAGE__);

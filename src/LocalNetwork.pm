@@ -168,6 +168,12 @@ sub all_chans {
 			$chans[$$net] = undef;
 		}
 	},
+	INFO => 'Network:1' => sub {
+		my($dst, $net) = @_;
+		return unless $net->isa('LocalNetwork');
+		my $chanc = scalar keys %{$chans[$$net]};
+		&Janus::jmsg($dst, $chanc.' local channels; nick GID ' . $net->gid . ':' . &EventDump::seq2gid($nickseq[$$net]));
+	},
 );
 
 1 ]) or die $@;
