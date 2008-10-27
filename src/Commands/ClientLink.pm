@@ -54,7 +54,16 @@ use warnings;
 
 		$cb->isa('Server::ClientBot') or return &Interface::jmsg($dst, 'Source network must be a clientbot');
 		my $req = delete $Link::request{$cb->name}{lc $bchan};
-		if ($req) {
+		my $chan = $cb->chan($bchan);
+		if ($chan) {
+			&Janus::append(+{
+				type => 'DELINK',
+				src => $src,
+				dst => $chan,
+				net => $cb,
+			});
+		}
+		if ($req || $chan) {
 			&Log::audit("Channel $bchan on ".$cb->name." delinked from $req->{chan} on $req->{net} by ".$src->netnick);
 			&Janus::jmsg($dst, 'Done');
 		} else {
