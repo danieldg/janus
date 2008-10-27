@@ -10,10 +10,12 @@ use Scalar::Util 'weaken';
 use strict;
 use warnings;
 
-our(@sendq, @self, @kicks, @lchan);
-&Persist::register_vars(qw(sendq self kicks lchan));
+our(@sendq, @self, @kicks, @lchan, @flood_bkt, @flood_ts);
+&Persist::register_vars(qw(sendq self kicks lchan flood_bkt flood_ts));
 # $kicks[$$net]{$lid}{$channel} = 1 for a rejoin enabled
 # lchan = last channel we tried to join
+
+our $awaken;
 
 my %fromirc;
 my %toirc;
@@ -43,9 +45,13 @@ sub intro {
 		"NICK $param->{nick}",
 	);
 	$self[$$net] = $param->{nick};
+	$flood_bkt[$$net] = $param->{tbf_max} || 20;
+	$flood_ts[$$net] = $Janus::time;
 }
 
 my %cmode2txt = (qw/
+	q n_owner
+	a n_admin
 	o n_op
 	h n_halfop
 	v n_voice
@@ -169,10 +175,27 @@ sub send {
 sub dump_sendq {
 	my $net = shift;
 	local $_;
-	my $q = join "\n", @{$sendq[$$net]}, '';
-	$q =~ s/\n+/\r\n/g;
-	$sendq[$$net] = [];
-	&Log::netout($net, $_) for split /\r\n/, $q;
+	my $tokens = $flood_bkt[$$net];
+	my $rate = $net->param('tbf_rate') || 3;
+	my $max = $net->param('tbf_max') || 20;
+	$tokens += ($Janus::time - $flood_ts[$$net])*$rate;
+	$tokens = $max if $tokens > $max;
+	my $q;
+	while ($tokens && @{$sendq[$$net]}) {
+		my $line = shift @{$sendq[$$net]};
+		$q .= $line . "\r\n";
+		&Log::netout($net, $line);
+		$tokens--;
+	}
+	$flood_ts[$$net] = $Janus::time;
+	$flood_bkt[$$net] = $tokens;
+	if (@{$sendq[$$net]} && !$awaken) {
+		$awaken = {
+			delay => 1,
+			code => sub { $awaken = undef; },
+		};
+		&Janus::schedule($awaken);
+	}
 	$q;
 }
 
@@ -208,7 +231,6 @@ sub nicklen { 40 }
 		my $dst = $act->{dst};
 		return () unless $src == $Interface::janus;
 		my $chan = $dst->str($net);
-		$lchan[$$net] = $chan;
 		"PART $chan :$act->{msg}";
 	},
 	MSG => sub {
@@ -256,7 +278,10 @@ sub nicklen { 40 }
 		"KICK $cn $nn :$src $act->{msg}";
 	},
 	PING => sub {
-		"PING :poing";
+		my ($net,$act)  = @_;
+		# slip pings onto the head of the send queue
+		unshift @{$sendq[$$net]}, "PING :poing";
+		return ();
 	},
 	IDENTIFY => sub {
 		my ($net,$act)  = @_;
@@ -364,7 +389,10 @@ sub kicked {
 	NOTICE => \&pm_not,
 	JOIN => sub {
 		my $net = shift;
-		return () if $_[0] eq $self[$$net];
+		if ($_[0] eq $self[$$net]) {
+			$lchan[$$net] = undef if $_[2] eq $lchan[$$net];
+			return ();
+		}
 		my $src = $net->mynick($_[0]) or return ();
 		return +{
 			type => 'JOIN',
