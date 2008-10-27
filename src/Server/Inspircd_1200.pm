@@ -295,9 +295,9 @@ $moddef{CORE} = {
 		o => 'oper',
 		w => 'wallops',
   }, umode_hook => {
-		's' => sub {
+		'snomask' => sub {
 			my($net,$nick,$dir,$out,$marg) = @_;
-			push @$marg, '+' if $capabs[$$net]{PROTOCOL} >= 1201;
+			push @$marg, '+c' if $capabs[$$net]{PROTOCOL} >= 1201;
 			's';
 		},
   },

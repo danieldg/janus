@@ -40,7 +40,7 @@ sub module_add {
 		}
 	}
 	if ($mod->{umode_hook}) {
-		for my $txt (keys %{$mod->{umode}}) {
+		for my $txt (keys %{$mod->{umode_hook}}) {
 			warn "Overriding umode $txt" if $txt2umode[$$net]{$txt} && !$mod->{umode}{$txt2umode[$$net]{$txt}};
 			$txt2umode[$$net]{$txt} = $mod->{umode_hook}{$txt};
 		}
