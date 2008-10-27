@@ -174,26 +174,18 @@ sub process_capabs {
 	# PREFIX=(qaohv)~&@%+ - We don't care (anymore)
 	$capabs[$$net]{PREFIX} =~ /\((\S+)\)\S+/ or warn;
 	my $pfxmodes = $1;
-
-	# CHANMODES=Ibe,k,jl,CKMNOQRTcimnprst
-	my %split2c;
-	$split2c{substr $_,0,1}{$_} = $net->txt2cmode($_) for $net->all_cmodes();
-
-	# Without a prefix character, nick modes such as +qa appear in the "l" section
-	$split2c{l}{$_} = $split2c{n}{$_} for keys %{$split2c{n}};
-	delete $split2c{l}{$net->cmode2txt($_)} for split //, $pfxmodes;
-
-	# tristates show up in the 4th group
-	$split2c{r}{$_} = $split2c{t}{$_} for keys %{$split2c{t}};
-
-	my $expect = join ',', map { join '', sort values %{$split2c{$_}} } qw(l v s r);
-
+	my $expect = &Modes::modelist($net, $pfxmodes);
 	unless ($expect eq $capabs[$$net]{CHANMODES}) {
 		$net->send($net->ncmd(SNONOTICE => 'l', 'Possible desync - CHANMODES do not match module list: '.
-				"expected $expect, got $capabs[$$net]{CHANMODES}"));
+			"expected $expect, got $capabs[$$net]{CHANMODES}"));
+	}
+	$expect = join '', sort map { ref $_ ? () : $_} map { $net->txt2umode($_) } $net->all_umodes;
+	unless (",,s,$expect" eq $capabs[$$net]{USERMODES}) {
+		$net->send($net->ncmd(SNONOTICE => 'l', 'Possible desync - USERMODES do not match module list: '.
+			"expected ,,s,$expect, got $capabs[$$net]{USERMODES}"));
 	}
 
-	delete $capabs[$$net]{CHALLENGE};
+	delete $capabs[$$net]{CHALLENGE}; # TODO respond to challenge
 }
 
 sub protoctl {

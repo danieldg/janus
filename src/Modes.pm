@@ -244,6 +244,32 @@ sub delta {
 	(\@modes, \@args, \@dirs);
 }
 
+=item list Modes::make_chanmodes($net, $pfxmodes)
+
+Create the CHANMODES list from the 005 output for this network.
+Removes the modes in $pfxmodes from the list.
+Example: CHANMODES=Ibe,k,jl,CKMNOQRTcimnprst
+
+$net must support: all_cmodes, txt2cmode.
+
+=cut
+
+sub modelist {
+	my($net, $pfxmodes) = @_;
+	my %split2c;
+	$split2c{substr $_,0,1}{$_} = $net->txt2cmode($_) for $net->all_cmodes();
+
+	# Without a prefix character, nick modes such as +qa appear in the "l" section
+	$split2c{l}{$_} = $split2c{n}{$_} for keys %{$split2c{n}};
+	delete $split2c{l}{$net->cmode2txt($_)} for split //, $pfxmodes;
+
+	# tristates show up in the 4th group
+	$split2c{r}{$_} = $split2c{t}{$_} for keys %{$split2c{t}};
+
+	join ',', map { join '', sort values %{$split2c{$_}} } qw(l v s r);
+}
+
+
 =back
 
 =cut

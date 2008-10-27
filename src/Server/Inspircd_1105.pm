@@ -154,23 +154,14 @@ sub process_capabs {
 	$pfx2txt[$$net] = \%p2t;
 	$txt2pfx[$$net] = \%t2p;
 
-	# CHANMODES=Ibe,k,jl,CKMNOQRTcimnprst
-	my %split2c;
-	$split2c{substr $_,0,1}{$_} = $net->txt2cmode($_) for $net->all_cmodes();
-
-	# Without a prefix character, nick modes such as +qa appear in the "l" section
-	exists $t2p{$_} or $split2c{l}{$_} = $split2c{n}{$_} for keys %{$split2c{n}};
-	# tristates show up in the 4th group
-	$split2c{r}{$_} = $split2c{t}{$_} for keys %{$split2c{t}};
-
-	my $expect = join ',', map { join '', sort values %{$split2c{$_}} } qw(l v s r);
+	my $expect = &Modes::modelist($net, join '', keys %p2t);
 
 	unless ($expect eq $capabs[$$net]{CHANMODES}) {
 		$net->send($net->ncmd(OPERNOTICE => 'Possible desync - CHANMODES do not match module list: '.
 				"expected $expect, got $capabs[$$net]{CHANMODES}"));
 	}
 
-	delete $capabs[$$net]{CHALLENGE};
+	delete $capabs[$$net]{CHALLENGE}; # TODO
 }
 
 sub protoctl {
