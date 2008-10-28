@@ -102,14 +102,27 @@ sub pmsg {
 			type => 'NEWNICK',
 			dst => $janus,
 		});
-	}, KILL => act => sub {
+	}, KILL => check => sub {
 		my $act = shift;
-		return unless $act->{dst} eq $janus;
-		&Event::append(+{
+		return unless $act->{dst} == $janus;
+		my $net = $act->{net};
+		$janus->_netpart($net);
+		&Event::insert_full(+{
 			type => 'CONNECT',
-			dst => $act->{dst},
-			net => $act->{net},
+			dst => $janus,
+			net => $net,
 		});
+		my @all;
+		for my $chan ($janus->all_chans) {
+			next unless $chan->is_on($net);
+			push @all, +{
+				type => 'JOIN',
+				dst => $chan,
+				src => $janus,
+			};
+		}
+		$net->send(@all);
+		return 1;
 	}, KICK => 'act:-1' => sub {
 		my $act = shift;
 		return unless $act->{kickee} eq $janus;

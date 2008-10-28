@@ -231,8 +231,10 @@ sub _out {
 	return '' unless defined $itm;
 	return $itm unless ref $itm;
 	if ($itm->isa('Nick')) {
-		return $net->nick2uid($itm) if $itm->is_on($net);
-		return $net->net2uid($itm->homenet());
+		my $rv;
+		$rv = $net->nick2uid($itm) if $itm->is_on($net);
+		$rv = $net->net2uid($itm->homenet()) unless defined $rv;
+		return $rv;
 	} elsif ($itm->isa('Channel')) {
 		return $itm->str($net);
 	} elsif ($itm->isa('Network') || $itm->isa('RemoteJanus')) {
@@ -1140,11 +1142,13 @@ $moddef{CORE} = {
 			# assume this is part of a WHOIS reply; discard
 			return ();
 		}
+		my $src = $act->{src};
+		$src = $src->homenet if $src->isa('Nick') && !$src->is_on($net);
 		if ($type eq 'PRIVMSG' || $type eq 'NOTICE') {
-			return $net->cmd2($act->{src}, $type, $dst, $act->{msg});
+			return $net->cmd2($src, $type, $dst, $act->{msg});
 		} elsif ($act->{dst}->isa('Nick')) {
 			# sent to a single user - just PUSH the result
-			my $msg = $net->cmd2($act->{src}, $type, $dst, ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg});
+			my $msg = $net->cmd2($src, $type, $dst, ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg});
 			return $net->ncmd(PUSH => $act->{dst}, $msg);
 		}
 	}, WHOIS => sub {
