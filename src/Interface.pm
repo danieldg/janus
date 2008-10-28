@@ -173,7 +173,7 @@ sub send {
 		if ($act->{type} eq 'MSG' && $act->{msgtype} eq 'PRIVMSG') {
 			my $src = $act->{src};
 			my $dst = $act->{dst};
-			next if !$src || $src == $janus;
+			next if !$src || !$src->isa('Nick') || $src == $janus;
 			$_ = $act->{msg};
 			if ($dst->isa('Channel') && !$src->jlink) {
 				my $jnick = $janus->str($src->homenet);
