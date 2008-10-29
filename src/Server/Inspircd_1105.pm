@@ -145,16 +145,18 @@ sub process_capabs {
 	# PROTOCOL=1105
 	# PREFIX=(qaohv)~&@%+
 	local $_ = $capabs[$$net]{PREFIX};
+	my $modes;
 	my(%p2t,%t2p);
 	while (s/\((.)(.*)\)(.)/($2)/) {
 		my $txt = $net->cmode2txt($1);
+		$modes .= $3;
 		$t2p{$txt} = $3;
 		$p2t{$3} = $txt;
 	}
 	$pfx2txt[$$net] = \%p2t;
 	$txt2pfx[$$net] = \%t2p;
 
-	my $expect = &Modes::modelist($net, join '', keys %p2t);
+	my $expect = &Modes::modelist($net, $modes);
 
 	unless ($expect eq $capabs[$$net]{CHANMODES}) {
 		$net->send($net->ncmd(OPERNOTICE => 'Possible desync - CHANMODES do not match module list: '.
