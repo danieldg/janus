@@ -27,10 +27,8 @@ set {
 	lmode link
 
 	# Other parameters as defined by modules may be present here
-	# Example: Modules::LogRotate takes a logfile format and an
-	#          action to take on old logfiles
+	# Example: Commands::Debug takes a date-based format for the dump files
 	datefmt %Y%m%d-%H%M%S
-	oldlog gzip
 }
 
 # Modules block: this is a list of modules which are loaded at startup.
