@@ -266,6 +266,11 @@ sub run {
 			close $cmd;
 			$cmd = &main::start_child();
 			print $cmd "RESTORE $save\n";
+		} elsif (/^EVAL (.+)/) {
+			my $ev = $1;
+			my $rv = eval $ev;
+			$rv =~ s/\n//g;
+			print $cmd "R $rv\n";
 		} elsif ($_ eq '') {
 		} else {
 			die "bad line $_";

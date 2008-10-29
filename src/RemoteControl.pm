@@ -9,12 +9,14 @@ use Scalar::Util qw(tainted);
 our $reboot;
 our $sock;
 our $tblank;
+our $master_api;
 
 our @active;
 unless (defined $tblank) {
 	$tblank = ``;
 	print "WARNING: not running in taint mode\n" unless tainted($tblank);
 }
+$master_api ||= 1;
 
 &Janus::static(qw(reboot sock tblank));
 

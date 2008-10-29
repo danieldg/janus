@@ -38,7 +38,8 @@ if ($^P) {
 
 my $line = <$RemoteControl::sock>;
 chomp $line;
-if ($line eq 'BOOT') {
+if ($line =~ /^BOOT(?: (\d+))?/) {
+	$RemoteControl::master_api = ($1 || 1);
 	&Janus::load('Conffile') or die;
 	&Janus::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
 	&Log::timestamp($Janus::time);
