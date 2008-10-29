@@ -66,8 +66,14 @@ my %cmode2txt = (qw/
 	t r_topic
 /);
 
+my %txt2cmode;
+$txt2cmode{$cmode2txt{$_}} = $_ for keys %cmode2txt;
+
 sub cmode2txt {
 	$cmode2txt{$_[1]};
+}
+sub txt2cmode {
+	$txt2cmode{$_[1]};
 }
 
 sub cli_hostintro {
@@ -170,6 +176,35 @@ sub send {
 			push @{$sendq[$$net]}, $act;
 		}
 	}
+}
+
+sub _out {
+	my($net,$itm) = @_;
+	return '' unless defined $itm;
+	return $itm unless ref $itm;
+	if ($itm->isa('Nick')) {
+		return $itm->str($net) if $itm->is_on($net);
+		return $itm->homenet()->jname();
+	} elsif ($itm->isa('Channel')) {
+		return $itm->str($net);
+	} elsif ($itm->isa('Network')) {
+		return $net->cparam('linkname') if $itm eq $net;
+		return $itm->jname();
+	} else {
+		&Log::warn_in($net,"Unknown item $itm");
+		return '';
+	}
+}
+
+sub cmd1 {
+	my $net = shift;
+	my $out = shift;
+	if (@_) {
+		my $end = $net->_out(pop @_);
+		$out .= ' '.$net->_out($_) for @_;
+		$out .= ' :'.$end;
+	}
+	$out;
 }
 
 sub dump_sendq {
@@ -276,6 +311,15 @@ sub nicklen { 40 }
 		&Janus::schedule($evt);
 		$kicks[$$net]{$$nick}{$cn} = 1;
 		"KICK $cn $nn :$src $act->{msg}";
+	},
+	MODE => sub {
+		my ($net,$act)  = @_;
+		my @modes = &Modes::to_multi($net, @$act{qw(mode args dirs)}, 12);
+		my @out;
+		for my $line (@modes) {
+			push @out, $net->cmd1(MODE => $act->{dst}, @$line);
+		}
+		@out;
 	},
 	PING => sub {
 		my ($net,$act)  = @_;
@@ -642,15 +686,16 @@ sub kicked {
 			net => $net,
 		};
 	},
-	482 => sub { # kick failed (not enough information to determine which one)
+	482 => sub { # need channel ops
 		my $net = shift;
 		my $chan = $net->chan($_[3]) or return ();
 		return +{
 			type => 'MSG',
-			src => $Interface::janus,
+			src => $net,
 			dst => $chan,
 			msgtype => 'NOTICE',
-			msg => 'Could not relay kick: '.$_[4],
+			prefix => '@',
+			msg => 'Relay bot not opped on network '.$net->id,
 		};
 	},
 	477 => sub { # Need to register.
