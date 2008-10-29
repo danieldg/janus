@@ -314,12 +314,22 @@ sub nicklen { 40 }
 	},
 	MODE => sub {
 		my ($net,$act)  = @_;
-		my @modes = &Modes::to_multi($net, @$act{qw(mode args dirs)}, 12);
-		my @out;
-		for my $line (@modes) {
-			push @out, $net->cmd1(MODE => $act->{dst}, @$line);
+		my @mm = @{$act->{mode}};
+		my @ma = @{$act->{args}};
+		my @md = @{$act->{dirs}};
+		my $i = 0;
+		while ($i < @mm) {
+			if ($Modes::mtype{$mm[$i]} eq 'n' && $ma[$i]->homenet != $net) {
+				splice @mm, $i, 1;
+				splice @ma, $i, 1;
+				splice @md, $i, 1;
+			} else {
+				$i++;
+			}
 		}
-		@out;
+
+		my @modes = &Modes::to_multi($net, \@mm, \@ma, \@md, 12);
+		map $net->cmd1(MODE => $act->{dst}, @$_), @modes;
 	},
 	PING => sub {
 		my ($net,$act)  = @_;
