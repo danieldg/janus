@@ -50,8 +50,8 @@ sub intro {
 }
 
 my %cmode2txt = (qw/
-	q n_owner
-	a n_admin
+	q n_op
+	a n_op
 	o n_op
 	h n_halfop
 	v n_voice
@@ -68,6 +68,7 @@ my %cmode2txt = (qw/
 
 my %txt2cmode;
 $txt2cmode{$cmode2txt{$_}} = $_ for keys %cmode2txt;
+$txt2cmode{n_op} = 'o';
 
 sub cmode2txt {
 	$cmode2txt{$_[1]};
@@ -629,8 +630,8 @@ sub kicked {
 		return () if lc $_[7] eq lc $self[$$net];
 		my @out = $net->cli_hostintro($_[7], $_[4], $_[5], $n);
 		my %mode;
-		$mode{owner} = 1 if $_[8] =~ /~/;
-		$mode{admin} = 1 if $_[8] =~ /&/;
+		$mode{op} = 1 if $_[8] =~ /~/;
+		$mode{op} = 1 if $_[8] =~ /&/;
 		$mode{op} = 1 if $_[8] =~ /\@/;
 		$mode{halfop} = 1 if $_[8] =~ /\%/;
 		$mode{voice} = 1 if $_[8] =~ /\+/;
