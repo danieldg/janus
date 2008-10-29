@@ -180,7 +180,7 @@ sub dump_sendq {
 	my $max = $net->param('tbf_max') || 20;
 	$tokens += ($Janus::time - $flood_ts[$$net])*$rate;
 	$tokens = $max if $tokens > $max;
-	my $q;
+	my $q = '';
 	while ($tokens && @{$sendq[$$net]}) {
 		my $line = shift @{$sendq[$$net]};
 		$q .= $line . "\r\n";
