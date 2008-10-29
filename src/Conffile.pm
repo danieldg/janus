@@ -150,6 +150,19 @@ sub read_conf {
 	}
 }
 
+sub find_ssl_keys {
+	my($net,$lnet) = @_;
+	my $nconf = $Conffile::netconf{ref $net ? $net->id : $net};
+	my $lconf = $Conffile::netconf{$lnet->id} if $lnet;
+	my $sconf = $Conffile::netconf{set};
+	return undef unless $nconf->{linktype} =~ /ssl/;
+	return ($nconf->{ssl_keyfile}, $nconf->{ssl_certfile}) if $nconf->{ssl_certfile};
+	return ($lconf->{keyfile}, $lconf->{certfile}) if $lconf && $lconf->{certfile};
+	return ($sconf->{ssl_keyfile}, $sconf->{ssl_certfile}) if $sconf->{ssl_certfile};
+	&Log::warn_in($net, 'Could not find SSL certificates') if $lnet;
+	return ('client',undef);
+}
+
 sub connect_net {
 	my($nick,$id) = @_;
 	my $nconf = $netconf{$id};
@@ -175,9 +188,9 @@ sub connect_net {
 			&Log::info("Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}");
 
 			my($addr, $port, $bind) = @$nconf{qw(linkaddr linkport linkbind)};
-			my $ssl = ($nconf->{linktype} =~ /^ssl/);
+			my($ssl_key, $ssl_cert) = find_ssl_keys($id);
 
-			my $sock = &Connection::init_conn($addr, $port, $bind, $ssl);
+			my $sock = &Connection::init_conn($addr, $port, $bind, $ssl_key, $ssl_cert);
 			return unless $sock;
 
 			my $net = &Persist::new($type, id => $id);

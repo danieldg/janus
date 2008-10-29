@@ -72,15 +72,18 @@ sub timestep {
 		} elsif ($now =~ /^PEND (\d+) (\S+)/) {
 			my($lid, $addr) = ($1,$2);
 			my $lnet = &Connection::find($lid);
-			my($net, $ssl) = $lnet->init_pending($addr);
-			if ($ssl) {
-				cmd("PEND-SSL $$net $ssl->{keyfile} $ssl->{certfile}");
-			} elsif ($net) {
-				cmd("PEND $$net");
+			my $net = $lnet->init_pending($addr);
+			if ($net) {
+				my($sslkey, $sslcert) = &Conffile::find_ssl_keys($net, $lnet);
+				if ($sslcert) {
+					cmd("PEND-SSL $$net $sslkey $sslcert");
+				} else {
+					cmd("PEND $$net");
+				}
+				push @active, $net;
 			} else {
-				cmd("DROP");
+				cmd('DROP');
 			}
-			push @active, $net if $net;
 		} else {
 			&Log::err('Bad RemoteControl response '.$now);
 		}
@@ -150,10 +153,17 @@ sub init_listen {
 }
 
 sub init_conn {
-	my($addr, $port, $bind, $ssl) = @_;
+	my($addr, $port, $bind, $sslkey, $sslcert) = @_;
 	$bind ||= '';
-	$ssl ||= '';
-	my $resp = &RemoteControl::ask("INITC $addr $port $bind $ssl");
+	$sslkey ||= '';
+	$sslcert ||= '';
+	my $resp;
+	if ($master_api < 3) {
+		my $ssl = $sslkey ? 1 : 0;
+		$resp = &RemoteControl::ask("INITC $addr $port $bind $ssl");
+	} else {
+		$resp = &RemoteControl::ask("INITC $addr $port $bind $sslkey $sslcert");
+	}
 	if ($resp =~ /^FD (\d+)/) {
 		return $1;
 	} elsif ($resp =~ /^ERR (.*)/) {

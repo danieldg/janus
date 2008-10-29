@@ -227,8 +227,8 @@ sub run {
 			} else {
 				print $cmd "ERR $!\n";
 			}
-		} elsif (/^INITC (\S+) (\d+) (\S*) (.*)/) {
-			my($iaddr, $port, $bind, $ssl) = ($1,$2,$3,$4);
+		} elsif (/^INITC (\S+) (\d+) (\S*) (\S*) (\S*)/) {
+			my($iaddr, $port, $bind, $sslkey, $sslcert) = ($1,$2,$3,$4,$5);
 			my $addr = IPV6 ?
 					sockaddr_in6($port, inet_pton(AF_INET6, $iaddr)) :
 					sockaddr_in($port, inet_aton($iaddr));
@@ -242,12 +242,24 @@ sub run {
 			if ($sock) {
 				fcntl $sock, F_SETFL, O_NONBLOCK;
 				connect $sock, $addr;
+				$fd = fileno $sock;
 
-				if ($ssl) {
+				if ($sslcert) {
+					IO::Socket::SSL->start_SSL($sock,
+						SSL_startHandshake => 0,
+						SSL_use_cert => 1,
+						SSL_key_file => $sslkey,
+						SSL_cert_file => $sslcert,
+					);
+					if ($sock->isa('IO::Socket::SSL')) {
+						$sock->connect_SSL();
+					} else {
+						$fd = undef;
+					}
+				} elsif ($sslkey) {
 					IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
 					$sock->connect_SSL();
 				}
-				$fd = fileno $sock;
 			}
 			if (defined $fd) {
 				$waitfd{$fd} = [ $fd, $sock, 0, 0, '', '', 0, 1, '' ];

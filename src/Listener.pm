@@ -25,13 +25,12 @@ sub close {
 
 sub init_pending {
 	my($self, $addr) = @_;
-	my $conf = $Conffile::netconf{$id[$$self]};
-	return undef unless $conf;
 
 	my $net;
+	my $nconf;
 	for my $id (keys %Conffile::netconf) {
 		next if $Janus::nets{$id} || $Janus::pending{$id} || $Janus::ijnets{$id};
-		my $nconf = $Conffile::netconf{$id};
+		$nconf = $Conffile::netconf{$id};
 		if ($nconf->{linkaddr} && $nconf->{linkaddr} eq $addr) {
 			my $type = 'Server::'.$nconf->{type};
 			&Janus::load($type) or next;
@@ -46,9 +45,7 @@ sub init_pending {
 		&Log::info("Rejecting connection from $addr, no matching network definition found");
 		return undef;
 	}
-	
-	my $ssl = ($conf->{linktype} =~ /ssl/) ? $conf : undef;
-	($net, $ssl);
+	return $net;
 }
 
 sub dump_sendq { '' }

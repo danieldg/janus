@@ -92,7 +92,7 @@ sub init_listen {
 }
 
 sub init_conn {
-	my($iaddr, $port, $bind, $ssl) = @_;
+	my($iaddr, $port, $bind, $sslkey, $sslcert) = @_;
 	my $addr = IPV6 ?
 			sockaddr_in6($port, inet_pton(AF_INET6, $iaddr)) :
 			sockaddr_in($port, inet_aton($iaddr));
@@ -105,7 +105,15 @@ sub init_conn {
 	fcntl $sock, F_SETFL, O_NONBLOCK;
 	connect $sock, $addr;
 
-	if ($ssl) {
+	if ($sslcert) {
+		IO::Socket::SSL->start_SSL($sock,
+			SSL_startHandshake => 0,
+			SSL_use_cert => 1,
+			SSL_key_file => $sslkey,
+			SSL_cert_file => $sslcert,
+		);
+		$sock->connect_SSL();
+	} elsif ($sslkey) {
 		IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
 		$sock->connect_SSL();
 	}
@@ -133,14 +141,15 @@ sub readable {
 		my $fd = $sock ? fileno $sock : undef;
 		return unless defined $fd;
 		my $addr = peer_to_addr($peer);
-		my($newnet, $ssl) = $net->init_pending($addr);
+		my $newnet = $net->init_pending($addr);
 		return unless $newnet;
-		if ($ssl) {
+		my($sslkey, $sslcert) = &Conffile::find_ssl_keys($newnet, $net);
+		if ($sslcert) {
 			IO::Socket::SSL->start_SSL($sock, 
 				SSL_server => 1, 
 				SSL_startHandshake => 0,
-				SSL_key_file => $ssl->{keyfile},
-				SSL_cert_file => $ssl->{certfile},
+				SSL_key_file => $sslkey,
+				SSL_cert_file => $sslcert,
 			);
 			if ($sock->isa('IO::Socket::SSL')) {
 				$sock->accept_SSL();
