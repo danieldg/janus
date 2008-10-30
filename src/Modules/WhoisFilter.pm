@@ -18,9 +18,9 @@ use Persist;
 	acl => 'oper',
 	code => sub {
 		my($src,$dst,$arg) = @_;
-		my $on = $arg && $arg !~ /off/;
-		if (&Account::set($src, 'whoisfilter', $on)) {
-			&Janus::jmsg($dst, 'Whois filtering is now '.($on ? 'on' : 'off').' for your nick');
+		my $off = $arg && $arg =~ /off/;
+		if (&Account::set($src, 'whoisfilter', $off)) {
+			&Janus::jmsg($dst, 'Whois filtering is now '.($off ? 'off' : 'on').' for your nick');
 		} else {
 			&Janus::jmsg($dst, 'You must have an account to use this command');
 		}
