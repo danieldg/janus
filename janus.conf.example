@@ -6,7 +6,8 @@
 # Set block: settings for the janus server itself
 set {
 	# Server name - set this to a single unique word. This is used to identify
-	# the server in the interjanus protocol
+	# the server in the interjanus protocol.
+	# This does NOT need to be a domain name; it should be short.
 	name yourserver
 	# Saved data location - this is the file which janus will load and save
 	# state (such as the list of shared channels) between runs
@@ -29,6 +30,12 @@ set {
 	# Other parameters as defined by modules may be present here
 	# Example: Commands::Debug takes a date-based format for the dump files
 	datefmt %Y%m%d-%H%M%S
+
+	# SSL certificate. Only required if you are using an SSL server port,
+	# but will be presented as client certificates on connections
+	# These can be overridden in an individual link block
+	ssl_certfile server.cert.pem
+	ssl_keyfile server.key.pem
 }
 
 # Modules block: this is a list of modules which are loaded at startup.
@@ -40,14 +47,17 @@ modules {
 	Modules::Signals
 }
 
-# Log files
+# Log blocks
+
 log log/%Y-%m-%d-%H:%M:%S {
 	# Type - a module in the Log package
+	# For "File" logs, the name is a strftime format string that will become the filename
 	type File
 	# Filter - what events to send to the log. Space-separated values
 	# See Log.pm for a full list; this will produce a reasonable log.
 	filter debug info warn err audit command debug_in info_in warn_in err_in hook_err
-	## SPECIFIC TO File type
+
+	## The following settings are specific to the File type:
 	# Run a dump before opening the log file (for possible replays)
 	dump 1
 	# rotate the log every N seconds
@@ -56,23 +66,23 @@ log log/%Y-%m-%d-%H:%M:%S {
 	closeact gzip
 }
 
+# Channel log: <netid>#channel
 log net#logchan {
 	type Channel
 	filter audit
 	# You MUST use a filter to avoid massive floods with a channel log
 }
 
-# Listen block: janus will listen on this port for incoming server connections
-listen 8005 {
-	linktype plain
-}
-
-# SSL listen bock: requires an SSL server certificate
-listen 1.2.3.4:8006 {
-	linktype ssl
-	certfile server.cert.pem
-	keyfile server.key.pem
-}
+# Listen blocks: listen for incoming server connections
+#
+# No listen block is required if you have janus connect to your servers
+#
+# The type of server is determined by the IP of the incoming connection;
+# one port can be used for SSL and non-SSL, and for all types of servers.
+# You cannot accept incoming connections from a server if another server
+# shares its IP address; use outgoing connections or alternative IPs.
+listen 8005
+listen 1.2.3.4:8006
 
 # Network link block - one block is required per network
 # link <netid>
@@ -135,4 +145,6 @@ link myserver {
 	recvpass ssap
 	netname That Other Server
 	autoconnect 0
+	ssl_certfile alt-server.cert.pem
+	ssl_keyfile alt-server.key.pem
 }

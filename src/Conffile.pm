@@ -56,6 +56,7 @@ sub read_conf {
 			};
 			$current = { addr => $1 };
 			$newconf{'LISTEN:'.$1} = $current;
+			$current = undef unless /{/;
 		} elsif ($type eq 'log') {
 			if (defined $current) {
 				&Log::err("Missing closing brace at line $. of config file, aborting");
