@@ -143,6 +143,27 @@ sub read_conf {
 	%netconf = %newconf;
 
 	$newconf{modules}{$_}++ for qw(Interface Actions Account Commands::Core);
+	my @stars = grep /\*/, keys %{$newconf{modules}};
+	for my $moddir (@stars) {
+		delete $newconf{modules}{$moddir};
+		if ($moddir !~ s/::\*(?:\.pm)?$//) {
+			&Log::err("Invalid module name (* must refer to an entire directory)");
+			next;
+		}
+		my $sysdir = 'src/'.$moddir;
+		$sysdir =~ s#::#/#g;
+		my $dir;
+		unless (opendir $dir, $sysdir) {
+			&Log::err("Could not search directory $moddir: $!");
+			next;
+		}
+		while ($_ = readdir $dir) {
+			s/\.pm$// or next;
+			/^([0-9a-zA-Z_]+)$/ or warn "Bad filename $_";
+			$newconf{modules}{$moddir.'::'.$1}++;
+		}
+		closedir $dir;
+	}
 	for my $mod (sort keys %{$newconf{modules}}) {
 		unless (&Janus::load($mod)) {
 			&Log::err("Could not load module $mod: $@");
