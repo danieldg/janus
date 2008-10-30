@@ -18,7 +18,7 @@ sub acl_check {
 		oper => $nick->has_mode('oper'),
 	);
 
-	if ($accounts{$selfid}) {
+	if ($selfid && $accounts{$selfid}) {
 		push @accts, $accounts{$selfid};
 	}
 

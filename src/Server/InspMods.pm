@@ -363,7 +363,7 @@ mdef 'm_services.so', cmode => {
 	r => 'registered',
 	R => 'deaf_regpriv'
 }, umode_hook => {
-	registered => \&ignore,
+	registered => sub { '' },
 };
 mdef 'm_services_account.so', cmode => { R => 'r_reginvite', M => 'r_regmoderated' },
 	umode => { R => 'deaf_regpriv' },
@@ -461,7 +461,7 @@ mdef 'm_ssl_dummy.so', metadata => {
 		} else {
 			&Log::warn('Inspircd is incapable of unsetting SSL');
 		}
-		();
+		'';
 	},
 };
 
