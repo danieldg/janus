@@ -340,8 +340,9 @@ sub nicklen { 40 }
 	},
 	IDENTIFY => sub {
 		my ($net,$act)  = @_;
-		my $m = $act->{method} || '';
+		my $m = $act->{method} || $net->param('authtype');
 		unless ($m) {
+			$m = '';
 			$m = 'ns' if $net->param('nspass');
 			$m = 'Q' if $net->param('qauth');
 		}
@@ -350,10 +351,14 @@ sub nicklen { 40 }
 			&Log::err_in($net, "Bad qauth syntax $qpass") unless $qpass && $qpass =~ /^\s*\S+\s+\S+\s*$/;
 			'PRIVMSG Q@CServe.quakenet.org :AUTH '.$qpass;
 		} elsif ($m eq 'ns') {
-			my $pass = $net->param('nspass') || ''; 
+			my $pass = $net->param('nspass') || '';
 			&Log::err_in($net, "Bad nickserv password $pass") unless $pass;
 			"PRIVMSG NickServ :IDENTIFY $pass";
-		} else {
+		} elsif ($m eq 'nsalias') {
+			my $pass = $net->param('nspass') || '';
+			&Log::err_in($net, "Bad nickserv password $pass") unless $pass;
+			"NICKSERV :IDENTIFY $pass";
+		} elsif ($m ne '') {
 			&Log::warn_in($net, "Unknown identify method $m");
 			();
 		}
