@@ -78,12 +78,12 @@ sub new {
 	my $pk = $pkgs[0];
 
 	my $re = $reuse{$pk} || [];
-	if (@$re < 2*++$gid_shrink{$pk}) {
+	if (@$re > 2*--$gid_shrink{$pk}) {
 		$re = $reuse{$pk} = [ sort { $a <=> $b } @$re ];
-		$gid_shrink{$pk} = 0;
 		while (@$re && $max_gid{$pk} == $re->[-1]) {
 			pop @$re; $max_gid{$pk}--;
 		}
+		$gid_shrink{$pk} = @$re;
 	}
 	push @$re, ++$max_gid{$pk} unless @$re;
 
