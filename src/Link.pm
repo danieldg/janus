@@ -198,6 +198,10 @@ sub send_avail {
 		}
 		unless ($dnet->jlink()) {
 			my $dchan = $dnet->chan($act->{dlink}, 1);
+			if ($dchan->is_on($snet)) {
+				Log::info($logpfx, 'destination already on requested network');
+				return;
+			}
 			&Event::append({
 				type => 'CHANLINK',
 				dst => $dchan,

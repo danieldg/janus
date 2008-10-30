@@ -576,8 +576,9 @@ sub del_remoteonly {
 	CHANLINK => check => sub {
 		my $act = shift;
 		my $schan = $act->{in};
+		my $dchan = $act->{dst};
+		my $net = $act->{net};
 		unless ($schan) {
-			my $net = $act->{net};
 			my $name = $act->{name};
 			if ($net->isa('LocalNetwork')) {
 				$schan = $net->chan($name, 1);
@@ -585,7 +586,11 @@ sub del_remoteonly {
 				$schan = Channel->new(net => $net, name => $name, ts => $act->{dst}->ts);
 			}
 		}
-		if ($act->{dst} == $schan) {
+		if ($dchan->is_on($net)) {
+			&Log::err("Not linking a channel twice to a network ($$dchan on $$net)");
+			return 1;
+		}
+		if ($dchan == $schan) {
 			&Log::err("Not linking a channel to itself ($$schan)");
 			return 1;
 		}
