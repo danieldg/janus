@@ -110,6 +110,8 @@ sub timestep {
 
 package Connection;
 
+our $OVERRIDE = 1;
+
 sub add {
 	my($fd, $net) = @_;
 	&RemoteControl::cmd("ADDNET $fd $$net");

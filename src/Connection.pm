@@ -6,8 +6,8 @@ use warnings;
 use integer;
 our $ipv6;
 BEGIN {
-	our $XS;
-	die "Connection cannot be reloaded in C mode" if $XS;
+	our $OVERRIDE;
+	die "Connection cannot be reloaded" if $OVERRIDE;
 	$ipv6 = $Conffile::netconf{set}{ipv6} ? 1 : 0 unless defined $ipv6;
 	require IO::Socket::SSL;
 	if ($ipv6) {
