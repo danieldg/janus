@@ -486,9 +486,13 @@ sub kicked {
 	PART => sub {
 		my $net = shift;
 		my $chan = $net->chan($_[2]) or return ();
-		if (lc $_[0] eq lc $self[$$net] && grep $_ == $chan, $Interface::janus->all_chans) {
-			# SAPART == same as kick
-			return $net->kicked($_[2], $_[3],$_[1]);
+		if (lc $_[0] eq lc $self[$$net]) {
+			if (grep $_ == $chan, $Interface::janus->all_chans) {
+				# SAPART == same as kick
+				return $net->kicked($_[2], $_[3],$_[1]);
+			} else {
+				return ();
+			}
 		}
 		my $nick = $net->mynick($_[0]) or return ();
 		delete $kicks[$$net]{$$nick}{$_[2]};
