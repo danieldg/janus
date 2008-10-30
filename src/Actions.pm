@@ -315,7 +315,7 @@ my %spec = (
 	DELINK => {
 		dst => 'Channel',
 		net => 'Network',
-		netsplit_quit => '?$',
+		cause => '$',
 		'split' => '?Channel',
 	},
 

@@ -85,8 +85,10 @@ use warnings;
 	code => sub {
 		my($src, $snet, $dst, $chan, $dnet) = @_;
 		return unless &Account::chan_access_chk($src, $chan, 'link', $dst);
+		my $cause = 'unlink';
 		if ($snet == $chan->homenet) {
 			$snet = $dnet;
+			$cause = 'reject';
 			unless ($dnet) {
 				&Janus::jmsg($dst, 'Please specify the network to delink, or use DESTROY');
 				return;
@@ -99,6 +101,7 @@ use warnings;
 		&Log::audit('Channel '.$chan->homename.' delinked from '.$snet->name.' by '.$src->netnick);
 		&Janus::append(+{
 			type => 'DELINK',
+			cause => $cause,
 			src => $src,
 			dst => $chan,
 			net => $snet,
@@ -120,6 +123,7 @@ use warnings;
 		&Log::audit('Channel '.$chan->homename.' destroyed by '.$src->netnick);
 		&Janus::append(+{
 			type => 'DELINK',
+			cause => 'destroy',
 			src => $src,
 			dst => $chan,
 			net => $net,

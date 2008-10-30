@@ -670,6 +670,7 @@ sub kicked {
 		my $chan = $net->chan($_[3]) or return ();
 		return +{
 			type => 'DELINK',
+			cause => 'unlink',
 			dst => $chan,
 			net => $net,
 		};
@@ -679,6 +680,7 @@ sub kicked {
 		my $chan = $net->chan($_[3]) or return ();
 		return +{
 			type => 'DELINK',
+			cause => 'unlink',
 			dst => $chan,
 			net => $net,
 		};
@@ -688,6 +690,7 @@ sub kicked {
 		my $chan = $net->chan($_[3]) or return ();
 		return +{
 			type => 'DELINK',
+			cause => 'unlink',
 			dst => $chan,
 			net => $net,
 		};
@@ -697,6 +700,7 @@ sub kicked {
 		my $chan = $net->chan($_[3]) or return ();
 		return +{
 			type => 'DELINK',
+			cause => 'unlink',
 			dst => $chan,
 			net => $net,
 		};
@@ -721,6 +725,7 @@ sub kicked {
 		if ($chan) {
 			push @out, +{
 				type => 'DELINK',
+				cause => 'unlink',
 				dst => $chan,
 				net => $net,
 			}
@@ -737,6 +742,7 @@ sub kicked {
 		my $chan = $net->chan($1) or return ();
 		return +{
 			type => 'DELINK',
+			cause => 'unlink',
 			dst => $chan,
 			net => $net,
 		};

@@ -155,6 +155,7 @@ sub all_chans {
 				}
 				push @clean, +{
 					type => 'DELINK',
+					cause => 'split',
 					dst => $chan,
 					net => $net,
 					nojlink => 1,

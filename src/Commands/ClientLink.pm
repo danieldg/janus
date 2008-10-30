@@ -58,6 +58,7 @@ use warnings;
 		if ($chan) {
 			&Janus::append(+{
 				type => 'DELINK',
+				cause => 'unlink',
 				src => $src,
 				dst => $chan,
 				net => $cb,

@@ -231,22 +231,21 @@ sub send_avail {
 		}
 	}, DELINK => act => sub {
 		my $act = shift;
-		# do not process derived actions
-		return if $act->{nojlink} || !$act->{src};
 		my $net = $act->{net};
 		my $nname = $net->name();
 		my $chan = $act->{dst};
 		my $cname = $chan->str($net);
 		my $hnet = $chan->homenet();
-		if ($net == $hnet) {
-			# destroy
+		my $cause = $act->{cause};
+		if ($cause eq 'destroy') {
 			delete $request{$nname}{$cname};
-		} elsif ($act->{src}->homenet == $hnet) {
-			# forced delink
+		} elsif ($cause eq 'reject') {
 			$request{$hnet->name}{lc $chan->homename}{ack}{$nname} = 2;
-		} else {
+		} elsif ($cause eq 'unlink') {
 			# standard delink
 			delete $request{$nname}{$cname};
+		} elsif ($cause !~ /split2?|destroy2/) {
+			&Log::warn("Unknown cause in DELINK: $cause");
 		}
 	},
 );

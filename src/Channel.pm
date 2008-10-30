@@ -622,14 +622,14 @@ sub del_remoteonly {
 		my $chan = $act->{dst};
 		my $net = $act->{net};
 		if ($net == $homenet[$$chan]) {
-			my $slow_quit = $act->{netsplit_quit} ? 2 : 0;
+			my $cause = $act->{cause} . '2';
 			for my $on (values %{$nets[$$chan]}) {
 				next if $on == $net;
 				&Janus::append(+{
 					type => 'DELINK',
 					net => $on,
 					dst => $chan,
-					netsplit_quit => $slow_quit,
+					cause => $cause,
 					nojlink => 1,
 				});
 			}
@@ -667,8 +667,9 @@ sub del_remoteonly {
 		$nicks[$$split] = [ @presplit ];
 		$nmode[$$split] = { %{$nmode[$$chan]} };
 
-		my $delink_lvl = $act->{netsplit_quit};
-		$delink_lvl++;
+		my $delink_lvl = 1;
+		$delink_lvl = 2 if $act->{cause} eq 'split';
+		$delink_lvl = 3 if $act->{cause} eq 'split2';
 
 		my @parts;
 
@@ -718,7 +719,7 @@ sub del_remoteonly {
 				type => 'DELINK',
 				dst => $chan,
 				net => $net,
-				netsplit_quit => 1,
+				cause => 'split',
 				except => $net,
 				nojlink => 1,
 			};
