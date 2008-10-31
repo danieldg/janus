@@ -413,10 +413,15 @@ $moddef{CORE} = {
 		my $src = $net->item($_[0]);
 		my $dst = $net->nick($_[2]) or return ();
 		my $msg = $_[3];
-		$msg =~ s/^\S+!//;
 
-		# inspircd will send a QUIT for the nick
-		return () if $dst->homenet() eq $net;
+		if ($dst->homenet == $net) {
+			return {
+				type => 'QUIT',
+				dst => $dst,
+				msg => $msg,
+				killer => $src,
+			};
+		}
 		return {
 			type => 'KILL',
 			src => $src,
