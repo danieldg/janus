@@ -355,7 +355,7 @@ mdef 'm_sapart.so', cmds => { 'SAPART' => \&ignore };
 mdef 'm_saquit.so',	cmds => { 'SAQUIT' => 'KILL' };
 mdef 'm_securelist.so';
 mdef 'm_seenicks.so';
-mdef 'm_services.so', cmode => {
+mdef 11, 'm_services.so', cmode => {
 	r => 'r_register',
 	R => 'r_reginvite',
 	M => 'r_regmoderated'
@@ -365,7 +365,7 @@ mdef 'm_services.so', cmode => {
 }, umode_hook => {
 	registered => sub { '' },
 };
-mdef 'm_services_account.so', cmode => { R => 'r_reginvite', M => 'r_regmoderated' },
+mdef 11, 'm_services_account.so', cmode => { R => 'r_reginvite', M => 'r_regmoderated' },
 	umode => { R => 'deaf_regpriv' },
 	metadata => {
 		accountname => sub {
@@ -383,6 +383,28 @@ mdef 'm_services_account.so', cmode => { R => 'r_reginvite', M => 'r_regmoderate
 			};
 		},
 	};
+
+mdef 12, 'm_services_account.so', cmode => {
+	r => 'r_register',
+	R => 'r_reginvite',
+	M => 'r_regmoderated',
+}, umode => {
+	r => 'registered',
+	R => 'deaf_regpriv',
+}, umode_hook => {
+	registered => sub { '' },
+}, metadata => {
+	accountname => sub {
+		my $net = shift;
+		my $nick = $net->mynick($_[2]) or return ();
+		return +{
+			type => 'NICKINFO',
+			dst => $nick,
+			item => 'svsaccount',
+			value => $_[4],
+		};
+	},
+};
 
 mdef 12, 'm_servprotect.so', umode => { k => 'service' };
 
