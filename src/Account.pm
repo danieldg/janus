@@ -11,7 +11,8 @@ our %roles;
 
 unless (%roles) {
 	%roles = (
-		'oper' => 'ban rehash link',
+		'user' => 'user',
+		'oper' => 'oper ban rehash link',
 		'netop' => 'clink forceid autoconnect netsplit xline',
 		'admin' => 'account setpass info/nick dump verify role',
 		'owner' => 'reload unload up-git up-tar upgrade die reboot restart',
@@ -23,9 +24,8 @@ sub acl_check {
 	local $_;
 	my @accts;
 	my $selfid = $nick->info('account:'.$RemoteJanus::self->id);
-	my %has = (
-		oper => $nick->has_mode('oper'),
-	);
+	my %hasr;
+	$hasr{oper}++ if $nick->has_mode('oper');
 
 	if ($selfid && $accounts{$selfid}) {
 		push @accts, $accounts{$selfid};
@@ -38,17 +38,17 @@ sub acl_check {
 	}
 
 	for my $acct (@accts) {
-		$has{user}++;
+		$hasr{user}++;
 		next unless $acct->{acl};
-		$has{$_}++ for split /\s+/, $acct->{acl};
+		$hasr{$_}++ for split /\s+/, $acct->{acl};
 	}
-	for my $role (%roles) {
-		next unless $has{$role};
-		$has{$_}++ for split /\s+/, $roles{$role};
+	return 1 if $hasr{'*'};
+	my %hasa;
+	for my $role (keys %hasr) {
+		$hasa{$_}++ for split /\s+/, ($roles{$role} || '');
 	}
-	return 1 if $has{'*'};
 	for my $itm (split /\|/, $acl) {
-		return 1 if $has{$itm};
+		return 1 if $hasa{$itm};
 	}
 	return 0;
 }

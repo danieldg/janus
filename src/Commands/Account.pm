@@ -13,18 +13,31 @@ use warnings;
 		}
 	},
 );
+
+sub role_acl_super {
+	my($src, $role) = @_;
+	local $_;
+	return 0 if $role eq '*' && !&Account::acl_check($src, '*');
+	my %acl;
+	$acl{$_}++ for split / /, ($Account::roles{$role} || '');
+	for (keys %acl) {
+		return 0 unless &Account::acl_check($src, $_);
+	}
+	1;
+}
+
 &Janus::command_add({
 	cmd => 'account',
 	help => 'Manages janus accounts',
 	acl => 'account',
 	section => 'Account',
 	details => [
-		"\002ACCOUNT LIST\002               Lists all accounts",
-		"\002ACCOUNT SHOW\002 account       Shows details on an account",
-		"\002ACCOUNT CREATE\002 account     Creates a new (local or remote) account",
-		"\002ACCOUNT DELETE\002 account     Deletes an account",
-		"\002ACCOUNT GRANT\002 account acl  Grants an account access to the given command ACL",
-		"\002ACCOUNT REVOKE\002 account acl Revokes an account's access to the given command ACL",
+		"\002ACCOUNT LIST\002                Lists all accounts",
+		"\002ACCOUNT SHOW\002 account        Shows details on an account",
+		"\002ACCOUNT CREATE\002 account      Creates a new (local or remote) account",
+		"\002ACCOUNT DELETE\002 account      Deletes an account",
+		"\002ACCOUNT GRANT\002 account role  Grants an account access to the given role",
+		"\002ACCOUNT REVOKE\002 account role Revokes an account's access to the given role",
 	],
 	code => sub {
 		my($src,$dst,$cmd,$acctid,@acls) = @_;
@@ -43,6 +56,13 @@ use warnings;
 		if ($cmd eq 'show') {
 			&Event::named_hook('INFO/Account', $dst, $acctid, $src);
 		} elsif ($cmd eq 'delete') {
+			my %acl;
+			$acl{$_}++ for split / /, (&Account::get($acctid, 'acl') || '');
+			for (keys %acl) {
+				unless (role_acl_super($src, $_)) {
+					return &Janus::jmsg($dst, "You cannot delete accounts with access to permissions you don't have");
+				}
+			}
 			&Event::named_hook('ACCOUNT/del', $acctid);
 			&Janus::jmsg($dst, 'Done');
 		} elsif ($cmd eq 'grant' && @acls) {
@@ -50,7 +70,7 @@ use warnings;
 			$acl{$_}++ for split / /, (&Account::get($acctid, 'acl') || '');
 			for (@acls) {
 				$acl{$_}++;
-				unless (&Account::acl_check($src, $_)) {
+				unless (role_acl_super($src, $_)) {
 					return &Janus::jmsg($dst, "You cannot grant access to permissions you don't have");
 				}
 			}
@@ -61,7 +81,7 @@ use warnings;
 			$acl{$_}++ for split / /, (&Account::get($acctid, 'acl') || '');
 			for (@acls) {
 				delete $acl{$_};
-				unless (&Account::acl_check($src, $_)) {
+				unless (role_acl_super($src, $_)) {
 					return &Janus::jmsg($dst, "You cannot revoke access to permissions you don't have");
 				}
 			}
@@ -75,6 +95,7 @@ use warnings;
 	cmd => 'role',
 	help => 'Manages janus account roles',
 	section => 'Account',
+	acl => 'role',
 	details => [
 		"\002ROLE ADD\002 role acl...  Adds ACLs to a role",
 		"\002ROLE DEL\002 role acl...  Removes ACLs from a role",
