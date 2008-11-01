@@ -67,7 +67,7 @@ my %timespec = (
 		" \002vanish add\002 expr length reason    Add a ban (applied to new users only)",
 		" \002vanish del\002 [expr|index]          Remove a ban by expression or index in the ban list",
 	],
-	acl => 1,
+	acl => 'vanish',
 	code => sub {
 		my($src,$dst, $cmd, @arg) = @_;
 		return &Janus::jmsg($dst, "use 'help vanish' to see the syntax") unless $cmd;

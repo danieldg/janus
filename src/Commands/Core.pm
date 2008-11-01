@@ -102,7 +102,7 @@ my %help_section = (
 		"\002WARNING\002: Reloading core modules may introduce bugs because of persistance",
 		"of old code by the perl interpreter."
 	],
-	acl => 'admin',
+	acl => 'reload',
 	code => sub {
 		my($src,$dst,$name) = @_;
 		return &Janus::jmsg($dst, "Invalid module name") unless $name =~ /^([0-9_A-Za-z:]+)$/;
@@ -121,7 +121,7 @@ my %help_section = (
 	cmd => 'unload',
 	help => "Unload the hooks registered by a module",
 	section => 'Admin',
-	acl => 'admin',
+	acl => 'unload',
 	code => sub {
 		my($src,$dst,$name) = @_;
 		if ($name !~ /::/ || $name eq __PACKAGE__) {
@@ -155,12 +155,12 @@ my %help_section = (
 			if ($acl) {
 				$acl = 'oper' if $acl eq '1';
 				my $allow = &Account::acl_check($src, $acl) ? 'you' : 'you do not';
-				&Janus::jmsg($dst, "Requires access to the '$acl' acl ($allow currently have access)");
+				&Janus::jmsg($dst, "Requires access to '$acl' ($allow currently have access)");
 			}
 			my $aclchk = $Event::commands{$item}{aclchk};
 			if ($aclchk) {
 				my $allow = &Account::acl_check($src, $aclchk) ? 'you' : 'you do not';
-				&Janus::jmsg($dst, "May require access to the '$aclchk' acl ($allow currently have access)");
+				&Janus::jmsg($dst, "Some options may require access to '$aclchk' ($allow currently have access)");
 			}
 		} else {
 			my %cmds;

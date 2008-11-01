@@ -15,7 +15,7 @@ use warnings;
 		"To identify to NickServ, use: 	\002FORCEID\002 network [password]",
 		"To identify to Q(uakeNet)use: 	\002FORCEID\002 network [user] [password]",
 	],
-	acl => 'clink',
+	acl => 'forceid',
 	code => sub {
 		my ($src,$dst,$args) = @_;
 		my ($nname, $auth) = $args =~ /(\S+)\s*(.*)/ or return;

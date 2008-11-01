@@ -85,7 +85,7 @@ my %timespec = (
 		' reason "reason here"           Reason the ban was added',
 		'a nick must match all of the conditions on the ban to be banned.',
 	],
-	acl => 1,
+	acl => 'ban',
 	code => sub {
 		my($src,$dst,$cmd,@args) = @_;
 		$cmd = lc $cmd;

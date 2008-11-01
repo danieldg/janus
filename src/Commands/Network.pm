@@ -8,7 +8,7 @@ use warnings;
 	cmd => 'rehash',
 	help => 'Reload the config and attempt to reconnect to split servers',
 	section => 'Admin',
-	acl => 'oper|rehash',
+	acl => 'rehash',
 	code => sub {
 		my($src,$dst) = @_;
 		&Log::audit('Rehash by '.$src->netnick);
@@ -46,7 +46,7 @@ use warnings;
 	cmd => 'restart',
 	help => "Restart the janus server",
 	section => 'Admin',
-	acl => 'die',
+	acl => 'restart',
 	code => sub {
 		my($src,$dst,$pass) = @_;
 		return &Janus::jmsg($dst, "Specify the argument '".$RemoteJanus::self->id."' to confirm")
@@ -80,7 +80,7 @@ use warnings;
 		'A rehash will reread the value for the network from the janus configuration',
 		'Without parameters, displays the current state',
 	],
-	acl => 'network',
+	acl => 'autoconnect',
 	code => sub {
 		my($src, $dst, $id, $onoff) = @_;
 		my $nconf = $Conffile::netconf{$id} or do {
@@ -105,7 +105,7 @@ use warnings;
 		"Syntax: \002NETSPLIT\002 network",
 		"Disconnects the given network from janus and then rehashes to (possibly) reconnect",
 	],
-	acl => 'network',
+	acl => 'netsplit',
 	code => sub {
 		my($src,$dst,$net) = @_;
 		$net = $Janus::nets{lc $net} || $Janus::ijnets{lc $net};

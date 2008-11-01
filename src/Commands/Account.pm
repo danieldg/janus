@@ -7,16 +7,16 @@ use warnings;
 &Event::hook_add(
 	INFO => Account => sub {
 		my($dst, $acctid, $src) = @_;
-		my $all = &Account::acl_check($src, 'useradmin') || $acctid eq &Account::has_local($src);
+		my $all = &Account::acl_check($src, 'account') || $acctid eq &Account::has_local($src);
 		if ($all) {
-			&Janus::jmsg($dst, 'ACL: '.$Account::accounts{$acctid}{acl});
+			&Janus::jmsg($dst, 'Roles: '.$Account::accounts{$acctid}{acl});
 		}
 	},
 );
 &Janus::command_add({
 	cmd => 'account',
 	help => 'Manages janus accounts',
-	acl => 'useradmin',
+	acl => 'account',
 	section => 'Account',
 	details => [
 		"\002ACCOUNT LIST\002               Lists all accounts",
@@ -72,22 +72,64 @@ use warnings;
 		}
 	}
 }, {
-	cmd => 'listacls',
-	help => 'Lists all janus command ACLs',
+	cmd => 'role',
+	help => 'Manages janus account roles',
+	section => 'Account',
+	details => [
+		"\002ROLE ADD\002 role acl...  Adds ACLs to a role",
+		"\002ROLE DEL\002 role acl...  Removes ACLs from a role",
+		"\002ROLE DESTROY\002 role     Removes a role",
+	],
+	api => '=src =replyto $ $ @',
+	code => sub {
+		my($src,$dst,$cmd,$role,@acls) = @_;
+		$cmd = lc $cmd;
+		my %acl;
+		$acl{$_}++ for split / /, ($Account::roles{$role} || '');
+		if ($cmd eq 'add') {
+			for (@acls) {
+				$acl{$_}++;
+				unless (&Account::acl_check($src, $_)) {
+					return &Janus::jmsg($dst, "You cannot grant access to permissions you don't have");
+				}
+			}
+			$Account::roles{$role} = join ' ', sort keys %acl;
+		} elsif ($cmd eq 'del') {
+			for (@acls) {
+				delete $acl{$_};
+				unless (&Account::acl_check($src, $_)) {
+					return &Janus::jmsg($dst, "You cannot revoke access to permissions you don't have");
+				}
+			}
+			$Account::roles{$role} = join ' ', sort keys %acl;
+			delete $Account::roles{$role} unless %acl;
+		} elsif ($cmd eq 'destroy') {
+			for (keys %acl) {
+				unless (&Account::acl_check($src, $_)) {
+					return &Janus::jmsg($dst, "You cannot revoke access to permissions you don't have");
+				}
+			}
+			delete $Account::roles{$role};
+		} else {
+			return &Janus::jmsg($dst, 'See "help role" for correct syntax');
+		}
+		&Janus::jmsg($dst, 'Done');
+	},
+}, {
+	cmd => 'listroles',
+	help => 'Lists all janus access roles',
 	section => 'Info',
 	code => sub {
 		my($src,$dst) = @_;
-		my %by_acl;
-		for my $cmdname (sort keys %Event::commands) {
-			my $cmd = $Event::commands{$cmdname};
-			my $acl = $cmd->{acl};
-			if ($acl) {
-				$acl = 'oper' if $acl eq '1';
-				$by_acl{$_} .= ' '.$cmdname for split /\|/, $acl;
-			}
-			$by_acl{$cmd->{aclchk}} .= ' '.$cmdname if $cmd->{aclchk};
+		my @tbl;
+		my %all = %Account::roles;
+		$all{oper} = $all{user} = 7;
+		for my $role (sort keys %all) {
+			my $s = $all{$role} eq '7' ? '*' : ' ';
+			push @tbl, [ "$s\002$role\002", $Account::roles{$role} ];
 		}
-		&Janus::jmsg($dst, map { sprintf "\002%-10s\002\%s", $_, $by_acl{$_} } sort keys %by_acl);
+		&Interface::msgtable($dst, \@tbl, minw => [ 10, 0 ]);
+		&Interface::jmsg($dst, '* = builtin role');
 	},
 });
 

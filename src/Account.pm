@@ -6,8 +6,17 @@ use warnings;
 use Persist;
 
 our %accounts;
+our %roles;
+&Janus::save_vars(accounts => \%accounts, roles => \%roles);
 
-&Janus::save_vars(accounts => \%accounts);
+unless (%roles) {
+	%roles = (
+		'oper' => 'ban rehash link',
+		'netop' => 'clink forceid autoconnect netsplit xline',
+		'admin' => 'account setpass info/nick dump verify role',
+		'owner' => 'reload unload up-git up-tar upgrade die reboot restart',
+	);
+}
 
 sub acl_check {
 	my($nick, $acl) = @_;
@@ -33,10 +42,15 @@ sub acl_check {
 		next unless $acct->{acl};
 		$has{$_}++ for split /\s+/, $acct->{acl};
 	}
+	for my $role (%roles) {
+		next unless $has{$role};
+		$has{$_}++ for split /\s+/, $roles{$role};
+	}
 	return 1 if $has{'*'};
 	for my $itm (split /\|/, $acl) {
 		return 1 if $has{$itm};
 	}
+	return 0;
 }
 
 # acl is one of:
@@ -51,7 +65,7 @@ sub chan_access_chk {
 		&Janus::jmsg($errs, "This command must be run from the channel's home network");
 		return 0;
 	}
-	if (acl_check($nick, 'oper|link')) {
+	if (acl_check($nick, 'link')) {
 		return 1;
 	}
 	if (($acl eq 'link' || $acl eq 'create') && $net->param('oper_only_link')) {

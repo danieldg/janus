@@ -45,7 +45,7 @@ sub find {
 		" \002banset del\002 set item     Removes an item from a banset",
 		'Type is (nick|ident|host|ip|name)',
 	],
-	acl => 1,
+	acl => 'ban',
 	code => sub {
 		my($src, $dst, $cmd, $name, @args) = @_;
 		return &Janus::jmsg($dst, "use 'help banset' to see the syntax") unless $cmd;

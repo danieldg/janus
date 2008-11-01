@@ -14,7 +14,7 @@ sub fexec {
 	cmd => 'upgrade',
 	help => 'Upgrades all modules loaded by janus',
 	section => 'Admin',
-	acl => 'admin',
+	acl => 'upgrade',
 	code => sub {
 		my($src,$dst,$arg) = @_;
 		my @mods = sort keys %Janus::modinfo;
@@ -47,7 +47,7 @@ sub fexec {
 	cmd => 'up-tar',
 	help => 'Downloads and extracts an updated version of janus via gitweb',
 	section => 'Admin',
-	acl => 'admin',
+	acl => 'up-tar',
 	code => sub {
 		my($src,$dst) = @_;
 		&Log::audit('Up-tar started by '.$src->netnick);
@@ -67,7 +67,7 @@ sub fexec {
 	cmd => 'up-git',
 	help => 'Runs "git pull"',
 	section => 'Admin',
-	acl => 'admin',
+	acl => 'up-git',
 	code => sub {
 		my($src,$dst) = shift;
 		&Log::audit('Up-git started by '.$src->netnick);

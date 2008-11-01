@@ -500,7 +500,7 @@ Event::hook_add(
 		if ($acl) {
 			$acl = 'oper' if $acl eq '1';
 			unless (&Account::acl_check($src, $acl)) {
-				&Janus::jmsg($reply, "You must have access to the '$acl' ACL to use this command");
+				&Janus::jmsg($reply, "You must have access to '$acl' to use this command");
 				return;
 			}
 		}

@@ -33,7 +33,7 @@ sub dump_now {
 	cmd => 'dump',
 	help => 'Dumps current janus internal state to a file',
 	section => 'Admin',
-	acl => 'debug',
+	acl => 'dump',
 	code => sub {
 		$pure = ($_[2] eq 'pure' ? 1 : 0);
 		my $fn = dump_now(@_);
@@ -41,7 +41,7 @@ sub dump_now {
 	},
 }, {
 	cmd => 'testdie',
-	acl => 'debug',
+	acl => 'dump',
 	code => sub {
 		die "You asked for it!";
 	},

@@ -70,7 +70,7 @@ sub findline {
 		"Syntax: \002XLINE\002 [on|off]",
 		'With no argument, displays the current state',
 	],
-	acl => 1,
+	acl => 'xline',
 	code => sub {
 		my($src,$dst,$state) = @_;
 		my $net = $src->homenet;
