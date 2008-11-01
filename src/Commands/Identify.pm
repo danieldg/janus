@@ -97,6 +97,11 @@ sub hash {
 			&Log::info($src->netnick .' changed their password (account "'.$user.'")');
 		} elsif (&Account::acl_check($src, 'useradmin')) {
 			return &Janus::jmsg($dst, 'Cannot find that user') unless $acct;
+			for my $acl (split /\s+/, $acct->{acl}) {
+				unless (&Account::acl_check($src, $acl)) {
+					return &Janus::jmsg($dst, "You must have access to '$acl' to modify this user");
+				}
+			}
 			&Log::audit($src->netnick .' changed '.$user."\'s password");
 		} else {
 			return &Janus::jmsg($dst, 'You can only change your own password');
