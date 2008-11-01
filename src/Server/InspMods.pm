@@ -96,6 +96,7 @@ mdef 'm_censor.so', cmode => { G => 'r_badword' }, umode => { G => 'badword' };
 mdef 'm_hidechans.so', umode => { I => 'hide_chans' };
 mdef 'm_cgiirc.so';
 mdef 'm_chancreate.so';
+mdef 'm_chanlog.so';
 mdef 'm_chanfilter.so', cmode => { g => 'l_badwords' };
 mdef 'm_chanprotect.so', cmode => { a => 'n_admin', 'q' => 'n_owner' };
 mdef 'm_check.so';

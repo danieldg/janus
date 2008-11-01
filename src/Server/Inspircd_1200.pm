@@ -324,7 +324,6 @@ $moddef{CORE} = {
 	}, UID => sub {
 		my $net = shift;
 		my $ip = $_[8];
-		$ip = $1 if $ip =~ /^[0:]+:ffff:(\d+\.\d+\.\d+\.\d+)$/;
 		my %nick = (
 			net => $net,
 			ts => $_[3],
