@@ -37,7 +37,7 @@ sub svs_type {
 			return ($cache[$$n] = CACHED);
 		}
 	} else {
-		unless ($srv =~ /^(stats|services?|defender)\..*\./) {
+		unless ($srv =~ /^(stats|services?|defender)\./) {
 			return ($cache[$$n] = CACHED);
 		}
 	}

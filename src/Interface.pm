@@ -314,7 +314,7 @@ The table is formatted according to arghash, as follows:
 	column; $w is the calculated width. Default is '%%-%ds'.
   isep - separator for columns in an entry
   cols - number of columns of entries, defaults to 1
-  pfs - prefix before each row sent to the user
+  pfx - prefix before each row sent to the user
   osep - separator betweenc columns of entries
 
 =cut
