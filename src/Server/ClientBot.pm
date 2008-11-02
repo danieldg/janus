@@ -80,7 +80,7 @@ sub txt2cmode {
 sub cli_hostintro {
 	my($net, $nname, $ident, $host, $gecos) = @_;
 	my @out;
-	return if $nname eq $self[$$net];
+	return if lc $nname eq lc $self[$$net];
 	my $nick = $net->item($nname);
 
 	unless ($nick && $nick->homenet == $net) {
@@ -373,7 +373,7 @@ sub pm_not {
 	my $net = shift;
 	my $src = $net->item($_[0]) or return ();
 	return () unless $src->isa('Nick');
-	if ($_[2] eq $self[$$net]) {
+	if (lc $_[2] eq lc $self[$$net]) {
 		# PM to the bot
 		my $msg = $_[3];
 		if ($msg =~ s/^(\S+)\s//) {
@@ -453,7 +453,7 @@ sub kicked {
 	NOTICE => \&pm_not,
 	JOIN => sub {
 		my $net = shift;
-		if ($_[0] eq $self[$$net]) {
+		if (lc $_[0] eq lc $self[$$net]) {
 			$lchan[$$net] = undef if $_[2] eq $lchan[$$net];
 			return ();
 		}
@@ -645,6 +645,7 @@ sub kicked {
 
 	TOPIC => sub {
 		my $net = shift;
+		return if lc $_[0] eq lc $self[$$net];
 		my $chan = $net->chan($_[2]) or return ();
 		return {
 			type => 'TOPIC',
