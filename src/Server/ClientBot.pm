@@ -314,7 +314,7 @@ sub nicklen { 40 }
 		"KICK $cn $nn :$src $act->{msg}";
 	},
 	MODE => sub {
-		my ($net,$act)  = @_;
+		my ($net,$act) = @_;
 		my @mm = @{$act->{mode}};
 		my @ma = @{$act->{args}};
 		my @md = @{$act->{dirs}};
@@ -332,14 +332,18 @@ sub nicklen { 40 }
 		my @modes = &Modes::to_multi($net, \@mm, \@ma, \@md, 12);
 		map $net->cmd1(MODE => $act->{dst}, @$_), @modes;
 	},
+	TOPIC => sub {
+		my ($net,$act) = @_;
+		$net->cmd1(TOPIC => $act->{dst}, $act->{topic});
+	},
 	PING => sub {
-		my ($net,$act)  = @_;
+		my ($net,$act) = @_;
 		# slip pings onto the head of the send queue
 		unshift @{$sendq[$$net]}, "PING :poing";
 		return ();
 	},
 	IDENTIFY => sub {
-		my ($net,$act)  = @_;
+		my ($net,$act) = @_;
 		my $m = $act->{method} || $net->param('authtype');
 		unless ($m) {
 			$m = '';
@@ -583,6 +587,7 @@ sub kicked {
 		}
 		();
 	},
+
 	ERROR => sub {
 		my $net = shift;
 		return +{
@@ -625,9 +630,30 @@ sub kicked {
 
 	301 => \&ignore, # away
 	331 => \&ignore, # no topic
-	332 => \&ignore, # topic
-	333 => \&ignore, # topic setter & ts
-	TOPIC => \&ignore, # we ignore topic
+	332 => sub {
+		my $net = shift;
+		my $chan = $net->chan($_[3]) or return ();
+		return {
+			type => 'TOPIC',
+			topic => $_[-1],
+			dst => $chan,
+			topicts => $Janus::time,
+			topicset => 'Client',
+		};
+	},
+	333 => \&ignore, # 333 J #foo setter ts
+
+	TOPIC => sub {
+		my $net = shift;
+		my $chan = $net->chan($_[2]) or return ();
+		return {
+			type => 'TOPIC',
+			topic => $_[-1],
+			dst => $chan,
+			topicts => $Janus::time,
+			topicset => $_[0],
+		};
+	},
 
 	315 => \&ignore, # end of /WHO
 	352 => sub {
