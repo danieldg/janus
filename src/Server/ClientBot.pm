@@ -366,7 +366,12 @@ sub nicklen { 40 }
 			&Log::warn_in($net, "Unknown identify method $m");
 			();
 		}
-	},	
+	},
+	WHOIS => sub {
+		my($net,$act) = @_;
+		&Event::append(&Interface::whois_reply($act->{src}, $act->{dst}, 0, 0));
+		();
+	},
 );
 
 sub pm_not {

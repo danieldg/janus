@@ -874,25 +874,11 @@ $moddef{CORE} = {
 				dst => $dst,
 			};
 		} else {
-			# we have to assume the requesting server is one like unreal that needs the whole thing sent
-			# across. The important part for remote inspircd servers is the 317 line
 			my $home_srv = $src->info('home_server');
-			my @msgs = (
-				[ 311, $src->info('ident'), $src->info('vhost'), '*', $src->info('name') ],
-				[ 312, $home_srv, $serverdsc[$$net]{$home_srv} ],
+			return &Interface::whois_reply($dst, $src,
+				$_[4], $_[3],
+				312 => [ $home_srv, $serverdsc[$$net]{$home_srv} ],
 			);
-			push @msgs, [ 313, 'is a '.($src->info('opertype') || 'Unknown Oper') ] if $src->has_mode('oper');
-			push @msgs, (
-				[ 317, $_[4], $_[3], 'seconds idle, signon time'],
-				[ 318, 'End of /WHOIS list' ],
-			);
-			return map +{
-				type => 'MSG',
-				src => $net,
-				dst => $dst,
-				msgtype => $_->[0], # first part of message
-				msg => [$src, @$_[1 .. $#$_] ], # source nick, rest of message array
-			}, @msgs;
 		}
 	}, PUSH => sub {
 		my $net = shift;

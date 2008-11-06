@@ -221,21 +221,11 @@ sub send {
 			}) if $cmd;
 		} elsif ($act->{type} eq 'WHOIS' && $act->{dst} == $janus) {
 			my $src = $act->{src} or next;
-			my $net = $src->homenet();
-			my @msgs = (
-				[ 311, $janus->info('ident'), $janus->info('vhost'), '*', $janus->info('name') ],
-				[ 312, 'janus.janus', "Janus Interface" ],
-				[ 319, join ' ', map { $_->is_on($net) ? $_->str($net) : () } $janus->all_chans() ],
-				[ 317, 0, $^T, 'seconds idle, signon time'],
-				[ 318, 'End of /WHOIS list' ],
-			);
-			&Event::append(map +{
-				type => 'MSG',
-				src => $net,
-				dst => $src,
-				msgtype => $_->[0], # first part of message
-				msg => [$janus, @$_[1 .. $#$_] ], # source nick, rest of message array
-			}, @msgs);
+			my $snet = $src->homenet;
+			&Event::append(whois_reply($src, $janus, 0, $^T,
+				319 => [ join ' ', map { $_->is_on($snet) ? $_->str($snet) : () } $janus->all_chans() ],
+				312 => [ 'janus.janus', "Janus Interface" ],
+			));
 		} elsif ($act->{type} eq 'TSREPORT') {
 			my $src = $act->{src} or next;
 			Event::append({
@@ -343,6 +333,32 @@ sub msgtable {
 		jmsg($dst, $pfx . join( ($a{osep} || ' '), map $_ ? sprintf $fmt, @$_ : '',
 			map $table->[$c*$_ + $i], 0 .. ($cols-1)));
 	}
+}
+
+sub whois_reply {
+	my($dst, $src, $idle, $sgon, %args) = @_;
+	my $net = $src == $janus ? $dst->homenet : $src->homenet;
+	my %msgh = (
+		311 => [ $src->info('ident'), $src->info('vhost'), '*', $src->info('name') ],
+		312 => [ $src->info('home_server'), 'Janus link' ],
+		317 => [ $idle, $sgon, 'seconds idle, signon time'],
+		318 => [ 'End of /WHOIS list' ],
+	);
+	$msgh{313} = [ 'is a '.($src->info('opertype') || 'Unknown Oper') ] if $src->has_mode('oper');
+	my @msglist = (311,312);
+	for my $add (sort { $a <=> $b } keys %args) {
+		push @msglist, $add unless $msgh{$add};
+		$msgh{$add} = $args{$add};
+	}
+	push @msglist, 317, 318;
+
+	return map +{
+		type => 'MSG',
+		src => $net,
+		dst => $dst,
+		msgtype => $_, # first part of message
+		msg => [$src, @{$msgh{$_}} ], # source nick, rest of message array
+	}, @msglist;
 }
 
 1;
