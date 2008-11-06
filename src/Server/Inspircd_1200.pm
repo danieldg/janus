@@ -1101,9 +1101,23 @@ $moddef{CORE} = {
 	}, CHANTSSYNC => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
-		return map {
-			$net->ncmd(FMODE => $chan, $act->{newts}, @$_);
-		} &Modes::to_multi($net, &Modes::dump($chan), $capabs[$$net]{MAXMODES});
+		my $ts = $act->{newts};
+
+		my @sjmodes = &Modes::to_irc($net, &Modes::dump($chan));
+		@sjmodes = '+' unless @sjmodes;
+
+		my @out = $net->ncmd(FJOIN => $chan, $ts, @sjmodes, ','.$net->_out($Interface::janus));
+		my($m1,$a1,$d1) = &Modes::delta(undef, $chan);
+		my($m2,$a2,$d2) = &Modes::reops($chan);
+		push @$m1, @$m2;
+		push @$a1, @$a2;
+		push @$d1, @$d2;
+
+		push @out, map {
+			$net->ncmd(FMODE => $chan, $ts, @$_);
+		} &Modes::to_multi($net, $m1, $a1, $d1, $capabs[$$net]{MAXMODES});
+
+		@out;
 	}, CHANBURST => sub {
 		my($net,$act) = @_;
 		my $old = $act->{before};

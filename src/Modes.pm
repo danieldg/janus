@@ -244,6 +244,26 @@ sub delta {
 	(\@modes, \@args, \@dirs);
 }
 
+=item (modes, args, dirs) Modes::reops($chan)
+
+Returns the mode change needed to re-op everyone in the channel.
+
+=cut
+
+sub reops {
+	my $chan = shift;
+	my(@modes, @args, @dirs);
+	for my $nick ($chan->all_nicks) {
+		for my $mode (qw/voice halfop op admin owner/) {
+			next unless $chan->has_nmode($mode, $nick);
+			push @modes, $mode;
+			push @args, $nick;
+			push @dirs, '+';
+		}
+	}
+	(\@modes, \@args, \@dirs);
+}
+
 =item list Modes::make_chanmodes($net, $pfxmodes)
 
 Create the CHANMODES list from the 005 output for this network.
