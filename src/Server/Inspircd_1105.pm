@@ -117,7 +117,7 @@ sub _connect_ifo {
 		my $type = $nick->info('opertype') || 'IRC Operator';
 		my $len = $net->nicklen() - 9;
 		$type = substr $type, 0, $len;
-		$type .= ' (remote)';
+		$type .= ' (remote)' unless $nick == $Interface::janus;
 		$type =~ s/ /_/g;
 		push @out, $net->cmd2($nick, OPERTYPE => $type);
 	}
@@ -1095,7 +1095,7 @@ $moddef{CORE} = {
 			return () unless $act->{value};
 			my $len = $net->nicklen() - 9;
 			my $type = substr $act->{value}, 0, $len;
-			$type .= ' (remote)';
+			$type .= ' (remote)' unless $act->{dst} == $Interface::janus;
 			$type =~ s/ /_/g;
 			return (
 				# workaround for heap corruption bug in older versions of inspircd
