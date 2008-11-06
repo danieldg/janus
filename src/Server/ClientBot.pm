@@ -581,6 +581,17 @@ sub kicked {
 			my $nick = $net->item($_[0]) or return ();
 			my $chan = $net->chan($_[2]) or return ();
 			my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, @_[3 .. $#_]);
+			my $i = 0;
+			while ($i < @$modes) {
+				if ($Modes::mtype{$modes->[$i]} eq 'n' && $args->[$i]->homenet != $net) {
+					splice @$modes, $i, 1;
+					splice @$args, $i, 1;
+					splice @$dirs, $i, 1;
+				} else {
+					$i++;
+				}
+			}
+
 			return +{
 				type => 'MODE',
 				src => $nick,
