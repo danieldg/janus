@@ -586,10 +586,6 @@ sub del_remoteonly {
 				$schan = Channel->new(net => $net, name => $name, ts => $act->{dst}->ts);
 			}
 		}
-		if ($dchan->is_on($net)) {
-			&Log::err("Not linking a channel twice to a network ($$dchan on $$net)");
-			return 1;
-		}
 		if ($dchan == $schan) {
 			&Log::err("Not linking a channel to itself ($$schan)");
 			return 1;
