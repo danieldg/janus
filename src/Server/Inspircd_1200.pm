@@ -324,12 +324,13 @@ $moddef{CORE} = {
 	}, UID => sub {
 		my $net = shift;
 		my $ip = $_[8];
+		my $srvname = $servernum[$$net]{$_[0]} || $_[0];
 		my %nick = (
 			net => $net,
 			ts => $_[3],
 			nick => $_[4],
 			info => {
-				home_server => $servernum[$$net]{$_[0]},
+				home_server => $srvname,
 				host => $_[5],
 				vhost => $_[6],
 				ident => $_[7],
@@ -342,10 +343,8 @@ $moddef{CORE} = {
 		warn unless '+' eq shift @m;
 		$nick{mode} = +{ map {
 			my $t = $net->umode2txt($_);
-			defined $t ? ($t => 1) : do {
-				&Log::warn_in($net, "Unknown umode '$_'");
-				();
-			};
+			&Log::warn_in($net, "Unknown umode '$_'") unless defined $t;
+			defined $t ? ($t => 1) : ();
 		} @m };
 
 		my $nick = Nick->new(%nick);
@@ -613,11 +612,13 @@ $moddef{CORE} = {
 	SERVER => sub {
 		my $net = shift;
 		if ($net->auth_ok) {
+			&Log::debug_in($net, "Introducing server $_[2] from $_[0] with numeric $_[5]");
 			$servers[$$net]{lc $_[2]} = $_[0] =~ /^\d/ ? $servernum[$$net]{$_[0]} : lc $_[0];
 			$serverdsc[$$net]{lc $_[2]} = $_[-1];
 			$servernum[$$net]{$_[5]} = $_[2];
 			return ();
 		} else {
+			&Log::debug_in($net, "Initial server introduction of $_[2] from $_[0] with numeric $_[5]");
 			if ($_[3] eq $net->cparam('recvpass')) {
 				$net->auth_recvd;
 				if ($net->auth_should_send) {
@@ -805,6 +806,8 @@ $moddef{CORE} = {
 			my $srv = $servernum[$$net]{$_[0]};
 			return () if $servers[$$net]{lc $srv};
 			# remote burst
+		} else {
+			&Log::warn_in($net, 'Source-less ENDBURST received!');
 		}
 		return (+{
 			type => 'LINKED',
@@ -812,7 +815,7 @@ $moddef{CORE} = {
 		}, +{
 			type => 'RAW',
 			dst => $net,
-			msg => 'ENDBURST',
+			msg => $net->ncmd('ENDBURST'),
 		});
 	},
 
