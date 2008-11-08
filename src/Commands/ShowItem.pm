@@ -9,7 +9,7 @@ my @mode_sym = qw{~ & @ % +};
 &Event::hook_add(
 	INFO => Nick => sub {
 		my($dst, $n, $asker) = @_;
-		my $all = &Account::acl_check($asker, 'useradmin') || $asker == $n;
+		my $all = &Account::acl_check($asker, 'info/nick') || $asker == $n;
 		&Janus::jmsg($dst, join ' ', "\002Nick\002",$$n,$n->homenick,'on',$n->homenet->name,$n->gid,
 			$all ? $n->ts.'='.gmtime($n->ts) : ());
 		if ($all) {
@@ -77,7 +77,7 @@ my @mode_sym = qw{~ & @ % +};
 	cmd => 'shownick',
 	help => 'Shows internal details on a nick',
 	section => 'Info',
-	aclchk => 'useradmin',
+	aclchk => 'info/nick',
 	details => [
 		"\002SHOWNICK\002 [net] nick|gid",
 	],
