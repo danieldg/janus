@@ -56,15 +56,18 @@ sub register_nick {
 	my($net, $new, $new_uid) = @_;
 	$uids[$$net]{uc $new_uid} = $new;
 	$gid2uid[$$net]{$new->gid()} = $new_uid;
-	&Log::debug_in($net, "Registering $new_uid for nick #$$new");
 	my $name = $new->str($net);
+	&Log::debug_in($net, "Registering $new_uid for local nick $name #$$new");
 	my $old_uid = delete $nick2uid[$$net]{lc $name};
 	unless ($old_uid) {
 		$nick2uid[$$net]{lc $name} = $new_uid;
-		return ();
+		return +{
+			type => 'NEWNICK',
+			dst => $new,
+		};
 	}
 
-	# TODO is this collision code too inspircd-specific? It may need to be moved
+	# TODO this collision code too inspircd-specific. It may need to be moved
 	my $old = $uids[$$net]{uc $old_uid} or warn;
 	my $tsctl = $old->ts() <=> $new->ts();
 
@@ -74,23 +77,36 @@ sub register_nick {
 	}
 
 	my @rv;
+
 	if ($tsctl >= 0) {
 		$nick2uid[$$net]{lc $name} = $new_uid;
 		$nick2uid[$$net]{lc $old_uid} = $old_uid;
-		if ($old->homenet() eq $net) {
+		if ($old->homenet == $net) {
 			push @rv, +{
 				type => 'NICK',
 				dst => $old,
 				nick => $old_uid,
 				nickts => 1, # this is a UID-based nick, it ALWAYS wins.
 			}
-		} else {
-			push @rv, +{
-				type => 'RECONNECT',
-				dst => $old,
-				killed => 0,
-			};
 		}
+	}
+	unless ($old->homenet == $net) {
+		push @rv, +{
+			type => 'RECONNECT',
+			dst => $old,
+			killed => 0,
+		};
+	}
+	push @rv, +{
+		type => 'NEWNICK',
+		dst => $new,
+	};
+	unless ($old->homenet == $net) {
+		push @rv, {
+			type => 'RAW',
+			dst => $net,
+			msg => $net->ncmd(SVSNICK => $new, $name, $new->ts),
+		};
 	}
 	if ($tsctl <= 0) {
 		$nick2uid[$$net]{lc $new_uid} = $new_uid;

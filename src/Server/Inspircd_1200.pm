@@ -300,27 +300,34 @@ $moddef{CORE} = {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
 		my $stomp = $net->nick($_[2], 1);
+		my $ts = $_[3];
+		unless ($ts) {
+			&Log::warn_in($net, 'Nick change without timestamp');
+			$ts = $Janus::time;
+		}
+		my @out;
 		if ($stomp) {
-			return +{
-				type => 'NICK',
-				src => $nick,
-				dst => $nick,
-				nick => $_[0],
-				nickts => $Janus::time,
-			}, {
+			push @out, +{
 				type => 'RECONNECT',
 				dst => $stomp,
 				net => $net,
 				killed => 0,
+			}, {
+				type => 'RAW',
+				dst => $net,
+				msg => $net->ncmd(SVSNICK => $nick, $_[2], $ts),
 			};
+			# TODO only send the SVSNICK if needed
 		}
-		return +{
+
+		push @out, {
 			type => 'NICK',
 			src => $nick,
 			dst => $nick,
 			nick => $_[2],
-			nickts => (@_ == 4 ? $_[3] : $Janus::time),
+			nickts => $ts,
 		};
+		@out;
 	}, UID => sub {
 		my $net = shift;
 		my $ip = $_[8];
@@ -348,12 +355,7 @@ $moddef{CORE} = {
 		} @m };
 
 		my $nick = Nick->new(%nick);
-		my @out = $net->register_nick($nick, $_[2]);
-		push @out, +{
-			type => 'NEWNICK',
-			dst => $nick,
-		};
-		@out;
+		$net->register_nick($nick, $_[2]);
 	}, OPERTYPE => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
