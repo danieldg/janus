@@ -14,7 +14,7 @@ unless (%roles) {
 		'user' => 'user',
 		'oper' => 'oper ban rehash link',
 		'netop' => 'clink forceid autoconnect netsplit xline',
-		'admin' => 'account setpass info/nick dump verify role forcetag',
+		'admin' => 'account setpass info/nick dump verify role forcetag globalban',
 		'owner' => 'reload unload up-git up-tar upgrade die reboot restart',
 	);
 }

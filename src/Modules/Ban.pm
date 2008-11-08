@@ -86,36 +86,44 @@ my %timespec = (
 		'a nick must match all of the conditions on the ban to be banned.',
 	],
 	acl => 'ban',
+	aclchk => 'globalban',
 	code => sub {
 		my($src,$dst,$cmd,@args) = @_;
 		$cmd = lc $cmd;
 		return &Janus::jmsg($src, "use 'help ban' to see the syntax") unless $cmd;
 		my $net = $src->homenet;
+		my $gbl_ok = &Account::acl_check($src, 'globalban');
 		if ($cmd eq 'list') {
 			my $c = 0;
 			@bans = grep { my $e = $_->{expire}; !$e || $e > $Janus::time } @bans;
+			my @tbl = [ '', qw(expr setter to reason expire) ];
 			for my $ban (@bans) {
-				my $str = ++$c;
+				my @row = ++$c;
 				if ($ban->{perlre}) {
 					my $b = ''.$ban->{perlre};
 					1 while $b =~ s/^\(\?-xism:(.*)\)$/$1/;
-					$str .= " /$b/";
+					push @row, "/$b/";
 					$ban->{perlre} = qr($b);
 				}
-				for (qw/nick ident host name setter reason to from/) {
-					next unless exists $ban->{$_};
-					$str .= " $_=$ban->{$_}";
+				push @row, join ' ', map {
+					exists $ban->{$_} ? "$_=$ban->{$_}" : ();
+				} qw/nick ident host name from/;
+				for (qw/setter to reason/) {
+					push @row, ($ban->{$_} || '*');
 				}
-				$str .= $ban->{expire} ?
-					' expires in '.($ban->{expire} - $Janus::time).'s ('.gmtime($ban->{expire}) .')' :
-					' does not expire';
-				&Janus::jmsg($dst, $str);
+				if ($ban->{expire}) {
+					push @row, ($ban->{expire} - $Janus::time).'s ('.gmtime($ban->{expire}).')';
+				} else {
+					push @row, 'Does not expire';
+				}
+				push @tbl, \@row;
 			}
+			&Interface::msgtable($dst, \@tbl) if @bans;
 			&Janus::jmsg($dst, 'No bans defined') unless @bans;
 		} elsif ($cmd eq 'add') {
 			my %ban = (
 				setter => $src->realhostmask,
-				to => $src->homenet->name,
+				to => $net->name,
 			);
 			local $_ = join ' ', @args;
 			while (length) {
@@ -125,6 +133,7 @@ my %timespec = (
 					$v =~ s/^"(.*)"$/$1/ and $v =~ s/\\(.)/$1/g;
 					$ban{$k} = $v;
 					delete $ban{$k} if $v eq '*';
+					return &Janus::jmsg($dst, 'You cannot specify "to"') if $k eq 'to' && !$gbl_ok;
 				} elsif (s#^/((?:[^\\/]|\\.)*)/\s*##) {
 					eval {
 						$ban{perlre} = qr($1);
@@ -161,8 +170,12 @@ my %timespec = (
 			for (@args) {
 				my $ban = /^\d+$/ && $bans[$_ - 1];
 				if ($ban) {
-					&Janus::jmsg($dst, "Ban $_ removed");
-					$ban->{expire} = 1;
+					if ($gbl_ok || $ban->{to} eq $net->name) {
+						&Janus::jmsg($dst, "Ban $_ removed");
+						$ban->{expire} = 1;
+					} else {
+						&Janus::jmsg($dst, "You cannot remove ban $_")
+					}
 				} else {
 					&Janus::jmsg($dst, "Could not find ban $_ - use ban list to see a list of all bans");
 				}
