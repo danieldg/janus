@@ -99,15 +99,18 @@ my %timespec = (
 			my @tbl = [ '', qw(expr setter to reason expire) ];
 			for my $ban (@bans) {
 				my @row = ++$c;
+				my @expr;
 				if ($ban->{perlre}) {
 					my $b = ''.$ban->{perlre};
 					1 while $b =~ s/^\(\?-xism:(.*)\)$/$1/;
-					push @row, "/$b/";
+					push @expr, "/$b/";
 					$ban->{perlre} = qr($b);
 				}
-				push @row, join ' ', map {
-					exists $ban->{$_} ? "$_=$ban->{$_}" : ();
-				} qw/nick ident host name from/;
+				for (qw/nick ident host name from/) {
+					next unless exists $ban->{$_};
+					push @expr, "$_=$ban->{$_}";
+				}
+				push @row, join ' ', @expr;
 				for (qw/setter to reason/) {
 					push @row, ($ban->{$_} || '*');
 				}
