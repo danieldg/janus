@@ -454,6 +454,12 @@ Event::hook_add(
 				push @args, shift @argin if @argin;
 			} elsif ($_ eq 'homenet') {
 				push @args, $hnet;
+			} elsif ($_ eq 'nick') {
+				my $nname = $argin[0];
+				$act->{$idx} = $hnet->nick($nname, 1) if defined $nname && !$hnet->jlink;
+				$fail = 'Could not find nick "'.$nname.'"' unless $opt || $act->{$idx};
+				shift @argin if $act->{$idx};
+				push @args, $act->{$idx};
 			} elsif ($_ eq 'chan') {
 				my $cname = $argin[0];
 				$act->{$idx} = $hnet->chan($cname, 0) if defined $cname && !$hnet->jlink;
@@ -466,10 +472,15 @@ Event::hook_add(
 				$fail = 'Could not find network "'.$id.'"' unless $opt || $net;
 				shift @argin if $net;
 				push @args, $net;
+			} elsif ($_ eq 'defnet') {
+				my $id = $argin[0];
+				my $net = $Janus::nets{$id};
+				shift @argin if $net;
+				push @args, ($net || $hnet);
 			} elsif ($_ eq 'act') {
 				push @args, $act;
 			} else {
-				warn "Skipping unknown command API $_";
+				&Log::err("Skipping unknown command API $_");
 			}
 			if ($forceloc && $args[-1]) {
 				my $itm = $args[-1];
