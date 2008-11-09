@@ -136,7 +136,8 @@ my %timespec = (
 					$v =~ s/^"(.*)"$/$1/ and $v =~ s/\\(.)/$1/g;
 					$ban{$k} = $v;
 					delete $ban{$k} if $v eq '*';
-					return &Janus::jmsg($dst, 'You cannot specify "to"') if $k eq 'to' && !$gbl_ok;
+					return &Janus::jmsg($dst, 'You cannot specify "to"') if
+						$k eq 'to' && $v ne $net->name && !$gbl_ok;
 				} elsif (s#^/((?:[^\\/]|\\.)*)/\s*##) {
 					eval {
 						$ban{perlre} = qr($1);
