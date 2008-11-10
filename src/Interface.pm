@@ -190,8 +190,8 @@ sub send {
 			$_ = $act->{msg};
 			if ($dst->isa('Channel') && !$src->jlink) {
 				my $jnick = $janus->str($src->homenet);
-				my $jcmd = $dst->get_mode('jcommand');
-				next unless s/^\Q$jnick\E: // || ($jcmd && /^[.!@]/);
+				my $jcmd = $dst->get_mode('jcommand') || 0;
+				next unless s/^\Q$jnick\E: // || ($jcmd >= 2 && /^[.!@]/);
 				$dst = $src unless $jcmd;
 			} elsif ($dst == $janus) {
 				$dst = $src;
