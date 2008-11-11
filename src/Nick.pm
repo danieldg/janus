@@ -380,13 +380,15 @@ sub str {
 		my $nick = $act->{dst};
 		my $old = $homenick[$$nick];
 		my $new = $act->{nick};
+		my $ftag = $act->{tag} || {};
 
 		$ts[$$nick] = 0+$act->{nickts} if $act->{nickts};
 		for my $id (keys %{$nets[$$nick]}) {
 			my $net = $nets[$$nick]->{$id};
 			next if $net->jlink();
+			my $tag = $ftag->{$id};
 			my $from = $nicks[$$nick]->{$id};
-			my $to = $net->request_cnick($nick, $new);
+			my $to = $net->request_cnick($nick, $new, $tag);
 			$nicks[$$nick]->{$id} = $to;
 
 			$act->{from}->{$id} = $from;

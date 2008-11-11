@@ -133,6 +133,16 @@ sub findline {
 			return 1;
 		}
 		undef;
+	}, NICK => 'act:-1' => sub {
+		my $act = shift;
+		my $n = $act->{dst};
+		my $nick = $act->{nick};
+		my $ftag = $act->{tag} || {};
+		$act->{tag} = $ftag;
+		for my $net ($n->netlist) {
+			next unless findline($qlines[$$net], $nick);
+			$ftag->{$$net} = 1;
+		}
 	},
 );
 
