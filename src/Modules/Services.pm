@@ -5,14 +5,16 @@ use strict;
 use warnings;
 use Persist;
 
-use constant {
+our %bits;
+BEGIN { %bits = (
 	CACHED => 1,
 	NO_MSG => 2,
 	NO_KILL_UNTAG => 4,
 	NO_KILL_ALL => 8,
 	JOIN_ALL => 16,
 	KILL_ALTHOST => 32,
-};
+); }
+use constant \%bits;
 
 # clear the cache on each module load, to force new values
 our @cache = ();
@@ -45,8 +47,14 @@ sub svs_type {
 	my $nick = lc $n->homenick();
 
 	$r = $net->param('service_'.$nick);
-
-	return ($cache[$$n] = $r) if defined $r; # TODO make this symbolic rather than numeric
+	if (defined $r) {
+		my $v = CACHED;
+		for (split /,/, $r) {
+			$v |= $1 if /(\d+)/;
+			$v |= $bits{uc $_} || 0;
+		}
+		return ($cache[$$n] = $v);
+	}
 
 	$r = CACHED | NO_MSG | NO_KILL_UNTAG;
 	
@@ -131,6 +139,16 @@ sub svs_type {
 			return 1 if $Conffile::netconf{set}{silent};
 		}
 		undef;
+	},
+	INFO => 'Nick:1' => sub {
+		my($dst, $n, $asker) = @_;
+		my $type = svs_type($n);
+		my $v = '';
+		for (sort keys %bits) {
+			next if $_ eq 'CACHED';
+			$v .= ' '.$_ if $bits{$_} & $type;
+		}
+		&Janus::jmsg($dst, "\002Modules::Services mask\002:$v") if $v;
 	},
 );
 
