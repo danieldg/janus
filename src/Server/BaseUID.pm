@@ -198,7 +198,7 @@ sub item {
 			$out .= ' @'.$net->name.'='.$net->nick2uid($nick);
 		}
 		return unless $out;
-		&Janus::jmsg($dst, 'Protocol UIDs:'.$out);
+		&Janus::jmsg($dst, "\002Protocol UIDs\002:".$out);
 	},
 );
 

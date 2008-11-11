@@ -78,7 +78,7 @@ use Modes;
 					$d = '+';
 				}
 			} elsif ($type eq 'n') {
-				$v = $hn->nick($v) or do {
+				$v = $hn->nick($v, 1) or do {
 					&Janus::jmsg($dst, "Cannot find nick");
 					return;
 				};
