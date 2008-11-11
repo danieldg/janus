@@ -7,6 +7,19 @@ runner is available. Start it using "perl multiplex.pl" and use the REBOOT
 command when the memory usage of the worker process climbs too high.
 
 
+Linking modes:
+
+Janus supports two main linking modes. The normal (and default) mode is called
+"link" and links individual channels. This is suitable for sharing a few related
+channels between networks, without needing to share services, network opers, or
+other unrelated channels.
+
+The second mode is called "bridge" mode, and functions as a more transparent
+bridge, intended to be used between different ircds on the same logical network.
+Because it is not actively used, this mode currently has some problems with nick
+collisions, and should be used only if you want to help debug problems.
+
+
 Available modules:
 
 Modules::Ban
@@ -14,11 +27,12 @@ Modules::Ban
   auto-kickban when the user joins a remote channel.
 
 Modules::BanSet
-  Faster ban implementation for large ban lists (hundreds)
+  Faster ban implementation for large ban lists (hundreds) by using exact
+  matches rather than a linear search of regular expressions.
 
 Modules::Claim
   Prevents opers and other network's services from changing modes in a shared
-  channel if that channel has been claimed to certain home network(s)
+  channel if that channel has been claimed by certain network(s)
 
 Modules::KeepMode
   Stores the modes of a channel and restores them on a relink.
@@ -32,18 +46,27 @@ Modules::Signals
   Rehashes the janus server on reciept of a SIGHUP.
 
 Modules::Spamfilter (EXPERIMENTAL)
-  Kills users sending a message matching a hardcoded regular expression
+  Kills users sending a message matching a hardcoded regular expression. It is
+  planned to replace this with a proper word-basd filter in the future.
 
 Modules::Vanish
   Similar to ban, but makes the user invisible to the banning network rather
-  than kicking them.
+  than kicking them. This is clearly going to cause an apparent desync,
+  including people talking to ghosts.
 
 Modules::WhoisFilter
-  Filters the /whois notification sent for remote nicks.
+  Filters the /whois notification sent for remote nicks. These notices can be
+  an annoyance because opers may not even be able to see a nick that can /whois
+  them, and are often not interested in the activity of users not on their
+  network.
 
 Modules::Xline
-  Caches G-, Z-, and Q-lines for all networks, and optionally applies them to incoming nicks
+  Caches G-, Z-, and Q-lines for all networks, and optionally applies them to
+  incoming nicks. This module must be loaded when janus starts to cache all
+  lines; if loaded while running, it will only cache new lines, or will learn of
+  all lines on the next netsplit.
 
 
-If you make changes to any of the modules in janus, you must either load the SHOWSOURCE
-command or update the URL in the ABOUT command to one that contains the modified source.
+If you make changes to any of the modules in janus, in order to comply with the
+license, you must either load the SHOWSOURCE command or update the URL in the
+ABOUT command to one that contains the modified source.

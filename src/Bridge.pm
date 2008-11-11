@@ -25,9 +25,6 @@ if ($Janus::lmode) {
 				net => $net,
 			});
 		}
-	}, RAW => act => sub {
-		my $act = shift;
-		delete $act->{except};
 	}, KILL => parse => sub {
 		my $kact = shift;
 		my $nick = $kact->{dst};
@@ -76,7 +73,8 @@ if ($Janus::lmode) {
 		&Janus::insert_full(@conns);
 
 		# hide the channel burst from janus's event hooks
-		for my $chan ($net->all_chans()) {
+		# TODO this may not be correct now that CHANBURST exists
+		for my $chan (values %Janus::chans) {
 			for my $nick ($chan->all_nicks()) {
 				$net->send({
 					type => 'JOIN',
