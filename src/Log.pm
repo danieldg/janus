@@ -150,4 +150,9 @@ sub dump_queue {
 	@queue = ();
 }
 
+$SIG{'__WARN__'} = sub {
+	return if $_[0] =~ /^Subroutine \S+ redefined at \S+\.pm line \d+\.$/;
+	&Log::warn(@_);
+};
+
 1;
