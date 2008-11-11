@@ -140,7 +140,9 @@ sub findline {
 		my $ftag = $act->{tag} || {};
 		$act->{tag} = $ftag;
 		for my $net ($n->netlist) {
+			next if $net->jlink;
 			next unless findline($qlines[$$net], $nick);
+			next if $net == $n->homenet;
 			$ftag->{$$net} = 1;
 		}
 	},
