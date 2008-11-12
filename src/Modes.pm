@@ -270,7 +270,7 @@ Create the CHANMODES list from the 005 output for this network.
 Removes the modes in $pfxmodes from the list.
 Example: CHANMODES=Ibe,k,jl,CKMNOQRTcimnprst
 
-$net must support: all_cmodes, txt2cmode.
+$net must support: all_cmodes, txt2cmode, cmode2txt.
 
 =cut
 
@@ -281,7 +281,7 @@ sub modelist {
 
 	# Without a prefix character, nick modes such as +qa appear in the "l" section
 	$split2c{l}{$_} = $split2c{n}{$_} for keys %{$split2c{n}};
-	delete $split2c{l}{$net->cmode2txt($_)} for split //, $pfxmodes;
+	delete $split2c{l}{$net->cmode2txt($_) || ''} for split //, $pfxmodes;
 
 	# tristates show up in the 4th group
 	$split2c{r}{$_} = $split2c{t}{$_} for keys %{$split2c{t}};

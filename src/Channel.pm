@@ -370,7 +370,7 @@ sub _modecpy {
 sub add_net {
 	my($chan, $src) = @_;
 	my $net = $homenet[$$src];
-	my $sname = $src->str($net);
+	my $sname = $src->str($net) || '?';
 
 	my $joinnets = [ values %{$nets[$$chan]} ];
 	my %burstmap;
@@ -643,7 +643,7 @@ sub del_remoteonly {
 		$act->{sendto} = [ values %{$nets[$$chan]} ]; # before the splitting
 		delete $nets[$$chan]{$$net} or warn;
 
-		my $name = delete $names[$$chan]{$$net};
+		my $name = delete $names[$$chan]{$$net} || '?';
 
 		my $split = Channel->new(
 			net => $net,
