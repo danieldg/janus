@@ -175,7 +175,7 @@ sub read_conf {
 sub find_ssl_keys {
 	my($net,$lnet) = @_;
 	my $nconf = $Conffile::netconf{ref $net ? $net->id : $net};
-	my $lconf = $Conffile::netconf{$lnet->id} if $lnet;
+	my $lconf = $lnet ? $Conffile::netconf{$lnet->id} : undef;
 	my $sconf = $Conffile::netconf{set};
 	return undef unless $nconf->{linktype} =~ /ssl/;
 	return ($nconf->{ssl_keyfile}, $nconf->{ssl_certfile}) if $nconf->{ssl_certfile};

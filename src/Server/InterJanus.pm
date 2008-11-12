@@ -23,8 +23,6 @@ sub is_linked {
 	$auth[${$_[0]}] == 2;
 }
 
-my %toirc;
-
 my %esc2char = (
 	e => '\\',
 	g => '>',

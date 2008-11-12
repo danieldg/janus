@@ -59,6 +59,13 @@ sub findline {
 	}
 }
 
+sub countline {
+	my $list = shift;
+	return 0 unless $list;
+	@$list = grep { $_->[1] == 0 || $_->[1] > $Janus::time } @$list;
+	scalar @$list;
+}
+
 &Event::command_add({
 	cmd => 'xline',
 	help => 'Enables or disables bans according to G/Z-lines',
@@ -145,6 +152,14 @@ sub findline {
 			next if $net == $n->homenet;
 			$ftag->{$$net} = 1;
 		}
+	},
+	INFO => 'Network:2' => sub {
+		my($dst, $n, $asker) = @_;
+		my $enabled = $enabled{$n->name} ? 'enabled' : 'disabled';
+		my $g = countline($glines[$$n]);
+		my $z = countline($zlines[$$n]);
+		my $q = countline($qlines[$$n]);
+		&Janus::jmsg($dst, "\002X-lines\002: checks $enabled, recorded $g glines, $z zlines, $q qlines");
 	},
 );
 
