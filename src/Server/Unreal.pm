@@ -380,7 +380,7 @@ sub _connect_ifo {
 		$mode =~ s/t//;
 	}
 	if ($althost) {
-		$rhost = $nick->homenet->id . '/' . $rhost;
+		$rhost = $nick->homenet->name . '/' . $rhost;
 		$ip = '*';
 	}
 
