@@ -550,12 +550,20 @@ sub del_remoteonly {
 		my @nets = values %{$nets[$$chan]};
 		my $cij = undef;
 		for my $net (@nets) {
+			next if $net == $Interface::network;
 			my $ij = $net->jlink();
 			return unless $ij;
 			$ij = $ij->parent() while $ij->parent();
 			return if $cij && $cij ne $ij;
 			$cij = $ij;
 		}
+		&Janus::insert_full({
+			type => 'DELINK',
+			net => $Interface::network,
+			dst => $chan,
+			cause => 'split',
+			nojlink => 1,
+		}) if $chan->is_on($Interface::network);
 		# all networks are on the same ij network. We can't see you anymore
 		for my $nick (@{$nicks[$$chan]}) {
 			&Janus::append({
