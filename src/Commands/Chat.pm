@@ -4,7 +4,7 @@ package Commands::Chat;
 use strict;
 use warnings;
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'chatto',
 	help => 'Send a message to all opers on a specific network',
 	section => 'Network',
@@ -18,7 +18,7 @@ use warnings;
 		my $net = $Janus::nets{$nname};
 		my $msg = join ' ', @args;
 		return &Janus::jmsg($dst, "Could not find that network") unless $net || $1 eq '*';
-		&Janus::append(+{
+		&Event::append(+{
 			type => 'CHATOPS',
 			src => $src,
 			msg => $msg,

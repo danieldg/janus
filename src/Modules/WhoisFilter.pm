@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use Persist;
 
-&Janus::command_add(+{
+&Event::command_add(+{
 	cmd => 'whoisfilter',
 	help => 'Manages the remote-user /whois notice filter for your account',
 	section => 'Account',
@@ -27,7 +27,7 @@ use Persist;
 	}
 });
 
-&Janus::hook_add(
+&Event::hook_add(
 	MSG => check => sub {
 		my $act = shift;
 		if ($act->{msgtype} eq 'NOTICE' && $act->{src}->isa('Network')) {

@@ -30,7 +30,7 @@ sub unkick {
 	my $e = shift;
 	my($net, $nick, $chan) = @$e{qw(net nick chan)};
 	return unless $net && $nick && $chan && $kicks[$$net]{$$nick}{$chan->str($net)};
-	&Janus::insert_full(+{
+	&Event::insert_full(+{
 		type => 'JOIN',
 		src => $nick,
 		dst => $chan,
@@ -230,7 +230,7 @@ sub dump_sendq {
 			delay => 1,
 			code => sub { $awaken = undef; },
 		};
-		&Janus::schedule($awaken);
+		&Event::schedule($awaken);
 	}
 	$q;
 }
@@ -309,7 +309,7 @@ sub nicklen { 40 }
 		weaken($evt->{net});
 		weaken($evt->{nick});
 		weaken($evt->{chan});
-		&Janus::schedule($evt);
+		&Event::schedule($evt);
 		$kicks[$$net]{$$nick}{$cn} = 1;
 		"KICK $cn $nn :$src $act->{msg}";
 	},

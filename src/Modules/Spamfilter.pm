@@ -4,14 +4,14 @@ package Modules::Spamfilter;
 use strict;
 use warnings;
 
-&Janus::hook_add(
+&Event::hook_add(
 	MSG => check => sub {
 		my $act = shift;
 		# FIXME this is 100% a temporary hack
 		if ($act->{msg} =~ /spam spam spam expression/) {
 			my $spammer = $act->{src};
 			my $snet = $spammer->homenet();
-			&Janus::append(+{
+			&Event::append(+{
 				type => 'KILL',
 				net => $snet,
 				src => $snet,

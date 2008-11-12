@@ -17,7 +17,7 @@ for my $n (sort keys %claim) {
 	}
 }
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'claim',
 	help => 'Claim network ownership of a channel',
 	section => 'Channel',
@@ -77,7 +77,7 @@ sub acl_ok {
 	0;
 }
 
-&Janus::hook_add(
+&Event::hook_add(
 	INFO => 'Channel:1' => sub {
 		my($dst, $chan, $asker) = @_;
 		my $hnet = $chan->homenet;
@@ -124,7 +124,7 @@ sub acl_ok {
 		return unless $src->isa('Nick');
 		&Log::info('Bouncing kick by '.$src->netnick.' on '.$chan->str($src->homenet));
 
-		&Janus::append({
+		&Event::append({
 			type => 'KICK',
 			src => $Interface::janus,
 			dst => $chan,

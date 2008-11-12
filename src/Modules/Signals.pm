@@ -5,9 +5,9 @@ use strict;
 use warnings;
 
 $SIG{HUP} = sub {
-	&Janus::schedule({
+	&Event::schedule({
 		code => sub {
-			&Janus::insert_full({
+			&Event::insert_full({
 				type => 'REHASH',
 			});
 		},

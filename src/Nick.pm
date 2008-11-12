@@ -252,7 +252,7 @@ sub rejoin {
 
 	for my $net ($chan->nets()) {
 		next if $nets[$$nick]{$$net};
-		&Janus::insert_partial(+{
+		&Event::insert_partial(+{
 			type => 'CONNECT',
 			dst => $nick,
 			net => $net,
@@ -331,7 +331,7 @@ sub str {
 
 =cut
 
-&Janus::hook_add(
+&Event::hook_add(
 	NEWNICK => act => sub {
 		my $act = shift;
 		my $nick = $act->{dst};
@@ -472,7 +472,7 @@ sub str {
 				$n->_netpart($net);
 			}
 		}
-		&Janus::insert_full(@clean); @clean = ();
+		&Event::insert_full(@clean); @clean = ();
 
 		&Log::debug("Nick deallocation start");
 		for (0..$#nicks) {
@@ -508,7 +508,7 @@ sub str {
 				except => $net,
 				nojlink => 1,
 			};
-			&Janus::append($act);
+			&Event::append($act);
 		}
 	}, KILL => cleanup => sub {
 		my $act = shift;

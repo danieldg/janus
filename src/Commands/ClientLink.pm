@@ -4,7 +4,7 @@ package Commands::ClientLink;
 use strict;
 use warnings;
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'clink',
 	help => 'Requests a link from a clientbot network',
 	section => 'Channel',
@@ -30,7 +30,7 @@ use warnings;
 		$Link::request{$dnet}{$dchan} or return &Interface::jmsg($dst, 'Channel must be shared');
 		$Link::request{$dnet}{$dchan}{mode} or return &Interface::jmsg($dst, 'Channel must be shared');
 		&Log::audit("Channel $bchan on ".$cb->name." linked to $dchan on $dnet by ".$src->netnick);
-		&Janus::append(+{
+		&Event::append(+{
 			type => 'LINKREQ',
 			src => $src,
 			chan => $cb->chan($bchan, 1),
@@ -56,7 +56,7 @@ use warnings;
 		my $req = delete $Link::request{$cb->name}{lc $bchan};
 		my $chan = $cb->chan($bchan);
 		if ($chan) {
-			&Janus::append(+{
+			&Event::append(+{
 				type => 'DELINK',
 				cause => 'unlink',
 				src => $src,

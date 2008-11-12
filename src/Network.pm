@@ -111,7 +111,7 @@ sub delink {
 
 =cut
 
-&Janus::hook_add(
+&Event::hook_add(
 	LINKED => check => sub {
 		my $act = shift;
 		my $net = $act->{net};
@@ -120,7 +120,7 @@ sub delink {
 		undef;
 	}, NETSPLIT => act => sub {
 		my $act = shift;
-		&Janus::append({ type => 'POISON', item => $act->{net} });
+		&Event::append({ type => 'POISON', item => $act->{net} });
 	},
 );
 

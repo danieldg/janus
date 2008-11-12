@@ -4,7 +4,7 @@ package Commands::List;
 use strict;
 use warnings;
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'list',
 	help => 'List channels available for linking',
 	section => 'Channel',

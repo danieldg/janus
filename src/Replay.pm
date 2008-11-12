@@ -39,7 +39,7 @@ sub zero { 0 }
 
 sub run {
 	my($conf, $dump) = @_;
-	&Janus::insert_full({
+	&Event::insert_full({
 		type => 'INIT',
 		args => [ '', $conf ]
 	});
@@ -56,7 +56,7 @@ sub run {
 		&Janus::load('Server::'.$_->{type}) if $_->{type};
 	}
 
-	&Janus::insert_full({ type => 'RUN' });
+	&Event::insert_full({ type => 'RUN' });
 
 	regobj %Janus::gnicks, %Janus::gnets, $Janus::global, $RemoteJanus::self;
 

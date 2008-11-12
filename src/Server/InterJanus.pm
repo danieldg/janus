@@ -85,7 +85,7 @@ my %v_type; %v_type = (
 			# this is a NETLINK of a network we already know about.
 			# We either have a loop or a name collision. Either way, the IJ link
 			# cannot continue
-			&Janus::insert_full(+{
+			&Event::insert_full(+{
 				type => 'JNETSPLIT',
 				net => $ij,
 				msg => "InterJanus network name collision: network $h->{id} already exists"
@@ -93,7 +93,7 @@ my %v_type; %v_type = (
 			return undef;
 		}
 		unless ($ij->jparent($h->{jlink})) {
-			&Janus::insert_full(+{
+			&Event::insert_full(+{
 				type => 'JNETSPLIT',
 				net => $ij,
 				msg => "Network misintroduction: $h->{jlink} invalid"
@@ -110,7 +110,7 @@ my %v_type; %v_type = (
 		my $id = $h->{id};
 		my $parent = $h->{parent};
 		if ($Janus::ijnets{$id} || $id eq $RemoteJanus::self->id) {
-			&Janus::insert_full(+{
+			&Event::insert_full(+{
 				type => 'JNETSPLIT',
 				net => $ij,
 				msg => "InterJanus network name collision: IJ network $h->{id} already exists"
@@ -118,7 +118,7 @@ my %v_type; %v_type = (
 			return undef;
 		}
 		unless ($ij->jparent($parent)) {
-			&Janus::insert_full(+{
+			&Event::insert_full(+{
 				type => 'JNETSPLIT',
 				net => $ij,
 				msg => "IJ Network misintroduction: $h->{jlink} invalid"
@@ -266,7 +266,7 @@ sub parse {
 	return ();
 }
 
-&Janus::hook_add(
+&Event::hook_add(
 	JNETLINK => act => sub {
 		my $act = shift;
 		my $ij = $act->{net};

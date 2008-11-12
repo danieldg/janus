@@ -69,7 +69,7 @@ sub svs_type {
 	$cache[$$n] = $r;
 }
 
-&Janus::hook_add(
+&Event::hook_add(
 	MSG => check => sub {
 		my $act = shift;
 		my $src = $act->{src};
@@ -91,7 +91,7 @@ sub svs_type {
 		} else {
 			return undef;
 		}
-		&Janus::append(+{
+		&Event::append(+{
 			type => 'RECONNECT',
 			src => $src,
 			dst => $nick,
@@ -132,7 +132,7 @@ sub svs_type {
 				tag => 1,
 			};
 		}
-		&Janus::insert_full(@out) if @out;
+		&Event::insert_full(@out) if @out;
 	}, CHATOPS => check => sub {
 		my $act = shift;
 		if ($act->{src} == $Interface::janus) {

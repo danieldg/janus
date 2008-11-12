@@ -367,7 +367,7 @@ Event::hook_add(
 		my @alljnets = values %ijnets;
 		for my $snet (@alljnets) {
 			next unless $snet->parent() && $net eq $snet->parent();
-			&Janus::insert_full(+{
+			&Event::insert_full(+{
 				type => 'JNETSPLIT',
 				net => $snet,
 				msg => $act->{msg},
@@ -378,7 +378,7 @@ Event::hook_add(
 		my @allnets = values %nets;
 		for my $snet (@allnets) {
 			next unless $snet->jlink() && $net eq $snet->jlink();
-			&Janus::insert_full(+{
+			&Event::insert_full(+{
 				type => 'NETSPLIT',
 				net => $snet,
 				msg => $act->{msg},
@@ -407,13 +407,6 @@ sub gid {
 }
 
 sub jmsg { goto &Interface::jmsg }
-
-sub hook_add { goto &Event::hook_add }
-sub command_add { goto &Event::command_add }
-sub insert_partial { goto &Event::insert_partial }
-sub insert_full { goto &Event::insert_full }
-sub append { goto &Event::append }
-sub schedule { goto &Event::schedule }
 
 # finalize Janus.pm loading
 if ($modinfo{Janus}{load} == 1) {

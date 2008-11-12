@@ -15,7 +15,7 @@ sub output {
 	my $net = $Janus::nets{$1} or return;
 	my $chan = $net->chan($2) or return;
 	my $msg = sprintf "\003\%02d\x1f\%s\x1f \%s", @_;
-	&Janus::insert_full(map +{
+	&Event::insert_full(map +{
 		type => 'MSG',
 		src => $Interface::janus,
 		dst => $chan,

@@ -41,12 +41,12 @@ chomp $line;
 if ($line =~ /^BOOT(?: (\d+))?/) {
 	$RemoteControl::master_api = ($1 || 1);
 	&Janus::load('Conffile') or die;
-	&Janus::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
+	&Event::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
 	&Log::timestamp($Janus::time);
 	print $RemoteControl::sock $Conffile::netconf{set}{ipv6} ? "1\n" : "0\n";
 	&Janus::load('RemoteControl') or die;
-	&Janus::insert_full(+{ type => 'INIT', args => \@ARGV });
-	&Janus::insert_full(+{ type => 'RUN' });
+	&Event::insert_full(+{ type => 'INIT', args => \@ARGV });
+	&Event::insert_full(+{ type => 'RUN' });
 } elsif ($line =~ /^RESTORE (\S+)/) {
 	my $file = $1;
 	&Janus::load('Snapshot') or die;

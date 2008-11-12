@@ -4,7 +4,7 @@ package Commands::ForceTag;
 use strict;
 use warnings;
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'forcetag',
 	help => 'Forces a user to use a tagged nick on a network',
 	section => 'Network',

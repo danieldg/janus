@@ -6,7 +6,7 @@ use warnings;
 use integer;
 use Modes;
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'showmode',
 	help => 'Shows the current intended modes of a channel',
 	section => 'Channel',
@@ -95,7 +95,7 @@ use Modes;
 			unshift @args, $v;
 		}
 		if (@dirs) {
-			&Janus::append(+{
+			&Event::append(+{
 				type => 'MODE',
 				src => $Interface::janus,
 				dst => $chan,

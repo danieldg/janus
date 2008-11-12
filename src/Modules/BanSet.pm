@@ -29,7 +29,7 @@ sub find {
 	undef;
 }
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'banset',
 	help => 'Manages Janus ban sets (bans many remote users)',
 	section => 'Network',
@@ -103,7 +103,7 @@ sub find {
 		}
 	}
 });
-&Janus::hook_add(
+&Event::hook_add(
 	CONNECT => check => sub {
 		my $act = shift;
 		my $nick = $act->{dst};
@@ -114,7 +114,7 @@ sub find {
 		my $ban = find($nick, $net);
 		if ($ban) {
 			if ($act->{for}) {
-				&Janus::append({
+				&Event::append({
 					type => 'MODE',
 					src => $net,
 					dst => $act->{for},
@@ -124,7 +124,7 @@ sub find {
 				});
 			}
 			my $msg = "Banned from ".$net->netname." by list '$ban->{name}'";
-			&Janus::append(+{
+			&Event::append(+{
 				type => 'KILL',
 				dst => $nick,
 				net => $net,

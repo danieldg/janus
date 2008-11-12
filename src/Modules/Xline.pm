@@ -59,7 +59,7 @@ sub findline {
 	}
 }
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'xline',
 	help => 'Enables or disables bans according to G/Z-lines',
 	section => 'Network',
@@ -82,7 +82,7 @@ sub findline {
 	},
 });
 
-&Janus::hook_add(
+&Event::hook_add(
 	XLINE => act => sub {
 		my $act = shift;
 		my $net = $act->{dst};
@@ -113,7 +113,7 @@ sub findline {
 
 		if ($line) {
 			if ($act->{for}) {
-				&Janus::append({
+				&Event::append({
 					type => 'MODE',
 					src => $net,
 					dst => $act->{for},
@@ -124,7 +124,7 @@ sub findline {
 			}
 			$line->[3] =~ /^([^!]*)/;
 			my $msg = 'Banned from '.$net->netname.' by '.$1;
-			&Janus::append(+{
+			&Event::append(+{
 				type => 'KILL',
 				dst => $nick,
 				net => $net,

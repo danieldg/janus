@@ -26,7 +26,7 @@ sub role_acl_super {
 	1;
 }
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'account',
 	help => 'Manages janus accounts',
 	acl => 'account',

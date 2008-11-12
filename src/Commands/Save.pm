@@ -4,7 +4,7 @@ package Commands::Save;
 use strict;
 use warnings;
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'save',
 	help => 'Save janus state to filesystem',
 	section => 'Admin',

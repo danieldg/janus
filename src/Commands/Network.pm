@@ -4,7 +4,7 @@ package Commands::Network;
 use strict;
 use warnings;
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'rehash',
 	help => 'Reload the config and attempt to reconnect to split servers',
 	section => 'Admin',
@@ -12,7 +12,7 @@ use warnings;
 	code => sub {
 		my($src,$dst) = @_;
 		&Log::audit('Rehash by '.$src->netnick);
-		&Janus::append(+{
+		&Event::append(+{
 			src => $src,
 			type => 'REHASH',
 		});
@@ -30,14 +30,14 @@ use warnings;
 		&Log::audit('DIE by '.$src->netnick);
 		for my $net (values %Janus::nets) {
 			next if $net->jlink();
-			&Janus::append(+{
+			&Event::append(+{
 				type => 'NETSPLIT',
 				net => $net,
 				msg => 'Killed',
 			});
 		}
 		print "Will exit in 1 second\n";
-		&Janus::schedule(+{
+		&Event::schedule(+{
 			delay => 1,
 			code => sub { exit },
 		});
@@ -55,14 +55,14 @@ use warnings;
 		&Log::audit('RESTART by '.$src->netnick);
 		for my $net (values %Janus::nets) {
 			next if $net->jlink();
-			&Janus::append(+{
+			&Event::append(+{
 				type => 'NETSPLIT',
 				net => $net,
 				msg => 'Restarting...',
 			});
 		}
 		# sechedule the actual exec at a later time to try to send the restart netsplit message around
-		&Janus::schedule(+{
+		&Event::schedule(+{
 			delay => 2,
 			code => sub {
 				my @arg = map { /(.*)/ ? $1 : () } @main::ARGV;
@@ -112,14 +112,14 @@ use warnings;
 		return unless $net;
 		if ($net->isa('LocalNetwork')) {
 			&Log::audit("Network ".$net->name.' split by '.$src->netnick);
-			&Janus::append(+{
+			&Event::append(+{
 				type => 'NETSPLIT',
 				net => $net,
 				msg => 'Forced split by '.$src->netnick
 			});
 		} elsif ($net->isa('Server::InterJanus')) {
 			&Log::audit("Network ".$net->id.' split by '.$src->netnick);
-			&Janus::append(+{
+			&Event::append(+{
 				type => 'JNETSPLIT',
 				net => $net,
 				msg => 'Forced split by '.$src->netnick

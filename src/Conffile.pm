@@ -283,7 +283,7 @@ our($saveevent, $autoevent);
 $saveevent->{code} = \&Conffile::save if $saveevent;
 $autoevent->{code} = \&Conffile::autoconnect if $autoevent;
 
-&Janus::hook_add(
+&Event::hook_add(
 	REHASH => act => sub {
 		my $act = shift;
 		&Conffile::rehash($act->{src});

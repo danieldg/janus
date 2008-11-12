@@ -49,7 +49,7 @@ sub jparent {
 	$net ? 1 : 0;
 }
 
-&Janus::hook_add(
+&Event::hook_add(
 	'INIT' => act => sub {
 		$self = RemoteJanus->new(id => $Conffile::netconf{set}{name});
 	}, JNETLINK => check => sub {

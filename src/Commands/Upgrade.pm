@@ -10,7 +10,7 @@ sub fexec {
 	POSIX::_exit(1);
 }
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'upgrade',
 	help => 'Upgrades all modules loaded by janus',
 	section => 'Admin',

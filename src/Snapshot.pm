@@ -140,7 +140,7 @@ sub restore_from {
 	&Restore::Var::clear();
 
 	&Log::debug("State restored.");
-	&Janus::insert_full({
+	&Event::insert_full({
 		type => 'RESTORE',
 	});
 }

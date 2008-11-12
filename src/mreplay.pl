@@ -114,19 +114,19 @@ sub run_drone {
 		print $cmds "INIT ?\n";
 	} else {
 		my $act = { type => 'INITCONF', file => $conffile };
-		&Janus::insert_full($act);
+		&Event::insert_full($act);
 
 		for (values %Conffile::netconf) {
 			$_->{autoconnect} = 0;
 		}
 
-		&Janus::insert_full({ type => 'INIT', args => [ $conffile ] });
+		&Event::insert_full({ type => 'INIT', args => [ $conffile ] });
 
 		$ID = $RemoteJanus::self->id();
 
 		print $cmds "INIT $ID\n";
 
-		&Janus::insert_full({ type => 'RUN' });
+		&Event::insert_full({ type => 'RUN' });
 	}
 
 	print "Drone $ID init complete, waiting for command\n";
@@ -190,7 +190,7 @@ sub run_drone {
 					$act->{net} = find_ij $1;
 				}
 			}
-			&Janus::insert_full($act);
+			&Event::insert_full($act);
 		} elsif ($cmd eq 'DIE') {
 			last;
 		} elsif ($cmd eq 'B') {

@@ -4,7 +4,7 @@ package Commands::ForceID;
 use strict;
 use warnings;
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'forceid',
 	help => 'Forcibly tries to identify a ClientBot with whatever method possible.',
 	section => 'Network',
@@ -27,14 +27,14 @@ use warnings;
 			&Janus::jmsg($dst, "Network " + lc $_ + " had no identity method configured.");
 		}
 		if ($auth =~ /(\S+)\s+(\S+)/) {
-			&Janus::append(+{
+			&Event::append(+{
 				type => 'IDENTIFY',
 				user => $1,
 				pass => $2,
 				dst => $net,
 			});
 		} else {
-			&Janus::append(+{
+			&Event::append(+{
 				type => 'IDENTIFY',
 				pass => $auth,
 				dst => $net,

@@ -132,10 +132,10 @@ sub part {
 	delete $nmode[$$chan]{$$nick};
 	return if $fast || @{$nicks[$$chan]};
 	$chan->unhook_destroyed();
-	&Janus::append({ type => 'POISON', item => $chan, reason => 'Final part' });
+	&Event::append({ type => 'POISON', item => $chan, reason => 'Final part' });
 }
 
-&Janus::hook_add(
+&Event::hook_add(
 	JOIN => act => sub {
 		my $act = $_[0];
 		my $nick = $act->{src};
@@ -390,7 +390,7 @@ sub add_net {
 
 	if ($tsctl < 0) {
 		&Log::info("Resetting timestamp from $ts[$$chan] to $ts[$$src]");
-		&Janus::insert_full(+{
+		&Event::insert_full(+{
 			type => 'CHANTSSYNC',
 			dst => $chan,
 			newts => $ts[$$src],
@@ -413,7 +413,7 @@ sub add_net {
 
 	my $jto = [ $net, @$joinnets ];
 
-	&Janus::append({
+	&Event::append({
 		type => 'JOIN',
 		src => $Interface::janus,
 		dst => $chan,
@@ -431,7 +431,7 @@ sub add_net {
 		}
 		# Every network must send JOINs for its own nicks
 		# to all networks
-		&Janus::append(+{
+		&Event::append(+{
 			type => 'JOIN',
 			src => $nick,
 			dst => $chan,
@@ -451,7 +451,7 @@ sub add_net {
 		$nmode[$$chan]{$$nick} = $nmode[$$src]{$$nick} if $nmode[$$src]{$$nick};
 		next if $nick->jlink;
 		# source network must also send JOINs to everyone
-		&Janus::append(+{
+		&Event::append(+{
 			type => 'JOIN',
 			src => $nick,
 			dst => $chan,
@@ -460,7 +460,7 @@ sub add_net {
 		});
 	}
 	$nicks[$$chan] = [ values %nicks_by_id ];
-	&Janus::append({ type => 'POISON', item => $src, reason => 'migrated away' });
+	&Event::append({ type => 'POISON', item => $src, reason => 'migrated away' });
 }
 
 sub migrate_from {
@@ -491,7 +491,7 @@ sub migrate_from {
 			$nicks_by_id{$$nick} = $nick;
 			$nmode[$$chan]{$$nick} = $nmode[$$src]{$$nick} if $nmode[$$src]{$$nick};
 			next if $$nick == 1 || $nick->jlink;
-			&Janus::append(+{
+			&Event::append(+{
 				type => 'JOIN',
 				src => $nick,
 				dst => $chan,
@@ -499,7 +499,7 @@ sub migrate_from {
 				sendto => $burstto,
 			});
 		}
-		&Janus::append({ type => 'POISON', item => $src, reason => 'migrated away' });
+		&Event::append({ type => 'POISON', item => $src, reason => 'migrated away' });
 	}
 	$nicks[$$chan] = [ values %nicks_by_id ];
 }
@@ -557,7 +557,7 @@ sub del_remoteonly {
 			return if $cij && $cij ne $ij;
 			$cij = $ij;
 		}
-		&Janus::insert_full({
+		&Event::insert_full({
 			type => 'DELINK',
 			net => $Interface::network,
 			dst => $chan,
@@ -566,7 +566,7 @@ sub del_remoteonly {
 		}) if $chan->is_on($Interface::network);
 		# all networks are on the same ij network. We can't see you anymore
 		for my $nick (@{$nicks[$$chan]}) {
-			&Janus::append({
+			&Event::append({
 				type => 'PART',
 				src => $nick,
 				dst => $chan,
@@ -577,10 +577,10 @@ sub del_remoteonly {
 		}
 	}
 	$chan->unhook_destroyed();
-	&Janus::append({ type => 'POISON', item => $chan, reason => 'delink gone' });
+	&Event::append({ type => 'POISON', item => $chan, reason => 'delink gone' });
 }
 
-&Janus::hook_add(
+&Event::hook_add(
 	CHANLINK => check => sub {
 		my $act = shift;
 		my $schan = $act->{in};
@@ -629,7 +629,7 @@ sub del_remoteonly {
 			my $cause = $act->{cause} . '2';
 			for my $on (values %{$nets[$$chan]}) {
 				next if $on == $net;
-				&Janus::append(+{
+				&Event::append(+{
 					type => 'DELINK',
 					net => $on,
 					dst => $chan,
@@ -708,7 +708,7 @@ sub del_remoteonly {
 			}
 			push @parts, \%part;
 		}
-		&Janus::insert_full(@parts);
+		&Event::insert_full(@parts);
 	}, DELINK => cleanup => sub {
 		my $act = shift;
 		del_remoteonly($act->{dst});
@@ -728,7 +728,7 @@ sub del_remoteonly {
 				nojlink => 1,
 			};
 		}
-		&Janus::insert_full(@clean);
+		&Event::insert_full(@clean);
 	}, NETSPLIT => cleanup => sub {
 		my $act = shift;
 		my $net = $act->{net};

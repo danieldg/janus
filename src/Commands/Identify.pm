@@ -11,7 +11,7 @@ sub gen_salt {
 	# perl's rand is initialized with 32 bits of entropy from urandom;
 	# the other items are to reduce correlation between people setting
 	# their passwords during the same run of the server
-	$h->add(rand . $Janus::time . $nick->gid . '!' . $acct);
+	$h->add(rand() . $Janus::time . $nick->gid . '!' . $acct);
 	substr $h->b64digest, 0, 8;
 }
 
@@ -27,7 +27,7 @@ sub hash {
 	$h->b64digest;
 }
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'identify',
 	help => 'Identify yourself to janus',
 	section => 'Account',
@@ -48,7 +48,7 @@ sub hash {
 			if ($confpass && $pass eq $confpass) {
 				&Log::audit($_[0]->netnick . ' logged in as admin');
 				$Account::accounts{admin}{acl} = '*';
-				&Janus::append({
+				&Event::append({
 					type => 'NICKINFO',
 					src => $RemoteJanus::self,
 					dst => $nick,
@@ -64,7 +64,7 @@ sub hash {
 			my $hash = hash($pass, $salt);
 			if ($Account::accounts{$user}{pass} eq $hash) {
 				&Log::info($nick->netnick. ' identified as '.$user);
-				&Janus::append({
+				&Event::append({
 					type => 'NICKINFO',
 					src => $RemoteJanus::self,
 					dst => $nick,

@@ -38,7 +38,7 @@ sub _init {
 			'log' => $log,
 		};
 		weaken($rotate->{log});
-		&Janus::schedule($rotate);
+		&Event::schedule($rotate);
 		$rotate[$$log] = $rotate;
 	}
 	$log->openlog();

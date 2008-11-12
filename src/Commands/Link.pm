@@ -4,7 +4,7 @@ package Commands::Link;
 use strict;
 use warnings;
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'link',
 	help => 'Link to a remote network\'s shared channel',
 	section => 'Channel',
@@ -34,7 +34,7 @@ use warnings;
 			&Janus::jmsg($dst, 'That channel is already linked');
 			return;
 		}
-		&Janus::append(+{
+		&Event::append(+{
 			type => 'LINKREQ',
 			src => $src,
 			chan => $chan1,
@@ -63,7 +63,7 @@ use warnings;
 		return unless &Account::chan_access_chk($src, $chan, 'create', $dst);
 		my $cname = $chan->str($net);
 		&Log::audit("New channel $cname shared by ".$src->netnick);
-		&Janus::append(+{
+		&Event::append(+{
 			type => 'LINKOFFER',
 			src => $net,
 			name => lc $cname,
@@ -99,7 +99,7 @@ use warnings;
 		}
 
 		&Log::audit('Channel '.$chan->homename.' delinked from '.$snet->name.' by '.$src->netnick);
-		&Janus::append(+{
+		&Event::append(+{
 			type => 'DELINK',
 			cause => $cause,
 			src => $src,
@@ -121,7 +121,7 @@ use warnings;
 
 		return unless &Account::chan_access_chk($src, $chan, 'create', $dst);
 		&Log::audit('Channel '.$chan->homename.' destroyed by '.$src->netnick);
-		&Janus::append(+{
+		&Event::append(+{
 			type => 'DELINK',
 			cause => 'destroy',
 			src => $src,

@@ -29,7 +29,7 @@ sub dump_now {
 	$fn;
 }
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'dump',
 	help => 'Dumps current janus internal state to a file',
 	section => 'Admin',
@@ -47,7 +47,7 @@ sub dump_now {
 	},
 });
 
-&Janus::hook_add(
+&Event::hook_add(
 	ALL => 'die' => sub {
 		eval {
 			dump_now(@_);

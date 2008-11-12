@@ -68,7 +68,7 @@ my %timespec = (
 	y => 365*86400,
 );
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'ban',
 	help => 'Manages Janus bans (bans remote users)',
 	section => 'Network',
@@ -190,7 +190,7 @@ my %timespec = (
 	}
 });
 
-&Janus::hook_add(
+&Event::hook_add(
 	CONNECT => check => sub {
 		my $act = shift;
 		my $nick = $act->{dst};
@@ -201,7 +201,7 @@ my %timespec = (
 		my $ban = find($nick, $net);
 		if ($ban) {
 			if ($act->{for}) {
-				&Janus::append({
+				&Event::append({
 					type => 'MODE',
 					src => $net,
 					dst => $act->{for},
@@ -215,7 +215,7 @@ my %timespec = (
 			if ($ban->{to}) {
 				$msg = "Banned from ".$net->netname.' by '.$1;
 			}
-			&Janus::append(+{
+			&Event::append(+{
 				type => 'KILL',
 				dst => $nick,
 				net => $net,

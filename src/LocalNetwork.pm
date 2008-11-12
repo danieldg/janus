@@ -138,7 +138,7 @@ sub all_chans {
 	values %{$chans[$$net]};
 }
 
-&Janus::hook_add(
+&Event::hook_add(
 	NETSPLIT => cleanup => sub {
 		my $act = shift;
 		my $net = $act->{net};
@@ -161,7 +161,7 @@ sub all_chans {
 					nojlink => 1,
 				};
 			}
-			&Janus::insert_full(@clean);
+			&Event::insert_full(@clean);
 			for my $chan ($net->all_chans()) {
 				$chan->unhook_destroyed();
 			}

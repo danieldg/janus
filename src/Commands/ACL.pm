@@ -4,7 +4,7 @@ package Commands::ACL;
 use strict;
 use warnings;
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'acl',
 	help => 'Manages access control for shared channels',
 	section => 'Channel',
@@ -96,7 +96,7 @@ use warnings;
 			next unless $ifo->{net} eq $hname && lc $ifo->{chan} eq $tochan;
 			next if $ifo->{mode};
 			my $chan = $dnet->chan($dcname, 1);
-			&Janus::append(+{
+			&Event::append(+{
 				type => 'LINKREQ',
 				chan => $chan,
 				dst => $snet,

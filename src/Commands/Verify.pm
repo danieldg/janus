@@ -166,7 +166,7 @@ sub verify {
 	(@err, %cseen, %nseen, %sseen, %n_c) = ();
 }
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'verify',
 	acl => 'verify',
 	help => 'Verifies janus internal state',

@@ -88,15 +88,15 @@ while (<$log>) {
 		$state = NONE;
 		$conffile ||= $1 || 'janus.conf';
 		my $act = { type => 'INITCONF', file => $conffile };
-		&Janus::insert_full($act);
+		&Event::insert_full($act);
 
 		for (values %Conffile::netconf) {
 			$_->{autoconnect} = 0;
 		}
 	} elsif (/^\e\[33mACTION: <INIT /) {
-		&Janus::insert_full({ type => 'INIT', args => [ $conffile ] });
+		&Event::insert_full({ type => 'INIT', args => [ $conffile ] });
 	} elsif (/^\e\[33mACTION: <RUN>/) {
-		&Janus::insert_full({ type => 'RUN' });
+		&Event::insert_full({ type => 'RUN' });
 	} elsif (/^\e\[36minfo: Autoconnecting (\S+)\e\[m$/) {
 		print "Fake autoconnect $1\n";
 		$state = NONE;
@@ -126,13 +126,13 @@ while (<$log>) {
 		$ij = find_ij $tmp->{id};
 
 		if ($ij) {
-			&Janus::insert_full($ij->parse($line));
+			&Event::insert_full($ij->parse($line));
 		} else {
 			$ij = Server::InterJanus->new() unless $ij;
 			my @out = $ij->parse($line);
 			next unless @out && $out[0]->{type} eq 'JNETLINK';
 			$ij->intro($Conffile::netconf{$ij->id()}, 1);
-			&Janus::insert_full(@out);
+			&Event::insert_full(@out);
 			&Connection::add(1, $ij);
 		}
 	} elsif (/^\e\[32mIN\@(\S+): (.*)\e\[m$/) {
@@ -159,7 +159,7 @@ while (<$log>) {
 				$act->{net} = find_ij $1;
 			}
 		}
-		&Janus::insert_full($act);
+		&Event::insert_full($act);
 	} elsif (/^\e\[1;30mTimestamp: (\d+)\e\[m$/) {
 		my $ts = $1;
 		$_->[0]->dump_sendq() for @Connection::queues;

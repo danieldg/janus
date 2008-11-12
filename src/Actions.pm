@@ -383,7 +383,7 @@ for my $type (keys %spec) {
 	}
 }
 
-&Janus::hook_add(ALL => validate => sub {
+&Event::hook_add(ALL => validate => sub {
 	my $act = shift;
 	my $itm = $act->{type};
 	my $check = $spec{$itm};

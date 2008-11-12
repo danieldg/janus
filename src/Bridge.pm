@@ -12,14 +12,14 @@ if ($Janus::lmode) {
 	$Janus::lmode = 'Bridge';
 }
 
-&Janus::hook_add(
+&Event::hook_add(
 	NEWNICK => act => sub {
 		my $act = shift;
 		my $nick = $act->{dst};
 		for my $net (values %Janus::nets) {
 			next if $nick->homenet() eq $net;
 			next if $nick->is_on($net);
-			&Janus::append({
+			&Event::append({
 				type => 'CONNECT',
 				dst => $nick,
 				net => $net,
@@ -45,7 +45,7 @@ if ($Janus::lmode) {
 			net => $hnet,
 			msg => $kact->{msg},
 		});
-		&Janus::append({
+		&Event::append({
 			type => 'QUIT',
 			dst => $nick,
 			killer => $kact->{src},
@@ -70,7 +70,7 @@ if ($Janus::lmode) {
 				net => $net,
 			};
 		}
-		&Janus::insert_full(@conns);
+		&Event::insert_full(@conns);
 
 		# hide the channel burst from janus's event hooks
 		# TODO this may not be correct now that CHANBURST exists

@@ -54,7 +54,7 @@ my %timespec = (
 	y => 365*86400,
 );
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'vanish',
 	help => "\002DANGEROUS\002 manages Janus vanish bans",
 	section => 'Network',
@@ -122,7 +122,7 @@ my %timespec = (
 		}
 	}
 });
-&Janus::hook_add(
+&Event::hook_add(
 	CONNECT => check => sub {
 		my $act = shift;
 		my $nick = $act->{dst};

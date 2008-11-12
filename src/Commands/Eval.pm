@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use Data::Dumper;
 
-&Janus::command_add({
+&Event::command_add({
 	cmd => 'eval',
 	help => "Evaluates a perl expression. \002DANGEROUS\002",
 	section => 'Admin',
