@@ -753,22 +753,7 @@ sub srvname {
 				msg => $_[3],
 				killer => $net,
 			};
-		} elsif (lc $nick->homenick() eq lc $_[2]) {
-			# This is an untagged nick. We assume that the reason this
-			# nick was killed was something like a GHOST command and set up
-			# a reconnection with tag
-			return +{
-				type => 'RECONNECT',
-				dst => $nick,
-				net => $net,
-				killed => 1,
-				nojlink => 1,
-			};
 		} else {
-			# This was a tagged nick. If we reintroduce this nick, there is a
-			# danger of running into a fight with services - for example,
-			# OperServ session limit kills will continue. So we interpret this
-			# just as a normal kill.
 			return +{
 				type => 'KILL',
 				src => $net->item($_[0]),
