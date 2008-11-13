@@ -12,12 +12,13 @@ use strict;
 use warnings;
 use integer;
 
-our(@sendq, @servers, @serverdsc, @servernum, @next_uid, @capabs);
-&Persist::register_vars(qw(sendq servers serverdsc servernum next_uid capabs));
+our(@sendq1, @sendq2, @servers, @serverdsc, @servernum, @next_uid, @capabs);
+&Persist::register_vars(qw(sendq1 sendq2 servers serverdsc servernum next_uid capabs));
 
 sub _init {
 	my $net = shift;
-	$sendq[$$net] = [];
+	$sendq1[$$net] = '';
+	$sendq2[$$net] = '';
 	$net->module_add('CORE');
 }
 
@@ -37,12 +38,11 @@ sub intro {
 	my($net,$param) = @_;
 	$net->SUPER::intro($param);
 	my @out;
-	push @out, ['INIT', 'CAPAB START'];
+	$sendq1[$$net] .= "CAPAB START\r\n";
 	# we cannot continue until we get the remote CAPAB list so we can
 	# forge the module list. However, we can set up the other server introductions
 	# as they will be sent after auth is done
-	push @out, $net->ncmd(VERSION => 'Janus Hub');
-	$net->send(@out);
+	$net->send($net->ncmd(VERSION => 'Janus Hub'));
 }
 
 # parse one line of input
@@ -57,7 +57,7 @@ sub parse {
 	}
 	my $cmd = $args[1];
 	unless ($net->auth_ok || $cmd eq 'CAPAB' || $cmd eq 'SERVER' || $cmd eq 'ERROR') {
-		$net->send(['INIT', 'ERROR :Not authorized yet']);
+		$sendq1[$$net] .= "ERROR :Not authorized yet\r\n";
 		return ();
 	}
 	$net->from_irc(@args);
@@ -65,30 +65,44 @@ sub parse {
 
 sub send {
 	my $net = shift;
-	push @{$sendq[$$net]}, $net->to_irc(@_);
+	my @q = $net->to_irc(@_);
+	$sendq2[$$net] .= join '', map "$_\r\n", @q;
 }
 
 sub dump_sendq {
 	my $net = shift;
 	local $_;
-	my $q1 = '';
-	my $q2 = '';
-	for my $i (@{$sendq[$$net]}, '') {
-		if (ref $i && $i->[0] eq 'INIT') {
-			$q1 .= join "\n", @$i[1..$#$i],'';
-		} else {
-			$q2 .= $i."\n" if $i;
-		}
-	}
+	my $q = $sendq1[$$net];
+	$sendq1[$$net] = '';
+	&Log::netout($net, $_) for split /\r\n/, $q;
 	if ($net->auth_ok) {
-		$sendq[$$net] = [];
-		$q1 .= $q2;
-	} else {
-		$sendq[$$net] = ($q2 =~ s/\n$//s) ? [ $q2 ] : '';
+		my $fj_pfx;
+		my $fj_line = '';
+		for (split /\r\n/, $sendq2[$$net]) {
+			if (/^:\S+ FJOIN (.*?) :(.*)/) {
+				if ($fj_line && $fj_pfx eq $1 && length $fj_line < 490) {
+					$fj_line .= ' '.$2;
+				} else {
+					$q .= $fj_line."\r\n" if $fj_line;
+					&Log::netout($net, $fj_line) if $fj_line;
+					$fj_pfx = $1;
+					$fj_line = $_;
+				}
+			} else {
+				if ($fj_line && !/^:\S+ (?:UID|PRIVMSG) /) {
+					$q .= $fj_line."\r\n";
+					&Log::netout($net, $fj_line);
+					$fj_line = '';
+				}
+				$q .= $_ . "\r\n";
+				&Log::netout($net, $_);
+			}
+		}
+		$q .= $fj_line."\r\n" if $fj_line;
+		&Log::netout($net, $fj_line) if $fj_line;
+		$sendq2[$$net] = '';
 	}
-	$q1 =~ s/\n+/\r\n/sg;
-	&Log::netout($net, $_) for split /\r\n/, $q1;
-	$q1;
+	$q;
 }
 
 my @letters = ('A' .. 'Z', 0 .. 9);
@@ -624,12 +638,12 @@ $moddef{CORE} = {
 			if ($_[3] eq $net->cparam('recvpass')) {
 				$net->auth_recvd;
 				if ($net->auth_should_send) {
-					$net->send(['INIT', $net->cmd2(undef, SERVER => $net->cparam('linkname'),
-						$net->cparam('sendpass'), 0, $net, 'Janus Network Link') ]);
+					$sendq1[$$net] .= $net->cmd2(undef, SERVER => $net->cparam('linkname'),
+						$net->cparam('sendpass'), 0, $net, "Janus Network Link\r\n");
 				}
-				$net->send(['INIT', 'BURST '.$Janus::time ]);
+				$sendq1[$$net] .= 'BURST '.$Janus::time."\r\n";
 			} else {
-				$net->send(['INIT', 'ERROR :Bad password']);
+				$sendq1[$$net] .= "ERROR :Bad password\r\n";
 				return ();
 			}
 			$serverdsc[$$net]{lc $_[2]} = $_[-1];
@@ -722,14 +736,14 @@ $moddef{CORE} = {
 				$_ .'='. $capabs[$$net]{$_};
 			} keys %{$capabs[$$net]};
 
-			my @out = 'INIT';
+			my @out;
 			push @out, 'CAPAB MODULES '.$1 while $mods =~ s/(.{1,495})(,|$)//;
 			push @out, 'CAPAB CAPABILITIES :'.$1 while $capabs =~ s/(.{1,450})( |$)//;
 			push @out, 'CAPAB END';
 			if ($net->auth_should_send) {
 				push @out, $net->cmd2(undef, SERVER => $net->cparam('linkname'), $net->cparam('sendpass'), 0, $net, 'Janus Network Link');
 			}
-			$net->send(\@out);
+			$sendq1[$$net] .= join "\r\n", @out, '';
 		} # ignore START and any others
 		();
 	}, ERROR => sub {
