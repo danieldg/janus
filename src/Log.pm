@@ -4,6 +4,7 @@ package Log;
 use strict;
 use warnings;
 use Carp;
+use Snapshot;
 
 # log level => \&stringifier
 #  Output: (IRC-color, header, message)
@@ -95,8 +96,8 @@ our %action = (
 		(13, 'janus', join ' ', $_[0]->netnick, $_[1])
 	}, 'poison' => sub {
 		my($pkg, $file, $line, $called, $ifo, @etc) = @_;
-		if ($ifo->{refs} == 1 && &Janus::load('Commands::Debug')) {
-			eval { &Commands::Debug::dump_now('poison', @_) };
+		if ($ifo->{refs} == 1) {
+			&Snapshot::dump_now('poison', @_);
 		}
 		(14, 'poison', "Reference to $ifo->{class}->$called at $file line $line for #$ifo->{id} (count=$ifo->{refs})");
 	},

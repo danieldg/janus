@@ -4,12 +4,14 @@ package Snapshot;
 use strict;
 use warnings;
 use Data::Dumper;
+use POSIX qw(strftime);
 
 eval {
 	&Data::Dumper::init_refaddr_format();
 	# BUG in Data::Dumper, running this is needed before using Seen
 };
 
+our $pure;
 our $preread;
 
 sub dump_all_globals {
@@ -101,6 +103,28 @@ sub dump_to {
 	]);
 	print $dump $dd->Dump();
 }
+
+sub dump_now {
+	my $fmt = $Conffile::netconf{set}{datefmt};
+	my $fn = 'log/';
+	if ($fmt) {
+		$fn .= strftime $fmt, gmtime $Janus::time;
+	} else {
+		$fn .= $Janus::time;
+	}
+	$fn .= '.dump';
+	if (-f $fn) {
+		my $seq;
+		1 while -f $fn.++$seq;
+		$fn .= $seq;
+	}
+
+	open my $dump, '>', $fn or return undef;
+	&Snapshot::dump_to($dump, $pure, \@_);
+	close $dump;
+	$fn;
+}
+
 
 sub restore_from {
 	my($file) = @_;
