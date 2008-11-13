@@ -563,7 +563,7 @@ sub del_remoteonly {
 			dst => $chan,
 			cause => 'split',
 			nojlink => 1,
-		}) if $chan->is_on($Interface::network);
+		}) if $chan->is_on($Interface::network) && $chan->homenet != $Interface::network;
 		# all networks are on the same ij network. We can't see you anymore
 		for my $nick (@{$nicks[$$chan]}) {
 			&Event::append({
