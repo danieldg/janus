@@ -467,13 +467,13 @@ Event::hook_add(
 				shift @argin if $act->{$idx};
 				push @args, $act->{$idx};
 			} elsif ($_ eq 'net') {
-				my $id = $argin[0];
+				my $id = $argin[0] || '';
 				my $net = $Janus::nets{$id};
 				$fail = 'Could not find network "'.$id.'"' unless $opt || $net;
 				shift @argin if $net;
 				push @args, $net;
 			} elsif ($_ eq 'defnet') {
-				my $id = $argin[0];
+				my $id = $argin[0] || '';
 				my $net = $Janus::nets{$id};
 				shift @argin if $net;
 				push @args, ($net || $hnet);
