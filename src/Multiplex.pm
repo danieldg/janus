@@ -43,8 +43,6 @@ use constant {
 our @queues;
 # netid => [ fd, IO::Socket, netid, recvq, sendq, try_recv, try_send ]
 
-our %waitfd;
-
 sub peer_to_addr {
 	my $peer = shift;
 	if (IPV6) {
@@ -167,7 +165,7 @@ sub run {
 					next LINE;
 				}
 				if ($q->[STATE] & STATE_DEAD) {
-					print $cmd "DELINK $q->[NETID] $q->[EINFO]]\n";
+					print $cmd "DELINK $q->[NETID] $q->[EINFO]\n";
 					$offset++;
 					next LINE;
 				} elsif ($q->[STATE] & STATE_ACCEPT) {
@@ -222,8 +220,12 @@ sub run {
 				$fd = fileno $sock;
 			}
 			if (defined $fd) {
-				$waitfd{$fd} = [ $fd, $sock, STATE_LISTEN, 0, '', undef, 1, 0, '' ];
-				print $cmd "FD $fd\n";
+				print $cmd "OK\n";
+				$_ = <$cmd>;
+				chomp;
+				/^ID (\d+)/ or die "Bad input line: $_";
+				my $q = [ $fd, $sock, STATE_LISTEN, $1, '', undef, 1, 0, '' ];
+				$queues[$1] = $q;
 			} else {
 				print $cmd "ERR $!\n";
 			}
@@ -262,15 +264,15 @@ sub run {
 				}
 			}
 			if (defined $fd) {
-				$waitfd{$fd} = [ $fd, $sock, 0, 0, '', '', 0, 1, '' ];
-				print $cmd "FD $fd\n";
+				print $cmd "OK\n";
+				$_ = <$cmd>;
+				chomp;
+				/^ID (\d+)/ or die "Bad input line: $_";
+				my $q = [ $fd, $sock, 0, $1, '', '', 0, 1, '' ];
+				$queues[$1] = $q;
 			} else {
 				print $cmd "ERR $!\n";
 			}
-		} elsif (/^ADDNET (\d+) (\d+)/) {
-			my $q = delete $waitfd{$1} or die;
-			$q->[NETID] = $2;
-			$queues[$2] = $q;
 		} elsif (/^DELNET (\d+)/) {
 			delete $queues[$1];
 		} elsif (/^REBOOT (\S+)/) {

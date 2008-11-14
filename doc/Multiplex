@@ -1,0 +1,50 @@
+Split-process I/O loop commands:
+
+Start by sending "BOOT <apiver>" where apiver is the API version. This documents
+version 4. A one-line response after this gives the value of the "ipv6"
+configuration option. From there, wait for one of the following commands:
+
+INITL <addr> <port>
+	Open a listening socket on the given port, bound to the given IP.
+	If successful, respond with "OK"; the next incoming line will be
+	"ID <netid>" where netid is used in the future to refer to this socket.
+	If unsuccessful, respond with "ERR <reason>".
+INITC <addr> <port> <bind> <ssl-key> <ssl-cert>
+	Open an outbound connection to the given addr:port. Optionally bind to
+	the given IP. If ssl-key is specified, start SSL; if both ssl-key and
+	ssl-cert are specified, they specify the client SSL certificate to use.
+	Response same as for INITL.
+W <time>
+	Wait for I/O activity, or until time (a unix timestamp).
+	Resp: "DONE"
+N
+	Get one line of I/O activity. Possible responses:
+	<netid> <line...>
+		The network with the given (numeric) ID has a line ready.
+		Line should have \r\n stripped.
+	DELINK <netid> <error...>
+		The network with this ID has disconnected, with the given error
+		message (i.e. connection closed)
+	PEND <netid> <address>
+		The listening socket with this ID has an incoming connection
+		from the given IP address (text form). Immediate response:
+		PEND <newID>
+			Accept the connection, using this ID to refer to it in
+			the future
+		PEND-SSL <newID> <SSL keyfile> <SSL certfile>
+			Same, but initiate an SSL (server) connection using the
+			named key and certificate files
+		DROP
+			Drop the connection immediately
+	L
+		No further I/O activity is ready (i.e. last)
+<netid> <line...>
+	Send a line to the network with the given ID. I/O errors are enqueued
+	for the next "N" loop. No response.
+DELNET <netid>
+	Disconnect the given network; do not report any further errors or I/O
+	readiness. No response.
+REBOOT <filename>
+	Start a new child process, sending "RESTORE <filename>" as the first
+	line. This process is terminating momentarily. No response from old or
+	new process.

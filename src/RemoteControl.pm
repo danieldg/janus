@@ -114,7 +114,11 @@ our $OVERRIDE = 1;
 
 sub add {
 	my($fd, $net) = @_;
-	&RemoteControl::cmd("ADDNET $fd $$net");
+	if ($RemoteControl::master_api < 4) {
+		&RemoteControl::cmd("ADDNET $fd $$net");
+	} else {
+		&RemoteControl::cmd("ID $$net");
+	}
 	push @RemoteControl::active, $net;
 }
 
@@ -127,7 +131,7 @@ sub del {
 		&RemoteControl::cmd("DELNET $$net");
 		return 1;
 	}
-	0;
+	return 0;
 }
 
 sub find {
@@ -144,7 +148,9 @@ sub list {
 sub init_listen {
 	my($addr, $port) = @_;
 	my $resp = &RemoteControl::ask("INITL $addr $port");
-	if ($resp =~ /^FD (\d+)/) {
+	if ($resp eq 'OK') {
+		return 1;
+	} elsif ($resp =~ /^FD (\d+)/) {
 		return $1;
 	} elsif ($resp =~ /^ERR (.*)/) {
 		&Log::err("Cannot listen: $1");
@@ -166,7 +172,9 @@ sub init_conn {
 	} else {
 		$resp = &RemoteControl::ask("INITC $addr $port $bind $sslkey $sslcert");
 	}
-	if ($resp =~ /^FD (\d+)/) {
+	if ($resp eq 'OK') {
+		return 1;
+	} elsif ($resp =~ /^FD (\d+)/) {
 		return $1;
 	} elsif ($resp =~ /^ERR (.*)/) {
 		&Log::err("Cannot connect: $1");
