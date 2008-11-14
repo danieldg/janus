@@ -155,6 +155,7 @@ sub countline {
 	},
 	INFO => 'Network:2' => sub {
 		my($dst, $n, $asker) = @_;
+		return undef unless $n->isa('LocalNetwork');
 		my $enabled = $enabled{$n->name} ? 'enabled' : 'disabled';
 		my $g = countline($glines[$$n]);
 		my $z = countline($zlines[$$n]);
