@@ -37,6 +37,17 @@ sub unkick {
 	});
 }
 
+sub invisquit {
+	my $e = shift;
+	my $nick = $e->{nick} or return;
+	return if $nick->all_chans;
+	&Event::insert_full(+{
+		type => 'QUIT',
+		dst => $nick,
+		msg => 'Janus relay bot cannot see this nick',
+	});
+}
+
 sub intro {
 	my($net,$param) = @_;
 	$net->SUPER::intro($param);
@@ -103,6 +114,16 @@ sub cli_hostintro {
 				invisible => 1,
 			},
 		);
+		my $evt = {
+			delay => 15,
+			net => $net,
+			nick => $nick,
+			code => \&invisquit,
+		};
+		weaken($evt->{net});
+		weaken($evt->{nick});
+		&Event::schedule($evt);
+
 		my($ok, @acts) = $net->nick_collide($nname, $nick);
 		warn 'Invalid clientbot collision' unless $ok;
 		push @out, @acts, +{
@@ -159,7 +180,7 @@ sub parse {
 	my $cmd = $args[1];
 	$cmd = $fromirc{$cmd} || $cmd;
 	unless (ref $cmd) {
-		&Log::warn_in($net, "Unknown command '$cmd'");
+		&Log::warn_in($net, "Unknown command in line $line");
 		return ();
 	}
 	push @out, $cmd->($net,@args);
@@ -381,6 +402,7 @@ sub pm_not {
 	if (lc $_[2] eq lc $self[$$net]) {
 		# PM to the bot
 		my $msg = $_[3];
+		return if $msg =~ /^\001/; # ignore CTCPs
 		if ($msg =~ s/^(\S+)\s//) {
 			my $dst = $net->item($1);
 			if (ref $dst && $dst->isa('Nick') && $dst->homenet() ne $net) {
@@ -643,6 +665,7 @@ sub kicked {
 	372 => \&ignore,
 	375 => \&ignore,
 	376 => \&ignore,
+	422 => \&ignore, # MOTD missing
 
 	301 => \&ignore, # away
 	331 => \&ignore, # no topic
@@ -702,7 +725,6 @@ sub kicked {
 		();
 	},
 	400 => \&ignore, # no suck Nick
-	422 => \&ignore, # MOTD missing
 	433 => sub { # nick in use, try another
 		my $net = shift;
 		my $tried = $_[3];
