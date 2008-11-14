@@ -287,7 +287,7 @@ $moddef{CORE} = {
 		if (@_ < 10) {
 			my $nick = $net->mynick($_[0]) or return ();
 			my $stomp = $net->nick($_[2], 1);
-			if ($stomp) {
+			if ($stomp && $stomp != $nick) {
 				$net->send({
 					type => 'QUIT',
 					dst => $stomp,

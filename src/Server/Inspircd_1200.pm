@@ -320,7 +320,7 @@ $moddef{CORE} = {
 			$ts = $Janus::time;
 		}
 		my @out;
-		if ($stomp) {
+		if ($stomp && $stomp != $nick) {
 			push @out, +{
 				type => 'RECONNECT',
 				dst => $stomp,

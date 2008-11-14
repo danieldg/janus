@@ -161,9 +161,10 @@ sub request_newnick {
 
 sub request_cnick {
 	my($net, $nick, $reqnick, $tagged) = @_;
-	my $given = _request_nick(@_);
 	my $current = $nick->str($net);
-	$nick2uid[$$net]{lc $given} = delete $nick2uid[$$net]{lc $current};
+	my $uid = delete $nick2uid[$$net]{lc $current};
+	my $given = _request_nick(@_);
+	$nick2uid[$$net]{lc $given} = $uid;
 	$given;
 }
 

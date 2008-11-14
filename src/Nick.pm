@@ -365,16 +365,6 @@ sub str {
 		if ($act->{killed}) {
 			$act->{reconnect_chans} = [ @{$chans[$$nick]} ];
 		}
-	}, NICK => check => sub {
-		my $act = shift;
-		my $old = lc $act->{dst}->homenick();
-		my $new = lc $act->{nick};
-		return 1 if $old eq $new;
-		undef;
-		# TODO Not transmitting case changes is the easiset way to do it
-		# If this is ever changed: the local network's bookkeeping is easy
-		# remote networks could have this nick tagged; they can untag but 
-		# only if they can assure that it is impossible to be collided
 	}, NICK => act => sub {
 		my $act = $_[0];
 		my $nick = $act->{dst};

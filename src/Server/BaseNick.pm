@@ -109,11 +109,11 @@ sub request_newnick {
 sub request_cnick {
 	my($net, $nick, $reqnick, $tagged) = @_;
 	my $b4 = $nick->str($net);
-	my $gv = request_nick(@_);
 	if ($nicks[$$net]{lc $b4} == $nick) {
 		delete $nicks[$$net]{lc $b4};
 	}
-	$gv;
+	my $gv = request_nick(@_);
+	return $gv;
 }
 
 # Release a nick on a remote network (PART/QUIT must be sent BEFORE this)
