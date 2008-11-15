@@ -12,7 +12,7 @@ use warnings;
 
 our(@sendq, @self, @kicks, @lchan, @flood_bkt, @flood_ts);
 &Persist::register_vars(qw(sendq self kicks lchan flood_bkt flood_ts));
-# $kicks[$$net]{$lid}{$channel} = 1 for a rejoin enabled
+# $kicks[$$net]{$lid$channel} = 1 for a rejoin enabled
 # lchan = last channel we tried to join
 
 our $awaken;
@@ -29,7 +29,7 @@ sub ignore { () }
 sub unkick {
 	my $e = shift;
 	my($net, $nick, $chan) = @$e{qw(net nick chan)};
-	return unless $net && $nick && $chan && $kicks[$$net]{$$nick}{$chan->str($net)};
+	return unless $net && $nick && $chan && $kicks[$$net]{$$nick.$chan->str($net)};
 	&Event::insert_full(+{
 		type => 'JOIN',
 		src => $nick,
@@ -331,7 +331,7 @@ sub nicklen { 40 }
 		weaken($evt->{nick});
 		weaken($evt->{chan});
 		&Event::schedule($evt);
-		$kicks[$$net]{$$nick}{$cn} = 1;
+		$kicks[$$net]{$$nick.$cn} = 1;
 		"KICK $cn $nn :$src $act->{msg}";
 	},
 	MODE => sub {
@@ -531,7 +531,7 @@ sub kicked {
 			}
 		}
 		my $nick = $net->mynick($_[0]) or return ();
-		delete $kicks[$$net]{$$nick}{$_[2]};
+		delete $kicks[$$net]{$$nick.$_[2]};
 		my @out = +{
 			type => 'PART',
 			src => $nick,
@@ -560,7 +560,7 @@ sub kicked {
 				return ();
 			}
 		}
-		delete $kicks[$$net]{$$victim}{$_[2]};
+		delete $kicks[$$net]{$$victim.$_[2]};
 		my @out;
 		push @out, +{
 			type => 'KICK',
@@ -582,7 +582,6 @@ sub kicked {
 	QUIT => sub {
 		my $net = shift;
 		my $src = $net->mynick($_[0]) or return ();
-		delete $kicks[$$net]{$$src};
 		return +{
 			type => 'QUIT',
 			dst => $src,
