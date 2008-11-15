@@ -1,4 +1,4 @@
-# Copyright (C) 2007 Daniel De Graaf
+# Copyright (C) 2007-2008 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
 package Server::ClientBot;
 use LocalNetwork;
@@ -653,6 +653,7 @@ sub kicked {
 	'005' => \&ignore,
 	'042' => \&ignore,
 	# intro (/lusers etc)
+	250 => \&ignore,
 	251 => \&ignore,
 	252 => \&ignore,
 	253 => \&ignore,

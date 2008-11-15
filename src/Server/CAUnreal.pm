@@ -255,6 +255,7 @@ sub intro {
 # parse one line of input
 sub parse {
 	my ($net, $line) = @_;
+	return () unless $line;
 	&Log::netin(@_);
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
@@ -280,7 +281,7 @@ sub parse {
 		&Log::err_in($net, "Unknown command '$cmd'");
 		return ();
 	}
-	$fromirc{$cmd}->($net,@args);
+	return $fromirc{$cmd}->($net,@args);
 }
 
 sub send {
