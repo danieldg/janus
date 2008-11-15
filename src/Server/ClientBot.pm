@@ -784,7 +784,7 @@ sub kicked {
 			dst => $chan,
 			msgtype => 'NOTICE',
 			prefix => '@',
-			msg => 'Relay bot not opped on network '.$net->id,
+			msg => 'Relay bot not opped on network '.$net->name,
 		};
 	},
 	477 => sub { # Need to register.
