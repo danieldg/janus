@@ -106,6 +106,7 @@ sub countline {
 		my $nick = $act->{dst};
 		my $net = $act->{net};
 		return undef unless $net->isa('LocalNetwork');
+		return undef if $$nick == 1;
 
 		if (findline($qlines[$$net], $nick->homenick)) {
 			$act->{tag} = 1;

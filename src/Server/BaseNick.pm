@@ -84,7 +84,7 @@ sub request_nick {
 		$tagged = 1 if exists $nicks[$$net]->{lc $given};
 
 		my $tagre = $net->param('force_tag');
-		$tagged = 1 if $tagre && $given =~ /$tagre/;
+		$tagged = 1 if $tagre && $$nick != 1 && $given =~ /$tagre/;
 
 		if ($tagged) {
 			my $tagsep = $net->param('tag_prefix');
