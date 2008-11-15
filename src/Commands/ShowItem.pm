@@ -14,11 +14,14 @@ my @mode_sym = qw{~ & @ % +};
 			$all ? $n->ts.'='.gmtime($n->ts) : ());
 		if ($all) {
 			&Janus::jmsg($dst, join ' ', "\002Mode:\002", $n->umodes);
-			&Janus::jmsg($dst, join ' ', "\002Channels:\002", map $_->real_keyname, $n->all_chans);
+			&Janus::jmsg($dst, join ' ', "\002Channels:\002", map $_->netname, $n->all_chans);
 			my @ifokeys = sort keys %{$Nick::info[$$n]};
 			&Janus::jmsg($dst, join ' ', '', map $_.'='.$n->info($_), @ifokeys);
 		}
-		&Janus::jmsg($dst, join ' ', "\002Nicks:\002", sort map { '@'.$_->name.'='.$n->str($_) } $n->netlist);
+		&Janus::jmsg($dst, join ' ', "\002Nicks:\002",
+			sort map { '@'.$_->name.'='.$n->str($_) }
+				grep { $_->isa('LocalNetwork') }
+				$n->netlist);
 	},
 	INFO => Channel => sub {
 		my($dst, $c, $asker) = @_;
@@ -28,7 +31,7 @@ my @mode_sym = qw{~ & @ % +};
 		&Janus::jmsg($dst, join ' ', "\002Channel\002",$$c,$c->real_keyname,'on',$c->homenet->name,
 			$c->ts.'='.gmtime($c->ts));
 		&Janus::jmsg($dst, join ' ', "\002Names:\002", sort map { '@'.$_->name.'='.$c->str($_) } $c->nets);
-		&Janus::jmsg($dst, "\002Topic:\002 ".$c->topic);
+		&Janus::jmsg($dst, "\002Topic:\002 ".$c->topic) if defined $c->topic;
 
 		if ($all) {
 			my $modeh = $c->all_modes();
@@ -81,18 +84,13 @@ my @mode_sym = qw{~ & @ % +};
 	details => [
 		"\002SHOWNICK\002 [net] nick|gid",
 	],
-	api => '=src =replyto act $ ?$',
+	api => '=src =replyto localdefnet $',
 	code => sub {
-		my($src, $dst, $act) = @_;
-		my $net = @_ > 4 ? $Janus::nets{$_[3]} : $src->homenet;
-		my $n = $_[-1];
+		my($src, $dst, $net, $n) = @_;
 		if ($n =~ /:/) {
 			$n = $Janus::gnicks{$n} or return Janus::jmsg($dst, 'Cannot find nick by gid');
-		} elsif ($net->isa('LocalNetwork')) {
-			$n = $net->nick($n, 1) or return Janus::jmsg($dst, 'Cannot find nick by name');
 		} else {
-			&Event::reroute_cmd($act, $net->jlink);
-			return;
+			$n = $net->nick($n, 1) or return Janus::jmsg($dst, 'Cannot find nick by name');
 		}
 		&Event::named_hook('INFO/Nick', $dst, $n, $src);
 	},
@@ -103,18 +101,11 @@ my @mode_sym = qw{~ & @ % +};
 	details => [
 		"\002SHOWCHAN\002 [net] chan|gid",
 	],
-	api => '=src =replyto act $ ?$',
+	api => '=src =replyto localdefnet $',
 	code => sub {
-		my($src, $dst, $act) = @_;
-		my $net = @_ > 4 ? $Janus::nets{$_[3]} : $src->homenet;
-		my $c = $_[-1];
+		my($src, $dst, $net, $c) = @_;
 		if ($c =~ /^#/) {
-			if ($net->isa('LocalNetwork')) {
-				$c = $net->chan($c, 0) or return Janus::jmsg($dst, 'Cannot find channel by name');
-			} else {
-				&Event::reroute_cmd($act, $net->jlink);
-				return;
-			}
+			$c = $net->chan($c, 0) or return Janus::jmsg($dst, 'Cannot find channel by name');
 		} else {
 			$c = $Janus::gchans{$c} or return Janus::jmsg($dst, 'Cannot find channel by gid');
 		}
