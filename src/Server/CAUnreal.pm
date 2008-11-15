@@ -8,12 +8,14 @@ use Persist 'Server::BaseNick';
 use strict;
 use warnings;
 
-our(@sendq, @srvname, @servers);
-&Persist::register_vars(qw(sendq srvname servers));
+our(@rawout, @sjmerge_head, @sjmerge_txt, @srvname, @servers);
+&Persist::register_vars(qw(rawout sjmerge_head sjmerge_txt srvname servers));
 
 sub _init {
 	my $net = shift;
-	$sendq[$$net] = [];
+	$rawout[$$net] = '';
+	$sjmerge_head[$$net] = '';
+	$sjmerge_txt[$$net] = '';
 }
 
 my %fromirc;
@@ -287,57 +289,49 @@ sub send {
 		if (ref $act) {
 			my $type = $act->{type};
 			if (exists $toirc{$type}) {
-				push @{$sendq[$$net]}, $toirc{$type}->($net, $act);
+				my @lines = $toirc{$type}->($net, $act);
+				if (@lines) {
+					$net->merge_join();
+					$rawout[$$net] .= join "\r\n", @lines, '';
+				}
 			}
 		} else {
-			push @{$sendq[$$net]}, $act;
+			$net->merge_join();
+			$rawout[$$net] .= $act . "\r\n";
 		}
+	}
+}
+
+sub rawsend {
+	my $net = shift;
+	$rawout[$$net] .= join "\r\n", @_, '';
+}
+
+sub merge_join {
+	my($net, $head, $txt) = @_;
+	$head ||= '';
+	my $chead = $sjmerge_head[$$net];
+	if ($chead && $chead ne $head) {
+		local $_ = $sjmerge_txt[$$net];
+		s/^ //;
+		while (s/^(.{400,465}) //) {
+			$rawout[$$net] .= $net->cmd1(SJOIN => $chead, $1) . "\r\n";
+		}
+		$rawout[$$net] .= $net->cmd1(SJOIN => $chead, $_) . "\r\n";
+		$sjmerge_txt[$$net] = '';
+	}
+	$sjmerge_head[$$net] = $head;
+	if ($head) {
+		$sjmerge_txt[$$net] .= ' ' . $txt;
 	}
 }
 
 sub dump_sendq {
 	my $net = shift;
 	local $_;
-	my $q = '';
-	my %sjmerge;
-	my $mode = 0;
-	for my $i (@{$sendq[$$net]}, '') {
-		$_ = ref $i ? $i->[0] : '';
-		my $cmode = /JOIN|FLOAT_ADD/ ? 1 : 0;
-		$cmode = $mode if /FLOAT_ALL/;
-		if ($mode == 1 && $cmode != 1) {
-			local $_;
-			for my $c (keys %sjmerge) {
-				$_ = $sjmerge{$c}{j}; chomp;
-				# IRC limits to 512 char lines; we output a line like: ~ !123456 #<32> :<510-45>
-				$q .= $net->cmd1(SJOIN => $sjmerge{$c}{ts}, $c, $1)."\r\n" while s/^(.{400,465}) //;
-				$q .= $net->cmd1(SJOIN => $sjmerge{$c}{ts}, $c, $_)."\r\n";
-			}
-			%sjmerge = ();
-		}
-		$mode = $cmode;
-		if (/JOIN/) {
-			my $c = $i->[2];
-			if ($sjmerge{$c}{ts} && $sjmerge{$c}{ts} ne $i->[1]) {
-				if ($net->sjbint($sjmerge{$c}{ts}) > $net->sjbint($i->[1])) {
-					$sjmerge{$c}{j} =~ s/(^|\s)[\*\@\$\%\+]+/$1/g;
-					$sjmerge{$c}{ts} = $i->[1];
-				} else {
-					$i->[3] =~ s/(^|\s)[\*\@\$\%\+]+/$1/g;
-				}
-			} else {
-				$sjmerge{$c}{ts} = $i->[1];
-			}
-			$sjmerge{$c}{j} .= $i->[3].' ';
-		} elsif (/^FLOAT_/) {
-			$q .= join "\r\n", @$i[1 .. $#$i], '';
-		} elsif ($_ eq '') {
-			$q .= $i."\r\n" if $i;
-		} else {
-			warn "ignoring unknown OUTDATA $_";
-		}
-	}
-	$sendq[$$net] = [];
+	$net->merge_join();
+	my $q = $rawout[$$net];
+	$rawout[$$net] = '';
 	&Log::netout($net, $_) for split /[\r\n]+/, $q;
 	$q;
 }
@@ -392,7 +386,7 @@ sub _connect_ifo {
 	push @out, $net->cmd1(SWHOIS => $nick, $whois) if defined $whois && $whois ne '';
 	my $away = $nick->info('away');
 	push @out, $net->cmd2($nick, AWAY => $away) if defined $away && $away ne '';
-	[ 'FLOAT_ADD', @out ];
+	$net->rawsend(@out);
 }
 
 # IRC Parser
@@ -1025,11 +1019,11 @@ sub srvname {
 				($desc =~ s/^U\d+-\S+-(\d+) //) ? $1    : 0), 1);
 
 		if ($net->auth_should_send) {
-			unshift @{$sendq[$$net]}, (
-				'PASS :'.$net->param('sendpass'),
-				'PROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS UMODE2 TKLEXT SJB64',
-				'SERVER '.$net->cparam('linkname').' 1 :U2309-hX6eE-'.($net->cparam('numeric')||'').' Janus Network Link',
-			);
+			$rawout[$$net] =
+				'PASS :'.$net->param('sendpass').
+				"\r\nPROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS ".
+				"UMODE2 TKLEXT SJB64\r\nSERVER ".$net->cparam('linkname').' 1 :U2309-hX6eE-'.
+				($net->cparam('numeric')||'')." Janus Network Link\r\n".$rawout[$$net];
 		}
 		&Log::info_in($net, "Server $_[2] [\@$snum] added from $src");
 		$servers[$$net]{$name} = {
@@ -1354,15 +1348,15 @@ sub cmd2 {
 	}, CONNECT => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
-		return () if $act->{net} ne $net;
-
-		return $net->_connect_ifo($nick);
+		$net->_connect_ifo($nick);
+		();
 	}, RECONNECT => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
 
 		if ($act->{killed}) {
-			my @out = $net->_connect_ifo($nick, $act->{althost});
+			$net->_connect_ifo($nick, $act->{althost});
+			my @out;
 			for my $chan (@{$act->{reconnect_chans}}) {
 				next unless $chan->is_on($net);
 				my $mode = '';
@@ -1389,7 +1383,8 @@ sub cmd2 {
 		$sj =~ tr/qaohv/*~@%+/;
 		return () unless $act->{src}->is_on($net);
 		$sj .= $net->_out($act->{src});
-		[ JOIN => $net->sjb64($chan->ts()), $chan->str($net), $sj ];
+		$net->merge_join($net->sjb64($chan->ts()).' '.$chan->str($net), $sj);
+		();
 	}, PART => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, PART => $act->{dst}, $act->{msg});
@@ -1443,7 +1438,9 @@ sub cmd2 {
 		return () unless $type eq 'PRIVMSG' || $type eq 'NOTICE' || $type =~ /^\d\d\d$/;
 		return () if $type eq '378' && $net->param('untrusted');
 		my @msg = ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg};
-		[ FLOAT_ALL => $net->cmd2($act->{src}, $type, ($act->{prefix} || '').$net->_out($act->{dst}), @msg) ];
+		my $dst = ($act->{prefix} || '').$net->_out($act->{dst});
+		$net->rawsend($net->cmd2($act->{src}, $type, $dst, @msg));
+		();
 	}, WHOIS => sub {
 		my($net,$act) = @_;
 		my $dst = $act->{dst};
