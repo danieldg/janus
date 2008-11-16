@@ -181,7 +181,9 @@ sub jlink {
 sub send {
 	my $ij = shift;
 	my @out = &EventDump::dump_act(@_);
-	&Log::netout($ij, $_) for @out;
+	for (@out) {
+		&Log::netout($ij, $_) unless /^<MSG /;
+	}
 	$sendq[$$ij] .= join '', map "$_\n", @out;
 }
 
@@ -203,7 +205,7 @@ sub dump_sendq {
 }
 
 sub parse {
-	&Log::netin(@_);
+	&Log::netin(@_) unless /^<MSG /;
 	my $ij = shift;
 	local $_ = $_[0];
 
