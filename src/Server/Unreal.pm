@@ -256,7 +256,6 @@ sub intro {
 sub parse {
 	my ($net, $line) = @_;
 	return () unless $line;
-	&Log::netin(@_);
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
 	push @args, $msg if defined $msg;
@@ -267,6 +266,7 @@ sub parse {
 	}
 	my $cmd = $args[1];
 	$cmd = $args[1] = $token2cmd{$cmd} if exists $token2cmd{$cmd};
+	&Log::netin(@_) unless $cmd eq 'PRIVMSG' || $cmd eq 'NOTICE';
 	unless ($net->auth_ok || $cmd eq 'PASS' || $cmd eq 'SERVER' || $cmd eq 'PROTOCTL' || $cmd eq 'ERROR') {
 		return () if $cmd eq 'NOTICE'; # NOTICE AUTH ... annoying
 		$net->send('ERROR :Not authorized');
@@ -333,7 +333,10 @@ sub dump_sendq {
 	$net->merge_join();
 	my $q = $rawout[$$net];
 	$rawout[$$net] = '';
-	&Log::netout($net, $_) for split /[\r\n]+/, $q;
+	for (split /[\r\n]+/, $q) {
+		next if /^:\S+ (B|!) /;
+		&Log::netout($net, $_);
+	}
 	$q;
 }
 

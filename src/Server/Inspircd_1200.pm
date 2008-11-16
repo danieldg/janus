@@ -48,7 +48,6 @@ sub intro {
 # parse one line of input
 sub parse {
 	my ($net, $line) = @_;
-	&Log::netin(@_);
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
 	push @args, $msg if defined $msg;
@@ -56,6 +55,7 @@ sub parse {
 		unshift @args, undef;
 	}
 	my $cmd = $args[1];
+	&Log::netin(@_) unless $cmd eq 'PRIVMSG' || $cmd eq 'NOTICE';
 	unless ($net->auth_ok || $cmd eq 'CAPAB' || $cmd eq 'SERVER' || $cmd eq 'ERROR') {
 		$sendq1[$$net] .= "ERROR :Not authorized yet\r\n";
 		return ();
@@ -78,7 +78,9 @@ sub dump_sendq {
 	if ($net->auth_ok) {
 		my $fj_pfx;
 		my $fj_line = '';
-		for (split /\r\n/, $sendq2[$$net]) {
+		my @lines = split /\r\n/, $sendq2[$$net];
+		$sendq2[$$net] = '';
+		for (@lines) {
 			if (/^:\S+ FJOIN (.*?) :(.*)/) {
 				if ($fj_line && $fj_pfx eq $1 && length $fj_line < 490) {
 					$fj_line .= ' '.$2;
@@ -95,12 +97,11 @@ sub dump_sendq {
 					$fj_line = '';
 				}
 				$q .= $_ . "\r\n";
-				&Log::netout($net, $_);
+				&Log::netout($net, $_) unless /^:\S+ (?:PRIVMSG|NOTICE) /;
 			}
 		}
 		$q .= $fj_line."\r\n" if $fj_line;
 		&Log::netout($net, $fj_line) if $fj_line;
-		$sendq2[$$net] = '';
 	}
 	$q;
 }

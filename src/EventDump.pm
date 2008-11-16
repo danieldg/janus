@@ -114,6 +114,7 @@ my %to_ij = (
 
 sub debug_send {
 	for my $act (@_) {
+		next if $act->{type} eq 'MSG';
 		my $thnd = $to_ij{$act->{type}};
 		if ($thnd) {
 			&Log::action($INST->ssend($act));
