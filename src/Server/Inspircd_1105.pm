@@ -1175,8 +1175,9 @@ $moddef{CORE} = {
 			my $src = $act->{src};
 			$src = $src->homenick() if $src && $src->isa('Nick');
 			$msg = $msg =~ /^\001ACTION (.*?)\001?$/ ? '* '.$net->_out($src).' '.$msg : '<'.$net->_out($src).'> '.$msg;
-			$net->cmd2($Interface::janus, $type, $act->{dst}, $msg);
+			return $net->cmd2($Interface::janus, $type, $dst, $msg);
 		}
+		return ();
 	}, WHOIS => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, IDLE => $act->{dst});

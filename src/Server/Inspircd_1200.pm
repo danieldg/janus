@@ -1175,6 +1175,7 @@ $moddef{CORE} = {
 			my $msg = $net->cmd2($src, $type, $dst, ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg});
 			return $net->ncmd(PUSH => $act->{dst}, $msg);
 		}
+		return ();
 	}, WHOIS => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, IDLE => $act->{dst});
