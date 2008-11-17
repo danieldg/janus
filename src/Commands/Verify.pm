@@ -12,7 +12,7 @@ sub v_nick;
 sub v_serv;
 
 sub v_nick {
-	my($nick,$path) = @_;
+	my($nick,$path,$top) = @_;
 	if (ref $nick eq 'Persist::Poison') {
 		my $id = $$nick->{id};
 		push @err, "Poisoned nick $id ($Nick::gid[$id] = $Nick::homenick[$id]) in $path";
@@ -23,18 +23,20 @@ sub v_nick {
 		return;
 	}
 
-	return if $nseen{$$nick};
+	return if $nseen{$$nick} && !$top;
 	$nseen{$$nick} = $nick;
 
 	my $gid = $nick->gid;
 	my $hn = $nick->homenick;
 	my $hs = $nick->homenet;
 
-	if ($Janus::gnicks{$gid} != $nick) {
+	if ($Janus::gnicks{$gid} == $nick) {
+		return unless $top;
+	} else {
 		push @err, "nick $$nick not in gnicks; found in $path";
 	}
 	if ($hs) {
-		v_serv $hs, "nick $$nick (homenet)";
+		v_serv $hs, "nick $$nick (homenet) <= $path";
 	} else {
 		push @err, "nick $$nick with no homenet found in $path";
 	}
@@ -138,7 +140,7 @@ sub verify {
 	my $ts = $Janus::time;
 	(@err, %cseen, %nseen, %sseen, %n_c) = ();
 
-	v_nick $_,'gnicks' for values %Janus::gnicks;
+	v_nick $_,'gnicks',1 for values %Janus::gnicks;
 	v_chan $_,'gchans' for values %Janus::gchans;
 	v_serv $_,'gnets' for values %Janus::gnets;
 	v_serv $_,'nets' for values %Janus::nets;
