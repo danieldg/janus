@@ -25,7 +25,7 @@ sub ignore { () }
 
 sub nicklen {
 	my $net = shift;
-	($capabs[$$net]{NICKMAX} || 32) - 1;
+	($capabs[$$net]{NICKMAX} || 32) - 2;
 }
 
 sub str {
