@@ -188,7 +188,10 @@ those of chan2
 sub delta {
 	my($chan1, $chan2) = @_;
 	my %current = $chan1 ? %{$chan1->all_modes()} : ();
-	my %add = $chan2 ? %{$chan2->all_modes()} : ();
+	my %add =
+		'HASH' eq ref $chan2 ? %$chan2 :
+		$chan2 ? %{$chan2->all_modes()} :
+		();
 	my(@modes, @args, @dirs);
 	for my $txt (keys %current) {
 		my $type = $mtype{$txt};
