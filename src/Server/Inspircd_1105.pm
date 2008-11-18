@@ -164,7 +164,7 @@ sub process_capabs {
 	my(%p2t,%t2p);
 	while (s/\((.)(.*)\)(.)/($2)/) {
 		my $txt = $net->cmode2txt($1);
-		$modes .= $3;
+		$modes .= $1;
 		$t2p{$txt} = $3;
 		$p2t{$3} = $txt;
 	}
