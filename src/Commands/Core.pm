@@ -34,7 +34,8 @@ my %help_section = (
 	help => 'Version information on all modules loaded by janus',
 	section => 'Info',
 	details => [
-		"Syntax: \002MODULES\002 [all|janus|other][columns]",
+		'Shows version information on all modules loaded by janus.',
+		"Syntax: \002MODULES\002 [all|janus|other|sha][columns]",
 	],
 	code => sub {
 		my($src,$dst,$parm) = @_;
