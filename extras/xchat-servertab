@@ -1,5 +1,5 @@
-IRC::register ("Send Janus Notice To Server Tab! v1.0 by EmErgE", "1.0", "", "");
-IRC::print("Send Janus Notice To Server Tab! v1.0 loaded.");
+Xchat::register( "xChat Server Tab for Janus, written by EmErGe, fixed by TheKing", v1.0.0, "v1.0.0", "" );
+Xchat::print "xChat Server tab for Janus loaded sucessfully.";
 Xchat::hook_print("Notice", "sendmynotice");
 
 sub sendmynotice {
@@ -19,9 +19,10 @@ sub get_server_tab {
         my $current =  Xchat::get_info('server');
         for( Xchat::get_list('channels') ) {
                 if( $_->{type} == 1 # server tab type
-                and $_->{server} eq $current ) { # find family server tab
+                and $_->{server} eq $current ) {
                         return $_;
                 }
         }
         return; # nada
 }
+
