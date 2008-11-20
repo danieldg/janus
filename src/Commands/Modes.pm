@@ -128,7 +128,7 @@ use Modes;
 		&Interface::msgtable($dst, [
 			map {
 				my $netv = $net->can('txt2umode') ? $net->txt2umode($_) : '';
-				$netv = '' if ref $netv;
+				$netv = '' if ref $netv || !defined $netv;
 				[ $_, $netv ]
 			} @nmodes ], cols => $w, fmtfmt => [ '%%-'.$l.'s', '%%2s' ], pfx => ' ');
 		&Interface::jmsg($dst, 'Channel modes:');
@@ -138,7 +138,7 @@ use Modes;
 				my $type = $Modes::mtype{$m};
 				my $netv = '';
 				if ($net->can('txt2cmode')) {
-					$netv .= $net->txt2cmode($_ . '_' . $m) for qw/r t1 t2 v s n l/;
+					$netv .= ($net->txt2cmode($_ . '_' . $m) || '') for qw/r t1 t2 v s n l/;
 				}
 				[ $m, $netv ]
 			} @cmodes ], cols => $w, fmtfmt => [ '%%-'.$l.'s', '%%2s' ], pfx => ' ');
