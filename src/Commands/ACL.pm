@@ -93,8 +93,8 @@ use warnings;
 		my $hname = $snet->name;
 		for my $dcname (keys %{$Link::request{$dnname}}) {
 			my $ifo = $Link::request{$dnname}{$dcname};
-			next unless $ifo->{net} eq $hname && lc $ifo->{chan} eq $tochan;
 			next if $ifo->{mode};
+			next unless $ifo->{net} eq $hname && lc $ifo->{chan} eq $tochan;
 			my $chan = $dnet->chan($dcname, 1);
 			&Event::append(+{
 				type => 'LINKREQ',

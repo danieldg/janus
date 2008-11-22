@@ -91,7 +91,7 @@ sub hash {
 	code => sub {
 		my($src,$dst) = @_;
 		my $acctid = $src->info('account:'.$RemoteJanus::self->id);
-		my $user = @_ == 3 ? $acctid : $_[2];
+		my $user = @_ == 3 ? $acctid : lc $_[2];
 		my $acct = $user ? $Account::accounts{$user} : undef;
 		if ($acct && $user eq $acctid) {
 			&Log::info($src->netnick .' changed their password (account "'.$user.'")');

@@ -404,6 +404,7 @@ sub wipe_hooks {
 
 sub reroute_cmd {
 	my($act, $dst) = @_;
+	return unless $dst;
 	my $nact = { %$act };
 	$nact->{dst} = $dst;
 	delete $nact->{IJ_RAW};
