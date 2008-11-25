@@ -70,7 +70,6 @@ log log/%Y-%m-%d-%H:%M:%S {
 log net#logchan {
 	type Channel
 	filter audit
-	# You MUST use a filter to avoid massive floods with a channel log
 }
 
 # Listen blocks: listen for incoming server connections
@@ -106,11 +105,10 @@ link u3 {
 	recvpass pass
 	# Link type: either plain or ssl
 	linktype plain
-	# Name of the remote server (used for incoming connections)
-	server irc1.testnet
 	# Long name of this network
 	netname Test 1
-	# OPTIONAL: numeric used for the hub and for this server on other networks
+# Options below here are not required
+	# Unreal-only: numeric used for the hub and for this server on other networks
 	numeric 40
 	# Force tagging on nicks matching a certain perl regex
 	force_tag ^ChanServ$
@@ -118,20 +116,24 @@ link u3 {
 	send_chatops 1
 }
 
-# Link block for an Unreal 4.0 or InspIRCd 1.1 server
+# Link block for an InspIRCd 1.1 server
 # (protocol details, module list, etc are autonegotiated on connect)
-link u4 {
+link i1 {
 	type Inspircd_1105
 	linkaddr ::1
 	linkport 8003
 	linkname hub.janus
 	linktype plain
+# Name of the server that we are linking to; required for inspircd only
 	server penguin.omega.org.za
 	sendpass pass
 	recvpass password
-	netname Unreal 4.0 Test Server
+	netname Insp Server
 	autoconnect 1
 }
+
+# Other server protocols link the same way.
+# See the protocol module names in src/Server/
 
 # Inter-janus link block
 # The link id must match the set::name of the remote server
@@ -147,4 +149,17 @@ link myserver {
 	autoconnect 0
 	ssl_certfile alt-server.cert.pem
 	ssl_keyfile alt-server.key.pem
+}
+
+# Relay bot link block
+link cbot {
+	type ClientBot
+	linkaddr 1.2.3.4
+	linkport 6667
+	linktype plain
+	nick jmirror
+	nspass NickServPassWord
+	# the nick must already be registered, and the bot will not ghost anyone camping
+	netname A Relay Bot
+	autoconnect 1
 }
