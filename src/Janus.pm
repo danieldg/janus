@@ -334,16 +334,18 @@ Event::hook_add(
 		my $act = shift;
 		my $net = $act->{net};
 		my $id = $net->name();
-		delete $act->{except} if $net == $act->{except};
+		delete $act->{except} if $act->{except} && $net == $act->{except};
 		$gnets{$net->gid()} = $net;
 		delete $pending{$id};
 		$nets{$id} = $net;
 	}, NETSPLIT => parse => sub {
 		my $act = shift;
+		my $net = $act->{net};
 		if ($act->{except} && $act->{except}->isa('RemoteJanus')) {
 			delete $act->{netsplit_quit};
-			my $net = $act->{net};
 			return 1 unless $net && $act->{except}->jparent($net->jlink());
+		} else {
+			&Log::info('Network '.$net->name.' split: '.$act->{msg});
 		}
 		undef;
 	}, NETSPLIT => act => sub {
