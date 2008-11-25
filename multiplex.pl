@@ -67,9 +67,6 @@ sub start_child {
 }
 
 my $cmd = start_child;
-print $cmd "BOOT 4\n";
-my $line = <$cmd>;
-no warnings 'once';
-$Multiplex::ipv6 = ($line =~ /^1/);
+print $cmd "BOOT 5\n";
 do './src/Multiplex.pm' or die $@;
 &Multiplex::run($cmd);

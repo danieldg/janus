@@ -5,12 +5,19 @@ use strict;
 use warnings;
 use integer;
 
-our $ipv6;
+our($HAS_IPV6,$HAS_DNS);
 BEGIN {
 	require IO::Socket::SSL;
-	if ($ipv6) {
+	$HAS_IPV6 = eval {
 		require IO::Socket::INET6;
 		require Socket6;
+		1;
+	};
+	$HAS_DNS = eval {
+		require Net::DNS;
+		1;
+	};
+	if ($HAS_IPV6) {
 		IO::Socket::INET6->import();
 		IO::Socket::SSL->import('inet6');
 		Socket6->import();
@@ -29,23 +36,31 @@ use constant {
 	SOCK => 1,
 	STATE => 2,
 	NETID => 3,
-	RECVQ => 4,
-	SENDQ => 5,
-	TRY_R => 6,
-	TRY_W => 7,
-	EINFO => 8,
-	IPV6 => $ipv6,
-	STATE_LISTEN => 1,
-	STATE_DEAD => 2,
-	STATE_ACCEPT => 4,
+	TRY_R => 4,
+	TRY_W => 5,
+	EINFO => 6,
+	SENDQ => 7,
+	RECVQ => 8,
+	DNS_INFO => 8,
+
+	STATE_LISTEN => 0x1, # this is a listening socket
+	STATE_NORMAL => 0x2, # this is an IRC s2s socket
+	STATE_DNS    => 0x4, # this is a DNS lookup socket
+	STATE_TYPE_M => 0x7, # socket type mask
+
+	STATE_IOERR   => 0x8,   # this is a disconnected socket
+	STATE_DROPPED => 0x10,  # socket has been removed
+
+	STATE_ACCEPT  => 0x20,  # socket can accept() new connection
+	STATE_DNS_V6  => 0x40,  # IPv6 lookup has been tried
 };
 
 our @queues;
-# netid => [ fd, IO::Socket, netid, recvq, sendq, try_recv, try_send ]
+# netid => [ fd, IO::Socket, state, netid, try_r, try_w, ... ]
 
 sub peer_to_addr {
 	my $peer = shift;
-	if (IPV6) {
+	if ($HAS_IPV6) {
 		my($port,$addr) = unpack_sockaddr_in6 $peer;
 		inet_ntop(AF_INET6, $addr);
 	} else {
@@ -54,10 +69,77 @@ sub peer_to_addr {
 	}
 }
 
+sub do_connect {
+	my($baddr, $port, $bind, $sslkey, $sslcert) = @_;
+	if ($HAS_IPV6 && length $baddr == 4) {
+		$baddr = pack 'x10Sa4', -1, $baddr;
+	}
+	my $inet = $HAS_IPV6 ? 'IO::Socket::INET6' : 'IO::Socket::INET';
+	my $addr = $HAS_IPV6 ? sockaddr_in6($port, $baddr) : sockaddr_in($port, $baddr);
+	my $sock = $inet->new(
+		Proto => 'tcp',
+		Blocking => 0,
+		($bind ? (LocalAddr => $bind) : ()),
+	);
+	my $fd;
+	if ($sock) {
+		fcntl $sock, F_SETFL, O_NONBLOCK;
+		connect $sock, $addr;
+		$fd = fileno $sock;
+
+		if ($sslcert) {
+			IO::Socket::SSL->start_SSL($sock,
+				SSL_startHandshake => 0,
+				SSL_use_cert => 1,
+				SSL_key_file => $sslkey,
+				SSL_cert_file => $sslcert,
+			);
+			if ($sock->isa('IO::Socket::SSL')) {
+				$sock->connect_SSL();
+			} else {
+				$fd = undef;
+			}
+		} elsif ($sslkey) {
+			IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
+			$sock->connect_SSL();
+		}
+	}
+	return ($sock,$fd);
+}
+
 sub readable {
 	my $l = shift;
 	if ($l->[STATE] & STATE_LISTEN) {
 		$l->[STATE] |= STATE_ACCEPT;
+		return;
+	}
+	if ($l->[STATE] & STATE_DNS) {
+		my($sock,$id,$sendq,$res,$iaddr,@info) = @$l[SOCK,NETID,SENDQ,DNS_INFO..$#$l];
+		my $pkt = $res->bgread($sock);
+		close $sock;
+		my @answer = $pkt ? $pkt->answer() : undef;
+		if (!$pkt || !@answer) {
+			if ($HAS_IPV6 && !($l->[STATE] & STATE_DNS_V6)) {
+				$l->[STATE] |= STATE_DNS_V6;
+				$sock = $res->bgsend($iaddr,'AAAA');
+				$l->[FD] = fileno $sock;
+				$l->[SOCK] = $sock;
+				return;
+			}
+			my $err = $!;
+			$err = $pkt->header->rcode if $pkt;
+			$l->[STATE] |= STATE_IOERR;
+			$l->[EINFO] = "DNS resolver error: $err";
+			return;
+		}
+		my $baddr = $answer[0]->rdata;
+		my($csock, $fd) = do_connect($baddr, @info);
+		if (defined $fd) {
+			@$l = ($fd, $csock, STATE_NORMAL, $id, 0, 1, '', $sendq, '');
+		} else {
+			$l->[STATE] |= STATE_IOERR;
+			$l->[EINFO] = "Connection error: $!";
+		}
 		return;
 	}
 
@@ -86,7 +168,7 @@ sub readable {
 		} else {
 			$$l[EINFO] = "Delink from failed read: $!";
 		}
-		$$l[STATE] |= STATE_DEAD;
+		$$l[STATE] |= STATE_IOERR;
 	}
 }
 
@@ -112,7 +194,7 @@ sub _syswrite {
 		} else {
 			$$l[EINFO] = "Delink from failed write: $!";
 		}
-		$$l[STATE] |= STATE_DEAD;
+		$$l[STATE] |= STATE_IOERR;
 	}
 }
 
@@ -124,20 +206,28 @@ sub writable {
 
 sub run_sendq {
 	my $l = $_[0];
-	return if $$l[TRY_W] || !$$l[SENDQ];
+	return if $$l[TRY_W] || !$$l[SENDQ] || !($l->[STATE] & STATE_NORMAL);
 	# no point in trying to write if we are already waiting for writes to unblock
 	&_syswrite;
 }
 
 sub run {
 	my $cmd = shift;
+	my $cmdfd = fileno $cmd;
 	my $offset = 0;
 	LINE: while (<$cmd>) {
 		chomp;
 		if (/^W (\d+)/) {
 			my($r,$w,$time) = ('','',$1);
-			for my $q (@queues) {
-				next unless $q;
+			vec($r,$cmdfd,1) = 1;
+			for my $i (0..$#queues) {
+				my $q = $queues[$i] or next;
+				if ($q->[STATE] & STATE_DROPPED) {
+					$q->[TRY_R] = $q->[TRY_W] = 0;
+					if ($q->[STATE] & STATE_IOERR || !$q->[SENDQ]) {
+						delete $queues[$i];
+					}
+				}
 				run_sendq $q;
 				vec($r,$q->[FD],1) = 1 if $q->[TRY_R];
 				vec($w,$q->[FD],1) = 1 if $q->[TRY_W];
@@ -156,21 +246,20 @@ sub run {
 		} elsif ($_ eq 'N') {
 			while ($offset <= $#queues) {
 				my $q = $queues[$offset];
-				unless ($q) {
+				if (!$q || $q->[STATE] & STATE_DROPPED) {
 					$offset++;
 					next;
 				}
-				if ($q->[RECVQ] =~ s/^([^\r\n]*)[\r\n]+//) {
+				if ($q->[STATE] & STATE_NORMAL && $q->[RECVQ] =~ s/^([^\r\n]*)[\r\n]+//) {
 					print $cmd "$q->[NETID] $1\n";
 					next LINE;
 				}
-				if ($q->[STATE] & STATE_DEAD) {
+				if ($q->[STATE] & STATE_IOERR) {
 					print $cmd "DELINK $q->[NETID] $q->[EINFO]\n";
 					$offset++;
 					next LINE;
 				} elsif ($q->[STATE] & STATE_ACCEPT) {
 					my $lsock = $q->[SOCK];
-					$q->[STATE] &= ~STATE_ACCEPT;
 					my($sock,$peer) = $lsock->accept();
 					my $fd = $sock ? fileno $sock : undef;
 					if ($fd) {
@@ -191,11 +280,13 @@ sub run {
 							} else {
 								die 'cannot initiate SSL accept';
 							}
-							$queues[$netid] = [ $fd, $sock, 0, $netid, '', '', 1, 0, '' ];
+							$queues[$netid] = [ $fd, $sock, STATE_NORMAL, $netid, 1, 0, '', '', '' ];
 						} elsif (/^PEND (\d+)/) {
-							$queues[$1] = [ $fd, $sock, 0, $1, '', '', 1, 0, '' ];
+							$queues[$1] = [ $fd, $sock, STATE_NORMAL, $1, 1, 0, '', '', '' ];
 						}
 						next LINE;
+					} else {
+						$q->[STATE] &= ~STATE_ACCEPT;
 					}
 				}
 				$offset++;
@@ -205,7 +296,7 @@ sub run {
 			$queues[$1][SENDQ] .= "$2\n";
 		} elsif (/^INITL (\S*) (\S+)/) {
 			my($addr,$port) = ($1,$2);
-			my $inet = IPV6 ? 'IO::Socket::INET6' : 'IO::Socket::INET';
+			my $inet = $HAS_IPV6 ? 'IO::Socket::INET6' : 'IO::Socket::INET';
 			my $sock = $inet->new(
 				Listen => 5,
 				Proto => 'tcp',
@@ -224,61 +315,33 @@ sub run {
 				$_ = <$cmd>;
 				chomp;
 				/^ID (\d+)/ or die "Bad input line: $_";
-				my $q = [ $fd, $sock, STATE_LISTEN, $1, '', undef, 1, 0, '' ];
+				my $q = [ $fd, $sock, STATE_LISTEN, $1, 1, 0 ];
 				$queues[$1] = $q;
 			} else {
 				print $cmd "ERR $!\n";
 			}
-		} elsif (/^INITC (\S+) (\d+) (\S*) (\S*) (\S*)/) {
-			my($iaddr, $port, $bind, $sslkey, $sslcert) = ($1,$2,$3,$4,$5);
-			my $addr = IPV6 ?
-					sockaddr_in6($port, inet_pton(AF_INET6, $iaddr)) :
-					sockaddr_in($port, inet_aton($iaddr));
-			my $inet = IPV6 ? 'IO::Socket::INET6' : 'IO::Socket::INET';
-			my $sock = $inet->new(
-				Proto => 'tcp',
-				Blocking => 0,
-				($bind ? (LocalAddr => $bind) : ()),
-			);
-			my $fd;
-			if ($sock) {
-				fcntl $sock, F_SETFL, O_NONBLOCK;
-				connect $sock, $addr;
-				$fd = fileno $sock;
-
-				if ($sslcert) {
-					IO::Socket::SSL->start_SSL($sock,
-						SSL_startHandshake => 0,
-						SSL_use_cert => 1,
-						SSL_key_file => $sslkey,
-						SSL_cert_file => $sslcert,
-					);
-					if ($sock->isa('IO::Socket::SSL')) {
-						$sock->connect_SSL();
-					} else {
-						$fd = undef;
-					}
-				} elsif ($sslkey) {
-					IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
-					$sock->connect_SSL();
-				}
-			}
-			if (defined $fd) {
-				print $cmd "OK\n";
-				$_ = <$cmd>;
-				chomp;
-				/^ID (\d+)/ or die "Bad input line: $_";
-				my $q = [ $fd, $sock, 0, $1, '', '', 0, 1, '' ];
-				$queues[$1] = $q;
+		} elsif (/^INITC (\d+) (\S+) (\d+) (\S*) (\S*) (\S*)/) {
+			my($id, $iaddr, @info) = ($1,$2,$3,$4,$5,$6);
+			my $baddr = $HAS_IPV6 && $iaddr =~ /:/ ? inet_pton(AF_INET6, $iaddr) : inet_aton($iaddr);
+			if (defined $baddr) {
+				my($sock, $fd) = do_connect($baddr, @info);
+				$queues[$id] = [ $fd, $sock, STATE_NORMAL, $id, 0, 1, '', '', '' ];
+			} elsif ($HAS_DNS) {
+				my $res = Net::DNS::Resolver->new;
+				my $sock = $res->bgsend($iaddr,'A');
+				my $fd = fileno $sock;
+				$queues[$id] = [ $fd, $sock, STATE_DNS, $id, 1, 0, '', '', $res, $iaddr, @info ];
 			} else {
-				print $cmd "ERR $!\n";
+				$queues[$id] = [ 0, undef, STATE_DNS | STATE_IOERR, $id, 0, 0, 'Net::DNS not found' ];
 			}
 		} elsif (/^DELNET (\d+)/) {
-			delete $queues[$1];
+			$queues[$1][STATE] |= STATE_DROPPED;
+			$queues[$1][TRY_R] = 0;
 		} elsif (/^REBOOT (\S+)/) {
 			my $save = $1;
 			close $cmd;
 			$cmd = &main::start_child();
+			$cmdfd = fileno $cmd;
 			print $cmd "RESTORE $save\n";
 		} elsif (/^EVAL (.+)/) {
 			my $ev = $1;

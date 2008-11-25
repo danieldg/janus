@@ -39,11 +39,11 @@ if ($^P) {
 my $line = <$RemoteControl::sock>;
 chomp $line;
 if ($line =~ /^BOOT(?: (\d+))?/) {
+	no warnings 'once';
 	$RemoteControl::master_api = ($1 || 1);
 	&Janus::load('Conffile') or die;
 	&Event::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
 	&Log::timestamp($Janus::time);
-	print $RemoteControl::sock $Conffile::netconf{set}{ipv6} ? "1\n" : "0\n";
 	&Janus::load('RemoteControl') or die;
 	&Event::insert_full(+{ type => 'INIT', args => \@ARGV });
 	&Event::insert_full(+{ type => 'RUN' });

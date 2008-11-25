@@ -116,8 +116,10 @@ sub add {
 	my($fd, $net) = @_;
 	if ($RemoteControl::master_api < 4) {
 		&RemoteControl::cmd("ADDNET $fd $$net");
-	} else {
+	} elsif ('' eq ref $fd) {
 		&RemoteControl::cmd("ID $$net");
+	} else {
+		&RemoteControl::cmd(join ' ', 'INITC', $$net, @$fd);
 	}
 	push @RemoteControl::active, $net;
 }
@@ -166,11 +168,13 @@ sub init_conn {
 	$sslkey ||= '';
 	$sslcert ||= '';
 	my $resp;
-	if ($master_api < 3) {
+	if ($RemoteControl::master_api < 3) {
 		my $ssl = $sslkey ? 1 : 0;
 		$resp = &RemoteControl::ask("INITC $addr $port $bind $ssl");
-	} else {
+	} elsif ($RemoteControl::master_api < 5) {
 		$resp = &RemoteControl::ask("INITC $addr $port $bind $sslkey $sslcert");
+	} else {
+		return [ $addr, $port, $bind, $sslkey, $sslcert ];
 	}
 	if ($resp eq 'OK') {
 		return 1;
