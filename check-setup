@@ -20,4 +20,9 @@ eval {
 	1;
 } or print "IPv6 not available\n";
 
+eval {
+	require Net::DNS;
+	1;
+} or print "DNS lookups not available\n";
+
 print "All required modules found\n";
