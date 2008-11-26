@@ -50,6 +50,13 @@ sub ask {
 	die "Unexpected read error: $!";
 }
 
+sub find {
+	local $_;
+	my @r = grep { $$_ == $_[0] } @active;
+	&Log::err("Find on unknown network $_[0]") unless @r;
+	$r[0];
+}
+
 sub timestep {
 	my $next = &Event::next_event($Janus::time + 60);
 	my $now = ask("W $next");
@@ -60,10 +67,10 @@ sub timestep {
 			last;
 		} elsif ($now =~ /^(\d+) (.*)/) {
 			my($nid, $line) = ($1,$2);
-			my $net = &Connection::find($nid);
+			my $net = find($nid);
 			$net->in_socket($tblank . $line) if $net;
 		} elsif ($now =~ /^DELINK (\d+) (.*)/) {
-			my $net = &Connection::find($1);
+			my $net = find($1);
 			if ($net) {
 				$net->delink($2);
 			} else {
@@ -71,7 +78,7 @@ sub timestep {
 			}
 		} elsif ($now =~ /^PEND (\d+) (\S+)/) {
 			my($lid, $addr) = ($1,$2);
-			my $lnet = &Connection::find($lid);
+			my $lnet = find($lid);
 			my $net = $lnet->init_pending($addr);
 			if ($net) {
 				my($sslkey, $sslcert) = &Conffile::find_ssl_keys($net, $lnet);
@@ -112,19 +119,7 @@ package Connection;
 
 our $OVERRIDE = 1;
 
-sub add {
-	my($fd, $net) = @_;
-	if ($RemoteControl::master_api < 4) {
-		&RemoteControl::cmd("ADDNET $fd $$net");
-	} elsif ('' eq ref $fd) {
-		&RemoteControl::cmd("ID $$net");
-	} else {
-		&RemoteControl::cmd(join ' ', 'INITC', $$net, @$fd);
-	}
-	push @RemoteControl::active, $net;
-}
-
-sub del {
+sub drop_socket {
 	my $net = shift;
 	local $_;
 	for (0..$#RemoteControl::active) {
@@ -136,37 +131,39 @@ sub del {
 	return 0;
 }
 
-sub find {
-	local $_;
-	my @r = grep { $$_ == $_[0] } @RemoteControl::active;
-	&Log::err("Find on unknown network $_[0]") unless @r;
-	$r[0];
-}
-
 sub list {
 	@RemoteControl::active
 }
 
 sub init_listen {
-	my($addr, $port) = @_;
-	my $resp = &RemoteControl::ask("INITL $addr $port");
-	if ($resp eq 'OK') {
-		return 1;
-	} elsif ($resp =~ /^FD (\d+)/) {
-		return $1;
-	} elsif ($resp =~ /^ERR (.*)/) {
-		&Log::err("Cannot listen: $1");
+	my($net, $addr, $port) = @_;
+	if ($master_api >= 6) {
+		my $resp = &RemoteControl::ask("INITL $$net $addr $port");
+		if ($resp =~ /^ERR (.*)/) {
+			&Log::err("Cannot listen: $1");
+			return 0;
+		}
 	} else {
-		&Log::err('Bad RemoteControl response '.$resp);
+		my $resp = &RemoteControl::ask("INITL $addr $port");
+		if ($resp eq 'OK') {
+			RemoteControl::cmd("ID $$net");
+		} elsif ($resp =~ /^FD (\d+)/) {
+			RemoteControl::cmd("ADDNET $1 $$net");
+		} else {
+			&Log::err("Cannot listen: $1") if $resp =~ /^ERR (.*)/;
+			return 0;
+		}
 	}
-	return undef;
+	push @RemoteControl::active, $net;
+	return 1;
 }
 
-sub init_conn {
-	my($addr, $port, $bind, $sslkey, $sslcert) = @_;
+sub init_connection {
+	my($net,$addr, $port, $bind, $sslkey, $sslcert) = @_;
 	$bind ||= '';
 	$sslkey ||= '';
 	$sslcert ||= '';
+	push @RemoteControl::active, $net;
 	my $resp;
 	if ($RemoteControl::master_api < 3) {
 		my $ssl = $sslkey ? 1 : 0;
@@ -174,18 +171,18 @@ sub init_conn {
 	} elsif ($RemoteControl::master_api < 5) {
 		$resp = &RemoteControl::ask("INITC $addr $port $bind $sslkey $sslcert");
 	} else {
-		return [ $addr, $port, $bind, $sslkey, $sslcert ];
+		&RemoteControl::cmd("INITC $$net $addr $port $bind $sslkey $sslcert");
+		return;
 	}
 	if ($resp eq 'OK') {
-		return 1;
+		RemoteControl::cmd("ID $$net");
 	} elsif ($resp =~ /^FD (\d+)/) {
-		return $1;
-	} elsif ($resp =~ /^ERR (.*)/) {
-		&Log::err("Cannot connect: $1");
+		RemoteControl::cmd("ADDNET $1 $$net");
 	} else {
-		&Log::err('Bad RemoteControl response '.$resp);
+		$resp =~ /^ERR (.*)/;
+		&Log::err("Cannot connect: $1");
+		pop @RemoteControl::active;
 	}
-	return undef;
 }
 
 1;

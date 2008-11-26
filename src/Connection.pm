@@ -330,12 +330,12 @@ sub ts_mplex {
 			}
 			if ($q->[STATE] & STATE_NORMAL && $q->[RECVQ] =~ s/^([^\r\n]*)[\r\n]+//) {
 				print $mpsock "$q->[NET] $1\n";
-				return;
+				return 1;
 			}
 			if ($q->[STATE] & STATE_IOERR) {
 				print $mpsock "DELINK $q->[NET] $q->[EINFO]\n";
 				$mpoffset++;
-				return;
+				return 1;
 			} elsif ($q->[STATE] & STATE_ACCEPT) {
 				do_accept($q, sub {
 					my $addr = shift;
@@ -350,7 +350,7 @@ sub ts_mplex {
 						return 0;
 					}
 				});
-				return;
+				return 1;
 			}
 			$mpoffset++;
 		}
@@ -378,6 +378,7 @@ sub ts_mplex {
 	} else {
 		die "bad line $_";
 	}
+	return 1;
 }
 
 sub ts_simple {

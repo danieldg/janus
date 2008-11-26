@@ -66,7 +66,7 @@ sub start_child {
 	}
 }
 
-my $cmd = start_child;
-print $cmd "BOOT 5\n";
-do './src/Multiplex.pm' or die $@;
-&Multiplex::run($cmd);
+do './src/Connection.pm' or die $@;
+$Connection::mpsock = start_child;
+&Connection::mpsend('BOOT 6');
+1 while &Connection::ts_mplex();

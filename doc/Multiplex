@@ -8,11 +8,9 @@ INITC <netid> <addr> <port> <bind> <ssl-key> <ssl-cert>
 	the given IP. If ssl-key is specified, start SSL; if both ssl-key and
 	ssl-cert are specified, they specify the client SSL certificate to use.
 	No response; errors are communicated through DELINK.
-INITL <addr> <port>
+INITL <netid> <addr> <port>
 	Open a listening socket on the given port, bound to the given IP.
-	If successful, respond with "OK"; the next incoming line will be
-	"ID <netid>" where netid is used in the future to refer to this socket.
-	If unsuccessful, respond with "ERR <reason>".
+	If successful, respond with "OK"; otherwise, respond with "ERR <reason>".
 W <time>
 	Wait for I/O activity, or until time (a unix timestamp).
 	Response: "DONE"
