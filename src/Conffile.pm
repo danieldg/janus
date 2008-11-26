@@ -191,15 +191,17 @@ sub connect_net {
 	return if !$nconf || $Janus::nets{$id} || $Janus::ijnets{$id} || $Janus::pending{$id};
 	if ($id =~ /^LISTEN:/) {
 		return if $Listener::open{$id};
-		&Log::info("Listening on $nconf->{addr}");
-		my $sock = &Connection::init_listen(
-			($nconf->{addr} =~ /^(.*):(\d+)/) ? ($1, $2) : ('', $nconf->{addr})
-		);
-		if ($sock) {
-			my $list = Listener->new(id => $id, conf => $nconf);
-			&Connection::add($sock, $list);
+		my $list = Listener->new(id => $id, conf => $nconf);
+		my $addr;
+		my $port = $nconf->{addr};
+		if ($port =~ /^(.*):(\d+)/) {
+			($addr,$port) = ($1,$2);
+		}
+		if (&Connection::init_listen($list,$addr,$port)) {
+			&Log::info("Listening on $nconf->{addr}");
 		} else {
 			&Log::err("Could not listen on port $nconf->{addr}: $!");
+			$list->close();
 		}
 	} elsif ($nconf->{autoconnect}) {
 		&Log::info("Autoconnecting $id");
@@ -212,16 +214,11 @@ sub connect_net {
 			my($addr, $port, $bind) = @$nconf{qw(linkaddr linkport linkbind)};
 			my($ssl_key, $ssl_cert) = find_ssl_keys($id);
 
-			my $sock = &Connection::init_conn($addr, $port, $bind, $ssl_key, $ssl_cert);
-			return unless $sock;
-
 			my $net = &Persist::new($type, id => $id);
 			# this is equivalent to $type->new(id => \$id) but without using eval
 
+			&Connection::init_connection($net, $addr, $port, $bind, $ssl_key, $ssl_cert);
 			$Janus::pending{$id} = $net;
-
-			&Connection::add($sock, $net);
-
 			$net->intro($nconf);
 		}
 	}
@@ -234,7 +231,7 @@ sub rehash {
 	delete $toclose{$_} for keys %netconf;
 	for my $net (values %toclose) {
 		$net->close();
-		&Connection::del($net);
+		&Connection::drop_socket($net);
 	}
 	connect_net $nick,$_ for keys %netconf;
 

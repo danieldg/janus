@@ -60,16 +60,12 @@ if ($ping) {
 		my $act = shift;
 		my $net = $act->{net};
 
-		my $q = &Connection::del($net);
-		return if $net->jlink();
-
-		warn "Queue for network $$net was already removed" unless $q;
+		&Connection::drop_socket($net);
 	}, JNETSPLIT => check => sub {
 		my $act = shift;
 		my $net = $act->{net};
 
-		my $q = &Connection::del($net);
-		warn "Queue for network $$net was already removed" unless $q;
+		&Connection::drop_socket($net);
 
 		my $eq = $Janus::ijnets{$net->id()};
 		return 1 if $eq && $eq ne $net;

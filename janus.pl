@@ -57,6 +57,6 @@ $SIG{CHLD} = 'IGNORE';
 &Event::insert_full(+{ type => 'RUN' });
 
 eval { 
-	1 while &Connection::timestep();
-	1;
-} ? &Debug::info("Goodbye!\n") : &Debug::err("Aborting, error=$@");
+	&Connection::ts_simple while 1;
+};
+&Log::err("Aborting, error=$@");
