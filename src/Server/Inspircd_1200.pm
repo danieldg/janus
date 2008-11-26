@@ -195,9 +195,11 @@ sub process_capabs {
 			"expected $expect, got $capabs[$$net]{CHANMODES}"));
 	}
 	$expect = join '', sort map { ref $_ ? () : $_} map { $net->txt2umode($_) } $net->all_umodes;
-	unless (",,s,$expect" eq $capabs[$$net]{USERMODES}) {
+	my $given = $capabs[$$net]{USERMODES};
+	$given =~ s/r//;
+	unless (",,s,$expect" eq $given) {
 		$net->send($net->ncmd(SNONOTICE => 'l', 'Possible desync - USERMODES do not match module list: '.
-			"expected ,,s,$expect, got $capabs[$$net]{USERMODES}"));
+			"expected ,,s,$expect, got $given"));
 	}
 
 	delete $capabs[$$net]{CHALLENGE}; # TODO respond to challenge
@@ -635,7 +637,7 @@ $moddef{CORE} = {
 			$servernum[$$net]{$_[5]} = $_[2];
 			return ();
 		} else {
-			&Log::debug_in($net, "Initial server introduction of $_[2] from $_[0] with numeric $_[5]");
+			&Log::debug_in($net, "Initial server introduction of $_[2] with numeric $_[5]");
 			if ($_[3] eq $net->cparam('recvpass')) {
 				$net->auth_recvd;
 				if ($net->auth_should_send) {
