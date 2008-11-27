@@ -22,6 +22,7 @@ use warnings;
 			dst => $nick,
 			net => $net,
 			killed => 0,
+			altnick => 1,
 		});
 		&Janus::jmsg($dst, 'Done');
 	},

@@ -508,6 +508,7 @@ sub kicked {
 				dst => $replace,
 				net => $net,
 				killed => 0,
+				altnick => 1,
 				sendto => [ $net ],
 			};
 		}

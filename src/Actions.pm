@@ -184,7 +184,8 @@ my %spec = (
 	RECONNECT => {
 		dst => 'Nick',
 		net => 'Network',
-		killed => '$', # 1 = reintroduce, 0 = renick
+		killed => '$',   # 1 = full reintroduce, 0 = simple renick. Set by protocol module.
+		altnick => '?$', # 1 = try alternate nick on reintroduce
 		althost => '?$', # 1 = try alternate real host on reintroduce
 	},
 	KILL => {

@@ -328,6 +328,7 @@ $moddef{CORE} = {
 				type => 'RECONNECT',
 				dst => $stomp,
 				net => $net,
+				altnick => 1,
 				killed => 0,
 			}, {
 				type => 'RAW',
@@ -805,6 +806,7 @@ $moddef{CORE} = {
 				dst => $nick,
 				net => $net,
 				killed => 0,
+				altnick => 1,
 			};
 		} else {
 			&Log::warn_in($net, "Ignoring SVSNICK on already tagged nick");

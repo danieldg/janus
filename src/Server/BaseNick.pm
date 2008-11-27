@@ -62,7 +62,7 @@ sub nick_collide {
 				dst => $old,
 				net => $net,
 				killed => 1,
-				nojlink => 1,
+				altnick => 1,
 			};
 		}
 	}

@@ -95,6 +95,7 @@ sub register_nick {
 			type => 'RECONNECT',
 			dst => $old,
 			killed => 0,
+			altnick => 1,
 		};
 	}
 	push @rv, +{

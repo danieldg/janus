@@ -358,9 +358,11 @@ sub str {
 
 		delete $act->{except};
 
-		my $from = $act->{from} = $nicks[$$nick]{$$net};
-		my $to = $act->{to} = $net->request_cnick($nick, $homenick[$$nick], 1);
-		$nicks[$$nick]{$$net} = $to;
+		if ($act->{altnick}) {
+			my $from = $act->{from} = $nicks[$$nick]{$$net};
+			my $to = $act->{to} = $net->request_cnick($nick, $homenick[$$nick], 1);
+			$nicks[$$nick]{$$net} = $to;
+		}
 
 		if ($act->{killed}) {
 			$act->{reconnect_chans} = [ @{$chans[$$nick]} ];

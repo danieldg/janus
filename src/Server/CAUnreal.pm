@@ -773,6 +773,7 @@ sub srvname {
 				dst => $nick,
 				net => $net,
 				killed => 0,
+				altnick => 1,
 				sendto => [ $net ],
 			};
 		} else {

@@ -303,7 +303,7 @@ $moddef{CORE} = {
 					dst => $stomp,
 					net => $net,
 					killed => 1,
-					nojlink => 1,
+					altnick => 1,
 				};
 			}
 			return +{
@@ -345,12 +345,12 @@ $moddef{CORE} = {
 		if ($nick) {
 			# collided. Inspircd 1.1 method: kill them all!
 			push @out, +{
-                type => 'RECONNECT',
-                dst => $nick,
-                net => $net,
-                killed => 1,
-                nojlink => 1,
-            };
+				type => 'RECONNECT',
+				dst => $nick,
+				net => $net,
+				killed => 1,
+				altnick => 1,
+			};
 			$net->send($net->ncmd(KILL => $_[3], 'Nick collision'));
 		} else {
 			$nick = Nick->new(%nick);
@@ -436,7 +436,7 @@ $moddef{CORE} = {
 				dst => $dst,
 				net => $net,
 				killed => 1,
-				nojlink => 1,
+				altnick => 1,
 			};
 		}
 
@@ -801,6 +801,7 @@ $moddef{CORE} = {
 				dst => $nick,
 				net => $net,
 				killed => 0,
+				altnick => 1,
 				sendto => [ $net ],
 			};
 		} else {

@@ -796,7 +796,7 @@ sub srvname {
 				dst => $nick,
 				net => $net,
 				killed => 0,
-				sendto => [ $net ],
+				altnick => 1,
 			};
 		} else {
 			&Log::err_in($net, "Ignoring SVSNICK on already tagged nick\n");

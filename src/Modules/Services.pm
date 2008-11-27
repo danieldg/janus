@@ -7,18 +7,20 @@ use Persist;
 
 our %bits;
 BEGIN { %bits = (
-	CACHED => 1,
-	NO_MSG => 2,
-	NO_KILL_UNTAG => 4,
-	NO_KILL_ALL => 8,
-	JOIN_ALL => 16,
-	KILL_ALTHOST => 32,
+	CACHED        => 0x01,
+	NO_MSG        => 0x02,
+	JOIN_ALL      => 0x04,
+	NO_KILL_ALL   => 0x08,
+	KILL_LOOP     => 0x10,
+	KILL_ALTNICK  => 0x20,
+	KILL_ALTHOST  => 0x40,
 ); }
 use constant \%bits;
 
 # clear the cache on each module load, to force new values
 our @cache = ();
-&Persist::register_vars('Nick::cache' => \@cache);
+our @loop;
+&Persist::register_vars('Nick::cache' => \@cache, 'Nick::kloop' => \@loop);
 
 sub svs_type {
 	my $n = shift;
@@ -56,15 +58,13 @@ sub svs_type {
 		return ($cache[$$n] = $v);
 	}
 
-	$r = CACHED | NO_MSG | NO_KILL_UNTAG;
-	
-	my $share = $net->param('services_shared') || '';
-
-	if (grep $_ eq $nick, split /,/, $share) {
-		$r = CACHED | JOIN_ALL | NO_KILL_UNTAG;
+	if ($nick eq 'nickserv') {
+		$r = CACHED | NO_MSG | KILL_ALTNICK | NO_KILL_ALL;
+	} elsif ($nick eq 'operserv') {
+		$r = CACHED | NO_MSG | KILL_ALTHOST | KILL_LOOP;
+	} else {
+		$r = CACHED | NO_MSG | KILL_LOOP;
 	}
-	$r |= NO_KILL_ALL if $nick eq 'nickserv';
-	$r |= KILL_ALTHOST if $nick eq 'operserv';
 
 	$cache[$$n] = $r;
 }
@@ -86,8 +86,13 @@ sub svs_type {
 		my $type = svs_type $src;
 		if ($type & NO_KILL_ALL) {
 			# bounce all
-		} elsif ($type & NO_KILL_UNTAG) {
-			return undef unless $nick->homenick() eq $nick->str($net);
+		} elsif ($type & KILL_LOOP) {
+			my $loop = $loop[$$nick] || '';
+			my %expand;
+			$expand{$1} = $2 while $loop =~ s/^(\S+)=(\d+)(,|$)//;
+			my $count = ++$expand{$net->name};
+			$loop[$$nick] = join ',', map { $_.'='.$expand{$_} } keys %expand;
+			return undef if $count < 3;
 		} else {
 			return undef;
 		}
@@ -98,6 +103,7 @@ sub svs_type {
 			net => $net,
 			killed => 1,
 			($type & KILL_ALTHOST ? (althost => 1) : ()),
+			($type & KILL_ALTNICK ? (altnick => 1) : ()),
 		});
 		1;
 	}, NEWNICK => act => sub {
