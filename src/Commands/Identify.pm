@@ -5,6 +5,9 @@ use strict;
 use warnings;
 use Account;
 
+our @fails;
+&Persist::register_vars('Nick::fails' => \@fails);
+
 sub gen_salt {
 	my($nick,$acct) = @_;
 	my $h = $Janus::new_sha1->();
@@ -76,7 +79,21 @@ sub hash {
 			}
 		}
 		&Log::info($nick->netnick.' failed identify as '.$user);
-		&Janus::jmsg($nick, 'Invalid username or password');
+		my $count = ++$fails[$$nick];
+		if ($count < 5) {
+			&Janus::jmsg($nick, 'Invalid username or password.');
+		} elsif ($count == 5) {
+			&Janus::jmsg($nick, 'Invalid username or password. Your next misidentify will result in a kill.');
+		} else {
+			&Log::info('Too many login failures, killing '.$nick->netnick);
+			&Event::append({
+				type => 'KILL',
+				net => $nick->homenet,
+				dst => $nick,
+				src => $Interface::janus,
+				msg => 'Too many incorrect passwords',
+			});
+		}
 	},
 }, {
 	cmd => 'setpass',
