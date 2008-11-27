@@ -35,7 +35,7 @@ our(@gid, @homenet, @homenick, @nets, @nicks, @chans, @mode, @info, @ts);
 &Persist::register_vars(qw(gid homenet homenick nets nicks chans mode info ts));
 &Persist::autoget(qw(gid homenet homenick ts));
 
-our %umodebit = ();
+our %umodebit;
 do {
 	my $i = 1;
 	for (values %umodebit) {
