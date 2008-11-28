@@ -92,7 +92,7 @@ sub svs_type {
 			$expand{$1} = $2 while $loop =~ s/^(\S+)=(\d+)(,|$)//;
 			my $count = ++$expand{$net->name};
 			$loop[$$nick] = join ',', map { $_.'='.$expand{$_} } keys %expand;
-			return undef if $count < 3;
+			return undef if $count > 3;
 		} else {
 			return undef;
 		}
