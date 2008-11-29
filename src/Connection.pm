@@ -151,8 +151,9 @@ sub init_listen {
 
 sub drop_socket {
 	my $net = shift;
-	$queues[$$net][STATE] |= STATE_DROPPED;
-	$queues[$$net][TRY_R] = 0;
+	$net = $$net if ref $net;
+	$queues[$net][STATE] |= STATE_DROPPED;
+	$queues[$net][TRY_R] = 0;
 }
 
 sub readable {
