@@ -229,6 +229,14 @@ sub nets {
 	values %Janus::nets;
 }
 
+sub homename {
+	$keyname[${$_[0]}];
+}
+
+sub netname {
+	$keyname[${$_[0]}];
+}
+
 sub to_ij {
 	my($chan,$ij) = @_;
 	my $out = '';

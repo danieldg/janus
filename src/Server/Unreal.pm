@@ -1452,6 +1452,33 @@ sub cmd2 {
 			$net->cmd1(MODE => $new, @$_, 0);
 		} &Modes::to_multi($net, &Modes::delta($new->ts < $old->ts ? undef : $old, $new));
 		@out;
+	}, CHANALLSYNC => sub {
+		my($net,$act) = @_;
+		my $chan = $act->{chan};
+		my @sjmodes = &Modes::to_irc($net, &Modes::dump($chan));
+		@sjmodes = '+' unless @sjmodes;
+		my $sj = '';
+		for my $nick ($chan->all_nicks) {
+			my $mode = $chan->get_nmode($nick);
+			my $m = join '', map { $net->txt2cmode("n_$_") } keys %$mode;
+			$m =~ tr/qaohv/*~@%+/;
+			$sj .= ' '.$m.$net->_out($nick);
+		}
+		$sj =~ s/^ // or return ();
+		my @txt = qw/ban except invex/;
+		my @sjban = qw/& " '/;
+		for my $lm (0..2) {
+			my $list = $chan->get_mode($txt[$lm]) or next;
+			for my $ban (@$list) {
+				$sj .= ' '.$sjban[$lm].$ban;
+			}
+		}
+		my @out = $net->cmd1(SJOIN => $net->sjb64($chan->ts), $chan, @sjmodes, $sj);
+		if (defined $chan->topic) {
+			push @out, $net->cmd1(TOPIC => $chan, $chan->topicset,
+				$net->sjb64($chan->topicts), $chan->topic);
+		}
+		@out;
 	}, TOPIC => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, TOPIC => $act->{dst}, $act->{topicset},

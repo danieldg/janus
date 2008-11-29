@@ -30,14 +30,7 @@ if ($Janus::lmode) {
 		my $nick = $kact->{dst};
 		my $knet = $kact->{net};
 		my $hnet = $nick->homenet();
-		if ($$nick == 1) {
-			$knet->send({
-				type => 'CONNECT',
-				dst => $Interface::janus,
-				net => $knet,
-			});
-			return 1;
-		}
+		return 0 if $$nick == 1;
 		$hnet->send({
 			type => 'KILL',
 			src => $kact->{src},
@@ -71,35 +64,15 @@ if ($Janus::lmode) {
 			};
 		}
 		&Event::insert_full(@conns);
+		@conns = ();
 
-		# hide the channel burst from janus's event hooks
-		# TODO this may not be correct now that CHANBURST exists
 		for my $chan (values %Janus::chans) {
-			for my $nick ($chan->all_nicks()) {
-				$net->send({
-					type => 'JOIN',
-					src => $nick,
-					dst => $chan,
-					mode => $chan->get_nmode($nick),
-				});
-			}
-			my($modes, $args, $dirs) = &Modes::delta(undef, $chan);
-			$net->send({
-				type => 'MODE',
-				dst => $chan,
-				mode => $modes,
-				args => $args,
-				dirs => $dirs,
-			}) if @$modes;
-			$net->send({
-				type => 'TOPIC',
-				dst => $chan,
-				topic => $chan->topic(),
-				topicts => $chan->topicts(),
-				topicset => $chan->topicset(),
-				in_link => 1,
-			}) if defined $chan->topic();
+			push @conns, {
+				type => 'CHANALLSYNC',
+				chan => $chan,
+			};
 		}
+		$net->send(@conns);
 	},
 );
 

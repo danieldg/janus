@@ -1157,6 +1157,28 @@ $moddef{CORE} = {
 			push @out, $net->ncmd(FTOPIC => $new, $new->topicts, $new->topicset, $new->topic);
 		}
 		@out;
+	}, CHANALLSYNC => sub {
+		my($net,$act) = @_;
+		my $chan = $act->{chan};
+		my @sjmodes = &Modes::to_irc($net, &Modes::dump($chan));
+		@sjmodes = '+' unless @sjmodes;
+		my @out;
+		my $fj = '';
+		# TODO this likely misses +qa if people turn off prefix mode for them
+		for my $nick ($chan->all_nicks) {
+			my $mode = $chan->get_nmode($nick);
+			my $m = join '', map { $net->txt2cmode("n_$_") || '' } keys %$mode;
+			$fj .= ' '.$m.','.$net->_out($nick);
+		}
+		$fj =~ s/^ // or return ();
+		push @out, $net->ncmd(FJOIN => $chan, $chan->ts, @sjmodes, $fj);
+		push @out, map {
+			$net->ncmd(FMODE => $chan, $chan->ts, @$_);
+		} &Modes::to_multi($net, &Modes::delta(undef, $chan), $capabs[$$net]{MAXMODES});
+		if ($chan->topic) {
+			push @out, $net->ncmd(FTOPIC => $chan, $chan->topicts, $chan->topicset, $chan->topic);
+		}
+		@out;
 	}, MSG => sub {
 		my($net,$act) = @_;
 		return if $act->{dst}->isa('Network');
