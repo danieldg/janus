@@ -9,6 +9,7 @@ use Persist 'Server::BaseNick';
 use Scalar::Util 'weaken';
 use strict;
 use warnings;
+use Link;
 
 our(@sendq, @self, @kicks, @lchan, @flood_bkt, @flood_ts);
 &Persist::register_vars(qw(sendq self kicks lchan flood_bkt flood_ts));

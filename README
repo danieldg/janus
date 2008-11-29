@@ -16,8 +16,7 @@ other unrelated channels.
 
 The second mode is called "bridge" mode, and functions as a more transparent
 bridge, intended to be used between different ircds on the same logical network.
-Because it is not actively used, this mode currently has some problems with nick
-collisions, and should be used only if you want to help debug problems.
+Many of the commands and modules will not work in this mode.
 
 
 Available modules:

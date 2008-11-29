@@ -137,7 +137,6 @@ link i1 {
 
 # Inter-janus link block
 # The link id must match the set::name of the remote server
-# Note: this will not work in network bridge link mode
 link myserver {
 	type InterJanus
 	linkaddr ::1
