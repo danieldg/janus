@@ -455,7 +455,7 @@ sub nick_msg {
 		$msg->[0] = $about;
 	}
 	if ($_[2] =~ /\./) {
-		&Log::warn_in($net, 'numeric', $_[1], @$msg);
+		&Log::warn_in($net, 'numeric', @_);
 		return ();
 	}
 	my $dst = $net->nick($_[2]) or return ();
