@@ -68,7 +68,7 @@ sub chan_access_chk {
 	if (acl_check($nick, 'link')) {
 		return 1;
 	}
-	if (($acl eq 'link' || $acl eq 'create') && $net->param('oper_only_link')) {
+	if (($acl eq 'link' || $acl eq 'create') && $Janus::setting{$net->name}{oper_only_link}) {
 		&Janus::jmsg($errs, 'You must be an IRC operator to use this command');
 		return 0;
 	}

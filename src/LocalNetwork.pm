@@ -63,6 +63,20 @@ sub auth_should_send {
 	1;
 }
 
+&Event::setting_add({
+	name => 'force_tag',
+	type => 'LocalNetwork',
+	help => 'Regular expression for nicks that will be forcibly tagged',
+	acl_local_w => 'set/network',
+	acl_w => 'setall/network',
+}, {
+	name => 'tagsep',
+	type => 'LocalNetwork',
+	help => 'Character used for tag separator. Default is "/"',
+	acl_local_w => 'set/network',
+	acl_w => 'setall/network',
+});
+
 ### MODE SPLIT ###
 eval($Janus::lmode eq 'Bridge' ? '#line '.__LINE__.' "'.__FILE__.'"'.q[#[[]]
 ### BRIDGE MODE ###

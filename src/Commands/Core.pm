@@ -82,16 +82,21 @@ my %help_section = (
 		&Janus::jmsg($dst, "Module $mod is at version $ifo->{version}; hooks are $active",
 			"Source checksum is $ifo->{sha}");
 		&Janus::jmsg($dst, ' '.$ifo->{desc}) if $ifo->{desc};
-		my(@hooks, @cmds);
+		my(@hooks, @cmds, @sets);
 		for my $cmd (sort keys %Event::commands) {
 			next unless $Event::commands{$cmd}{class} eq $mod;
 			push @cmds, $cmd;
+		}
+		for my $set (sort keys %Event::settings) {
+			next unless $Event::settings{$set}{class} eq $mod;
+			push @sets, $set;
 		}
 		for my $lvl (sort keys %Event::hook_mod) {
 			next unless $Event::hook_mod{$lvl}{$mod};
 			push @hooks, $lvl;
 		}
 		&Janus::jmsg($dst, 'Provides commands: '. join ' ', @cmds) if @cmds;
+		&Janus::jmsg($dst, 'Provides settings: '. join ' ', @sets) if @sets;
 		&Janus::jmsg($dst, 'Hooks: '. join ' ', @hooks) if @hooks;
 	},
 }, {
@@ -192,6 +197,42 @@ my %help_section = (
 	cmd => 'unk',
 	code => sub {
 		&Janus::jmsg($_[1], 'Unknown command. Use "help" to see available commands');
+	},
+}, {
+	cmd => 'set',
+	help => 'Change network or channel settings',
+	api => '=src =replyto $ $ @',
+	code => sub {
+		my($src,$dst,$item,$key,@value) = @_;
+		my $set = $Event::settings{$key} or do {
+			&Janus::jmsg($dst, "Setting $key not found");
+			return;
+		};
+		my $local;
+		if ($item) {
+			my $net = $Janus::nets{$item} or do {
+				&Janus::jmsg($dst, "Could not find network $item");
+				return;
+			};
+			$local = ($net == $src->homenet);
+			unless ($net->isa($set->{type})) {
+				&Janus::jmsg($dst, 'That setting does not apply to that network');
+				return;
+			}
+		}
+		my $acl = $set->{acl_w} || $set->{acl_r};
+		if ($local && $acl && !Account::acl_check($src, $acl)) {
+			$acl = $set->{acl_local_w} || $acl;
+		}
+		if ($acl && !Account::acl_check($src, $acl)) {
+			&Janus::jmsg($dst, "Changing this setting requires access to '$acl'");
+			return;
+		}
+		if ($set->{do_write}) {
+			$set->{do_write}->($src, $item, @value);
+		} else {
+			$Janus::setting{$item}{$key} = join ' ', @value;
+		}
 	},
 });
 

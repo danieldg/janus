@@ -250,4 +250,11 @@ sub send_avail {
 	},
 );
 
+&Event::setting_add({
+	name => 'oper_only_link',
+	type => 'LocalNetwork',
+	acl_local_w => 'set/network',
+	acl_w => 'setall/network',
+});
+
 1;

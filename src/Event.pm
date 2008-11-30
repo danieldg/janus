@@ -17,9 +17,11 @@ our %hook_mod; # $hook_mod{"$type/$level"}{$module} = $sub;
 our %hook_chk; # $hook_???{$type} => sub
 our %hook_run;
 
+# Commands and settings as defined by modules
 our %commands;
+our %settings;
 
-&Janus::static(qw(qstack hook_mod hook_chk hook_run commands));
+&Janus::static(qw(qstack hook_mod hook_chk hook_run commands settings));
 
 =head1 Event
 
@@ -89,6 +91,21 @@ sub command_add {
 		$commands{$cmd} = $h;
 	}
 }
+
+sub setting_add {
+	my $class = caller;
+	cluck "command_add called outside module load" unless $Janus::modinfo{$class}{load};
+	for my $h (@_) {
+		my $name = $h->{name};
+		if (exists $settings{$name}) {
+			my $c = $settings{$name}{class};
+			warn "Overriding setting '$name' from class '$c' with one from class '$class'";
+		}
+		$h->{class} = $class;
+		$settings{$name} = $h;
+	}
+}
+
 
 sub _send {
 	my $act = $_[0];
@@ -399,6 +416,11 @@ sub wipe_hooks {
 		warn "Command $cmd lacks class" unless $commands{$cmd}{class};
 		next unless $commands{$cmd}{class} eq $module;
 		delete $commands{$cmd};
+	}
+	for my $set (keys %settings) {
+		warn "Setting $set lacks class" unless $settings{$set}{class};
+		next unless $settings{$set}{class} eq $module;
+		delete $settings{$set};
 	}
 }
 

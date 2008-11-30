@@ -131,11 +131,11 @@ sub _request_nick {
 
 	$tagged = 1 if exists $nick2uid[$$net]->{lc $given};
 
-	my $tagre = $net->param('force_tag');
+	my $tagre = $Janus::setting{$net->name}{force_tag};
 	$tagged = 1 if $tagre && $$nick != 1 && $given =~ /$tagre/;
 
 	if ($tagged) {
-		my $tagsep = $net->param('tag_prefix');
+		my $tagsep = $Janus::setting{$net->name}{tagsep};
 		$tagsep = '/' unless defined $tagsep;
 		my $tag = $tagsep . $nick->homenet()->name();
 		my $i = 0;
