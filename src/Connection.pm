@@ -7,29 +7,37 @@ use integer;
 # NOTE: this file cannot depend on the rest of the Janus framework
 # as it is used in the I/O loop of multiplex.pl
 
-our($HAS_IPV6,$HAS_DNS);
 BEGIN {
 	die 'Cannot load Connection when Multiplex is loaded' if $Multiplex::master_api;
-	require IO::Socket::SSL;
-	$HAS_IPV6 = eval {
+	*HAS_SSL = eval {
+		require IO::Socket::SSL;
+		1;
+	} ? sub { 1 } : sub { 0 };
+	*HAS_IPV6 = eval {
 		require IO::Socket::INET6;
 		require Socket6;
 		1;
-	};
-	$HAS_DNS = eval {
+	} ? sub { 1 } : sub { 0 };
+	*HAS_DNS = eval {
 		require Net::DNS;
 		1;
-	};
-	if ($HAS_IPV6) {
+	} ? sub { 1 } : sub { 0 };
+}
+BEGIN {
+	if (HAS_IPV6) {
 		IO::Socket::INET6->import();
-		IO::Socket::SSL->import('inet6');
+		IO::Socket::SSL->import('inet6') if HAS_SSL;
 		Socket6->import();
 	} else {
 		require IO::Socket::INET;
 		require Socket;
 		IO::Socket::INET->import();
-		IO::Socket::SSL->import();
+		IO::Socket::SSL->import() if HAS_SSL;
 		Socket->import();
+	}
+	unless (HAS_SSL) {
+		*SSL_WANT_READ = sub { '' };
+		*SSL_WANT_WRITE = sub { '' };
 	}
 }
 
@@ -70,7 +78,7 @@ sub mpsend {
 
 sub peer_to_addr {
 	my $peer = shift;
-	if ($HAS_IPV6) {
+	if (HAS_IPV6) {
 		my($port,$addr) = unpack_sockaddr_in6 $peer;
 		inet_ntop(AF_INET6, $addr);
 	} else {
@@ -81,11 +89,11 @@ sub peer_to_addr {
 
 sub do_ip_connect {
 	my($baddr, $port, $bind, $sslkey, $sslcert) = @_;
-	if ($HAS_IPV6 && length $baddr == 4) {
+	if (HAS_IPV6 && length $baddr == 4) {
 		$baddr = pack 'x10Sa4', -1, $baddr;
 	}
-	my $inet = $HAS_IPV6 ? 'IO::Socket::INET6' : 'IO::Socket::INET';
-	my $addr = $HAS_IPV6 ? sockaddr_in6($port, $baddr) : sockaddr_in($port, $baddr);
+	my $inet = HAS_IPV6 ? 'IO::Socket::INET6' : 'IO::Socket::INET';
+	my $addr = HAS_IPV6 ? sockaddr_in6($port, $baddr) : sockaddr_in($port, $baddr);
 	my $sock = $inet->new(
 		Proto => 'tcp',
 		Blocking => 0,
@@ -97,7 +105,7 @@ sub do_ip_connect {
 		connect $sock, $addr;
 		$fd = fileno $sock;
 
-		if ($sslcert) {
+		if (HAS_SSL && $sslcert) {
 			IO::Socket::SSL->start_SSL($sock,
 				SSL_startHandshake => 0,
 				SSL_use_cert => 1,
@@ -109,7 +117,7 @@ sub do_ip_connect {
 			} else {
 				$fd = undef;
 			}
-		} elsif ($sslkey) {
+		} elsif (HAS_SSL && $sslkey) {
 			IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
 			$sock->connect_SSL();
 		}
@@ -119,12 +127,12 @@ sub do_ip_connect {
 
 sub init_connection {
 	my($net, $iaddr, @info) = @_;
-	my $baddr = $HAS_IPV6 && $iaddr =~ /:/ ? inet_pton(AF_INET6, $iaddr) : inet_aton($iaddr);
+	my $baddr = HAS_IPV6 && $iaddr =~ /:/ ? inet_pton(AF_INET6, $iaddr) : inet_aton($iaddr);
 	my $netid = ref $net ? $$net : $net;
 	if (defined $baddr) {
 		my($sock, $fd) = do_ip_connect($baddr, @info);
 		$queues[$netid] = [ $fd, $sock, STATE_NORMAL, $net, 0, 1, '', '', '' ];
-	} elsif ($HAS_DNS) {
+	} elsif (HAS_DNS) {
 		my $res = Net::DNS::Resolver->new;
 		my $sock = $res->bgsend($iaddr,'A');
 		my $fd = fileno $sock;
@@ -136,7 +144,7 @@ sub init_connection {
 
 sub init_listen {
 	my($net,$addr,$port) = @_;
-	my $inet = $HAS_IPV6 ? 'IO::Socket::INET6' : 'IO::Socket::INET';
+	my $inet = HAS_IPV6 ? 'IO::Socket::INET6' : 'IO::Socket::INET';
 	my $sock = $inet->new(
 		Listen => 5,
 		Proto => 'tcp',
@@ -171,7 +179,7 @@ sub readable {
 		close $sock;
 		my @answer = $pkt ? $pkt->answer() : undef;
 		if (!$pkt || !@answer) {
-			if ($HAS_IPV6 && !($l->[STATE] & STATE_DNS_V6)) {
+			if (HAS_IPV6 && !($l->[STATE] & STATE_DNS_V6)) {
 				$l->[STATE] |= STATE_DNS_V6;
 				$sock = $res->bgsend($iaddr,'AAAA');
 				$l->[FD] = fileno $sock;
@@ -303,7 +311,7 @@ sub do_accept {
 	my($net,$key,$cert) = $hook->($addr);
 	$q = [ $fd, $sock, STATE_NORMAL, $net, 1, 0, '', '', '' ];
 	$queues[ref $net ? $$net : $net] = $q;
-	if ($key) {
+	if (HAS_SSL && $key) {
 		IO::Socket::SSL->start_SSL($sock, 
 			SSL_server => 1, 
 			SSL_startHandshake => 0,
