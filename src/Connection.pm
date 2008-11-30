@@ -92,8 +92,8 @@ sub do_ip_connect {
 	if (HAS_IPV6 && length $baddr == 4) {
 		$baddr = pack 'x10Sa4', -1, $baddr;
 	}
-	my $inet = HAS_IPV6 ? 'IO::Socket::INET6' : 'IO::Socket::INET';
-	my $addr = HAS_IPV6 ? sockaddr_in6($port, $baddr) : sockaddr_in($port, $baddr);
+	my $inet = HAS_IPV6() ? 'IO::Socket::INET6' : 'IO::Socket::INET';
+	my $addr = HAS_IPV6() ? sockaddr_in6($port, $baddr) : sockaddr_in($port, $baddr);
 	my $sock = $inet->new(
 		Proto => 'tcp',
 		Blocking => 0,
@@ -144,7 +144,7 @@ sub init_connection {
 
 sub init_listen {
 	my($net,$addr,$port) = @_;
-	my $inet = HAS_IPV6 ? 'IO::Socket::INET6' : 'IO::Socket::INET';
+	my $inet = HAS_IPV6() ? 'IO::Socket::INET6' : 'IO::Socket::INET';
 	my $sock = $inet->new(
 		Listen => 5,
 		Proto => 'tcp',
