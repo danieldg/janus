@@ -1,6 +1,6 @@
 # Copyright (C) 2008 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
-package RemoteControl;
+package Multiplex;
 use strict;
 use warnings;
 use integer;
@@ -92,7 +92,7 @@ sub timestep {
 				cmd('DROP');
 			}
 		} else {
-			&Log::err('Bad RemoteControl response '.$now);
+			&Log::err('Bad Multiplex response '.$now);
 		}
 	}
 	
@@ -117,44 +117,42 @@ sub timestep {
 
 package Connection;
 
-our $OVERRIDE = 1;
-
 sub drop_socket {
 	my $net = shift;
 	local $_;
-	for (0..$#RemoteControl::active) {
-		next unless $RemoteControl::active[$_] == $net;
-		splice @RemoteControl::active, $_, 1;
-		&RemoteControl::cmd("DELNET $$net");
+	for (0..$#Multiplex::active) {
+		next unless $Multiplex::active[$_] == $net;
+		splice @Multiplex::active, $_, 1;
+		&Multiplex::cmd("DELNET $$net");
 		return 1;
 	}
 	return 0;
 }
 
 sub list {
-	@RemoteControl::active
+	@Multiplex::active
 }
 
 sub init_listen {
 	my($net, $addr, $port) = @_;
 	if ($master_api >= 6) {
-		my $resp = &RemoteControl::ask("INITL $$net $addr $port");
+		my $resp = &Multiplex::ask("INITL $$net $addr $port");
 		if ($resp =~ /^ERR (.*)/) {
 			&Log::err("Cannot listen: $1");
 			return 0;
 		}
 	} else {
-		my $resp = &RemoteControl::ask("INITL $addr $port");
+		my $resp = &Multiplex::ask("INITL $addr $port");
 		if ($resp eq 'OK') {
-			RemoteControl::cmd("ID $$net");
+			Multiplex::cmd("ID $$net");
 		} elsif ($resp =~ /^FD (\d+)/) {
-			RemoteControl::cmd("ADDNET $1 $$net");
+			Multiplex::cmd("ADDNET $1 $$net");
 		} else {
 			&Log::err("Cannot listen: $1") if $resp =~ /^ERR (.*)/;
 			return 0;
 		}
 	}
-	push @RemoteControl::active, $net;
+	push @Multiplex::active, $net;
 	return 1;
 }
 
@@ -163,25 +161,25 @@ sub init_connection {
 	$bind ||= '';
 	$sslkey ||= '';
 	$sslcert ||= '';
-	push @RemoteControl::active, $net;
+	push @Multiplex::active, $net;
 	my $resp;
-	if ($RemoteControl::master_api < 3) {
+	if ($Multiplex::master_api < 3) {
 		my $ssl = $sslkey ? 1 : 0;
-		$resp = &RemoteControl::ask("INITC $addr $port $bind $ssl");
-	} elsif ($RemoteControl::master_api < 5) {
-		$resp = &RemoteControl::ask("INITC $addr $port $bind $sslkey $sslcert");
+		$resp = &Multiplex::ask("INITC $addr $port $bind $ssl");
+	} elsif ($Multiplex::master_api < 5) {
+		$resp = &Multiplex::ask("INITC $addr $port $bind $sslkey $sslcert");
 	} else {
-		&RemoteControl::cmd("INITC $$net $addr $port $bind $sslkey $sslcert");
+		&Multiplex::cmd("INITC $$net $addr $port $bind $sslkey $sslcert");
 		return;
 	}
 	if ($resp eq 'OK') {
-		RemoteControl::cmd("ID $$net");
+		Multiplex::cmd("ID $$net");
 	} elsif ($resp =~ /^FD (\d+)/) {
-		RemoteControl::cmd("ADDNET $1 $$net");
+		Multiplex::cmd("ADDNET $1 $$net");
 	} else {
 		$resp =~ /^ERR (.*)/;
 		&Log::err("Cannot connect: $1");
-		pop @RemoteControl::active;
+		pop @Multiplex::active;
 	}
 }
 

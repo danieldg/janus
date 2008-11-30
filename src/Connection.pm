@@ -4,9 +4,12 @@ package Connection;
 use strict;
 use warnings;
 use integer;
+# NOTE: this file cannot depend on the rest of the Janus framework
+# as it is used in the I/O loop of multiplex.pl
 
 our($HAS_IPV6,$HAS_DNS);
 BEGIN {
+	die 'Cannot load Connection when Multiplex is loaded' if $Multiplex::master_api;
 	require IO::Socket::SSL;
 	$HAS_IPV6 = eval {
 		require IO::Socket::INET6;
@@ -382,6 +385,7 @@ sub ts_mplex {
 	return 1;
 }
 
+# This sub is allowed to use Janus API as it is not called from multiplex
 sub ts_simple {
 	my $next = &Event::next_event($Janus::time + 60);
 	iowait($next);

@@ -21,8 +21,8 @@ use POSIX 'setsid';
 our $VERSION = '1.14';
 
 # control socket on stdin, needs to be read/write
-open $RemoteControl::sock, '+>&=0';
-select $RemoteControl::sock; $| = 1;
+open $Multiplex::sock, '+>&=0';
+select $Multiplex::sock; $| = 1;
 select STDOUT; $| = 1;
 
 $SIG{PIPE} = 'IGNORE';
@@ -36,15 +36,15 @@ if ($^P) {
 	&Log::dump_queue();
 }
 
-my $line = <$RemoteControl::sock>;
+my $line = <$Multiplex::sock>;
 chomp $line;
 if ($line =~ /^BOOT(?: (\d+))?/) {
 	no warnings 'once';
-	$RemoteControl::master_api = ($1 || 1);
+	$Multiplex::master_api = ($1 || 1);
 	&Janus::load('Conffile') or die;
 	&Event::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
 	&Log::timestamp($Janus::time);
-	&Janus::load('RemoteControl') or die;
+	&Janus::load('Multiplex') or die;
 	&Event::insert_full(+{ type => 'INIT', args => \@ARGV });
 	&Event::insert_full(+{ type => 'RUN' });
 } elsif ($line =~ /^RESTORE (\S+)/) {
@@ -55,6 +55,6 @@ if ($line =~ /^BOOT(?: (\d+))?/) {
 	die "Bad line from control socket: $line";
 }
 eval {
-	&RemoteControl::timestep while 1;
+	&Multiplex::timestep while 1;
 	1;
 } ? &Log::info("Goodbye!\n") : &Log::err("Aborting, error=$@");
