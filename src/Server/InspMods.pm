@@ -184,11 +184,7 @@ mdef 'm_foobar.so';
 # loaded and used without needing to split janus
 mdef 'm_globalload.so', cmds => { GRELOADMODULE => \&ignore };
 mdef 'm_globops.so',
-	cmds => { GLOBOPS => \&ignore },
-	acts => { CHATOPS => sub {
-		my($net,$act) = @_;
-		$net->cmd2($act->{src}, GLOBOPS => $act->{msg});
-	} };
+	cmds => { GLOBOPS => \&ignore };
 mdef 'm_helpop.so', umode => { h => 'helpop' }, cmds => { HELPOP => \&ignore };
 mdef 'm_hideoper.so', umode => { H => 'hideoper' };
 mdef 'm_hostchange.so';

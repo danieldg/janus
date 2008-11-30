@@ -1211,10 +1211,6 @@ $moddef{CORE} = {
 	}, RAW => sub {
 		my($net,$act) = @_;
 		$act->{msg};
-	}, CHATOPS => sub {
-		my($net,$act) = @_;
-		return () if $net->get_module('m_globops.so');
-		$net->ncmd(SNONOTICE => 'A', $net->str($act->{src}).': '.$act->{msg});
 	},
 }};
 

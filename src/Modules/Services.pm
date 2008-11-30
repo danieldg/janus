@@ -139,12 +139,6 @@ sub svs_type {
 			};
 		}
 		&Event::insert_full(@out) if @out;
-	}, CHATOPS => check => sub {
-		my $act = shift;
-		if ($act->{src} == $Interface::janus) {
-			return 1 if $Conffile::netconf{set}{silent};
-		}
-		undef;
 	},
 	INFO => 'Nick:1' => sub {
 		my($dst, $n, $asker) = @_;

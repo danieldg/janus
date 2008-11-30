@@ -110,8 +110,6 @@ Basic descriptions and checking of all internal janus actions
 
 =item WHOIS remote idle queries
 
-=item CHATOPS internetwork administrative communication
-
 =back
 
 =head2 Janus commands
@@ -277,10 +275,6 @@ my %spec = (
 	WHOIS => {
 		src => 'Nick',
 		dst => 'Nick',
-	},
-	CHATOPS => {
-		src => 'Nick',
-		msg => '$',
 	},
 	REMOTECALL => {
 		src => 'Nick',
