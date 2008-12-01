@@ -22,6 +22,7 @@ BEGIN {
 		require Net::DNS;
 		1;
 	} ? sub { 1 } : sub { 0 };
+	our $PRIMARY = 1;
 }
 BEGIN {
 	if (HAS_IPV6) {

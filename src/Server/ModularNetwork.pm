@@ -166,6 +166,30 @@ sub from_irc {
 	$cmd->(@_);
 }
 
+sub _parse_umode {
+	my($net, $nick, $mode) = @_;
+	my @mode;
+	my $pm = '+';
+	for (split //, $mode) {
+		if (/[-+]/) {
+			$pm = $_;
+		} else {
+			my $txt = $net->umode2txt($_) or do {
+				&Log::warn_in($net, "Unknown umode '$_'");
+				next;
+			};
+			push @mode, $pm.$txt;
+		}
+	}
+	my @out;
+	push @out, +{
+		type => 'UMODE',
+		dst => $nick,
+		mode => \@mode,
+	} if @mode;
+	@out;
+}
+
 sub to_irc {
 	my $net = shift;
 	my @sendq;

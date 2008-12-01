@@ -6,6 +6,10 @@ use warnings;
 use integer;
 use Scalar::Util qw(tainted);
 
+BEGIN {
+	die "Cannot override Connection" if $Connection::PRIMARY;
+}
+
 our $reboot;
 our $sock;
 our $tblank;
@@ -17,6 +21,13 @@ unless (defined $tblank) {
 	print "WARNING: not running in taint mode\n" unless tainted($tblank);
 }
 $master_api ||= 1;
+if ($RemoteControl::master_api) {
+	@active = @RemoteControl::active;
+	$sock ||= $RemoteControl::sock;
+	$master_api = $RemoteControl::master_api;
+	@RemoteControl::active = ();
+	$RemoteControl::master_api = 0;
+}
 
 &Janus::static(qw(reboot sock tblank));
 

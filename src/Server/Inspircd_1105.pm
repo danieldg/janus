@@ -195,30 +195,6 @@ sub protoctl {
 # Return:
 #  list of hashrefs containing the Action(s) represented (can be empty)
 
-sub _parse_umode {
-	my($net, $nick, $mode) = @_;
-	my @mode;
-	my $pm = '+';
-	for (split //, $mode) {
-		if (/[-+]/) {
-			$pm = $_;
-		} else {
-			my $txt = $net->umode2txt($_) or do {
-				&Log::warn_in($net, "Unknown umode '$_'");
-				next;
-			};
-			push @mode, $pm.$txt;
-		}
-	}
-	my @out;
-	push @out, +{
-		type => 'UMODE',
-		dst => $nick,
-		mode => \@mode,
-	} if @mode;
-	@out;
-}
-
 sub _out {
 	my($net,$itm) = @_;
 	return '' unless defined $itm;
