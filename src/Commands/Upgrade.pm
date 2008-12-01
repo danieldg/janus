@@ -10,6 +10,15 @@ sub fexec {
 	POSIX::_exit(1);
 }
 
+sub bgexec {
+	local $SIG{CHLD} = 'DEFAULT';
+	my $p = fork;
+	if ($p == 0) {
+		fexec @_;
+	}
+	waitpid $p, 0;
+}
+
 &Event::command_add({
 	cmd => 'upgrade',
 	help => 'Upgrades all modules loaded by janus',
@@ -55,12 +64,7 @@ sub fexec {
 		return &Janus::jmsg($dst, 'Failed') unless defined $p && $p >= 0;
 		return if $p;
 
-		$SIG{CHLD} = 'DEFAULT';
-		$p = fork;
-		if ($p == 0) {
-			fexec 'wget', '--output-document', 'janus.tgz', 'http://dd.qc.to/gitweb?p=janus.git;a=snapshot;h=refs/heads/master;sf=tgz';
-		}
-		waitpid $p, 0;
+		bgexec 'wget', '--output-document', 'janus.tgz', 'http://dd.qc.to/gitweb?p=janus.git;a=snapshot;h=refs/heads/master;sf=tgz';
 		fexec 'tar', '--extract', '--gzip', '--strip', 1, '--file', 'janus.tgz';
 	}
 }, {
@@ -74,7 +78,9 @@ sub fexec {
 		my $p = fork;
 		return &Janus::jmsg($dst, 'Failed') unless defined $p && $p >= 0;
 		return if $p;
-		fexec 'git', 'pull';
+		bgexec qw/git stash/;
+		bgexec qw/git pull/;
+		fexec qw/git stash apply/;
 	}
 });
 
