@@ -110,10 +110,6 @@ link u3 {
 # Options below here are not required
 	# Unreal-only: numeric used for the hub and for this server on other networks
 	numeric 40
-	# Force tagging on nicks matching a certain perl regex
-	force_tag ^ChanServ$
-	# Further network paramaters as defined by modules
-	send_chatops 1
 }
 
 # Link block for an InspIRCd 1.1 server

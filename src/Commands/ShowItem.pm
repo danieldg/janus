@@ -72,6 +72,19 @@ my @mode_sym = qw{~ & @ % +};
 	INFO => Network => sub {
 		my($dst, $n, $asker) = @_;
 		&Janus::jmsg($dst, join ' ', "\002Network\002",$$n, ref($n), $n->name, $n->gid, ($n->numeric ? '#'.$n->numeric : ()), $n->netname);
+		my @sets;
+		for my $set (values %Event::settings) {
+			next unless $n->isa($set->{type});
+			my $acl = $set->{acl_r};
+			next if $acl && !Account::acl_check($asker, $acl);
+			my $name = $set->{name};
+			my $val = $Janus::setting{$n->name}{$name};
+			$val = $set->{do_read}->($val) if $set->{do_read};
+			if ($val) {
+				push @sets, qq{\002$name\002: "$val"};
+			}
+		}
+		&Janus::jmsg($dst, join ' ', sort @sets) if @sets;
 	},
 );
 
