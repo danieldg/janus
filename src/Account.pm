@@ -55,8 +55,8 @@ sub acl_check {
 }
 
 # acl is one of:
-#	create = must be owner/oper on home network
-#	link = must be owner/oper
+#	create, link = must be owner/oper on home network
+#	delink = must be owner/oper
 #	mode = must be owner
 #	info = must be op
 sub chan_access_chk {
@@ -65,20 +65,21 @@ sub chan_access_chk {
 	if (acl_check($nick, 'salink')) {
 		return 1;
 	}
-	if ($acl eq 'create' && $chan->homenet != $net) {
+	if (($acl eq 'create' || $acl eq 'link') && $chan->homenet != $net) {
 		&Janus::jmsg($errs, "This command must be run from the channel's home network");
 		return 0;
 	}
 	if (acl_check($nick, 'link')) {
 		return 1;
 	}
-	if (($acl eq 'link' || $acl eq 'create') && $Janus::setting{$net->name}{oper_only_link}) {
-		&Janus::jmsg($errs, 'You must be an IRC operator to use this command');
-		return 0;
+	my $chanacl = $Janus::setting{$net->name}{link_requires} || 'owner';
+	$chanacl = 'op' if $acl eq 'info';
+	if ('n' eq ($Modes::mtype{$chanacl} || '')) {
+		return 1 if $chan->has_nmode($chanacl, $nick);
+		&Janus::jmsg($errs, "You must be a channel $chanacl to use this command");
+	} else {
+		&Janus::jmsg($errs, "You must have access to 'link' to use this command");
 	}
-	my $min = $acl eq 'info' ? 'op' : 'owner';
-	return 1 if $chan->has_nmode($min, $nick);
-	&Janus::jmsg($errs, "You must be a channel $min to use this command");
 	return 0;
 }
 

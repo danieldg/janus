@@ -13,18 +13,15 @@ use warnings;
 		"The remote network must use the \002CREATE\002 command to",
 		"share a channel before links to that channel will be accepted",
 	],
-	api => '=src =replyto localhomenet $ net ?$',
+	api => '=src =replyto localchan net ?$',
 	code => sub {
-		my($src,$dst,$net1,$cname1,$net2,$cname2) = @_;
-
-		$cname2 ||= $cname1;
-
-		my $chan1 = $net1->chan(lc $cname1,0) or do {
-			&Janus::jmsg($dst, "Could not find channel $cname1");
-			return;
-		};
+		my($src,$dst,$chan1,$net2,$cname2) = @_;
 
 		return unless &Account::chan_access_chk($src, $chan1, 'link', $dst);
+
+		my $net1 = $chan1->homenet;
+		my $cname1 = $chan1->homename;
+		$cname2 ||= $cname1;
 
 		if ($Link::request{$net1->name()}{lc $cname1}{mode}) {
 			&Janus::jmsg($dst, 'This network is the owner for that channel. Other networks must link to it.');
@@ -82,30 +79,31 @@ use warnings;
 		"The home newtwork must specify a network to delink, or use \002DESTROY\002",
 		"Other networks can only delink themselves from the channel",
 	],
-	api => '=src localhomenet =replyto chan ?net',
+	api => '=src =replyto localchan ?net ?$',
 	code => sub {
-		my($src, $snet, $dst, $chan, $dnet) = @_;
-		return unless &Account::chan_access_chk($src, $chan, 'link', $dst);
-		my $cause = 'unlink';
-		if ($snet == $chan->homenet) {
-			$snet = $dnet;
-			$cause = 'reject';
-			unless ($dnet) {
-				&Janus::jmsg($dst, 'Please specify the network to delink, or use DESTROY');
-				return;
-			}
-		} elsif ($dnet) {
-			&Janus::jmsg($dst, 'You cannot specify the network to delink');
+		my($src, $dst, $chan, $net, $cause) = @_;
+		return unless &Account::chan_access_chk($src, $chan, 'delink', $dst);
+		$net ||= $src->homenet;
+		if ($net == $chan->homenet) {
+			&Janus::jmsg($dst, 'Please specify the network to delink, or use DESTROY');
 			return;
 		}
+		if ($src->homenet == $chan->homenet) {
+			$cause = 'reject';
+		} elsif ($src->homenet == $net) {
+			$cause = 'unlink';
+		} else {
+			return unless &Account::chan_access_chk($src, $chan, 'create', $dst);
+			$cause = 'split' unless $cause eq 'reject' || $cause eq 'unlink';
+		}
 
-		&Log::audit('Channel '.$chan->homename.' delinked from '.$snet->name.' by '.$src->netnick);
+		&Log::audit('Channel '.$chan->netname.' delinked from '.$net->name.' by '.$src->netnick);
 		&Event::append(+{
 			type => 'DELINK',
 			cause => $cause,
 			src => $src,
 			dst => $chan,
-			net => $snet,
+			net => $net,
 		});
 		&Janus::jmsg($dst, 'Done');
 	},
@@ -121,7 +119,7 @@ use warnings;
 		my($src,$dst,$chan) = @_;
 		my $net = $chan->homenet;
 		return unless &Account::chan_access_chk($src, $chan, 'create', $dst);
-		&Log::audit('Channel '.$chan->homename.' destroyed by '.$src->netnick);
+		&Log::audit('Channel '.$chan->netname.' destroyed by '.$src->netnick);
 		&Event::append(+{
 			type => 'DELINK',
 			cause => 'destroy',
