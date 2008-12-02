@@ -52,9 +52,10 @@ use warnings;
 	details => [
 		"Syntax: \002CREATE\002 #channel"
 	],
-	api => '=src localhomenet =replyto chan',
+	api => '=src =replyto localchan',
 	code => sub {
-		my($src,$net,$dst,$chan) = @_;
+		my($src,$dst,$chan) = @_;
+		my $net = $chan->homenet;
 
 		if (1 < scalar $chan->nets) {
 			&Janus::jmsg($dst, 'That channel is already linked');
@@ -115,10 +116,10 @@ use warnings;
 	details => [
 		"Syntax: \002DESTROY\002 #channel",
 	],
-	api => '=src localhomenet =replyto chan',
+	api => '=src =replyto localchan',
 	code => sub {
-		my($src,$net,$dst,$chan) = @_;
-
+		my($src,$dst,$chan) = @_;
+		my $net = $chan->homenet;
 		return unless &Account::chan_access_chk($src, $chan, 'create', $dst);
 		&Log::audit('Channel '.$chan->homename.' destroyed by '.$src->netnick);
 		&Event::append(+{
