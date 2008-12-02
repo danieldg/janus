@@ -307,6 +307,7 @@ sub do_accept {
 	my $fd = $sock ? fileno $sock : undef;
 	unless ($fd) {
 		$q->[STATE] &= ~STATE_ACCEPT;
+		return;
 	}
 	my $addr = peer_to_addr($peer);
 	my($net,$key,$cert) = $hook->($addr);
