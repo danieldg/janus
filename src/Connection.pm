@@ -14,7 +14,6 @@ BEGIN {
 		1;
 	} ? sub { 1 } : sub { 0 };
 	*HAS_IPV6 = eval {
-		require IO::Socket::INET6;
 		require Socket6;
 		1;
 	} ? sub { 1 } : sub { 0 };
@@ -26,15 +25,10 @@ BEGIN {
 }
 BEGIN {
 	if (HAS_IPV6) {
-		IO::Socket::INET6->import();
 		IO::Socket::SSL->import('inet6') if HAS_SSL;
 		Socket6->import();
 	} else {
-		require IO::Socket::INET;
-		require Socket;
-		IO::Socket::INET->import();
 		IO::Socket::SSL->import() if HAS_SSL;
-		Socket->import();
 	}
 	unless (HAS_SSL) {
 		*SSL_WANT_READ = sub { '' };
@@ -42,6 +36,7 @@ BEGIN {
 	}
 }
 
+use Socket;
 use Fcntl;
 use constant {
 	FD => 0,
@@ -79,7 +74,7 @@ sub mpsend {
 
 sub peer_to_addr {
 	my $peer = shift;
-	if (HAS_IPV6) {
+	if (28 == length $peer) {
 		my($port,$addr) = unpack_sockaddr_in6 $peer;
 		inet_ntop(AF_INET6, $addr);
 	} else {
@@ -90,38 +85,41 @@ sub peer_to_addr {
 
 sub do_ip_connect {
 	my($baddr, $port, $bind, $sslkey, $sslcert) = @_;
-	if (HAS_IPV6 && length $baddr == 4) {
-		$baddr = pack 'x10Sa4', -1, $baddr;
-	}
-	my $inet = HAS_IPV6() ? 'IO::Socket::INET6' : 'IO::Socket::INET';
-	my $addr = HAS_IPV6() ? sockaddr_in6($port, $baddr) : sockaddr_in($port, $baddr);
-	my $sock = $inet->new(
-		Proto => 'tcp',
-		Blocking => 0,
-		($bind ? (LocalAddr => $bind) : ()),
-	);
-	my $fd;
-	if ($sock) {
-		fcntl $sock, F_SETFL, O_NONBLOCK;
-		connect $sock, $addr;
-		$fd = fileno $sock;
-
-		if (HAS_SSL && $sslcert) {
-			IO::Socket::SSL->start_SSL($sock,
-				SSL_startHandshake => 0,
-				SSL_use_cert => 1,
-				SSL_key_file => $sslkey,
-				SSL_cert_file => $sslcert,
-			);
-			if ($sock->isa('IO::Socket::SSL')) {
-				$sock->connect_SSL();
-			} else {
-				$fd = undef;
-			}
-		} elsif (HAS_SSL && $sslkey) {
-			IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
-			$sock->connect_SSL();
+	my($af, $addr, $sock);
+	if (length $baddr == 4) {
+		$af = AF_INET;
+		$addr = sockaddr_in($port, $baddr);
+		if ($bind) {
+			$bind = inet_aton($bind);
 		}
+	} else {
+		$af = AF_INET6;
+		$addr = sockaddr_in6($port, $baddr);
+		if ($bind) {
+			$bind = inet_pton(AF_INET6, $baddr);
+		}
+	}
+	socket $sock, $af, SOCK_STREAM, 0;
+	return () unless $sock;
+	my $fd = fileno $sock;
+	fcntl $sock, F_SETFL, O_NONBLOCK;
+	if ($bind) {
+		bind $sock, $bind;
+	}
+	connect $sock, $addr;
+
+	if (HAS_SSL && $sslcert) {
+		IO::Socket::SSL->start_SSL($sock,
+			SSL_startHandshake => 0,
+			SSL_use_cert => 1,
+			SSL_key_file => $sslkey,
+			SSL_cert_file => $sslcert,
+		);
+		return () unless $sock->isa('IO::Socket::SSL');
+		$sock->connect_SSL();
+	} elsif (HAS_SSL && $sslkey) {
+		IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
+		$sock->connect_SSL();
 	}
 	return ($sock,$fd);
 }
@@ -145,17 +143,23 @@ sub init_connection {
 
 sub init_listen {
 	my($net,$addr,$port) = @_;
-	my $inet = HAS_IPV6() ? 'IO::Socket::INET6' : 'IO::Socket::INET';
-	my $sock = $inet->new(
-		Listen => 5,
-		Proto => 'tcp',
-		($addr ? (LocalAddr => $addr) : ()),
-		LocalPort => $port,
-		Blocking => 0,
-	) or return 0;
+	my($af,$bind, $sock);
+	if (HAS_IPV6 && (!$addr || $addr =~ /:/)) {
+		$af = AF_INET6;
+		my $baddr = inet_pton(AF_INET6, $addr || '::');
+		$addr = sockaddr_in6($port, $baddr);
+	} else {
+		$af = AF_INET;
+		my $baddr = inet_aton($addr || '0.0.0.0');
+		$addr = sockaddr_in($port, $baddr);
+	}
+	socket $sock, $af, SOCK_STREAM, 0;
+	return 0 unless $sock;
+	my $fd = fileno $sock;
 	fcntl $sock, F_SETFL, O_NONBLOCK;
 	setsockopt $sock, SOL_SOCKET, SO_REUSEADDR, 1;
-	my $fd = fileno $sock;
+	bind $sock, $addr or return 0;
+	listen $sock, 5 or return 0;
 	my $q = [ $fd, $sock, STATE_LISTEN, $net, 1, 0 ];
 	$queues[ref $net ? $$net : $net] = $q;
 	return 1;
@@ -280,6 +284,8 @@ sub iowait {
 		if (!@$q || $q->[STATE] & STATE_DROPPED) {
 			$q->[TRY_R] = $q->[TRY_W] = 0;
 			if ($q->[STATE] & STATE_IOERR || !$q->[SENDQ]) {
+				my $sock = $q->[SOCK];
+				close $sock if $sock;
 				delete $queues[$i];
 			}
 		}
@@ -304,8 +310,9 @@ sub do_accept {
 	my($q,$hook) = @_;
 	my $lsock = $q->[SOCK];
 	$q->[STATE] &= ~STATE_ACCEPT;
-	my($sock,$peer) = $lsock->accept();
-	my $fd = $sock ? fileno $sock : undef;
+	my $sock;
+	my $peer = accept $sock, $lsock;
+	my $fd = $peer ? fileno $sock : undef;
 	return unless $fd;
 	my $addr = peer_to_addr($peer);
 	my($net,$key,$cert) = $hook->($addr);

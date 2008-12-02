@@ -7,7 +7,6 @@ require 5.8.0;
 use Carp 'cluck';
 use POSIX;
 use IO::Handle;
-use IO::Socket::INET;
 use Socket;
 use Scalar::Util qw(weaken tainted);
 use Fcntl;
@@ -19,7 +18,6 @@ print "SSL: ", eval {
 } ? "OK\n" : "Not available\n";
 
 print "IPv6: ", eval {
-	require IO::Socket::INET6;
 	require Socket6;
 	1;
 } ? "OK\n" : "Not available\n";
