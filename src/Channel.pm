@@ -720,6 +720,7 @@ sub del_remoteonly {
 	}, DELINK => cleanup => sub {
 		my $act = shift;
 		del_remoteonly($act->{dst});
+		return if $act->{net} == $Interface::network;
 		del_remoteonly($act->{split}) if $act->{split};
 	}, NETSPLIT => act => sub {
 		my $act = shift;
