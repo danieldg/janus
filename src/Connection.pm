@@ -277,7 +277,7 @@ sub iowait {
 	vec($r,fileno($mpsock),1) = 1 if $mpsock;
 	for my $i (0..$#queues) {
 		my $q = $queues[$i] or next;
-		if ($q->[STATE] & STATE_DROPPED) {
+		if (!@$q || $q->[STATE] & STATE_DROPPED) {
 			$q->[TRY_R] = $q->[TRY_W] = 0;
 			if ($q->[STATE] & STATE_IOERR || !$q->[SENDQ]) {
 				delete $queues[$i];
@@ -303,14 +303,13 @@ sub iowait {
 sub do_accept {
 	my($q,$hook) = @_;
 	my $lsock = $q->[SOCK];
+	$q->[STATE] &= ~STATE_ACCEPT;
 	my($sock,$peer) = $lsock->accept();
 	my $fd = $sock ? fileno $sock : undef;
-	unless ($fd) {
-		$q->[STATE] &= ~STATE_ACCEPT;
-		return;
-	}
+	return unless $fd;
 	my $addr = peer_to_addr($peer);
 	my($net,$key,$cert) = $hook->($addr);
+	return unless $net;
 	$q = [ $fd, $sock, STATE_NORMAL, $net, 1, 0, '', '', '' ];
 	$queues[ref $net ? $$net : $net] = $q;
 	if (HAS_SSL && $key) {
