@@ -479,15 +479,39 @@ Event::hook_add(
 				push @args, $hnet;
 			} elsif ($_ eq 'nick') {
 				my $nname = $argin[0];
-				$act->{$idx} = $hnet->nick($nname, 1) if defined $nname && !$hnet->jlink;
-				$fail = 'Could not find nick "'.$nname.'"' unless $opt || $act->{$idx};
-				shift @argin if $act->{$idx};
+				my $net = $hnet;
+				if ($nname && $nname =~ /^(\S+):(\S+)$/) {
+					$net = $Janus::nets{$1};
+					$nname = $2;
+					$fail = 'Could not find network '.$1 unless $opt || $net;
+				}
+				if ($nname && $net && !$net->jlink) {
+					$act->{$idx} = $net->nick($nname, 1);
+				}
+				if ($act->{$idx}) {
+					shift @argin;
+				} else {
+					$bncto ||= $net->jlink if $net && $net->jlink;
+					$fail = 'Could not find nick "'.$nname.'"'  unless $fail || $opt || $bncto == $net->jlink;
+				}
 				push @args, $act->{$idx};
 			} elsif ($_ eq 'chan') {
-				my $cname = $argin[0];
-				$act->{$idx} = $hnet->chan($cname, 0) if defined $cname && !$hnet->jlink;
-				$fail = 'Could not find channel "'.$cname.'"' unless $opt || $act->{$idx};
-				shift @argin if $act->{$idx};
+				my $cname = $argin[0] || '';
+				my $net = $hnet;
+				if ($cname && $cname =~ /^(\S+)(#.*)/) {
+					$net = $Janus::nets{$1};
+					$cname = $2;
+					$fail = 'Could not find network '.$1 unless $opt || $net;
+				}
+				if ($cname && $net && !$net->jlink) {
+					$act->{$idx} = $net->chan($cname, 0);
+				}
+				if ($act->{$idx}) {
+					shift @argin;
+				} else {
+					$bncto ||= $net->jlink if $net && $net->jlink;
+					$fail = 'Could not find channel "'.$cname.'"' unless $fail || $opt || $bncto == $net->jlink;
+				}
 				push @args, $act->{$idx};
 			} elsif ($_ eq 'net') {
 				my $id = $argin[0] || '';

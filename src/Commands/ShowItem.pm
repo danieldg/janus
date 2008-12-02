@@ -95,34 +95,36 @@ my @mode_sym = qw{~ & @ % +};
 	section => 'Info',
 	aclchk => 'info/nick',
 	details => [
-		"\002SHOWNICK\002 [net] nick|gid",
+		"\002SHOWNICK\002 nick|gid",
 	],
-	api => '=src =replyto localdefnet $',
+	api => '=src =replyto ?nick ?$',
 	code => sub {
-		my($src, $dst, $net, $n) = @_;
-		if ($n =~ /:/) {
-			$n = $Janus::gnicks{$n} or return Janus::jmsg($dst, 'Cannot find nick by gid');
-		} else {
-			$n = $net->nick($n, 1) or return Janus::jmsg($dst, 'Cannot find nick by name');
+		my($src, $dst, $nick, $gid) = @_;
+		if ($gid && !$nick) {
+			$nick = $Janus::gnicks{$gid} or return Janus::jmsg($dst, 'Cannot find nick by gid');
 		}
-		&Event::named_hook('INFO/Nick', $dst, $n, $src);
+		if (!$nick) {
+			Janus::jmsg($dst, 'Not enough arguments');
+		}
+		&Event::named_hook('INFO/Nick', $dst, $nick, $src);
 	},
 }, {
 	cmd => 'showchan',
 	help => 'Shows internal details on a channel',
 	section => 'Info',
 	details => [
-		"\002SHOWCHAN\002 [net] chan|gid",
+		"\002SHOWCHAN\002 chan|gid",
 	],
-	api => '=src =replyto localdefnet $',
+	api => '=src =replyto ?chan ?$',
 	code => sub {
-		my($src, $dst, $net, $c) = @_;
-		if ($c =~ /^#/) {
-			$c = $net->chan($c, 0) or return Janus::jmsg($dst, 'Cannot find channel by name');
-		} else {
-			$c = $Janus::gchans{$c} or return Janus::jmsg($dst, 'Cannot find channel by gid');
+		my($src, $dst, $chan, $gid) = @_;
+		if ($gid && !$chan) {
+			$chan = $Janus::gchans{$gid} or return Janus::jmsg($dst, 'Cannot find channel by gid');
 		}
-		&Event::named_hook('INFO/Channel', $dst, $c, $src);
+		if (!$chan) {
+			Janus::jmsg($dst, 'Not enough arguments');
+		}
+		&Event::named_hook('INFO/Channel', $dst, $chan, $src);
 	},
 }, {
 	cmd => 'shownet',
