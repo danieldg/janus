@@ -16,6 +16,7 @@ unless (%roles) {
 		'netop' => 'clink forceid autoconnect netsplit xline',
 		'admin' => 'account setpass info/nick dump verify role forcetag globalban',
 		'owner' => 'reload unload up-git up-tar upgrade die reboot restart',
+		'superadmin' => 'salink eval',
 	);
 }
 
@@ -61,6 +62,9 @@ sub acl_check {
 sub chan_access_chk {
 	my($nick, $chan, $acl, $errs) = @_;
 	my $net = $nick->homenet;
+	if (acl_check($nick, 'salink')) {
+		return 1;
+	}
 	if ($acl eq 'create' && $chan->homenet != $net) {
 		&Janus::jmsg($errs, "This command must be run from the channel's home network");
 		return 0;
