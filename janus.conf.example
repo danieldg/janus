@@ -108,8 +108,8 @@ link u3 {
 	# Long name of this network
 	netname Test 1
 # Options below here are not required
-	# Unreal-only: numeric used for the hub and for this server on other networks
-	numeric 40
+	# Unreal-only: numerics used for janus servers
+	numeric_range 40-45,70,85-190
 }
 
 # Link block for an InspIRCd 1.1 server

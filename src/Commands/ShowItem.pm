@@ -71,7 +71,7 @@ my @mode_sym = qw{~ & @ % +};
 	},
 	INFO => Network => sub {
 		my($dst, $n, $asker) = @_;
-		&Janus::jmsg($dst, join ' ', "\002Network\002",$$n, ref($n), $n->name, $n->gid, ($n->numeric ? '#'.$n->numeric : ()), $n->netname);
+		&Janus::jmsg($dst, join ' ', "\002Network\002",$$n, ref($n), $n->name, $n->gid, $n->netname);
 		my @sets;
 		for my $set (values %Event::settings) {
 			next unless $n->isa($set->{type});

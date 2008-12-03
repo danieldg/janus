@@ -8,8 +8,8 @@ use Persist 'Server::BaseNick';
 use strict;
 use warnings;
 
-our(@rawout, @sjmerge_head, @sjmerge_txt, @srvname, @servers);
-&Persist::register_vars(qw(rawout sjmerge_head sjmerge_txt srvname servers));
+our(@rawout, @sjmerge_head, @sjmerge_txt, @srvname, @servers, @numeric);
+&Persist::register_vars(qw(rawout sjmerge_head sjmerge_txt srvname servers numeric));
 
 sub _init {
 	my $net = shift;
@@ -243,11 +243,11 @@ sub intro {
 	my($net, $param, $addr) = @_;
 	$net->SUPER::intro($param, $addr);
 	if ($net->auth_should_send) {
-		$param->{numeric} ||= '';
+		my $num = $net->numeric_for($net);
 		$net->send(
 			'PASS :'.$param->{sendpass},
 			'PROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS UMODE2 TKLEXT SJB64',
-			"SERVER $param->{linkname} 1 :U2309-hX6eE-$param->{numeric} Janus Network Link",
+			"SERVER $param->{linkname} 1 :U2309-hX6eE-$num Janus Network Link",
 		);
 	}
 }
@@ -615,11 +615,43 @@ sub sjb64 {
 	}
 	$_[2] ? $b : '!'.$b;
 }
+
 sub srvname {
 	my($net,$num) = @_;
 	return $srvname[$$net]{$num} if exists $srvname[$$net]{$num};
 	return $num;
 }
+
+sub numeric_for {
+	my($net, $for) = @_;
+	my $r = $numeric[$$net]{$$for};
+	return $r if $r;
+	$r = $net->find_numeric();
+	$numeric[$$net]{$$for} = $r;
+	$srvname[$$net]{$net->sjb64($r, 1)} = $for->netname;
+	return $r;
+}
+
+sub find_numeric {
+	my $net = shift;
+	my $range = ($net->param('numeric_range') || '') . ',100-676';
+	for (split /,/, $range) {
+		if (/(\d+)-(\d+)/) {
+			for my $n ($1..$2) {
+				my $num = $net->sjb64($n, 1);
+				next if $srvname[$$net]{$num};
+				return $n;
+			}
+		} elsif (/\d+/) {
+			my $num = $net->sjb64($_, 1);
+			next if $srvname[$$net]{$num};
+			return $_;
+		}
+	}
+	&Log::err_in($net, 'No available numerics');
+	return 0;
+}
+
 
 %fromirc = (
 # User Operations
@@ -1024,11 +1056,12 @@ sub srvname {
 				($desc =~ s/^U\d+-\S+-(\d+) //) ? $1    : 0), 1);
 
 		if ($net->auth_should_send) {
-			$rawout[$$net] =
-				'PASS :'.$net->param('sendpass').
-				"\r\nPROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS ".
-				"UMODE2 TKLEXT SJB64\r\nSERVER ".$net->cparam('linkname').' 1 :U2309-hX6eE-'.
-				($net->cparam('numeric')||'')." Janus Network Link\r\n".$rawout[$$net];
+			my $server = $net->cparam('linkname');
+			my $pass = $net->param('sendpass');
+			my $num = $net->numeric_for($net);
+			$rawout[$$net] = "PASS :$pass\r\n".
+				'PROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS UMODE2 TKLEXT SJB64'.
+				"\r\nSERVER $server 1 :U2309-hX6eE-$num Janus Network Link\r\n".$rawout[$$net];
 		}
 		&Log::info_in($net, "Server $_[2] [\@$snum] added from $src");
 		$servers[$$net]{$name} = {
@@ -1052,7 +1085,7 @@ sub srvname {
 
 		if (!$splitfrom && $srv =~ /^(.*)\.janus/) {
 			my $ns = $Janus::nets{$1} or return ();
-			$net->send($net->cmd2($net->cparam('linkname'), SERVER => $srv, 2, $ns->numeric(), $ns->netname()));
+			$net->send($net->cmd2($net->cparam('linkname'), SERVER => $srv, 2, $net->numeric_for($ns), $ns->netname()));
 			my @out;
 			for my $nick ($net->all_nicks()) {
 				next unless $nick->homenet() eq $ns;
@@ -1302,9 +1335,11 @@ sub cmd2 {
 				next if $new->isa('Interface') || $new eq $net;
 				my $jl = $new->jlink();
 				if ($jl) {
-					push @out, $net->cmd2($jl->id() . '.janus', SERVER => $new->jname(), 3, $new->numeric(), $new->netname());
+					push @out, $net->cmd2($jl->id() . '.janus', SERVER => $new->jname(), 3,
+						$net->numeric_for($new), $new->netname());
 				} else {
-					push @out, $net->cmd2($net->cparam('linkname'), SERVER => $new->jname(), 2, $new->numeric(), $new->netname());
+					push @out, $net->cmd2($net->cparam('linkname'), SERVER => $new->jname(), 2,
+						$net->numeric_for($new), $new->netname());
 				}
 			}
 			return @out;
@@ -1312,9 +1347,9 @@ sub cmd2 {
 			return () if $net->isa('Interface');
 			my $jl = $new->jlink();
 			if ($jl) {
-				$net->cmd2($jl->id() . '.janus', SERVER => $new->jname(), 3, $new->numeric(), $new->netname());
+				$net->cmd2($jl->id() . '.janus', SERVER => $new->jname(), 3, $net->numeric_for($new), $new->netname());
 			} else {
-				$net->cmd2($net->cparam('linkname'), SERVER => $new->jname(), 2, $new->numeric(), $new->netname());
+				$net->cmd2($net->cparam('linkname'), SERVER => $new->jname(), 2, $net->numeric_for($new), $new->netname());
 			}
 		}
 	}, LINKED => sub {
@@ -1324,8 +1359,10 @@ sub cmd2 {
 		$net->cmd1(SMO => 'o', "(\002link\002) Janus Network $id (".$new->netname().') is now linked');
 	}, NETSPLIT => sub {
 		my($net,$act) = @_;
-		return () if $act->{netsplit_quit};
 		my $gone = $act->{net};
+		my $num = delete $numeric[$$net]{$$gone};
+		delete $srvname[$$net]{$net->sjb64($num, 1)};
+		return () if $act->{netsplit_quit};
 		my $id = $gone->name();
 		my $msg = $act->{msg} || 'Excessive Core Radiation';
 		(

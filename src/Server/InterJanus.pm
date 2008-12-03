@@ -10,7 +10,7 @@ use Channel;
 use RemoteNetwork;
 use Link; # currently does not work in bridge mode
 
-our $IJ_PROTO = 1.9;
+our $IJ_PROTO = '1.10';
 
 our(@sendq, @auth);
 &Persist::register_vars(qw(sendq auth));

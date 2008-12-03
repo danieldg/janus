@@ -31,7 +31,6 @@ sub intro {
 	my($net,$conf,$peer) = @_;
 	$auth[$$net] = $peer ? AUTH_DIR_IN : AUTH_DIR_OUT;
 	$cparms[$$net] = { %{$Conffile::netconf{$net->name()}} };
-	$net->_set_numeric($cparms[$$net]->{numeric});
 	$net->_set_netname($cparms[$$net]->{netname});
 }
 

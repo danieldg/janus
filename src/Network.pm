@@ -29,16 +29,12 @@ The network ID for this network (short form)
 
 The human-readable name for this network (long form)
 
-=item $net->numeric()
-
-The unique numeric value for this network. May be deprecated at some time in the future.
-
 =cut
 
-our(@jlink, @gid, @name, @netname, @numeric, @synced);
-&Persist::register_vars(qw(jlink gid name netname numeric synced));
-&Persist::autoget(qw(jlink gid name netname numeric), is_synced => \@synced);
-&Persist::autoinit(qw(jlink gid netname numeric), id => \@name);
+our(@jlink, @gid, @name, @netname, @synced);
+&Persist::register_vars(qw(jlink gid name netname synced));
+&Persist::autoget(qw(jlink gid name netname), is_synced => \@synced);
+&Persist::autoinit(qw(jlink gid netname), id => \@name);
 
 our $net_gid;
 
@@ -58,10 +54,6 @@ sub _set_name {
 	$name[${$_[0]}] = $_[1];
 }
 
-sub _set_numeric {
-	$numeric[${$_[0]}] = $_[1];
-}
-
 sub _set_netname {
 	$netname[${$_[0]}] = $_[1];
 }
@@ -73,7 +65,6 @@ sub to_ij {
 	$out .= ' id='.$ij->ijstr($net->name());
 	$out .= ' jlink='.$ij->ijstr($net->jlink() || $RemoteJanus::self);
 	$out .= ' netname='.$ij->ijstr($net->netname());
-	$out .= ' numeric='.$ij->ijstr($net->numeric());
 	$out;
 }
 
