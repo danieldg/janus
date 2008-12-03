@@ -407,6 +407,7 @@ sub pm_not {
 		if ($msg =~ s/^(\S+)\s//) {
 			my $dst = $net->item($1);
 			if (ref $dst && $dst->isa('Nick') && $dst->homenet() ne $net) {
+				return () if $dst == $Interface::janus;
 				return +{
 					type => 'MSG',
 					src => $src,
