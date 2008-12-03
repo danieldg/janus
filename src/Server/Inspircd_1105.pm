@@ -257,6 +257,7 @@ $moddef{CORE} = {
 		o => 'oper',
 		's' => 'globops', # technically, server notices
 		w => 'wallops',
+		'+' => '', # inspircd bug, fixed in 1.2: an extra + may be added to the umode at each hop
   },
   cmds => {
 	NICK => sub {
@@ -309,11 +310,7 @@ $moddef{CORE} = {
 		warn unless '+' eq shift @m;
 		$nick{mode} = +{ map {
 			my $t = $net->umode2txt($_);
-			defined $t ? ($t => 1) : do {
-				# inspircd bug, fixed in 1.2: an extra + may be added to the umode at each hop
-				&Log::warn_in($net, "Unknown umode '$_'") unless $_ eq '+';
-				();
-			};
+			$t ? ($t => 1) : ();
 		} @m };
 
 		my @out;

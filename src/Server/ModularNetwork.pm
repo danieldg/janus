@@ -36,7 +36,7 @@ sub module_add {
 			my $txt = $mod->{umode}{$um};
 			warn "Overriding umode $um = $txt" if $umode2txt[$$net]{$um} || $txt2umode[$$net]{$txt};
 			$umode2txt[$$net]{$um} = $txt;
-			$txt2umode[$$net]{$txt} = $um;
+			$txt2umode[$$net]{$txt} = $um if $txt;
 		}
 	}
 	if ($mod->{umode_hook}) {
@@ -132,8 +132,13 @@ sub all_cmodes {
 }
 
 sub umode2txt {
-	my($net,$cm) = @_;
-	$umode2txt[$$net]{$cm};
+	my($net,$um) = @_;
+	my $t = $umode2txt[$$net]{$um};
+	if (!defined $t) {
+		&Log::warn_in($net, "Unknown umode '$um'");
+		$t = '';
+	}
+	$t;
 }
 
 sub txt2umode {
@@ -174,10 +179,7 @@ sub _parse_umode {
 		if (/[-+]/) {
 			$pm = $_;
 		} else {
-			my $txt = $net->umode2txt($_) or do {
-				&Log::warn_in($net, "Unknown umode '$_'");
-				next;
-			};
+			my $txt = $net->umode2txt($_) or next;
 			push @mode, $pm.$txt;
 		}
 	}

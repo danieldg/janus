@@ -344,8 +344,7 @@ $moddef{CORE} = {
 		warn unless '+' eq shift @m;
 		$nick{mode} = +{ map {
 			my $t = $net->umode2txt($_);
-			&Log::warn_in($net, "Unknown umode '$_'") unless defined $t;
-			defined $t ? ($t => 1) : ();
+			$t ? ($t => 1) : ();
 		} @m };
 
 		my $nick = Nick->new(%nick);

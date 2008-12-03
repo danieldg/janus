@@ -471,10 +471,7 @@ sub _parse_umode {
 			};
 		} else {
 			my $txt = $net->umode2txt($_);
-			unless (defined $txt) {
-				&Log::warn_in($net, "Unknown umode '$_'");
-				next;
-			};
+			next unless $txt;
 			if ($txt eq 'vhost') {
 				$vh_post = $pm eq '+' ? 3 : $vh_post & 1;
 			} elsif ($txt eq 'vhost_x') {
@@ -737,12 +734,7 @@ $moddef{CORE} = {
 			&Log::warn_in($net, "Invalid NICKv2") unless '+' eq shift @m;
 			$nick{mode} = +{ map {
 				my $um = $net->umode2txt($_);
-				if (defined $um) {
-					$um => 1
-				} else {
-					&Log::warn_in($net, "Unknown umode '$_'");
-					();
-				}
+				$um ? ($um => 1) : ();
 			} @m };
 			$nick{info}{vhost} = $_[10];
 		}
