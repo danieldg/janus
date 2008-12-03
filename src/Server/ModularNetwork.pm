@@ -14,12 +14,12 @@ our(@txt2cmode, @cmode2txt, @txt2umode, @umode2txt); # quick lookup hashes for t
 &Persist::register_vars(qw(modules meta fromirc act_hooks txt2cmode cmode2txt txt2umode umode2txt));
 
 sub module_add {
-	my($net,$name) = @_;
+	my($net,$name,$opt) = @_;
 	return if $modules[$$net]{$name};
 	my $mod;
 	&Event::named_hook('Server/find_module', $net, $name, \$mod);
 	unless ($mod) {
-		&Log::err_in($net, "Unknown module $name, janus may become desynced if it is used");
+		&Log::err_in($net, "Unknown module $name, janus may become desynced if it is used") unless $opt;
 		return;
 	};
 	$modules[$$net]{$name} = $mod;

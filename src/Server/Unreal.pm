@@ -20,6 +20,7 @@ sub _init {
 	$sjmerge_txt[$$net] = '';
 	$protoctl[$$net] = 0;
 	$net->module_add('CORE');
+	$net->module_add('CUSTOM-'.$net->name, 1);
 }
 
 my %cmd2token = (qw/
