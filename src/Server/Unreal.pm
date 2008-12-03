@@ -240,8 +240,6 @@ sub dump_sendq {
 
 my %skip_umode = (
 	# TODO make this configurable
-	vhost => 1,
-	vhost_x => 1,
 	helpop => 1,
 	registered => 1,
 );
@@ -268,7 +266,7 @@ sub _connect_ifo {
 	my $vhost = $nick->info('vhost');
 	my $ip = $nick->info('ip') || '*';
 	if ($net->param('untrusted')) {
-		$vhost = 'cloak.unavailable' if $vhost eq '*';
+		$vhost = $rhost if $vhost eq '*';
 		$rhost = $vhost;
 		$ip = '*';
 	} elsif ($vhost eq 'unknown.cloaked') {
@@ -341,22 +339,13 @@ sub nickact {
 	return () unless $dst;
 
 	if ($dst->homenet() eq $net) {
-		my %a = (
+		return {
 			type => 'NICKINFO',
 			src => $src,
 			dst => $dst,
 			item => lc $act,
 			value => $_[-1],
-		);
-		if ($act eq 'vhost' && !($dst->has_mode('vhost') || $dst->has_mode('vhost_x'))) {
-			return (\%a, +{
-				type => 'UMODE',
-				dst => $dst,
-				mode => ['+vhost', '+vhost_x'],
-			});
-		} else {
-			return \%a;
-		}
+		};
 	} else {
 		my $old = $dst->info($act);
 		$act =~ s/vhost/host/;
@@ -453,8 +442,7 @@ sub _parse_umode {
 	my @out;
 	my @mode;
 	my $pm = '+';
-	my $vh_pre = $nick->has_mode('vhost') ? 3 : $nick->has_mode('vhost_x') ? 1 : 0;
-	my $vh_post = $vh_pre;
+	my $vh_delta = 0; # 0,1,2 = nochange,host,chost
 	my $oper_pre = $net->operlevel($nick);
 	my $oper_post = $oper_pre;
 	for (split //, $mode) {
@@ -469,16 +457,20 @@ sub _parse_umode {
 				item => 'svsts',
 				value => $_[3],
 			};
+		} elsif (/[xt]/) {
+			if ($pm eq '+' && $_ eq 'x') {
+				$vh_delta = 2;
+			} elsif ($pm eq '-' && $_ eq 'x') {
+				$vh_delta = 1;
+			} elsif ($pm eq '-' && $_ eq 't') {
+				$vh_delta = 2 unless $vh_delta;
+			}
 		} else {
 			my $txt = $net->umode2txt($_);
-			next unless $txt;
-			if ($txt eq 'vhost') {
-				$vh_post = $pm eq '+' ? 3 : $vh_post & 1;
-			} elsif ($txt eq 'vhost_x') {
-				$vh_post = $pm eq '+' ? $vh_post | 1 : 0;
-			} elsif ($opermodes{$txt}) {
+			if ($opermodes{$txt}) {
 				$oper_post = $pm eq '+' ? $oper_post | $opermodes{$txt} : $oper_post & ~$opermodes{$txt};
 			}
+			next unless $txt;
 			push @mode, $pm.$txt;
 		}
 	}
@@ -488,19 +480,14 @@ sub _parse_umode {
 		mode => \@mode,
 	} if @mode;
 
-	if ($vh_pre != $vh_post) {
-		if ($vh_post > 1) {
-			#invalid
-			&Log::debug_in($net, "Ignoring extraneous umode +t");
-		} else {
-			my $vhost = $vh_post ? $nick->info('chost') : $nick->info('host');
-			push @out,{
-				type => 'NICKINFO',
-				dst => $nick,
-				item => 'vhost',
-				value => $vhost,
-			};
-		}
+	if ($vh_delta) {
+		my $vhost = $nick->info(($vh_delta == 2) ? 'chost' : 'host');
+		push @out, {
+			type => 'NICKINFO',
+			dst => $nick,
+			item => 'vhost',
+			value => $vhost,
+		};
 	}
 
 	if ($oper_pre != $oper_post) {
@@ -656,16 +643,14 @@ $moddef{CORE} = {
 		q no_kick
 		r registered
 		s snomask
-		t vhost
 		v dcc_reject
 		w wallops
-		x vhost_x
 		z ssl
 		V webtv
 
 		d deaf_chan
 		R deaf_regpriv
-	/ },
+	/, 'x', '', 't', '' },
 	cmode => { qw/
 		v n_voice
 		h n_halfop
@@ -682,7 +667,6 @@ $moddef{CORE} = {
 		m r_moderated
 		n r_mustjoin
 		p t1_chanhide
-		r r_register
 		s t2_chanhide
 		t r_topic
 		u r_auditorium
@@ -699,7 +683,7 @@ $moddef{CORE} = {
 		R r_reginvite
 		S t1_colorblock
 		V r_noinvite
-	/ },
+	/, 'r', '', },
   cmds => {
 	NICK => sub {
 		my $net = shift;
@@ -729,13 +713,16 @@ $moddef{CORE} = {
 				name => $_[-1],
 			},
 		);
+		my $vh_mode = 0;
 		if (@_ >= 12) {
 			my @m = split //, $_[9];
 			&Log::warn_in($net, "Invalid NICKv2") unless '+' eq shift @m;
-			$nick{mode} = +{ map {
+			$nick{mode} = {};
+			for (@m) {
+				$vh_mode++ if /[xt]/;
 				my $um = $net->umode2txt($_);
-				$um ? ($um => 1) : ();
-			} @m };
+				$nick{mode}{$um}++ if $um;
+			}
 			$nick{info}{vhost} = $_[10];
 		}
 		if (@_ >= 13) {
@@ -764,8 +751,10 @@ $moddef{CORE} = {
 			$nick{info}{chost} = 'unknown.cloaked';
 		}
 
-		unless ($nick{mode}{vhost}) {
-			$nick{info}{vhost} = $nick{mode}{vhost_x} ? $nick{info}{chost} : $nick{info}{host};
+		if ($vh_mode == 0) {
+			$nick{info}{vhost} = $nick{info}{host};
+		} elsif ($vh_mode == 1) {
+			$nick{info}{vhost} = $nick{info}{chost};
 		}
 		my $oplvl = 0;
 		for my $m (keys %opermodes) {
