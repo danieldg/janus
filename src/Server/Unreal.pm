@@ -467,10 +467,10 @@ sub _parse_umode {
 			}
 		} else {
 			my $txt = $net->umode2txt($_);
+			next unless $txt;
 			if ($opermodes{$txt}) {
 				$oper_post = $pm eq '+' ? $oper_post | $opermodes{$txt} : $oper_post & ~$opermodes{$txt};
 			}
-			next unless $txt;
 			push @mode, $pm.$txt;
 		}
 	}
@@ -683,7 +683,7 @@ $moddef{CORE} = {
 		R r_reginvite
 		S t1_colorblock
 		V r_noinvite
-	/, 'r', '', },
+	/, 'r', 'r_', },
   cmds => {
 	NICK => sub {
 		my $net = shift;

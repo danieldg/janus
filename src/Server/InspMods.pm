@@ -353,7 +353,7 @@ mdef 'm_saquit.so',	cmds => { 'SAQUIT' => 'KILL' };
 mdef 'm_securelist.so';
 mdef 'm_seenicks.so';
 mdef 1105, 'm_services.so', cmode => {
-	r => '',
+	r => 'r_',
 	R => 'r_reginvite',
 	M => 'r_regmoderated'
 }, umode => {
@@ -382,7 +382,7 @@ mdef 1105, 'm_services_account.so', cmode => { R => 'r_reginvite', M => 'r_regmo
 	};
 
 mdef 12, 'm_services_account.so', cmode => {
-	r => '',
+	r => 'r_',
 	R => 'r_reginvite',
 	M => 'r_regmoderated',
 }, umode => {

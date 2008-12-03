@@ -77,6 +77,7 @@ sub from_irc {
 			&Log::warn_in($net, "Invalid mode text $txt for mode $_ in network $net");
 			next;
 		}
+		next if 3 > length $txt;
 		push @modes, substr $txt, 2;
 		push @args, $arg;
 		push @dirs, $pm;
