@@ -9,14 +9,16 @@ use Persist 'Server::BaseNick', 'Server::ModularNetwork';
 use strict;
 use warnings;
 
-our(@rawout, @sjmerge_head, @sjmerge_txt, @srvname, @servers, @numeric);
-&Persist::register_vars(qw(rawout sjmerge_head sjmerge_txt srvname servers numeric));
+our(@rawout, @sjmerge_head, @sjmerge_txt, @srvname, @servers, @numeric, @protoctl);
+&Persist::register_vars(qw(rawout sjmerge_head sjmerge_txt srvname servers numeric protoctl));
+&Persist::autoget(qw(protoctl));
 
 sub _init {
 	my $net = shift;
 	$rawout[$$net] = '';
 	$sjmerge_head[$$net] = '';
 	$sjmerge_txt[$$net] = '';
+	$protoctl[$$net] = 0;
 	$net->module_add('CORE');
 }
 
@@ -134,7 +136,6 @@ $token2cmd{$cmd2token{$_}} = $_ for keys %cmd2token;
 my $textip_table = join '', 'A'..'Z','a'..'z', 0 .. 9, '+/';
 
 sub nicklen { 30 }
-sub protoctl { 2309 }
 
 sub str {
 	my $net = shift;
@@ -282,24 +283,26 @@ sub _connect_ifo {
 	$hc = 3 if $nick->jlink();
 	($hc, $srv) = (1, $net->cparam('linkname')) if $srv eq 'janus.janus';
 
-	if ($ip =~ /^[0-9.]+$/) {
-		$ip =~ s/(\d+)\.?/sprintf '%08b', $1/eg; #convert to binary
-		$ip .= '0000=='; # base64 uses up 36 bits, so add 4 from the 32...
-		$ip =~ s/([01]{6})/substr $textip_table, oct("0b$1"), 1/eg;
-	} elsif ($ip =~ /^[0-9a-f:]+$/) {
-		$ip .= ':';
-		$ip =~ s/::/:::/ while $ip =~ /::/ && $ip !~ /(.*:){8}/;
-		# fully expanded IPv6 address, with an additional : at the end
-		$ip =~ s/([0-9a-f]*):/sprintf '%016b', hex $1/eg;
-		$ip .= '0000==';
-		$ip =~ s/([01]{6})/substr $textip_table, oct("0b$1"), 1/eg;
-	} else {
-		warn "Unrecognized IP address '$ip'" unless $ip eq '*';
-		$ip = '*';
-	}
-	unless ($ip eq '*' || length $ip == 8 || length $ip == 24) {
-		warn "Dropping NICKIP to avoid crashing unreal!";
-		$ip = '*';
+	if ($net->protoctl == 2309) {
+		if ($ip =~ /^[0-9.]+$/) {
+			$ip =~ s/(\d+)\.?/sprintf '%08b', $1/eg; #convert to binary
+			$ip .= '0000=='; # base64 uses up 36 bits, so add 4 from the 32...
+			$ip =~ s/([01]{6})/substr $textip_table, oct("0b$1"), 1/eg;
+		} elsif ($ip =~ /^[0-9a-f:]+$/) {
+			$ip .= ':';
+			$ip =~ s/::/:::/ while $ip =~ /::/ && $ip !~ /(.*:){8}/;
+			# fully expanded IPv6 address, with an additional : at the end
+			$ip =~ s/([0-9a-f]*):/sprintf '%016b', hex $1/eg;
+			$ip .= '0000==';
+			$ip =~ s/([01]{6})/substr $textip_table, oct("0b$1"), 1/eg;
+		} else {
+			warn "Unrecognized IP address '$ip'" unless $ip eq '*';
+			$ip = '*';
+		}
+		unless ($ip eq '*' || length $ip == 8 || length $ip == 24) {
+			warn "Dropping NICKIP to avoid crashing unreal!";
+			$ip = '*';
+		}
 	}
 	my @out;
 	push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $rhost,
@@ -490,7 +493,7 @@ sub _parse_umode {
 	if ($vh_pre != $vh_post) {
 		if ($vh_post > 1) {
 			#invalid
-			&Log::debug("Ignoring extraneous umode +t");
+			&Log::debug_in($net, "Ignoring extraneous umode +t");
 		} else {
 			my $vhost = $vh_post ? $nick->info('chost') : $nick->info('host');
 			push @out,{
@@ -610,6 +613,31 @@ sub cmd2 {
 
 our %moddef;
 &Janus::static('moddef');
+$moddef{'CORE-2309'} = {
+	umode => { qw/
+		p hide_chans
+		T deaf_ctcp
+	/ },
+	cmode => { qw/
+		f v_flood3.2
+		j s_joinlimit
+		I l_invex
+		T r_noticeblock
+	/ },
+};
+$moddef{'CORE-2303'} = {
+	umode => { qw/
+		p no_privmsg
+		P hide_chans
+	/ },
+	cmode => { qw/
+		f v_flood
+		T r_opernetadm
+		X r_nooperover
+		Y r_opersvsadm
+	/ },
+};
+$moddef{'CORE-2307'} = $moddef{'CORE-2309'};
 $moddef{CORE} = {
 	umode => { qw/
 		o oper
@@ -627,7 +655,6 @@ $moddef{CORE} = {
 		B bot
 		i invisible
 		G badword
-		p hide_chans
 		q no_kick
 		r registered
 		s snomask
@@ -640,7 +667,6 @@ $moddef{CORE} = {
 
 		d deaf_chan
 		R deaf_regpriv
-		T deaf_ctcp
 	/ },
 	cmode => { qw/
 		v n_voice
@@ -652,9 +678,7 @@ $moddef{CORE} = {
 		b l_ban
 		c t2_colorblock
 		e l_except
-		f v_flood3.2
 		i r_invite
-		j s_joinlimit
 		k v_key
 		l s_limit
 		m r_moderated
@@ -668,7 +692,6 @@ $moddef{CORE} = {
 		A r_operadmin
 		C r_ctcpblock
 		G r_badword
-		I l_invex
 		K r_noknock
 		L v_forward
 		M r_regmoderated
@@ -677,7 +700,6 @@ $moddef{CORE} = {
 		Q r_nokick
 		R r_reginvite
 		S t1_colorblock
-		T r_noticeblock
 		V r_noinvite
 	/ },
   cmds => {
@@ -1079,8 +1101,14 @@ $moddef{CORE} = {
 		my $name = lc $_[2];
 		my $desc = $_[-1];
 
-		my $snum = $net->sjb64((@_ > 5          ? $_[4] :
-				($desc =~ s/^U\d+-\S+-(\d+) //) ? $1    : 0), 1);
+		my $snum = 0;
+		if (@_ > 5) {
+			$snum = $net->sjb64($_[4], 1);
+		} elsif ($desc =~ s/^U(\d+)-\S+-(\d+) //) {
+			$protoctl[$$net] = $1;
+			$snum = $net->sjb64($2, 1);
+			$net->module_add('CORE-'.$protoctl[$$net]);
+		}
 
 		if ($net->auth_should_send) {
 			my $server = $net->cparam('linkname');
