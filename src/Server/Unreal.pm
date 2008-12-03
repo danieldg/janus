@@ -4,7 +4,8 @@ package Server::Unreal;
 use Nick;
 use Modes;
 use Server::BaseNick;
-use Persist 'Server::BaseNick';
+use Server::ModularNetwork;
+use Persist 'Server::BaseNick', 'Server::ModularNetwork';
 use strict;
 use warnings;
 
@@ -16,10 +17,9 @@ sub _init {
 	$rawout[$$net] = '';
 	$sjmerge_head[$$net] = '';
 	$sjmerge_txt[$$net] = '';
+	$net->module_add('CORE');
 }
 
-my %fromirc;
-my %toirc;
 my %cmd2token = (qw/
 		PRIVMSG     !
 		NICK        &
@@ -131,108 +131,10 @@ my %cmd2token = (qw/
 my %token2cmd;
 $token2cmd{$cmd2token{$_}} = $_ for keys %cmd2token;
 
-my %umode2txt = (qw/
-	o oper
-	O oper_local
-	C coadmin
-	A admin
-	a svs_admin
-	N netadmin
-	S service
-	H hideoper
-	h helpop
-	g globops
-	W whois_notice
-
-	B bot
-	i invisible
-	G badword
-	p hide_chans
-	q no_kick
-	r registered
-	s snomask
-	t vhost
-	v dcc_reject
-	w wallops
-	x vhost_x
-	z ssl
-	V webtv
-
-	d deaf_chan
-	R deaf_regpriv
-	T deaf_ctcp
-/);
-
-my %txt2umode;
-$txt2umode{$umode2txt{$_}} = $_ for keys %umode2txt;
-
-# Text prefixes:
-#  n - nick access level
-#  l - list (bans)
-#  v - value (key)
-#  s - value-on-set (limit)
-#  r - regular (moderate)
-
-my %cmode2txt = (qw/
-	v n_voice
-	h n_halfop
-	o n_op
-	a n_admin
-	q n_owner
-
-	b l_ban
-	c t2_colorblock
-	e l_except
-	f v_flood3.2
-	i r_invite
-	j s_joinlimit
-	k v_key
-	l s_limit
-	m r_moderated
-	n r_mustjoin
-	p t1_chanhide
-	r r_register
-	s t2_chanhide
-	t r_topic
-	u r_auditorium
-	z r_sslonly
-	A r_operadmin
-	C r_ctcpblock
-	G r_badword
-	I l_invex
-	K r_noknock
-	L v_forward
-	M r_regmoderated
-	N r_norenick
-	O r_oper
-	Q r_nokick
-	R r_reginvite
-	S t1_colorblock
-	T r_noticeblock
-	V r_noinvite
-/);
-
-my %txt2cmode;
-$txt2cmode{$cmode2txt{$_}} = $_ for keys %cmode2txt;
-
-sub cmode2txt {
-	$cmode2txt{$_[1]};
-}
-sub txt2cmode {
-	return '' if $_[1] eq 'r_register';
-	$txt2cmode{$_[1]};
-}
-
-sub umode2txt {
-	$umode2txt{$_[1]};
-}
-sub txt2umode {
-	$txt2umode{$_[1]};
-}
-
 my $textip_table = join '', 'A'..'Z','a'..'z', 0 .. 9, '+/';
 
 sub nicklen { 30 }
+sub protoctl { 2309 }
 
 sub str {
 	my $net = shift;
@@ -277,11 +179,7 @@ sub parse {
 		};
 	}
 	return $net->nick_msg(@args) if $cmd =~ /^\d+$/;
-	unless (exists $fromirc{$cmd}) {
-		&Log::err_in($net, "Unknown command '$cmd'");
-		return ();
-	}
-	return $fromirc{$cmd}->($net,@args);
+	return $net->from_irc(@args);
 }
 
 sub send {
@@ -289,12 +187,10 @@ sub send {
 	for my $act (@_) {
 		if (ref $act) {
 			my $type = $act->{type};
-			if (exists $toirc{$type}) {
-				my @lines = $toirc{$type}->($net, $act);
-				if (@lines) {
-					$net->merge_join();
-					$rawout[$$net] .= join "\r\n", @lines, '';
-				}
+			my @lines = $net->to_irc($act);
+			if (@lines) {
+				$net->merge_join();
+				$rawout[$$net] .= join "\r\n", @lines, '';
 			}
 		} else {
 			$net->merge_join();
@@ -353,8 +249,8 @@ sub umode_text {
 	my $mode = '+';
 	for my $m ($nick->umodes()) {
 		next if $skip_umode{$m};
-		next unless exists $txt2umode{$m};
-		$mode .= $txt2umode{$m};
+		my $um = $net->txt2umode($m);
+		$mode .= $um if defined $um;
 	}
 	unless ($net->param('show_roper') || $$nick == 1) {
 		$mode .= 'H' if $mode =~ /o/ && $mode !~ /H/;
@@ -570,7 +466,8 @@ sub _parse_umode {
 				value => $_[3],
 			};
 		} else {
-			my $txt = $umode2txt{$_} or do {
+			my $txt = $net->umode2txt($_);
+			unless (defined $txt) {
 				&Log::warn_in($net, "Unknown umode '$_'");
 				next;
 			};
@@ -675,9 +572,115 @@ sub find_numeric {
 	return 0;
 }
 
+sub _out {
+	my($net,$itm) = @_;
+	return '' unless defined $itm;
+	return $itm unless ref $itm;
+	if ($itm->isa('Nick')) {
+		return $itm->str($net) if $itm->is_on($net);
+		return $itm->homenet()->jname();
+	} elsif ($itm->isa('Channel')) {
+		return $itm->str($net);
+	} elsif ($itm->isa('Network')) {
+		return $net->cparam('linkname') if $itm eq $net;
+		return $itm->jname();
+	} else {
+		&Log::warn_in($net,"Unknown item $itm");
+		$net->cparam('linkname');
+	}
+}
 
-%fromirc = (
-# User Operations
+sub cmd1 {
+	my $net = shift;
+	$net->cmd2(undef, @_);
+}
+
+sub cmd2 {
+	my($net,$src,$cmd) = (shift,shift,shift);
+	my $out = defined $src ? ':'.$net->_out($src).' ' : '';
+	$out .= exists $cmd2token{$cmd} ? $cmd2token{$cmd} : $cmd;
+	if (@_) {
+		my $end = $net->_out(pop @_);
+		$out .= ' '.$net->_out($_) for @_;
+		$out .= ' :'.$end;
+	}
+	$out;
+}
+
+
+our %moddef;
+&Janus::static('moddef');
+$moddef{CORE} = {
+	umode => { qw/
+		o oper
+		O oper_local
+		C coadmin
+		A admin
+		a svs_admin
+		N netadmin
+		S service
+		H hideoper
+		h helpop
+		g globops
+		W whois_notice
+
+		B bot
+		i invisible
+		G badword
+		p hide_chans
+		q no_kick
+		r registered
+		s snomask
+		t vhost
+		v dcc_reject
+		w wallops
+		x vhost_x
+		z ssl
+		V webtv
+
+		d deaf_chan
+		R deaf_regpriv
+		T deaf_ctcp
+	/ },
+	cmode => { qw/
+		v n_voice
+		h n_halfop
+		o n_op
+		a n_admin
+		q n_owner
+
+		b l_ban
+		c t2_colorblock
+		e l_except
+		f v_flood3.2
+		i r_invite
+		j s_joinlimit
+		k v_key
+		l s_limit
+		m r_moderated
+		n r_mustjoin
+		p t1_chanhide
+		r r_register
+		s t2_chanhide
+		t r_topic
+		u r_auditorium
+		z r_sslonly
+		A r_operadmin
+		C r_ctcpblock
+		G r_badword
+		I l_invex
+		K r_noknock
+		L v_forward
+		M r_regmoderated
+		N r_norenick
+		O r_oper
+		Q r_nokick
+		R r_reginvite
+		S t1_colorblock
+		T r_noticeblock
+		V r_noinvite
+	/ },
+  cmds => {
 	NICK => sub {
 		my $net = shift;
 		if (@_ < 7) {
@@ -710,8 +713,9 @@ sub find_numeric {
 			my @m = split //, $_[9];
 			&Log::warn_in($net, "Invalid NICKv2") unless '+' eq shift @m;
 			$nick{mode} = +{ map {
-				if (exists $umode2txt{$_}) {
-					$umode2txt{$_} => 1
+				my $um = $net->umode2txt($_);
+				if (defined $um) {
+					$um => 1
 				} else {
 					&Log::warn_in($net, "Unknown umode '$_'");
 					();
@@ -853,6 +857,7 @@ sub find_numeric {
 			return ();
 		}
 	},
+	SVS2MODE => 'SVSMODE',
 	SETIDENT => \&nickact,
 	CHGIDENT => \&nickact,
 	SETHOST => \&nickact,
@@ -1296,45 +1301,7 @@ sub find_numeric {
 			type => 'REHASH',
 		};
 	},
-);
-$fromirc{SVS2MODE} = $fromirc{SVSMODE};
-
-sub _out {
-	my($net,$itm) = @_;
-	return '' unless defined $itm;
-	return $itm unless ref $itm;
-	if ($itm->isa('Nick')) {
-		return $itm->str($net) if $itm->is_on($net);
-		return $itm->homenet()->jname();
-	} elsif ($itm->isa('Channel')) {
-		return $itm->str($net);
-	} elsif ($itm->isa('Network')) {
-		return $net->cparam('linkname') if $itm eq $net;
-		return $itm->jname();
-	} else {
-		&Log::warn_in($net,"Unknown item $itm");
-		$net->cparam('linkname');
-	}
-}
-
-sub cmd1 {
-	my $net = shift;
-	$net->cmd2(undef, @_);
-}
-
-sub cmd2 {
-	my($net,$src,$cmd) = (shift,shift,shift);
-	my $out = defined $src ? ':'.$net->_out($src).' ' : '';
-	$out .= exists $cmd2token{$cmd} ? $cmd2token{$cmd} : $cmd;
-	if (@_) {
-		my $end = $net->_out(pop @_);
-		$out .= ' '.$net->_out($_) for @_;
-		$out .= ' :'.$end;
-	}
-	$out;
-}
-
-%toirc = (
+  }, acts => {
 	JNETLINK => sub {
 		my($net,$act) = @_;
 		my $ij = $act->{net};
@@ -1552,20 +1519,25 @@ sub cmd2 {
 		local $_;
 		my $pm = '';
 		my $mode = '';
+		my @out;
 		for my $ltxt (@{$act->{mode}}) {
 			my($d,$txt) = $ltxt =~ /([-+])(.+)/ or warn $ltxt;
-			next if $skip_umode{$txt} || !$txt2umode{$txt};
-			next if $txt eq 'hideoper' && !$net->param('show_roper');
-			if ($pm ne $d) {
-				$pm = $d;
-				$mode .= $pm;
+			my $um = $net->txt2umode($txt);
+			if (ref $um) {
+				$um = $um->($net, $act->{dst}, $ltxt, \@out);
 			}
-			$mode .= $txt2umode{$txt};
+			next if $skip_umode{$txt};
+			next if $um eq 'H' && !$net->param('show_roper');
+			if (defined $um && length $um) {
+				$mode .= $d if $pm ne $d;
+				$mode .= $um;
+				$pm = $d;
+			}
 		}
 		$mode =~ s/o/oH/ unless $net->param('show_roper');
 
-		return () unless $mode;
-		$net->cmd2($act->{dst}, UMODE2 => $mode);
+		push @out, $net->cmd2($act->{dst}, UMODE2 => $mode) if $mode;
+		@out;
 	}, QUIT => sub {
 		my($net,$act) = @_;
 		return () if $act->{netsplit_quit};
@@ -1585,6 +1557,24 @@ sub cmd2 {
 		return () unless $act->{src}->is_on($net);
 		$net->cmd2($act->{src}, TSCTL => 'alltime');
 	},
+  }
+};
+
+&Event::hook_add(
+	INFO => 'Network:1' => sub {
+		my($dst, $net, $asker) = @_;
+		return unless $net->isa(__PACKAGE__);
+		&Janus::jmsg($dst, 'Modules: '. join ' ', sort $net->all_modules);
+		# TODO maybe server list?
+	},
+	Server => find_module => sub {
+		my($net, $name, $d) = @_;
+		return unless $net->isa(__PACKAGE__);
+		return unless $moddef{$name};
+		$$d = $moddef{$name};
+	}
 );
+
+
 
 1;
