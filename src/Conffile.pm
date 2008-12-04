@@ -143,7 +143,7 @@ sub read_conf {
 
 	%netconf = %newconf;
 
-	$newconf{modules}{$_}++ for qw(Interface Actions Account Commands::Core);
+	$newconf{modules}{$_}++ for qw(Interface Actions Account Setting Commands::Core);
 	my @stars = grep /\*/, keys %{$newconf{modules}};
 	for my $moddir (@stars) {
 		delete $newconf{modules}{$moddir};

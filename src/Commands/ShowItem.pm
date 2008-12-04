@@ -78,8 +78,7 @@ my @mode_sym = qw{~ & @ % +};
 			my $acl = $set->{acl_r};
 			next if $acl && !Account::acl_check($asker, $acl);
 			my $name = $set->{name};
-			my $val = $Janus::setting{$n->name}{$name};
-			$val = $set->{do_read}->($val) if $set->{do_read};
+			my $val = Setting::get($name, $n);
 			if ($val) {
 				push @sets, qq{\002$name\002: "$val"};
 			}

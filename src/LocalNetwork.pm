@@ -66,14 +66,12 @@ sub auth_should_send {
 	name => 'force_tag',
 	type => 'LocalNetwork',
 	help => 'Regular expression for nicks that will be forcibly tagged',
-	acl_local_w => 'set/network',
-	acl_w => 'setall/network',
+	default => '',
 }, {
 	name => 'tagsep',
 	type => 'LocalNetwork',
-	help => 'Character used for tag separator. Default is "/"',
-	acl_local_w => 'set/network',
-	acl_w => 'setall/network',
+	help => 'Character used for tag separator.',
+	default => '/',
 });
 
 ### MODE SPLIT ###

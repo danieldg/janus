@@ -253,8 +253,8 @@ sub send_avail {
 &Event::setting_add({
 	name => 'link_requires',
 	type => 'LocalNetwork',
-	acl_local_w => 'set/network',
-	acl_w => 'setall/network',
+	help => 'Minimum access level to link a channel. Good values include "op", "owner", or "oper"',
+	default => 'owner',
 });
 
 1;

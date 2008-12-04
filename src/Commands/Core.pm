@@ -201,9 +201,9 @@ my %help_section = (
 }, {
 	cmd => 'set',
 	help => 'Change network or channel settings',
-	api => '=src =replyto $ $ @',
+	api => '=src =replyto $ $ ?$',
 	code => sub {
-		my($src,$dst,$item,$key,@value) = @_;
+		my($src,$dst,$item,$key,$value) = @_;
 		my $set = $Event::settings{$key} or do {
 			&Janus::jmsg($dst, "Setting $key not found");
 			return;
@@ -220,19 +220,12 @@ my %help_section = (
 				return;
 			}
 		}
-		my $acl = $set->{acl_w} || $set->{acl_r};
-		if ($local && $acl && !Account::acl_check($src, $acl)) {
-			$acl = $set->{acl_local_w} || $acl;
-		}
-		if ($acl && !Account::acl_check($src, $acl)) {
+		my $acl = $local ? 'set/network' : 'setall/network';
+		if (!Account::acl_check($src, $acl)) {
 			&Janus::jmsg($dst, "Changing this setting requires access to '$acl'");
 			return;
 		}
-		if ($set->{do_write}) {
-			$set->{do_write}->($src, $item, @value);
-		} else {
-			$Janus::setting{$item}{$key} = join ' ', @value;
-		}
+		Setting::set($key, $Janus::nets{$item}, $value);
 	},
 });
 

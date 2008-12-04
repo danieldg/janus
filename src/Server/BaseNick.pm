@@ -83,11 +83,11 @@ sub request_nick {
 
 		$tagged = 1 if exists $nicks[$$net]->{lc $given};
 
-		my $tagre = $Janus::setting{$net->name}{force_tag};
+		my $tagre = Setting::get(force_tag => $net);
 		$tagged = 1 if $tagre && $$nick != 1 && $given =~ /^$tagre$/;
 
 		if ($tagged) {
-			my $tagsep = $Janus::setting{$net->name}{tagsep} || '/';
+			my $tagsep = Setting::get(tagsep => $net);
 			my $tag = $tagsep . $nick->homenet()->name();
 			my $i = 0;
 			$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;

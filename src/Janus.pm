@@ -90,7 +90,6 @@ our %modinfo;    # by module name
 $modinfo{Janus}{load}++;
 
 our %states;
-our %setting;
 our %static;
 our %rel_csum;
 
@@ -314,7 +313,6 @@ unless ($global) {
 
 Janus::info(desc => 'Core module loader');
 Janus::static(qw(global new_sha1 static modinfo));
-Janus::save_vars(setting => \%setting);
 
 Event::hook_add(
 	MODLOAD => check => sub {
