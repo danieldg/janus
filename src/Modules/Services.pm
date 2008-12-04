@@ -34,7 +34,7 @@ sub svs_type {
 	}
 	
 	# Is this nick on a services server?
-	my $svs_srv = $net->param('services_servers');
+	my $svs_srv = Setting::get(services_servers => $net);
 	if ($svs_srv) {
 		my @srvs = split /,/, $svs_srv;
 		unless (grep $_ eq $srv, @srvs) {
@@ -48,8 +48,8 @@ sub svs_type {
 
 	my $nick = lc $n->homenick();
 
-	$r = $net->param('service_'.$nick);
-	if (defined $r) {
+	for (split /;/, Setting::get(service_set => $net)) {
+		next unless s/^([^=]+)=// and $nick eq $1;
 		my $v = CACHED;
 		for (split /,/, $r) {
 			$v |= $1 if /(\d+)/;
@@ -68,6 +68,21 @@ sub svs_type {
 
 	$cache[$$n] = $r;
 }
+
+&Event::setting_add({
+	name => 'services_servers',
+	type => 'LocalNetwork',
+	help => 'comma-separated list of services/stats servers on this network',
+	default => '',
+}, {
+	name => 'service_set',
+	type => 'LocalNetwork',
+	help => [
+		'Override of Modules::Services mask for certain nicks.',
+		'Format: nick1=NO_MSG,KILL_LOOP;nick2=JOIN_ALL,NO_KILL_ALL',
+	],
+	default => '',
+});
 
 &Event::hook_add(
 	MSG => check => sub {

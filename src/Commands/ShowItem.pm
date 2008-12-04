@@ -79,9 +79,7 @@ my @mode_sym = qw{~ & @ % +};
 			next if $acl && !Account::acl_check($asker, $acl);
 			my $name = $set->{name};
 			my $val = Setting::get($name, $n);
-			if ($val) {
-				push @sets, qq{\002$name\002: "$val"};
-			}
+			push @sets, qq{\002$name\002: "$val"};
 		}
 		&Janus::jmsg($dst, join ' ', sort @sets) if @sets;
 	},
