@@ -1537,8 +1537,8 @@ $moddef{CORE} = {
 				$um = $um->($net, $act->{dst}, $ltxt, \@out);
 			}
 			next if $skip_umode{$txt};
-			next if $um eq 'H' && !$net->param('show_roper');
 			if (defined $um && length $um) {
+				next if $um eq 'H' && !$net->param('show_roper');
 				$mode .= $d if $pm ne $d;
 				$mode .= $um;
 				$pm = $d;
