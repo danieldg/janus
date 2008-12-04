@@ -3,7 +3,7 @@
 package Commands::Upgrade;
 use strict;
 use warnings;
-use POSIX;
+use POSIX ();
 
 sub fexec {
 	do { exec @_; };

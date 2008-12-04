@@ -143,7 +143,7 @@ sub init_connection {
 
 sub init_listen {
 	my($net,$addr,$port) = @_;
-	my($af,$bind, $sock);
+	my($af,$sock);
 	if (HAS_IPV6 && (!$addr || $addr =~ /:/)) {
 		$af = AF_INET6;
 		my $baddr = inet_pton(AF_INET6, $addr || '::');
