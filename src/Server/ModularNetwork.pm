@@ -20,7 +20,7 @@ sub module_add {
 	&Event::named_hook('Server/find_module', $net, $name, \$mod);
 	unless ($mod) {
 		&Log::err_in($net, "Unknown module $name, janus may become desynced if it is used") unless $opt;
-		return;
+		$mod = {};
 	};
 	$modules[$$net]{$name} = $mod;
 	if ($mod->{cmode}) {
