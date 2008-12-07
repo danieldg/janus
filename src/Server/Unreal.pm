@@ -1159,7 +1159,7 @@ $moddef{CORE} = {
 				msg => "$splitfrom $srv",
 			}
 		}
-		&Log::info_in('Lost servers: '.join(' ', sort keys %sgone).' with '.(scalar @quits).' users from '.$net->name);
+		&Log::info_in($net, 'Lost servers: '.join(' ', sort keys %sgone).' with '.(scalar @quits).' users');
 		@quits;
 	}, PING => sub {
 		my $net = shift;
