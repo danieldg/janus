@@ -96,10 +96,11 @@ our %action = (
 		(13, 'janus', ($_[0] ? "($_[0]) " : ''). $_[1]->netnick.' '.$_[2])
 	}, 'poison' => sub {
 		my($pkg, $file, $line, $called, $ifo, @etc) = @_;
+		my $msg = "Reference to $ifo->{class}->$called at $file line $line for #$ifo->{id} (count=$ifo->{refs})";
 		if ($ifo->{refs} == 1) {
-			&Snapshot::dump_now('poison', @_);
+			&Snapshot::dump_now('poison', $msg, $ifo, @etc, &Log::call_dump());
 		}
-		(14, 'poison', "Reference to $ifo->{class}->$called at $file line $line for #$ifo->{id} (count=$ifo->{refs})");
+		(14, 'poison', $msg);
 	},
 );
 
@@ -149,6 +150,19 @@ sub dump_queue {
 		}
 	}
 	@queue = ();
+}
+
+sub call_dump {
+	my @ifo;
+	package DB;
+	for my $i (1..50) {
+		my($p,$f,$l,$s,$args,$wa,$txt) = caller $i or last;
+		my @frame = "$s called by $p at $f line $l";
+		push @frame, $txt if $txt;
+		push @frame, @DB::args if $args;
+		push @ifo, @frame == 1 ? $frame[0] : \@frame;
+	}
+	@ifo;
 }
 
 $SIG{'__WARN__'} = sub {

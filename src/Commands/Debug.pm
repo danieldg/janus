@@ -26,7 +26,7 @@ use Snapshot;
 &Event::hook_add(
 	ALL => 'die' => sub {
 		eval {
-			&Snapshot::dump_now(@_);
+			&Snapshot::dump_now(@_, &Log::call_dump());
 			1;
 		} or print "Error in dump: $@\n";
 	},
