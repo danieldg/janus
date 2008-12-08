@@ -454,121 +454,35 @@ Event::hook_add(
 		my $reply = ($dst == $RemoteJanus::self || !$src->jlink) ? $act->{replyto} : undef;
 
 		my $api = $cmd->{api} || "=src =replyto @";
-		my @argin = @{$act->{args}};
+		my($args, $fail, $bncto) = Interface::api_parse($act, $api);
+		my $logpfx = '';
+		$logpfx ||= '-syntax' if $fail;
+		$logpfx ||= '^'.$bncto->id if $bncto;
 
-		my $hnet = $src->homenet;
-		my @args;
-		my $fail;
-		my $bncto;
-		my $idx = 0;
-		for (split / /, $api) {
-			$idx++;
-			my $opt = s/^\?//;
-			my $forceloc = s/^local//;
-			if (/^=(.*)/) {
-				push @args, $act->{$1};
-			} elsif ($_ eq '@') {
-				push @args, @argin;
-				@argin = ();
-			} elsif ($_ eq '*') {
-				@argin = ();
-			} elsif ($_ eq '$') {
-				$fail = 'Not enough arguments' unless $opt || @argin;
-				push @args, shift @argin if @argin;
-			} elsif ($_ eq 'homenet') {
-				push @args, $hnet;
-			} elsif ($_ eq 'nick') {
-				my $nname = $argin[0];
-				my $net = $hnet;
-				if ($nname && $nname =~ /^(\S+):(\S+)$/) {
-					$net = $Janus::nets{$1};
-					$nname = $2;
-					$fail = 'Could not find network '.$1 unless $opt || $net;
-				}
-				if ($nname && $net && !$net->jlink) {
-					$act->{$idx} = $net->nick($nname, 1);
-				}
-				if ($act->{$idx}) {
-					shift @argin;
-				} else {
-					$bncto ||= $net->jlink if $net && $net->jlink;
-					$fail = 'Could not find nick "'.$nname.'"'  unless $fail || $opt || $bncto == $net->jlink;
-				}
-				push @args, $act->{$idx};
-			} elsif ($_ eq 'chan') {
-				my $cname = $argin[0] || '';
-				my $net = $hnet;
-				if ($cname && $cname =~ /^(\S+)(#.*)/) {
-					$net = $Janus::nets{$1};
-					$cname = $2;
-					$fail = 'Could not find network '.$1 unless $opt || $net;
-				}
-				if ($cname && $net && !$net->jlink) {
-					$act->{$idx} = $net->chan($cname, 0);
-				}
-				if ($act->{$idx}) {
-					shift @argin;
-				} else {
-					$bncto ||= $net->jlink if $net && $net->jlink;
-					$fail = 'Could not find channel "'.$cname.'"' unless $fail || $opt || $bncto == $net->jlink;
-				}
-				push @args, $act->{$idx};
-			} elsif ($_ eq 'net') {
-				my $id = $argin[0] || '';
-				my $net = $Janus::nets{$id};
-				$fail = 'Could not find network "'.$id.'"' unless $opt || $net;
-				shift @argin if $net;
-				push @args, $net;
-			} elsif ($_ eq 'defnet') {
-				my $id = $argin[0] || '';
-				my $net = $Janus::nets{$id};
-				shift @argin if $net;
-				push @args, ($net || $hnet);
-			} elsif ($_ eq 'act') {
-				push @args, $act;
-			} else {
-				&Log::err("Skipping unknown command API $_");
-			}
-			if ($forceloc && $args[-1]) {
-				my $itm = $args[-1];
-				warn "Ambiguous local* API spec" if $bncto;
-				if ($itm->isa('Network')) {
-					$bncto = $itm->jlink;
-				} elsif ($itm->isa('Channel')) {
-					$bncto = $itm->homenet->jlink;
-				} elsif ($itm->isa('Nick')) {
-					$bncto = $itm->homenet->jlink;
-				} else {
-					warn 'Unknown item';
-				}
-			}
-		}
 		if ($bncto && $bncto != $dst) {
 			reroute_cmd($act, $bncto);
-			return;
+			$run = 0;
 		}
-		$fail ||= 'Too many arguments' if @argin;
 
+		my $acl = $cmd->{acl};
+		$acl = 'oper' if $acl && $acl eq '1';
+		if ($acl && !&Account::acl_check($src, $acl)) {
+			$logpfx ||= '-@'.$acl;
+			$fail = "You must have access to '$acl' to use this command";
+		}
+		&Log::command($logpfx, $act->{src}, $act->{raw}) unless $cmd->{secret};
 		return unless $run;
 		if ($fail) {
 			&Janus::jmsg($reply, $fail);
 			return;
 		}
-		my $acl = $cmd->{acl};
-		if ($acl) {
-			$acl = 'oper' if $acl eq '1';
-			unless (&Account::acl_check($src, $acl)) {
-				&Janus::jmsg($reply, "You must have access to '$acl' to use this command");
-				return;
-			}
-		}
-		&Log::command($act->{src}, $act->{raw}) unless $cmd->{secret};
+
 		eval {
 			my $csub = $cmd->{code};
-			$csub->(@args);
+			$csub->(@$args);
 			1;
 		} or do {
-			&Event::named_hook('die', $@, 'command', $cmd, \@args, $act);
+			&Event::named_hook('die', $@, 'command', $cmd, $args, $act);
 		};
 	}
 );

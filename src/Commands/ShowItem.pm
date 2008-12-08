@@ -102,6 +102,7 @@ my @mode_sym = qw{~ & @ % +};
 		}
 		if (!$nick) {
 			Janus::jmsg($dst, 'Not enough arguments');
+			return;
 		}
 		&Event::named_hook('INFO/Nick', $dst, $nick, $src);
 	},
@@ -120,6 +121,7 @@ my @mode_sym = qw{~ & @ % +};
 		}
 		if (!$chan) {
 			Janus::jmsg($dst, 'Not enough arguments');
+			return;
 		}
 		&Event::named_hook('INFO/Channel', $dst, $chan, $src);
 	},

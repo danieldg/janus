@@ -93,7 +93,7 @@ our %action = (
 	}, 'audit' => sub {
 		(9, 'AUDIT', $_[0])
 	}, 'command' => sub {
-		(13, 'janus', join ' ', $_[0]->netnick, $_[1])
+		(13, 'janus', ($_[0] ? "($_[0]) " : ''). $_[1]->netnick.' '.$_[2])
 	}, 'poison' => sub {
 		my($pkg, $file, $line, $called, $ifo, @etc) = @_;
 		if ($ifo->{refs} == 1) {

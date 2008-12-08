@@ -13,13 +13,13 @@ use Modes;
 	details => [
 		"\002SHOWMODE\002 #channel - shows the intended modes of the channel on your network",
 	],
-	api => '=src =replyto homenet chan',
+	api => '=src =replyto chan defnet',
 	code => sub {
-		my($src,$dst,$hn,$chan) = @_;
+		my($src,$dst,$chan,$net) = @_;
 		return &Janus::jmsg($dst, 'That channel does not exist') unless $chan;
 		return unless &Account::chan_access_chk($src, $chan, 'info', $dst);
-		if ($hn->isa('LocalNetwork')) {
-			my @modes = &Modes::to_multi($hn, &Modes::delta(undef, $chan), 0, 400);
+		if ($net->isa('LocalNetwork')) {
+			my @modes = &Modes::to_multi($net, &Modes::delta(undef, $chan), 0, 400);
 			&Janus::jmsg($dst, join ' ', @$_) for @modes;
 		}
 		
@@ -51,7 +51,7 @@ use Modes;
 	details => [
 		"\002SETMODE\002 #channel +mode1 -mode2 +mode3=value",
 		"For a list of modes, see the \002LISTMODES\002 command.",
-		"For tristate modes, use multiple + signs to set a higher level",
+		"For multistate modes, use multiple + signs to set a higher level",
 	],
 	api => '=src =replyto homenet chan @',
 	code => sub {
@@ -79,7 +79,7 @@ use Modes;
 				}
 			} elsif ($type eq 'n') {
 				$v = $hn->nick($v, 1) or do {
-					&Janus::jmsg($dst, "Cannot find nick");
+					&Janus::jmsg($dst, "Cannot find nick '$v'");
 					return;
 				};
 			}
@@ -115,10 +115,9 @@ use Modes;
 		"Syntax: \002LISTMODES\002 [network] [width]",
 	],
 	section => 'Info',
-	api => 'homenet =replyto ?localnet ?$',
+	api => '=replyto localdefnet ?$',
 	code => sub {
-		my($net,$dst,$dnet,$w) = @_;
-		$net = $dnet if $dnet;
+		my($dst,$net,$w) = @_;
 		$w ||= 5;
 		my @nmodes = sort keys %Nick::umodebit;
 		my @cmodes = sort keys %Modes::mtype;
