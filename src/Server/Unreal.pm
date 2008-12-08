@@ -610,19 +610,6 @@ $moddef{'CORE-2309'} = {
 		T r_noticeblock
 	/ },
 };
-$moddef{'CORE-2303'} = {
-	umode => { qw/
-		p no_privmsg
-		P hide_chans
-	/ },
-	cmode => { qw/
-		f v_flood
-		T r_opernetadm
-		X r_nooperover
-		Y r_opersvsadm
-	/ },
-};
-$moddef{'CORE-2307'} = $moddef{'CORE-2309'};
 $moddef{CORE} = {
 	umode => { qw/
 		o oper
@@ -1089,7 +1076,7 @@ $moddef{CORE} = {
 		} elsif ($desc =~ s/^U(\d+)-\S+-(\d+) //) {
 			$protoctl[$$net] = $1;
 			$snum = $net->sjb64($2, 1);
-			$net->module_add('CORE-'.$protoctl[$$net]);
+			$net->module_add('CORE-'.$protoctl[$$net], 1);
 		}
 
 		if ($net->auth_should_send) {
