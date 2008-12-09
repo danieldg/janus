@@ -214,7 +214,6 @@ sub send {
 			my $src = $act->{src} or next;
 			my $snet = $src->homenet;
 			&Event::append(whois_reply($src, $janus, 0, $^T,
-				319 => [ join ' ', map { $_->is_on($snet) ? $_->str($snet) : () } $janus->all_chans() ],
 				312 => [ 'janus.janus', "Janus Interface" ],
 			));
 		} elsif ($act->{type} eq 'TSREPORT') {
@@ -427,7 +426,8 @@ sub whois_reply {
 	my $net = $src == $janus ? $dst->homenet : $src->homenet;
 	my %msgh = (
 		311 => [ $src->info('ident'), $src->info('vhost'), '*', $src->info('name') ],
-		312 => [ $src->info('home_server'), 'Janus link' ],
+		312 => [ ($src->info('home_server') || $net->jname), 'Janus link' ],
+		319 => [ join ' ', map { $_->is_on($net) ? $_->str($net) : () } $dst->all_chans() ],
 		317 => [ $idle, $sgon, 'seconds idle, signon time'],
 		318 => [ 'End of /WHOIS list' ],
 	);
@@ -437,7 +437,7 @@ sub whois_reply {
 		push @msglist, $add unless $msgh{$add};
 		$msgh{$add} = $args{$add};
 	}
-	push @msglist, 317, 318;
+	push @msglist, 319, 317, 318;
 
 	return map +{
 		type => 'MSG',
