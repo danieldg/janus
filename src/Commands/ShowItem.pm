@@ -3,8 +3,6 @@
 package Commands::ShowItem;
 use strict;
 use warnings;
-my @mode_txt = qw{owner admin op halfop voice};
-my @mode_sym = qw{~ & @ % +};
 
 &Event::hook_add(
 	INFO => Nick => sub {
@@ -62,7 +60,7 @@ my @mode_sym = qw{~ & @ % +};
 
 		my %nlist;
 		for my $n ($c->all_nicks) {
-			my $pfx = join '', map { $c->has_nmode($mode_txt[$_], $n) ? $mode_sym[$_] : '' } 0..4;
+			my $pfx = &Modes::chan_pfx($c, $n);
 			my $nick = $n->str($hn) || $n->homenick || '#'.$$n;
 			$nick =~ s/(?:\002!(\d+)\002)?$/"\002!".(1 + ($1||0))."\002"/e while $nlist{$nick};
 			$nlist{$nick} = $pfx.$nick;

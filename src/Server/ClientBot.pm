@@ -9,6 +9,7 @@ use Persist 'Server::BaseNick';
 use Scalar::Util 'weaken';
 use strict;
 use warnings;
+use integer;
 use Link;
 
 our(@sendq, @self, @kicks, @lchan, @flood_bkt, @flood_ts);
@@ -57,7 +58,7 @@ sub intro {
 		"NICK $param->{nick}",
 	);
 	$self[$$net] = $param->{nick};
-	$flood_bkt[$$net] = $param->{tbf_max} || 20;
+	$flood_bkt[$$net] = &Setting::get(tbf_burst => $net);
 	$flood_ts[$$net] = $Janus::time;
 }
 
@@ -230,12 +231,24 @@ sub cmd1 {
 	$out;
 }
 
+&Event::setting_add({
+	name => 'tbf_rate',
+	type => __PACKAGE__,
+	help => 'Flood rate (lines/second)',
+	default => 3,
+}, {
+	name => 'tbf_burst',
+	type => __PACKAGE__,
+	help => 'Flood burst length (lines)',
+	default => 20,
+});
+
 sub dump_sendq {
 	my $net = shift;
 	local $_;
 	my $tokens = $flood_bkt[$$net];
-	my $rate = $net->param('tbf_rate') || 3;
-	my $max = $net->param('tbf_max') || 20;
+	my $rate = &Setting::get(tbf_rate => $net);
+	my $max = &Setting::get(tbf_burst => $net);
 	$tokens += ($Janus::time - $flood_ts[$$net])*$rate;
 	$tokens = $max if $tokens > $max;
 	my $q = '';
@@ -396,6 +409,24 @@ sub nicklen { 40 }
 	},
 );
 
+sub cb_cmd {
+	my($net,$src,$msg) = @_;
+# TODO make generic, more commands
+	if ($msg =~ /^names (#\S*)/i) {
+		my $chan = $net->chan($1);
+		if ($chan) {
+			my @nicks = grep { $_->homenet != $net } $chan->all_nicks;
+			my @table = map [ &Modes::chan_pfx($chan, $_) . $_->str($net) ], @nicks;
+			&Interface::msgtable($src, \@table, cols => 6, pfx => $1.' ');
+		} else {
+			&Janus::jmsg($src, 'Not on that channel');
+		}
+	} else {
+		&Janus::jmsg($src, 'Unknown command');
+	}
+	return ();
+}
+
 sub pm_not {
 	my $net = shift;
 	my $src = $net->item($_[0]) or return ();
@@ -404,6 +435,7 @@ sub pm_not {
 		# PM to the bot
 		my $msg = $_[3];
 		return if $msg =~ /^\001/; # ignore CTCPs
+		return cb_cmd($net, $src, $msg) if $msg =~ s/^!//;
 		if ($msg =~ s/^(\S+)\s//) {
 			my $dst = $net->item($1);
 			if (ref $dst && $dst->isa('Nick') && $dst->homenet() ne $net) {

@@ -23,6 +23,9 @@ $mtype{$_} = 'r' for qw/
 	allinvite permanent jcommand cbdirect
 /;
 
+our @nmode_txt = qw{owner admin op halfop voice};
+our @nmode_sym = qw{~ & @ % +};
+
 =head1 IRC Mode utilities
 
 Intended to be used by IRC server parsers
@@ -293,6 +296,10 @@ sub modelist {
 	join ',', map { join '', sort values %{$split2c{$_}} } qw(l v s r);
 }
 
+sub chan_pfx {
+	my($chan, $nick) = @_;
+	join '', map { $chan->has_nmode($nmode_txt[$_], $nick) ? $nmode_sym[$_] : '' } 0..$#nmode_txt;
+}
 
 =back
 
