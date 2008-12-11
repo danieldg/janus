@@ -350,6 +350,7 @@ sub nicklen { 40 }
 	},
 	MODE => sub {
 		my ($net,$act) = @_;
+		my $chan = $act->{dst};
 		my @mm = @{$act->{mode}};
 		my @ma = @{$act->{args}};
 		my @md = @{$act->{dirs}};
@@ -359,13 +360,17 @@ sub nicklen { 40 }
 				splice @mm, $i, 1;
 				splice @ma, $i, 1;
 				splice @md, $i, 1;
+			} elsif ($mm[$i] eq 'cbmodesync' && $md[$i] eq '+') {
+				my @modes = &Modes::to_multi($net, &Modes::delta(undef, $chan), 12);
+				return map $net->cmd1(MODE => $chan, @$_), @modes;
 			} else {
 				$i++;
 			}
 		}
+		return () unless $chan->get_mode('cbmodesync');
 
 		my @modes = &Modes::to_multi($net, \@mm, \@ma, \@md, 12);
-		map $net->cmd1(MODE => $act->{dst}, @$_), @modes;
+		map $net->cmd1(MODE => $chan, @$_), @modes;
 	},
 	TOPIC => sub {
 		my ($net,$act) = @_;
@@ -636,6 +641,7 @@ sub kicked {
 		} elsif ($_[2] =~ /^#/) {
 			my $nick = $net->item($_[0]) or return ();
 			my $chan = $net->chan($_[2]) or return ();
+			return () unless $chan->get_mode('cbmodesync');
 			my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, @_[3 .. $#_]);
 			my $i = 0;
 			while ($i < @$modes) {

@@ -20,7 +20,8 @@ $mtype{$_} = 'r' for qw/
 	nokick noknock nooperover norenick noticeblock
 	oper operadmin opernetadm opersvsadm reginvite
 	regmoderated sslonly topic delayjoin
-	allinvite permanent jcommand cbdirect
+	allinvite permanent jcommand
+	cbdirect cbmodesync
 /;
 
 our @nmode_txt = qw{owner admin op halfop voice};
