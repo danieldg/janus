@@ -13,9 +13,11 @@ unless (%roles) {
 	%roles = (
 		'user' => 'user',
 		'oper' => 'oper ban rehash link',
-		'netop' => 'clink forceid autoconnect netsplit xline',
+		'netop' => 'set/network set/channel autoconnect netsplit xline',
+		'botop' => 'clink forceid',
 		'admin' => 'account setpass info/nick dump verify role forcetag globalban',
 		'owner' => 'reload unload up-git up-tar upgrade die reboot restart',
+		'allconf' => 'setall/channel setall/network',
 		'superadmin' => 'salink eval',
 	);
 }

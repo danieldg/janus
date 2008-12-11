@@ -201,31 +201,30 @@ my %help_section = (
 }, {
 	cmd => 'set',
 	help => 'Change network or channel settings',
-	api => '=src =replyto $ $ ?$',
+	api => 'act =src =replyto $ $ ?$',
 	code => sub {
-		my($src,$dst,$item,$key,$value) = @_;
+		my($act,$src,$dst,$item,$key,$value) = @_;
 		my $set = $Event::settings{$key} or do {
 			&Janus::jmsg($dst, "Setting $key not found");
 			return;
 		};
-		my $local;
-		if ($item) {
-			my $net = $Janus::nets{$item} or do {
-				&Janus::jmsg($dst, "Could not find network $item");
-				return;
-			};
-			$local = ($net == $src->homenet);
-			unless ($net->isa($set->{type})) {
+		my $acl;
+		if ($set->{type} eq 'Channel') {
+			$item = Interface::api_parse($act, 'localchan', $item) or return;
+			$acl = ($item->homenet == $src->homenet) ? 'set/channel' : 'setall/channel';
+		} else {
+			$item = Interface::api_parse($act, 'localnet', $item) or return;
+			unless ($item->isa($set->{type})) {
 				&Janus::jmsg($dst, 'That setting does not apply to that network');
 				return;
 			}
+			$acl = ($item == $src->homenet) ? 'set/network' : 'setall/network';
 		}
-		my $acl = $local ? 'set/network' : 'setall/network';
-		if (!Account::acl_check($src, $acl)) {
+		if ($acl && !Account::acl_check($src, $acl)) {
 			&Janus::jmsg($dst, "Changing this setting requires access to '$acl'");
 			return;
 		}
-		Setting::set($key, $Janus::nets{$item}, $value);
+		Setting::set($key, $item, $value);
 	},
 });
 
