@@ -254,12 +254,11 @@ sub replace_chan {
 }
 
 sub api_parse {
-	my($act, $api) = @_;
+	my($act, $api, @argin) = @_;
 
 	my $fail;  # user's error message
 	my $bncto; # automatic ij command bouncing
 	my $hnet = $act->{src}->homenet;
-	my @argin = @{$act->{args}};
 	my @args;
 
 	my $idx = 0;
@@ -346,7 +345,17 @@ sub api_parse {
 		}
 	}
 	$fail ||= 'Too many arguments' if @argin;
-	(\@args, $fail, $bncto);
+	if (wantarray) {
+		return (\@args, $fail, $bncto);
+	} elsif ($fail) {
+		&Janus::jmsg($act->{replyto}, $fail);
+		return undef;
+	} elsif ($bncto) {
+		&Janus::jmsg($act->{replyto}, 'You must refer to local networks with this command');
+		return undef;
+	} else {
+		return $args[0];
+	}
 }
 
 =item Interface::jmsg($dst, $msg,...)

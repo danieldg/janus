@@ -454,7 +454,7 @@ Event::hook_add(
 		my $reply = ($dst == $RemoteJanus::self || !$src->jlink) ? $act->{replyto} : undef;
 
 		my $api = $cmd->{api} || "=src =replyto @";
-		my($args, $fail, $bncto) = Interface::api_parse($act, $api);
+		my($args, $fail, $bncto) = Interface::api_parse($act, $api, @{$act->{args}});
 		my $logpfx = '';
 		$logpfx ||= '-syntax' if $fail;
 		$logpfx ||= '^'.$bncto->id if $bncto;
