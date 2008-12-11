@@ -12,9 +12,6 @@ set {
 	# Saved data location - this is the file which janus will load and save
 	# state (such as the list of shared channels) between runs
 	save janus.dat
-	# IPv6 support - this value is only read once at startup,
-	# and if it is enabled, the IPv6 socket modules will be used
-	ipv6 1
 	# Janus nick - change this if you want a different interface nick
 	# ident and host are similarly settable
 	janus_nick janus
@@ -90,8 +87,8 @@ link u3 {
 	type Unreal
 	# Should we try to autoconnect to this network by default?
 	autoconnect 1
-	# Address to connect to.
-	# If set::ipv6 is enabled, use ::ffff:1.2.3.4 for IPv4 addresses
+	# Address to connect to. Will do a DNS lookup if needed
+	# Using DNS will disable incoming connections from this server
 	linkaddr ::1
 	# Port to connect to
 	linkport 8001
@@ -103,12 +100,11 @@ link u3 {
 	sendpass pass
 	# Password which is expected to receive
 	recvpass pass
-	# Link type: either plain or ssl
+	# Link type: either plain or ssl. Also used for incoming connections.
 	linktype plain
 	# Long name of this network
 	netname Test 1
-# Options below here are not required
-	# Unreal-only: numerics used for janus servers
+	# Unreal-only: numerics used for janus servers. Optional, defaults to 100-600
 	numeric_range 40-45,70,85-190
 }
 
@@ -120,7 +116,7 @@ link i1 {
 	linkport 8003
 	linkname hub.janus
 	linktype plain
-# Name of the server that we are linking to; required for inspircd only
+	# Name of the server that we are linking to; required for inspircd only
 	server penguin.omega.org.za
 	sendpass pass
 	recvpass password
