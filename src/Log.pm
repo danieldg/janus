@@ -97,7 +97,7 @@ our %action = (
 	}, 'poison' => sub {
 		my($pkg, $file, $line, $called, $ifo, @etc) = @_;
 		my $msg = "Reference to $ifo->{class}->$called at $file line $line for #$ifo->{id} (count=$ifo->{refs})";
-		if ($ifo->{refs} == 1) {
+		if ($ifo->{refs} == 1 && $Conffile::netconf{set}{poison_dump}) {
 			&Snapshot::dump_now('poison', $msg, $ifo, @etc, &Log::call_dump());
 		}
 		(14, 'poison', $msg);
