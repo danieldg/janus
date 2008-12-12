@@ -118,7 +118,7 @@ use Modes;
 	api => '=replyto localdefnet ?$',
 	code => sub {
 		my($dst,$net,$w) = @_;
-		$w ||= 5;
+		$w = ($w+0) || 5;
 		my @nmodes = sort keys %Nick::umodebit;
 		my @cmodes = sort keys %Modes::mtype;
 		my $l = 0;

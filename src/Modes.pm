@@ -21,7 +21,7 @@ $mtype{$_} = 'r' for qw/
 	oper operadmin opernetadm opersvsadm reginvite
 	regmoderated sslonly topic delayjoin
 	allinvite permanent jcommand
-	cbdirect cbmodesync
+	cbdirect cbmodesync cb_showjoin
 /;
 
 our @nmode_txt = qw{owner admin op halfop voice};

@@ -291,18 +291,49 @@ sub nicklen { 40 }
 		my($net,$act) = @_;
 		my $src = $act->{src};
 		my $dst = $act->{dst};
-		return () unless $src == $Interface::janus;
-		my $chan = $dst->str($net);
-		$lchan[$$net] = $chan;
-		"JOIN $chan";
+		if ($src == $Interface::janus) {
+			my $chan = $dst->str($net);
+			$lchan[$$net] = $chan;
+			"JOIN $chan";
+		} else {
+			return () unless $dst->get_mode('cb_showjoin');
+			my $id = $src->str($net).'!'.$src->info('ident').'@'.$src->info('vhost');
+			$net->cmd1(NOTICE => $dst, "Join: $id");
+		}
 	},
 	PART => sub {
 		my($net,$act) = @_;
 		my $src = $act->{src};
 		my $dst = $act->{dst};
-		return () unless $src == $Interface::janus;
-		my $chan = $dst->str($net);
-		"PART $chan :$act->{msg}";
+		if ($src == $Interface::janus) {
+			my $chan = $dst->str($net);
+			"PART $chan :$act->{msg}";
+		} else {
+			return () unless $dst->get_mode('cb_showjoin');
+			$net->cmd1(NOTICE => $dst, 'Part: '.$src->str($net).' '.$act->{msg});
+		}
+	},
+	QUIT => sub {
+		my($net,$act) = @_;
+		my $nick = $act->{dst};
+		my @out;
+		for my $chan ($nick->all_chans()) {
+			next unless $chan->is_on($net) && $chan->get_mode('cb_showjoin');
+			push @out, $net->cmd1(NOTICE => $chan, 'Quit: '.$nick->str($net).' '.$act->{msg});
+		}
+		@out;
+	},
+	NICK => sub {
+		my($net,$act) = @_;
+		my $nick = $act->{dst};
+		my @out;
+		my $msg = 'Nick: '.$act->{from}->{$$net}.' changed to '.
+			$act->{to}->{$$net}.'!'.$nick->info('ident').'@'.$nick->info('vhost');
+		for my $chan ($nick->all_chans()) {
+			next unless $chan->is_on($net) && $chan->get_mode('cb_showjoin');
+			push @out, $net->cmd1(NOTICE => $chan, $msg);
+		}
+		@out;
 	},
 	MSG => sub {
 		my($net,$act) = @_;
