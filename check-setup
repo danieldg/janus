@@ -17,6 +17,7 @@ eval { require Digest::SHA; 1 } || eval { require Digest::SHA1; 1 } ||
 
 print "SSL: ", eval {
 	require IO::Socket::SSL;
+	require IO::Socket::INET6;
 	1;
 } ? "OK\n" : "Not available\n";
 

@@ -15,6 +15,7 @@ BEGIN {
 	} ? sub { 1 } : sub { 0 };
 	*HAS_IPV6 = eval {
 		require Socket6;
+		require IO::Socket::INET6;
 		1;
 	} ? sub { 1 } : sub { 0 };
 	*HAS_DNS = eval {
