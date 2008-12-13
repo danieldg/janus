@@ -345,7 +345,7 @@ sub nicklen { 40 }
 		return () unless ref $src && $src->isa('Nick');
 		return () unless ref $dst && ($dst->isa('Nick') || $dst->isa('Channel'));
 		my $dstr = $dst->str($net);
-		if ($dst->isa('Channel') && $dst->get_mode('cbdirect')) {
+		if ($dst->isa('Channel') && $dst->get_mode('cb_direct')) {
 			return "$type $dstr :$msg";
 		} else {
 			$src = $src->str($net);
@@ -391,14 +391,14 @@ sub nicklen { 40 }
 				splice @mm, $i, 1;
 				splice @ma, $i, 1;
 				splice @md, $i, 1;
-			} elsif ($mm[$i] eq 'cbmodesync' && $md[$i] eq '+') {
+			} elsif ($mm[$i] eq 'cb_modesync' && $md[$i] eq '+') {
 				my @modes = &Modes::to_multi($net, &Modes::delta(undef, $chan), 12);
 				return map $net->cmd1(MODE => $chan, @$_), @modes;
 			} else {
 				$i++;
 			}
 		}
-		return () unless $chan->get_mode('cbmodesync');
+		return () unless $chan->get_mode('cb_modesync');
 
 		my @modes = &Modes::to_multi($net, \@mm, \@ma, \@md, 12);
 		map $net->cmd1(MODE => $chan, @$_), @modes;
@@ -672,7 +672,7 @@ sub kicked {
 		} elsif ($_[2] =~ /^#/) {
 			my $nick = $net->item($_[0]) or return ();
 			my $chan = $net->chan($_[2]) or return ();
-			return () unless $chan->get_mode('cbmodesync');
+			return () unless $chan->get_mode('cb_modesync');
 			my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, @_[3 .. $#_]);
 			my $i = 0;
 			while ($i < @$modes) {
@@ -744,6 +744,7 @@ sub kicked {
 	332 => sub {
 		my $net = shift;
 		my $chan = $net->chan($_[3]) or return ();
+		return () unless $chan->get_mode('cb_topicsync');
 		return {
 			type => 'TOPIC',
 			topic => $_[-1],
@@ -758,6 +759,7 @@ sub kicked {
 		my $net = shift;
 		return if lc $_[0] eq lc $self[$$net];
 		my $chan = $net->chan($_[2]) or return ();
+		return () unless $chan->get_mode('cb_topicsync');
 		return {
 			type => 'TOPIC',
 			topic => $_[-1],
