@@ -282,7 +282,7 @@ sub _connect_ifo {
 	$hc = 3 if $nick->jlink();
 	($hc, $srv) = (1, $net->cparam('linkname')) if $srv eq 'janus.janus';
 
-	if ($net->protoctl == 2309) {
+	if ($net->protoctl >= 2305) {
 		if ($ip =~ /^[0-9.]+$/) {
 			$ip =~ s/(\d+)\.?/sprintf '%08b', $1/eg; #convert to binary
 			$ip .= '0000=='; # base64 uses up 36 bits, so add 4 from the 32...

@@ -311,7 +311,7 @@ sub api_parse {
 				shift @argin;
 			} else {
 				$bncto ||= $net->jlink if $net && $net->jlink;
-				$fail = 'Could not find channel "'.$cname.'"' unless $fail || $opt || $bncto == $net->jlink;
+				$fail = 'Could not find channel "'.$cname.'"' unless $fail || $opt || ($net->jlink && $bncto == $net->jlink);
 			}
 			push @args, $act->{$idx};
 		} elsif ($_ eq 'net') {
