@@ -77,7 +77,9 @@ sub peer_to_addr {
 	my $peer = shift;
 	if (28 == length $peer) {
 		my($port,$addr) = unpack_sockaddr_in6 $peer;
-		inet_ntop(AF_INET6, $addr);
+		my $txt = inet_ntop(AF_INET6, $addr);
+		$txt =~ s/^::ffff:([0-9.]+)$/$1/;
+		$txt;
 	} else {
 		my($port,$addr) = unpack_sockaddr_in $peer;
 		inet_ntoa $addr;
