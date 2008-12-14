@@ -455,9 +455,9 @@ Event::hook_add(
 
 		my $api = $cmd->{api} || "=src =replyto @";
 		my($args, $fail, $bncto) = Interface::api_parse($act, $api, @{$act->{args}});
-		my $logpfx = '';
-		$logpfx ||= '-syntax' if $fail;
-		$logpfx ||= '^'.$bncto->id if $bncto;
+		my $logpfx = $run ? '' : '@'.$dst->id;
+		$logpfx = '>'.$bncto->id if $bncto;
+		$logpfx = '-syntax' if $fail;
 
 		if ($bncto && $bncto != $dst) {
 			reroute_cmd($act, $bncto);
