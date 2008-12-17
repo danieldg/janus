@@ -536,7 +536,7 @@ sub numeric_for {
 	return $r if $r;
 	$r = $net->find_numeric();
 	$numeric[$$net]{$$for} = $r;
-	$srvname[$$net]{$net->sjb64($r, 1)} = $for->netname;
+	$srvname[$$net]{$net->sjb64($r, 1)} = $for->jname;
 	return $r;
 }
 
