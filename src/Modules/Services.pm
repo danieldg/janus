@@ -14,6 +14,7 @@ BEGIN { %bits = (
 	KILL_LOOP     => 0x10,
 	KILL_ALTNICK  => 0x20,
 	KILL_ALTHOST  => 0x40,
+	ALWAYS_TAG    => 0x80,
 ); }
 use constant \%bits;
 
@@ -59,11 +60,11 @@ sub svs_type {
 	}
 
 	if ($nick eq 'nickserv') {
-		$r = CACHED | NO_MSG | KILL_ALTNICK | NO_KILL_ALL;
+		$r = CACHED | NO_MSG | ALWAYS_TAG | KILL_ALTNICK | NO_KILL_ALL;
 	} elsif ($nick eq 'operserv') {
-		$r = CACHED | NO_MSG | KILL_ALTHOST | KILL_LOOP;
+		$r = CACHED | NO_MSG | ALWAYS_TAG | KILL_ALTHOST | KILL_LOOP;
 	} else {
-		$r = CACHED | NO_MSG | KILL_LOOP;
+		$r = CACHED | NO_MSG | ALWAYS_TAG | KILL_LOOP;
 	}
 
 	$cache[$$n] = $r;
@@ -136,9 +137,14 @@ sub svs_type {
 				type => 'CONNECT',
 				dst => $nick,
 				net => $net,
-				tag => 1,
 			});
 		}
+	}, CONNECT => check => sub {
+		my $act = shift;
+		my $nick = $act->{dst};
+		return unless svs_type($nick) & ALWAYS_TAG;
+		$act->{tag} = 1;
+		undef;
 	}, NETLINK => cleanup => sub {
 		my $act = shift;
 		my $net = $act->{net};
