@@ -140,9 +140,25 @@ sub _load_run {
 	}
 }
 
-# was this checked out from somewhere?
-my $has_git = (`git 2>&1`) ? 1 : 0;
-my $has_svn = (`svn 2>&1`) ? 1 : 0;
+our $git_revcache;
+our $git_cachets = 0;
+
+sub git_revid {
+	return $git_revcache if $git_cachets == $Janus::time;
+	$git_cachets = $Janus::time;
+	my $raw_cid = `git rev-parse --verify HEAD 2>/dev/null`;
+	if ($raw_cid) {
+		if (`git describe --tags` =~ /^v(.*)/) {
+			$git_revcache = $1;
+			$git_revcache =~ s/-g(....).*/-$1/;
+		} else {
+			$git_revcache = 'g'.substr $raw_cid, 0, 8;
+		}
+	} else {
+		$git_revcache = undef;
+	}
+	return $git_revcache;
+}
 
 if ($RELEASE) {
 	open my $rcs, "src/.rel-$RELEASE" or warn "Cannot open release checksum file!";
@@ -181,30 +197,12 @@ sub csum_read {
 	my $csum = $sha1->hexdigest();
 	$modinfo{$mod}{sha} = $csum;
 	$ver = 'x'.$1 if $csum =~ /^(.{8})/;
-	if ($has_svn) {
-		my $svn = `svn info $fn 2>/dev/null`;
-		if ($svn) {
-			unless (`svn st $fn`) {
-				if ($svn =~ /Revision: (\d+)/) {
-					$ver = 'r'.$1;
-				} else {
-					warn "Cannot parse `svn info` output for $mod ($fn)";
-				}
-			}
-		}
-	}
-	if ($has_git) {
-		my $git = `git rev-parse --verify HEAD 2>/dev/null`;
-		if ($git) {
-			unless (`git diff-index HEAD $fn`) {
-				# this file is not modified from the current head
-				# ok, we have the ugly name... now look for a tag
-				if (`git describe --tags` =~ /^(v.*?)(?:-g[0-9a-fA-F]+)?$/) {
-					$ver = $1;
-				} elsif ($git =~ /^(.{8})/) {
-					$ver = 'g'.$1;
-				}
-			}
+	my $git = git_revid();
+	if ($git) {
+		my $tree = `git ls-tree HEAD $fn`;
+		my $file = `git diff-index HEAD $fn`;
+		if ($tree && !$file) {
+			$ver = $git;
 		}
 	}
 	if ($RELEASE && $rel_csum{$fn} && $rel_csum{$fn} eq $csum) {
