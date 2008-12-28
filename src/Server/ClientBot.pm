@@ -12,10 +12,12 @@ use warnings;
 use integer;
 use Link;
 
-our(@sendq, @self, @kicks, @lchan, @flood_bkt, @flood_ts);
-&Persist::register_vars(qw(sendq self kicks lchan flood_bkt flood_ts));
+our(@sendq, @self, @kicks, @lchan, @flood_bkt, @flood_ts, @half_cmd);
+&Persist::register_vars(qw(sendq self kicks lchan flood_bkt flood_ts half_cmd));
 # $kicks[$$net]{$lid$channel} = 1 for a rejoin enabled
 # lchan = last channel we tried to join
+# half_cmd = Part of a multi-line response that will be processed later
+#  [ 'TOPIC', channel, topic ]
 
 our $awaken;
 
@@ -743,17 +745,28 @@ sub kicked {
 	331 => \&ignore, # no topic
 	332 => sub {
 		my $net = shift;
+		$half_cmd[$$net] = [ 'TOPIC', $_[3], $_[-1] ];
+		();
+	},
+	333 => sub {
+		my $net = shift;
+		my $h = $half_cmd[$$net];
+		unless ($h && $h->[0] eq 'TOPIC' && $h->[1] eq $_[3]) {
+			Log::warn_in($net, 'Malformed 333 numeric (no matching 332 found)');
+			return ();
+		}
+		$half_cmd[$$net] = undef;
 		my $chan = $net->chan($_[3]) or return ();
 		return () unless $chan->get_mode('cb_topicsync');
 		return {
 			type => 'TOPIC',
-			topic => $_[-1],
+			topic => $h->[2],
+			src => $net,
 			dst => $chan,
-			topicts => $Janus::time,
-			topicset => 'Client',
+			topicts => $_[5],
+			topicset => $_[4],
 		};
 	},
-	333 => \&ignore, # 333 J #foo setter ts
 
 	TOPIC => sub {
 		my $net = shift;
