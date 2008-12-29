@@ -198,34 +198,6 @@ my %help_section = (
 	code => sub {
 		&Janus::jmsg($_[1], 'Unknown command. Use "help" to see available commands');
 	},
-}, {
-	cmd => 'set',
-	help => 'Change network or channel settings',
-	api => 'act =src =replyto $ $ ?$',
-	code => sub {
-		my($act,$src,$dst,$item,$key,$value) = @_;
-		my $set = $Event::settings{$key} or do {
-			&Janus::jmsg($dst, "Setting $key not found");
-			return;
-		};
-		my $acl;
-		if ($set->{type} eq 'Channel') {
-			$item = Interface::api_parse($act, 'localchan', $item) or return;
-			$acl = ($item->homenet == $src->homenet) ? 'set/channel' : 'setall/channel';
-		} else {
-			$item = Interface::api_parse($act, 'localnet', $item) or return;
-			unless ($item->isa($set->{type})) {
-				&Janus::jmsg($dst, 'That setting does not apply to that network');
-				return;
-			}
-			$acl = ($item == $src->homenet) ? 'set/network' : 'setall/network';
-		}
-		if ($acl && !Account::acl_check($src, $acl)) {
-			&Janus::jmsg($dst, "Changing this setting requires access to '$acl'");
-			return;
-		}
-		Setting::set($key, $item, $value);
-	},
 });
 
 1;
