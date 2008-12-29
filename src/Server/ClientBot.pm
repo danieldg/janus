@@ -725,6 +725,7 @@ sub kicked {
 	'003' => \&ignore,
 	'004' => \&ignore,
 	'005' => \&ignore,
+# TODO parse 005 and extract some feature information.
 	'042' => \&ignore,
 	# intro (/lusers etc)
 	250 => \&ignore,
@@ -771,11 +772,13 @@ sub kicked {
 	TOPIC => sub {
 		my $net = shift;
 		return if lc $_[0] eq lc $self[$$net];
+		my $src = $net->item($_[0]) or return ();
 		my $chan = $net->chan($_[2]) or return ();
 		return () unless $chan->get_mode('cb_topicsync');
 		return {
 			type => 'TOPIC',
 			topic => $_[-1],
+			src => $src,
 			dst => $chan,
 			topicts => $Janus::time,
 			topicset => $_[0],
@@ -785,16 +788,14 @@ sub kicked {
 	315 => \&ignore, # end of /WHO
 	352 => sub {
 		my $net = shift;
-#		:irc2.smashthestack.org 352 jmirror #test me admin.daniel irc2.smashthestack.org daniel Hr* :0 Why don't you ask me?
+#		:server 352 jmirror #test ident host their.server nick Hr*@ :0 Gecos
 		my $chan = $net->chan($_[3]) or return ();
 		my $n = $_[-1];
-		$n =~ s/^\d+\s+//;
+		$n =~ s/^\d+\s+//; # remove server hop count
 		return () if lc $_[7] eq lc $self[$$net];
 		my @out = $net->cli_hostintro($_[7], $_[4], $_[5], $n);
 		my %mode;
-		$mode{op} = 1 if $_[8] =~ /~/;
-		$mode{op} = 1 if $_[8] =~ /&/;
-		$mode{op} = 1 if $_[8] =~ /\@/;
+		$mode{op} = 1 if $_[8] =~ /[~&\@]/;
 		$mode{halfop} = 1 if $_[8] =~ /\%/;
 		$mode{voice} = 1 if $_[8] =~ /\+/;
 		push @out, +{
