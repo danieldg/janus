@@ -179,10 +179,11 @@ sub send {
 			my $dst = $act->{dst};
 			next if !$src || !$src->isa('Nick') || $src == $janus;
 			$_ = $act->{msg};
+			next if /^\001/;
 			if ($dst->isa('Channel') && !$src->jlink) {
 				my $jnick = $janus->str($src->homenet);
 				my $jcmd = $dst->get_mode('jcommand') || 0;
-				next unless s/^\Q$jnick\E: // || ($jcmd >= 2 && /^[.!@]/);
+				next unless s/^\Q$jnick\E[:,] // || ($jcmd >= 2 && /^[.!@]/);
 				$dst = $src unless $jcmd;
 			} elsif ($dst == $janus) {
 				$dst = $src;
