@@ -94,12 +94,14 @@ sub do_ip_connect {
 		$addr = sockaddr_in($port, $baddr);
 		if ($bind) {
 			$bind = inet_aton($bind);
+			$bind = sockaddr_in(0, $bind) if $bind;
 		}
 	} else {
 		$af = AF_INET6;
 		$addr = sockaddr_in6($port, $baddr);
 		if ($bind) {
 			$bind = inet_pton(AF_INET6, $baddr);
+			$bind = sockaddr_in6(0, $bind) if $bind;
 		}
 	}
 	socket $sock, $af, SOCK_STREAM, 0;
@@ -107,7 +109,7 @@ sub do_ip_connect {
 	my $fd = fileno $sock;
 	fcntl $sock, F_SETFL, O_NONBLOCK;
 	if ($bind) {
-		bind $sock, $bind;
+		bind $sock, $bind or return ();
 	}
 	connect $sock, $addr;
 
@@ -133,7 +135,11 @@ sub init_connection {
 	my $netid = ref $net ? $$net : $net;
 	if (defined $baddr) {
 		my($sock, $fd) = do_ip_connect($baddr, @info);
-		$queues[$netid] = [ $fd, $sock, STATE_NORMAL, $net, 0, 1, '', '', '' ];
+		if ($fd) {
+			$queues[$netid] = [ $fd, $sock, STATE_NORMAL, $net, 0, 1, '', '', '' ];
+		} else {
+			$queues[$netid] = [ 0, undef, STATE_NORMAL | STATE_IOERR, $net, 0, 1, "Connection error: $!" ];
+		}
 	} elsif (HAS_DNS) {
 		my $res = Net::DNS::Resolver->new;
 		my $sock = $res->bgsend($iaddr,'A');
