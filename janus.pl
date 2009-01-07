@@ -16,7 +16,6 @@ BEGIN {
 	delete @ENV{'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
 	do './src/Janus.pm' or die $@;
 }
-use POSIX 'setsid';
 
 our $VERSION = '1.12';
 
@@ -26,7 +25,24 @@ if ($^P) {
 	no warnings 'once';
 	@Log::listeners = $Log::Debug::INST;
 	&Log::dump_queue();
-} else {
+}
+
+$| = 1;
+$SIG{PIPE} = 'IGNORE';
+$SIG{CHLD} = 'IGNORE';
+
+&Janus::load('Conffile') or die;
+&Event::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
+unless (%Conffile::netconf) {
+	print "Could not start:\n";
+	require Log::Debug;
+	no warnings 'once';
+	@Log::listeners = $Log::Debug::INST;
+	&Log::dump_queue();
+	exit 1;
+}
+
+unless ($^P || $Conffile::netconf{set}{nofork}) {
 	open STDIN, '/dev/null' or die $!;
 	if (-t STDOUT) {
 		open STDOUT, '>daemon.log' or die $!;
@@ -42,15 +58,10 @@ if ($^P) {
 		}
 		exit;
 	}
-	setsid;
+	require POSIX;
+	POSIX::setsid;
 }
 
-$| = 1;
-$SIG{PIPE} = 'IGNORE';
-$SIG{CHLD} = 'IGNORE';
-
-&Janus::load('Conffile') or die;
-&Event::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
 &Log::timestamp($Janus::time);
 &Janus::load('Connection') or die;
 &Event::insert_full(+{ type => 'INIT', args => \@ARGV });

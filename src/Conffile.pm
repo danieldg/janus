@@ -42,7 +42,10 @@ sub read_conf {
 				&Log::err("Error in line $. of config file: expected network ID");
 				return;
 			};
-
+			/^([a-zA-Z][-0-9a-zA-Z_]{0,7})( |$)/ or do {
+				&Log::err("Invalid network ID '$1' in line $. of config file");
+				return;
+			};
 			$current = { id => $1 };
 			$newconf{$1} = $current;
 		} elsif ($type eq 'listen') {
@@ -95,6 +98,9 @@ sub read_conf {
 			&Log::err("You must restart the server to change the name")
 				if $RemoteJanus::self->id() ne $newconf{set}{name};
 			$newconf{set}{name} = $RemoteJanus::self->id();
+		} elsif ($newconf{set}{name} !~ /^[a-zA-Z][-0-9a-zA-Z_]{0,7}$/) {
+			&Log::err("Invalid server name $newconf{set}{name}");
+			return;
 		}
 	} else {
 		&Log::err("Server name not set! You need set block with a 'name' entry");
@@ -132,17 +138,6 @@ sub read_conf {
 			push @loggers, $type->new(%$log);
 		}
 	}
-	unless (@loggers) {
-		require Log::Debug;
-		push @loggers, $Log::Debug::INST;
-	}
-	unless ($^P && @Log::listeners && !$nick) { # first load on a debug run skips this
-		@Log::listeners = @loggers;
-		&Log::dump_queue();
-	}
-
-	%netconf = %newconf;
-
 	$newconf{modules}{$_}++ for qw(Interface Actions Account Setting Commands::Core);
 	my @stars = grep /\*/, keys %{$newconf{modules}};
 	for my $moddir (@stars) {
@@ -165,10 +160,22 @@ sub read_conf {
 		}
 		closedir $dir;
 	}
+
+	%netconf = %newconf;
+
 	for my $mod (sort keys %{$newconf{modules}}) {
 		unless (&Janus::load($mod)) {
 			&Log::err("Could not load module $mod: $@");
 		}
+	}
+
+	unless (@loggers) {
+		require Log::Debug;
+		push @loggers, $Log::Debug::INST;
+	}
+	if (!$^P || $RemoteJanus::self) { # first load on a debug run skips this
+		@Log::listeners = @loggers;
+		&Log::dump_queue();
 	}
 }
 
