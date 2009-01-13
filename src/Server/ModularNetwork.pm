@@ -218,7 +218,7 @@ sub reload_moddef {
 	&Log::info('Reloading module definitions for',$net->name,$net->gid);
 	for my $mod (@mods) {
 		$net->module_remove($mod);
-		$net->module_add($mod);
+		$net->module_add($mod, 1);
 	}
 }
 
