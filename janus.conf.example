@@ -52,6 +52,7 @@ log log/%Y-%m-%d-%H:%M:%S {
 	type File
 	# Filter - what events to send to the log. Space-separated values
 	# See Log.pm for a full list; this will produce a reasonable log.
+	# Uncomment the filter to make a full log if you are submitting a bug report.
 	filter debug info warn err audit command debug_in info_in warn_in err_in hook_err
 
 	## The following settings are specific to the File type:

@@ -46,7 +46,7 @@ sub nick_collide {
 	}
 	my $tsctl = $old->ts() <=> $new->ts();
 
-	&Log::debug("Nick collision over $name, tsctl=$tsctl");
+	&Log::debug("Nick collision over $name, old=".$old->ts." new=".$new->ts." tsctl=$tsctl");
 
 	$nicks[$$net]->{lc $name} = $new if $tsctl > 0;
 	$nicks[$$net]->{lc $name} = $old if $tsctl < 0;

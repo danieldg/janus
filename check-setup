@@ -17,18 +17,18 @@ eval { require Digest::SHA; 1 } || eval { require Digest::SHA1; 1 } ||
 
 print "SSL: ", eval {
 	require IO::Socket::SSL;
-	require IO::Socket::INET6;
 	1;
-} ? "OK\n" : "Not available\n";
+} ? "OK\n" : "Not available (install IO::Socket::SSL)\n";
 
 print "IPv6: ", eval {
 	require Socket6;
+	require IO::Socket::INET6;
 	1;
-} ? "OK\n" : "Not available\n";
+} ? "OK\n" : "Not available (install IO::Socket::INET6)\n";
 
 print "DNS: ", eval {
 	require Net::DNS;
 	1;
-} ? "OK\n" : "Not available\n";
+} ? "OK\n" : "Not available (install Net::DNS)\n";
 
 print "All required modules found.\n";

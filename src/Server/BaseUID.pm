@@ -67,7 +67,7 @@ sub register_nick {
 		};
 	}
 
-	# TODO this collision code too inspircd-specific. It may need to be moved
+	# TODO this collision code is too inspircd-specific. It may need to be moved
 	my $old = $uids[$$net]{uc $old_uid} or warn;
 	my $tsctl = $old->ts() <=> $new->ts();
 
@@ -75,6 +75,8 @@ sub register_nick {
 		# this is a ghosting nick, we REVERSE the normal timestamping
 		$tsctl = -$tsctl;
 	}
+
+	&Log::debug("Nick collision over $name, old=".$old->ts." new=".$new->ts." tsctl=$tsctl");
 
 	my @rv;
 
