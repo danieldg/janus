@@ -1,4 +1,4 @@
-# Copyright (C) 2007-2008 Daniel De Graaf
+# Copyright (C) 2007-2009 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
 package Server::InterJanus;
 use strict;

@@ -1,4 +1,4 @@
-# Copyright (C) 2008 Daniel De Graaf
+# Copyright (C) 2008-2009 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
 package Commands::SvsAccount;
 use strict;
