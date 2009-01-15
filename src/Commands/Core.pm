@@ -193,11 +193,6 @@ my %help_section = (
 			}
 		}
 	}
-}, {
-	cmd => 'unk',
-	code => sub {
-		&Janus::jmsg($_[1], 'Unknown command. Use "help" to see available commands');
-	},
 });
 
 1;

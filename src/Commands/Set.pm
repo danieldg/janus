@@ -1,3 +1,5 @@
+# Copyright (C) 2008-2009 Daniel De Graaf
+# Released under the GNU Affero General Public License v3
 package Commands::Set;
 use strict;
 use warnings;
