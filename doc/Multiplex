@@ -1,7 +1,10 @@
 Split-process I/O loop commands:
 
-Start by sending "BOOT <apiver>" where apiver is the API version. This documents
-version 5. After sending, wait for one of the following commands:
+Start the "src/worker.pl" program with a socket (unix socketpair) open on file
+descriptor 0. All communication with the worker process is via a line-based
+protocol on this socket. When starting the first worker, send "BOOT <apiver>"
+where apiver is the API version. This document describes version 6. After
+sending, wait for one of the following commands:
 
 INITC <netid> <addr> <port> <bind> <ssl-key> <ssl-cert>
 	Open an outbound connection to the given addr:port. Optionally bind to
@@ -11,6 +14,8 @@ INITC <netid> <addr> <port> <bind> <ssl-key> <ssl-cert>
 INITL <netid> <addr> <port>
 	Open a listening socket on the given port, bound to the given IP.
 	If successful, respond with "OK"; otherwise, respond with "ERR <reason>".
+	<addr> can be blank to bind to all IPs; in this case there will be 2
+	spaces between netid and port.
 W <time>
 	Wait for I/O activity, or until time (a unix timestamp).
 	Response: "DONE"
@@ -18,7 +23,7 @@ N
 	Get one line of I/O activity. Possible responses:
 	<netid> <line...>
 		The network with the given (numeric) ID has a line ready.
-		Line should have \r\n stripped.
+		Line should have the trailing \r\n stripped.
 	DELINK <netid> <error...>
 		The network with this ID has disconnected, with the given error
 		message (i.e. connection closed)
@@ -37,11 +42,12 @@ N
 		No further I/O activity is ready (i.e. last)
 <netid> <line...>
 	Send a line to the network with the given ID. I/O errors are enqueued
-	for the next "N" loop. No response.
+	for the next "N" request. No response.
 DELNET <netid>
 	Disconnect the given network; do not report any further errors or I/O
-	readiness. No response.
+	readiness. Discard any received data, and disconnect after emptying the
+	send queue. No response.
 REBOOT <filename>
 	Start a new child process, sending "RESTORE <filename>" as the first
-	line. This process is terminating momentarily. No response from old or
-	new process.
+	line. The current process is terminating momentarily, so its socket can
+	be discarded without sending any response.

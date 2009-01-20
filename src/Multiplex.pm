@@ -146,6 +146,7 @@ sub list {
 
 sub init_listen {
 	my($net, $addr, $port) = @_;
+	$addr ||= '';
 	if ($master_api >= 6) {
 		my $resp = &Multiplex::ask("INITL $$net $addr $port");
 		if ($resp =~ /^ERR (.*)/) {
