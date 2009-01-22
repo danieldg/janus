@@ -206,9 +206,11 @@ sub dump_sendq {
 }
 
 sub parse {
-	&Log::netin(@_) unless /^<MSG /;
 	my $ij = shift;
-	local $_ = $_[0];
+	local $_ = shift;
+	my $err;
+
+	&Log::netin($ij, $_) unless /^<MSG /;
 
 	s/^\s*<([^ >]+)// or do {
 		&Log::err_in($ij, "Invalid IJ line\n");
@@ -216,13 +218,16 @@ sub parse {
 	};
 	my $act = { type => $1, IJ_RAW => $_[0] };
 	$ij->kv_pairs($act);
-	&Log::err_in($ij, "bad line: $_[0]") unless /^\s*>\s*$/;
+	$err = "malformed incoming line" unless /^\s*>\s*$/;
 	$act->{except} = $ij;
-	if ($act->{type} eq 'PING') {
-		$ij->send({ type => 'PONG', pingts => $act->{ts}, ts => $Janus::time });
-	} elsif ($auth[$$ij] == 2) {
-		return $act;
-	} elsif ($act->{type} eq 'InterJanus') {
+	if (!$err && $auth[$$ij] == 2) {
+		if ($act->{type} eq 'PING') {
+			$ij->send({ type => 'PONG', pingts => $act->{ts}, ts => $Janus::time });
+			return ();
+		} else {
+			return $act;
+		}
+	} elsif (!$err && $act->{type} eq 'InterJanus') {
 		my $id = $RemoteJanus::id[$$ij];
 		if ($id && $act->{id} ne $id) {
 			&Log::err_in($ij, "Unexpected ID reply $act->{id} from IJ $id");
@@ -232,17 +237,17 @@ sub parse {
 		my $ts_delta = abs($Janus::time - $act->{ts});
 		my $nconf = $Conffile::netconf{$id};
 		if ($act->{version} ne $IJ_PROTO) {
-			&Log::err_in($ij, "Unsupported InterJanus version $act->{version} (local $IJ_PROTO)");
+			$err = "Unsupported InterJanus version $act->{version} (local $IJ_PROTO)";
 		} elsif ($RemoteJanus::self->id() ne $act->{rid}) {
-			&Log::err_in($ij, "Unexpected connection: remote was trying to connect to $act->{rid}");
+			$err = "Unexpected connection: remote was trying to connect to $act->{rid}";
 		} elsif (!$nconf) {
-			&Log::err_in($ij, "Unknown InterJanus server $id");
+			$err = "Unknown InterJanus server $id";
 		} elsif ($act->{pass} ne $nconf->{recvpass}) {
-			&Log::err_in($ij, "Failed authorization");
+			$err = "Failed authorization";
 		} elsif ($Janus::ijnets{$id} && $Janus::ijnets{$id} ne $ij) {
-			&Log::err_in($ij, "Already connected");
+			$err = "Already connected";
 		} elsif ($ts_delta >= 20) {
-			&Log::err_in($ij, "Clocks are too far off (delta=$ts_delta here=$Janus::time there=$act->{ts})");
+			$err = "Clocks are too far off (delta=$ts_delta here=$Janus::time there=$act->{ts})";
 		} else {
 			$act->{net} = $ij;
 			$act->{type} = 'JNETLINK';
@@ -260,11 +265,15 @@ sub parse {
 			$auth[$$ij] = 2;
 			return $act;
 		}
-		if ($Janus::ijnets{$id} && $Janus::ijnets{$id} eq $ij) {
-			delete $Janus::ijnets{$id};
-		}
+	} else {
+		$err = "Invalid command in pre-introduction: $act->{type}";
 	}
-	return ();
+	&Log::err_in($ij, $err);
+	return {
+		type => 'JNETSPLIT',
+		net => $ij,
+		msg => $err,
+	};
 }
 
 &Event::hook_add(

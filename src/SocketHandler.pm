@@ -68,9 +68,12 @@ if ($ping) {
 		my $net = $act->{net};
 
 		&Connection::drop_socket($net);
+		if ($Janus::pending{$net->id} == $net) {
+			delete $Janus::pending{$net->id};
+		}
 
-		my $eq = $Janus::ijnets{$net->id()};
-		return 1 if $eq && $eq ne $net;
+		my $eq = $Janus::ijnets{$net->id};
+		return 1 if $eq && $eq != $net;
 		undef;
 	}
 );
