@@ -109,7 +109,7 @@ sub dump_sendq {
 my @letters = ('A' .. 'Z', 0 .. 9);
 
 sub net2uid {
-	return '0AJ' if @_ == 2 && $_[0] eq $_[1];
+	return '0AJ' if @_ == 2 && $_[0] == $_[1];
 	my $srv = $_[-1];
 	my $snum = $$srv - 2;
 	return '0AJ' if $snum <= 0; # Interface, RemoteJanus::self are #1,2
@@ -234,7 +234,7 @@ sub _out {
 		return $net->net2uid($itm);
 	} else {
 		&Log::err_in($net, "Unknown item $itm");
-		return '0AJ';
+		return $net->net2uid($net);
 	}
 }
 

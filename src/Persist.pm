@@ -11,6 +11,8 @@ our %reuse;
 our %max_gid;
 our %gid_shrink;
 
+&Janus::static(qw(vars init_args));
+
 sub dump_all_refs {
 	my %out;
 	for my $pk (keys %vars) {

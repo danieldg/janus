@@ -26,6 +26,7 @@ $mtype{$_} = 'r' for qw/
 
 our @nmode_txt = qw{owner admin op halfop voice};
 our @nmode_sym = qw{~ & @ % +};
+&Janus::static(qw(nmode_txt nmode_sym));
 
 =head1 IRC Mode utilities
 
