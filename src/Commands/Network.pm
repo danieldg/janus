@@ -3,6 +3,7 @@
 package Commands::Network;
 use strict;
 use warnings;
+use integer;
 
 &Event::command_add({
 	cmd => 'rehash',
@@ -87,10 +88,10 @@ use warnings;
 			&Janus::jmsg($dst, 'Cannot find network');
 			return;
 		};
-		if (defined $onoff) {
+		if (defined $onoff && $onoff =~ /^\d+$/) {
 			&Log::audit("Autoconnect on $id ".($onoff ? 'enabled' : 'disabled').' by '.$src->netnick);
-			$nconf->{autoconnect} = $onoff;
-			$nconf->{backoff} = 0;
+			$nconf->{autoconnect} = $onoff ? 1 : 0;
+			$nconf->{backoff} = $onoff * ($onoff - 1) / 2;
 			&Janus::jmsg($dst, 'Done');
 		} else {
 			&Janus::jmsg($dst, 'Autoconnect is '.($nconf->{autoconnect} ? 'on' : 'off').
