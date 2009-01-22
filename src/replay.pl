@@ -105,7 +105,7 @@ while (<$log>) {
 		my $nconf = $Conffile::netconf{$id} or die $id;
 		$nconf->{autoconnect} = 1;
 		unshift @Event::qstack, [];
-		&Conffile::connect_net(undef, $id);
+		&Conffile::connect_net($id);
 		$nconf->{autoconnect} = 0;
 		&Event::_runq(shift @Event::qstack);
 	} elsif (/^\e\[36minfo: Listening on (\S+)\e\[m$/) {

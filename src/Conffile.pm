@@ -14,8 +14,6 @@ our %netconf;
 &Janus::static(qw(netconf));
 
 sub read_conf {
-	my $nick = shift;
-
 	local $_;
 	my %newconf;
 	my $current;
@@ -193,7 +191,7 @@ sub find_ssl_keys {
 }
 
 sub connect_net {
-	my($nick,$id) = @_;
+	my($id) = @_;
 	my $nconf = $netconf{$id};
 	return if !$nconf || $Janus::nets{$id} || $Janus::ijnets{$id} || $Janus::pending{$id};
 	if ($id =~ /^LISTEN:/) {
@@ -232,17 +230,14 @@ sub connect_net {
 }
 
 sub rehash {
-	my $nick = shift;
-	read_conf $nick;
+	read_conf;
 	my %toclose = %Listener::open;
 	delete $toclose{$_} for keys %netconf;
 	for my $net (values %toclose) {
 		$net->close();
 		&Connection::drop_socket($net);
 	}
-	connect_net $nick,$_ for keys %netconf;
-
-	&Janus::jmsg($nick,'Rehashed');
+	connect_net $_ for keys %netconf;
 }
 
 sub autoconnect {
@@ -250,7 +245,7 @@ sub autoconnect {
 	$act->{repeat} = 15 + int rand 45;
 	for my $id (keys %netconf) {
 		if ($id =~ /^LISTEN/) {
-			connect_net undef,$id unless $Listener::open{$id};
+			connect_net $id unless $Listener::open{$id};
 		} elsif (!$netconf{$id}{autoconnect} || exists $Janus::nets{$id} || exists $Janus::ijnets{$id}) {
 			$netconf{$id}{backoff} = 0;
 		} else {
@@ -258,7 +253,7 @@ sub autoconnect {
 			my $rt = int sqrt $item;
 			if ($item == $rt * ($rt + 1)) {
 				&Log::debug("Backoff $id (#$item) - Connecting");
-				connect_net undef,$id;
+				connect_net $id;
 			} else {
 				&Log::debug("Backoff $id: $item != ".$rt*($rt+1));
 			}
@@ -290,7 +285,7 @@ $autoevent->{code} = \&Conffile::autoconnect if $autoevent;
 &Event::hook_add(
 	REHASH => act => sub {
 		my $act = shift;
-		&Conffile::rehash($act->{src});
+		&Conffile::rehash();
 	},
 	'INITCONF' => act => sub {
 		my $act = shift;
@@ -307,7 +302,7 @@ $autoevent->{code} = \&Conffile::autoconnect if $autoevent;
 			$save = './'.$save unless $save =~ m#^/#;
 			do $save;
 		}
-		connect_net undef,$_ for keys %netconf;
+		connect_net $_ for keys %netconf;
 		$autoevent = {
 			repeat => 30,
 			code => \&Conffile::autoconnect,

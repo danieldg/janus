@@ -12,10 +12,10 @@ use warnings;
 	code => sub {
 		my($src,$dst) = @_;
 		&Log::audit('Rehash by '.$src->netnick);
-		&Event::append(+{
-			src => $src,
+		&Event::insert_full(+{
 			type => 'REHASH',
 		});
+		&Janus::jmsg($dst, 'Rehashed');
 	},
 }, {
 	cmd => 'die',
