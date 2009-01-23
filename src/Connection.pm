@@ -65,7 +65,7 @@ use constant {
 
 our @queues;
 # netid => [ fd, IO::Socket, state, net, try_r, try_w, ... ]
-our($mpsock,$mpoffset);
+our($mpversion, $mpsock,$mpoffset) = 7;
 our $tblank = ``;
 
 sub mpsend {
@@ -87,7 +87,7 @@ sub peer_to_addr {
 }
 
 sub do_ip_connect {
-	my($baddr, $port, $bind, $sslkey, $sslcert) = @_;
+	my($baddr, $port, $bind, $sslkey, $sslcert, $sslca) = @_;
 	my($af, $addr, $sock);
 	if (length $baddr == 4) {
 		$af = AF_INET;
@@ -113,17 +113,21 @@ sub do_ip_connect {
 	}
 	connect $sock, $addr;
 
-	if (HAS_SSL && $sslcert) {
-		IO::Socket::SSL->start_SSL($sock,
-			SSL_startHandshake => 0,
+	if (HAS_SSL && $sslkey) {
+		my @sslh = (
+			SSL_startHandshake => 0
+		);
+		push @sslh, (
 			SSL_use_cert => 1,
 			SSL_key_file => $sslkey,
 			SSL_cert_file => $sslcert,
-		);
+		) if $sslcert;
+		push @sslh, (
+			SSL_verify_mode => 1,
+			SSL_ca_file => $sslca,
+		) if $sslca;
+		IO::Socket::SSL->start_SSL($sock, @sslh);
 		return () unless $sock->isa('IO::Socket::SSL');
-		$sock->connect_SSL();
-	} elsif (HAS_SSL && $sslkey) {
-		IO::Socket::SSL->start_SSL($sock, SSL_startHandshake => 0);
 		$sock->connect_SSL();
 	}
 	return ($sock,$fd);
@@ -324,17 +328,22 @@ sub do_accept {
 	my $fd = $peer ? fileno $sock : undef;
 	return unless $fd;
 	my $addr = peer_to_addr($peer);
-	my($net,$key,$cert) = $hook->($addr);
+	my($net,$key,$cert,$ca) = $hook->($addr);
 	return unless $net;
 	$q = [ $fd, $sock, STATE_NORMAL, $net, 1, 0, '', '', '' ];
 	$queues[ref $net ? $$net : $net] = $q;
 	if (HAS_SSL && $key) {
-		IO::Socket::SSL->start_SSL($sock, 
+		my @sslh = (
 			SSL_server => 1, 
 			SSL_startHandshake => 0,
 			SSL_key_file => $key,
 			SSL_cert_file => $cert,
 		);
+		push @sslh, (
+			SSL_verify_mode => 3,
+			SSL_ca_file => $ca,
+		) if $ca;
+		IO::Socket::SSL->start_SSL($sock, @sslh);
 		if ($sock->isa('IO::Socket::SSL')) {
 			$sock->accept_SSL();
 		} else {
@@ -371,8 +380,8 @@ sub ts_mplex {
 					print $mpsock "PEND $q->[NET] $addr\n";
 					$_ = <$mpsock>;
 					chomp;
-					if (/^PEND-SSL (\d+) (\S+) (\S+)/) {
-						return ($1,$2,$3);
+					if (/^PEND-SSL (\d+) (\S+) (\S*) (\S*)$/) {
+						return ($1,$2,$3,$4);
 					} elsif (/^PEND (\d+)/) {
 						return $1;
 					} else {
@@ -389,8 +398,8 @@ sub ts_mplex {
 	} elsif (/^INITL (\d+) (\S*) (\S+)/) {
 		my $ok = init_listen($1,$2,$3);
 		print $mpsock $ok ? "OK\n" : "ERR $!\n";
-	} elsif (/^INITC (\d+) (\S+) (\d+) (\S*) (\S*) (\S*)/) {
-		init_connection($1,$2,$3,$4,$5,$6);
+	} elsif (/^INITC (\d+) (\S+) (\d+) (\S*) (\S*) (\S*) (\S*)$/) {
+		init_connection($1,$2,$3,$4,$5,$6,$7);
 	} elsif (/^DELNET (\d+)/) {
 		drop_socket($1);
 	} elsif (/^REBOOT (\S+)/) {
@@ -428,9 +437,9 @@ sub ts_simple {
 			do_accept($q, sub {
 				my $cnet = $net->init_pending($_[0]);
 				return 0 unless $cnet;
-				my($sslkey, $sslcert) = &Conffile::find_ssl_keys($cnet, $net);
+				my($sslkey, $sslcert, $sslca) = &Conffile::find_ssl_keys($cnet, $net);
 				if ($sslcert) {
-					return ($cnet,$sslkey,$sslcert);
+					return ($cnet,$sslkey,$sslcert,$sslca);
 				} else {
 					return $cnet;
 				}

@@ -92,9 +92,9 @@ sub timestep {
 			my $lnet = find($lid);
 			my $net = $lnet->init_pending($addr);
 			if ($net) {
-				my($sslkey, $sslcert) = &Conffile::find_ssl_keys($net, $lnet);
+				my($sslkey, $sslcert, $sslca) = &Conffile::find_ssl_keys($net, $lnet);
 				if ($sslcert) {
-					cmd("PEND-SSL $$net $sslkey $sslcert");
+					cmd("PEND-SSL $$net $sslkey $sslcert $sslca");
 				} else {
 					cmd("PEND $$net");
 				}
@@ -147,7 +147,7 @@ sub list {
 sub init_listen {
 	my($net, $addr, $port) = @_;
 	$addr ||= '';
-	if ($master_api >= 6) {
+	if ($Multiplex::master_api >= 6) {
 		my $resp = &Multiplex::ask("INITL $$net $addr $port");
 		if ($resp =~ /^ERR (.*)/) {
 			&Log::err("Cannot listen: $1");
@@ -169,7 +169,7 @@ sub init_listen {
 }
 
 sub init_connection {
-	my($net,$addr, $port, $bind, $sslkey, $sslcert) = @_;
+	my($net,$addr, $port, $bind, $sslkey, $sslcert, $sslca) = @_;
 	$bind ||= '';
 	$sslkey ||= '';
 	$sslcert ||= '';
@@ -180,8 +180,11 @@ sub init_connection {
 		$resp = &Multiplex::ask("INITC $addr $port $bind $ssl");
 	} elsif ($Multiplex::master_api < 5) {
 		$resp = &Multiplex::ask("INITC $addr $port $bind $sslkey $sslcert");
-	} else {
+	} elsif ($Multiplex::master_api < 7) {
 		&Multiplex::cmd("INITC $$net $addr $port $bind $sslkey $sslcert");
+		return;
+	} else {
+		&Multiplex::cmd("INITC $$net $addr $port $bind $sslkey $sslcert $sslca");
 		return;
 	}
 	if ($resp eq 'OK') {

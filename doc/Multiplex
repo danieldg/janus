@@ -6,10 +6,11 @@ protocol on this socket. When starting the first worker, send "BOOT <apiver>"
 where apiver is the API version. This document describes version 6. After
 sending, wait for one of the following commands:
 
-INITC <netid> <addr> <port> <bind> <ssl-key> <ssl-cert>
+INITC <netid> <addr> <port> <bind> <ssl-key> <ssl-cert> <ssl-ca>
 	Open an outbound connection to the given addr:port. Optionally bind to
 	the given IP. If ssl-key is specified, start SSL; if both ssl-key and
 	ssl-cert are specified, they specify the client SSL certificate to use.
+	The CA file, if specified, is used to verify the server's certificate.
 	No response; errors are communicated through DELINK.
 INITL <netid> <addr> <port>
 	Open a listening socket on the given port, bound to the given IP.
@@ -33,9 +34,10 @@ N
 		PEND <newID>
 			Accept the connection, using this ID to refer to it in
 			the future
-		PEND-SSL <newID> <SSL keyfile> <SSL certfile>
+		PEND-SSL <newID> <SSL keyfile> <SSL certfile> <SSL cafile>
 			Same, but initiate an SSL (server) connection using the
-			named key and certificate files
+			named key and certificate files, and verifying the
+			incoming client certificate using the given CA
 		DROP
 			Drop the connection immediately
 	L

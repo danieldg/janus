@@ -183,11 +183,11 @@ sub find_ssl_keys {
 	my $lconf = $lnet ? $Conffile::netconf{$lnet->id} : undef;
 	my $sconf = $Conffile::netconf{set};
 	return undef unless $nconf->{linktype} =~ /ssl/;
-	return ($nconf->{ssl_keyfile}, $nconf->{ssl_certfile}) if $nconf->{ssl_certfile};
-	return ($lconf->{keyfile}, $lconf->{certfile}) if $lconf && $lconf->{certfile};
-	return ($sconf->{ssl_keyfile}, $sconf->{ssl_certfile}) if $sconf->{ssl_certfile};
+	return ($nconf->{ssl_keyfile}, $nconf->{ssl_certfile}, $nconf->{ssl_cafile}) if $nconf->{ssl_certfile};
+	return ($lconf->{keyfile}, $lconf->{certfile}, $lconf->{cafile}) if $lconf && $lconf->{certfile};
+	return ($sconf->{ssl_keyfile}, $sconf->{ssl_certfile}, $nconf->{ssl_cafile}) if $sconf->{ssl_certfile};
 	&Log::warn_in($net, 'Could not find SSL certificates') if $lnet;
-	return ('client',undef);
+	return ('client', '', '');
 }
 
 sub connect_net {
@@ -217,12 +217,12 @@ sub connect_net {
 			&Log::info("Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}");
 
 			my($addr, $port, $bind) = @$nconf{qw(linkaddr linkport linkbind)};
-			my($ssl_key, $ssl_cert) = find_ssl_keys($id);
+			my($ssl_key, $ssl_cert, $ssl_ca) = find_ssl_keys($id);
 
 			my $net = &Persist::new($type, id => $id);
 			# this is equivalent to $type->new(id => \$id) but without using eval
 
-			&Connection::init_connection($net, $addr, $port, $bind, $ssl_key, $ssl_cert);
+			&Connection::init_connection($net, $addr, $port, $bind, $ssl_key, $ssl_cert, $ssl_ca);
 			$Janus::pending{$id} = $net;
 			$net->intro($nconf);
 		}

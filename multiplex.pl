@@ -69,5 +69,5 @@ sub start_child {
 do './src/Connection.pm' or die $@;
 no warnings 'once';
 $Connection::mpsock = start_child;
-&Connection::mpsend('BOOT 6');
+&Connection::mpsend('BOOT '.$Connection::mpversion);
 1 while &Connection::ts_mplex();
