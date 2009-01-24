@@ -22,6 +22,7 @@ sub bgexec {
 &Event::command_add({
 	cmd => 'upgrade',
 	help => 'Upgrades all modules loaded by janus',
+	details => [ 'Syntax: upgrade [force]' ],
 	section => 'Admin',
 	acl => 'upgrade',
 	code => sub {
@@ -32,20 +33,17 @@ sub bgexec {
 			' started by '.$src->netnick);
 		my @done;
 		for my $mod (@mods) {
-			next unless $Janus::modinfo{$mod}{active};
+			next unless $Janus::modinfo{$mod}{active} || $Janus::modinfo{$mod}{retry};
 			unless ($force) {
-				my $fn = 'src/'.$mod.'.pm';
-				$fn =~ s#::#/#g;
-				my $sha1 = $Janus::new_sha1->();
-				open my $fh, '<', $fn or next;
-				$sha1->addfile($fh);
-				close $fh;
-				my $csum = $sha1->hexdigest();
-				next if $Janus::modinfo{$mod}{sha} eq $csum;
+				my $old_sha = $Janus::modinfo{$mod}{sha};
+				&Janus::csum_read($mod);
+				next if $old_sha eq $Janus::modinfo{$mod}{sha};
 			}
 			if (&Janus::reload($mod)) {
+				delete $Janus::modinfo{$mod}{retry};
 				push @done, $mod;
 			} else {
+				$Janus::modinfo{$mod}{retry} = 1;
 				push @done, "\00304$mod\017";
 			}
 		}
