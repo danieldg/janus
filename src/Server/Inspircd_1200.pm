@@ -162,7 +162,7 @@ sub _connect_ifo {
 		}
 		my $len = $net->nicklen() - length $suffix;
 		$type = substr($type, 0, $len).$suffix;
- 		$type =~ s/ /_/g;
+		$type =~ s/ /_/g;
 		push @out, $net->cmd2($nick, OPERTYPE => $type) if $visible;
 	}
 	push @out, $net->cmd2($nick, AWAY => $nick->info('away')) if $nick->info('away');
@@ -1107,7 +1107,7 @@ $moddef{CORE} = {
 			my $len = $net->nicklen() - length $suffix;
 			my $type = substr($act->{value}, 0, $len).$suffix;
 			unshift @out, $net->cmd2($act->{dst}, OPERTYPE => $type);
-			@out;
+			return @out;
 		}
 		return ();
 	}, CHANTSSYNC => sub {
