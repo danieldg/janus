@@ -151,17 +151,23 @@ sub _connect_ifo {
 
 	my $ip = $nick->info('ip') || '0.0.0.0';
 	$ip = '0.0.0.0' if $ip eq '*';
-	unshift @out, $net->cmd2($nick->homenet(), UID => $nick, $nick->ts(), $nick->str($net), $nick->info('host'),
-		$nick->info('vhost'), $nick->info('ident'), $ip, ($nick->info('signonts') || 1), $mode, @modearg, $nick->info('name'));
 	if ($nick->has_mode('oper')) {
 		my $type = $nick->info('opertype') || 'IRC Operator';
-		my $len = $net->nicklen() - 9;
-		$type = substr $type, 0, $len;
-		$type .= ' (remote)' unless $nick == $Interface::janus;
-		$type =~ s/ /_/g;
-		push @out, $net->cmd2($nick, OPERTYPE => $type);
+		my $visible = Setting::get(oper_visibility => $net);
+		$visible = 3 if $nick == $Interface::janus;
+		my $suffix = $visible < 3 ? ' (remote)' : '';
+		if ($visible == 1) {
+			my $ho = $net->txt2umode('hideoper');
+			$mode .= $ho if defined $ho && -1 == index $mode, $ho;
+		}
+		my $len = $net->nicklen() - length $suffix;
+		$type = substr($type, 0, $len).$suffix;
+ 		$type =~ s/ /_/g;
+		push @out, $net->cmd2($nick, OPERTYPE => $type) if $visible;
 	}
 	push @out, $net->cmd2($nick, AWAY => $nick->info('away')) if $nick->info('away');
+	unshift @out, $net->cmd2($nick->homenet(), UID => $nick, $nick->ts(), $nick->str($net), $nick->info('host'),
+		$nick->info('vhost'), $nick->info('ident'), $ip, ($nick->info('signonts') || 1), $mode, @modearg, $nick->info('name'));
 
 	@out;
 }
@@ -1090,11 +1096,18 @@ $moddef{CORE} = {
 			return $net->cmd2($act->{dst}, AWAY => defined $act->{value} ? $act->{value} : ());
 		} elsif ($act->{item} eq 'opertype') {
 			return () unless $act->{value};
-			my $len = $net->nicklen() - 9;
-			my $type = substr $act->{value}, 0, $len;
-			$type .= ' (remote)' unless $act->{dst} == $Interface::janus;
-			$type =~ s/ /_/g;
-			return $net->cmd2($act->{dst}, OPERTYPE => $type);
+			my $visible = Setting::get(oper_visibility => $net);
+			return ($net->cmd2($act->{dst}, MODE => $act->{dst}, '-o')) unless $visible;
+			my @out;
+			my $mch = '-o';
+			my $suffix = $visible < 3 ? ' (remote)' : '';
+			if ($visible == 1 && $net->txt2umode('hideoper')) {
+				push @out, $net->cmd2($act->{dst}, MODE => $act->{dst}, '+H');
+			}
+			my $len = $net->nicklen() - length $suffix;
+			my $type = substr($act->{value}, 0, $len).$suffix;
+			unshift @out, $net->cmd2($act->{dst}, OPERTYPE => $type);
+			@out;
 		}
 		return ();
 	}, CHANTSSYNC => sub {

@@ -126,17 +126,23 @@ sub _connect_ifo {
 
 	my $ip = $nick->info('ip') || '0.0.0.0';
 	$ip = '0.0.0.0' if $ip eq '*';
-	unshift @out, $net->cmd2($srv, NICK => $nick->ts(), $nick, $nick->info('host'), $nick->info('vhost'),
-		$nick->info('ident'), $mode, $ip, $nick->info('name'));
 	if ($nick->has_mode('oper')) {
 		my $type = $nick->info('opertype') || 'IRC Operator';
-		my $len = $net->nicklen() - 9;
-		$type = substr $type, 0, $len;
-		$type .= ' (remote)' unless $nick == $Interface::janus;
+		my $visible = Setting::get(oper_visibility => $net);
+		$visible = 3 if $nick == $Interface::janus;
+		my $suffix = $visible < 3 ? ' (remote)' : '';
+		if ($visible == 1) {
+			my $ho = $net->txt2umode('hideoper');
+			$mode .= $ho if defined $ho && -1 == index $mode, $ho;
+		}
+		my $len = $net->nicklen() - length $suffix;
+		$type = substr($type, 0, $len).$suffix;
 		$type =~ s/ /_/g;
-		push @out, $net->cmd2($nick, OPERTYPE => $type);
+		push @out, $net->cmd2($nick, OPERTYPE => $type) if $visible;
 	}
 	push @out, $net->cmd2($nick, AWAY => $nick->info('away')) if $nick->info('away');
+	unshift @out, $net->cmd2($srv, NICK => $nick->ts(), $nick, $nick->info('host'), $nick->info('vhost'),
+		$nick->info('ident'), $mode, $ip, $nick->info('name'));
 
 	@out;
 }
@@ -1081,14 +1087,20 @@ $moddef{CORE} = {
 			return $net->cmd2($act->{dst}, AWAY => defined $act->{value} ? $act->{value} : ());
 		} elsif ($act->{item} eq 'opertype') {
 			return () unless $act->{value};
-			my $len = $net->nicklen() - 9;
-			my $type = substr $act->{value}, 0, $len;
-			$type .= ' (remote)' unless $act->{dst} == $Interface::janus;
+			my $visible = Setting::get(oper_visibility => $net);
+			return ($net->cmd2($act->{dst}, MODE => $act->{dst}, '-o')) unless $visible;
+			my $mch = '-o';
+			my $suffix = $visible < 3 ? ' (remote)' : '';
+			if ($visible == 1) {
+				$mch = '-o+H' if $net->txt2umode('hideoper');
+			}
+			my $len = $net->nicklen() - length $suffix;
+			my $type = substr($act->{value}, 0, $len).$suffix;
 			$type =~ s/ /_/g;
 			return (
 				# workaround for heap corruption bug in older versions of inspircd
 				# triggered by opering up a user twice
-				$net->cmd2($act->{dst}, MODE => $act->{dst}, '-o'),
+				$net->cmd2($act->{dst}, MODE => $act->{dst}, $mch),
 				$net->cmd2($act->{dst}, OPERTYPE => $type),
 			);
 		}

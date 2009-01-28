@@ -252,8 +252,16 @@ sub umode_text {
 		my $um = $net->txt2umode($m);
 		$mode .= $um if defined $um;
 	}
-	unless ($net->param('show_roper') || $$nick == 1) {
+	my $visible = Setting::get(oper_visibility => $net);
+	$visible = 2 if $$nick == 1;
+	if ($visible == 0) {
+		# no remote oper
+		$mode =~ s/[oaANSH]//g;
+	} elsif ($visible == 1) {
+		# hidden
 		$mode .= 'H' if $mode =~ /o/ && $mode !~ /H/;
+	} else {
+		# fully visible
 	}
 	$mode . 'xt';
 }
@@ -1517,6 +1525,7 @@ $moddef{CORE} = {
 		my $pm = '';
 		my $mode = '';
 		my @out;
+		my $visible = Setting::get(oper_visibility => $net);
 		for my $ltxt (@{$act->{mode}}) {
 			my($d,$txt) = $ltxt =~ /([-+])(.+)/ or warn $ltxt;
 			my $um = $net->txt2umode($txt);
@@ -1525,13 +1534,17 @@ $moddef{CORE} = {
 			}
 			next if $skip_umode{$txt};
 			if (defined $um && length $um) {
-				next if $um eq 'H' && !$net->param('show_roper');
+				if ($visible == 0) {
+					next if $um =~ /[oaANSH]/;
+				} elsif ($visible == 1) {
+					next if $um eq 'H';
+					$um .= 'H' if $um eq 'o';
+				}
 				$mode .= $d if $pm ne $d;
 				$mode .= $um;
 				$pm = $d;
 			}
 		}
-		$mode =~ s/o/oH/ unless $net->param('show_roper');
 
 		push @out, $net->cmd2($act->{dst}, UMODE2 => $mode) if $mode;
 		@out;

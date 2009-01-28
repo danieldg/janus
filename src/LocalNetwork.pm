@@ -72,6 +72,14 @@ sub auth_should_send {
 	type => 'LocalNetwork',
 	help => 'Character used for tag separator.',
 	default => '/',
+}, {
+	name => 'oper_visibility',
+	type => 'LocalNetwork',
+	help => [
+		'Level of visibility remote opers have on this network',
+		'0=not oper (may cause problems), 1=hidden, 2=visible',
+	],
+	default => 1,
 });
 
 ### MODE SPLIT ###
