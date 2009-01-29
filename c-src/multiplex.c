@@ -53,12 +53,12 @@ struct iostate {
 	struct sockifo net[0];
 };
 
-#define STATE_TYPE      0x3
-#define STATE_T_NETWORK 0x0
-#define STATE_T_LISTEN  0x1
-#define STATE_T_DNSQ    0x2
-#define STATE_F_ACCEPT  0x4
-#define STATE_ERROR     0x30
+#define STATE_TYPE       0x3
+#define STATE_T_NETWORK  0x0
+#define STATE_T_LISTEN   0x1
+#define STATE_T_DNSQ     0x2
+#define STATE_F_ACCEPT   0x4
+#define STATE_F_CONNPEND 0x8
 #define STATE_E_SOCK    0x10
 #define STATE_E_DROP    0x20
 
@@ -142,6 +142,8 @@ void readable(struct sockifo* ifo) {
 		ifo->recvq.end += len;
 	} else {
 		ifo->state |= STATE_E_SOCK;
+		if (!ifo->msg)
+			ifo->msg = strdup(strerror(errno));
 	}
 }
 
@@ -155,6 +157,8 @@ void writable(struct sockifo* ifo) {
 			// drop to FD_SET
 		} else {
 			ifo->state |= STATE_E_SOCK;
+			if (!ifo->msg)
+				ifo->msg = strdup(strerror(errno));
 			return;
 		}
 	}
@@ -169,113 +173,6 @@ void writable(struct sockifo* ifo) {
 	} else {
 		FD_SET(ifo->fd, &sockets->writers);
 	}
-}
-
-void iowait(const char* line) {
-	time_t now = time(NULL);
-	int ts_end = now;
-	sscanf(line, "W %d", &ts_end);
-	int wait = ts_end - now;
-	if (wait < 1) wait = 1;
-	struct timeval to = {
-		.tv_sec = wait,
-		.tv_usec = 0,
-	};
-	int i;
-	for(i=0; i < sockets->count; i++) {
-		if (FD_ISSET(sockets->net[i].fd, &sockets->writers) &&
-				FD_ISSET(sockets->net[i].fd, &sockets->readers)) {
-			// dump sendq before calling select()
-			writable(&sockets->net[i]);
-		}
-	}
-	fd_set rok = sockets->readers;
-	fd_set wok = sockets->writers;
-	int ready = select(sockets->maxfd + 1, &rok, &wok, NULL, &to);
-	fputs("DONE\n", worker_file);
-	sockets->at = 0;
-	if (ready > 0) {
-		for(i=0; i < sockets->count; i++) {
-			if (FD_ISSET(sockets->net[i].fd, &wok)) {
-				writable(&sockets->net[i]);
-			}
-			if (FD_ISSET(sockets->net[i].fd, &rok)) {
-				readable(&sockets->net[i]);
-			}
-		}
-	}
-}
-
-void oneline() {
-	while (sockets->at < sockets->count) {
-		struct sockifo* ifo = &sockets->net[sockets->at];
-		if ((ifo->state & STATE_ERROR) == STATE_E_DROP) {
-			sockets->at++;
-			continue;
-		}
-		if ((ifo->state & STATE_TYPE) == STATE_T_NETWORK) {
-			int i = ifo->recvq.start;
-			while (i < ifo->recvq.end) {
-				if (ifo->recvq.data[i] == '\r' && ifo->recvq.data[i+1] == '\n') {
-					ifo->recvq.data[i] = '\n';
-				}
-				if (ifo->recvq.data[i] == '\n') {
-					if (ifo->recvq.start == i) {
-						ifo->recvq.start++;
-					} else {
-						ifo->recvq.data[i] = '\0';
-						fprintf(worker_file, "%d %s\n", ifo->netid, ifo->recvq.data + ifo->recvq.start);
-						ifo->recvq.start = i+1;
-						return;
-					}
-				}
-				i++;
-			}
-		}
-		sockets->at++;
-		if ((ifo->state & STATE_ERROR) == STATE_E_SOCK) {
-			const char* msg = ifo->msg ? ifo->msg : "Unknown connection error";
-			fprintf(worker_file, "DELINK %d %s\n", ifo->netid, msg);
-			return;
-		}
-	}
-	fputs("L\n", worker_file);
-	sockets->at = 0;
-}
-
-void sqfill(const char* line) {
-	int netid = 0;
-	while (isdigit(*line)) {
-		netid = 10 * netid + (*line - '0');
-		line++;
-	}
-	line++;
-	int i;
-	struct queue* sq;
-	for(i=0; i < sockets->count; i++) {
-		if (sockets->net[i].netid == netid)
-			goto found;
-	}
-	// TODO report error here
-	return;
-found:
-	sq = &(sockets->net[i].sendq);
-	while (*line) {
-		if (sq->end < sq->size) {
-			sq->data[sq->end++] = *line++;
-		} else {
-			sq->size += sq->end - sq->start;
-			if (sq->size < IDEAL_SENDQ)
-				sq->size = IDEAL_SENDQ;
-			uint8_t* data = malloc(sq->size);
-			memcpy(data, sq->data + sq->start, sq->end - sq->start);
-			free(sq->data);
-			sq->data = data;
-			sq->end = sq->end - sq->start;
-			sq->start = 0;
-		}
-	}
-	FD_SET(sockets->net[i].fd, &sockets->writers);
 }
 
 void addnet(char* line) {
@@ -380,23 +277,145 @@ void addnet(char* line) {
 	sockets->net[id].netid = netid;
 }
 
+void delnet_real(struct sockifo* ifo) {
+	int fd = ifo->fd;
+	FD_CLR(fd, &sockets->readers);
+	FD_CLR(fd, &sockets->writers);
+	close(fd);
+	free(ifo->sendq.data);
+	free(ifo->recvq.data);
+	free(ifo->msg);
+	sockets->count--;
+	struct sockifo* last = &(sockets->net[sockets->count]);
+	if (ifo != last) {
+		memcpy(ifo, last, sizeof(struct sockifo));
+	}
+}
+
 void delnet(const char* line) {
 	int netid = 0, i;
 	sscanf(line, "DELNET %d", &netid);
-	// TODO mark as deleted, really remove when sendq is empty
 	for(i=0; i < sockets->count; i++) {
 		if (sockets->net[i].netid == netid) {
-			close(sockets->net[i].fd);
-			free(sockets->net[i].sendq.data);
-			free(sockets->net[i].recvq.data);
-			free(sockets->net[i].msg);
-			memmove(&(sockets->net[i]), &(sockets->net[i+1]),
-				(sockets->count - i)*sizeof(struct sockifo));
-			sockets->count--;
+			sockets->net[i].state |= STATE_E_DROP;
+			FD_CLR(sockets->net[i].fd, &sockets->readers);
 			return;
 		}
 	}
-	// TODO error here
+	// TODO better error here
+	exit(2);
+}
+
+void iowait(const char* line) {
+	time_t now = time(NULL);
+	int ts_end = now;
+	sscanf(line, "W %d", &ts_end);
+	int wait = ts_end - now;
+	if (wait < 1) wait = 1;
+	struct timeval to = {
+		.tv_sec = wait,
+		.tv_usec = 0,
+	};
+	int i;
+	for(i=0; i < sockets->count; i++) {
+		struct sockifo* ifo = &sockets->net[i];
+		if (FD_ISSET(ifo->fd, &sockets->writers) && !(ifo->state & STATE_F_CONNPEND)) {
+			// dump sendq before calling select()
+			writable(ifo);
+		}
+		if (ifo->state & STATE_E_DROP && (ifo->sendq.end == 0 || ifo->state & STATE_E_SOCK)) {
+			delnet_real(ifo);
+			i--;
+		}
+	}
+	fd_set rok = sockets->readers;
+	fd_set wok = sockets->writers;
+	int ready = select(sockets->maxfd + 1, &rok, &wok, NULL, &to);
+	fputs("DONE\n", worker_file);
+	sockets->at = 0;
+	if (ready > 0) {
+		for(i=0; i < sockets->count; i++) {
+			if (FD_ISSET(sockets->net[i].fd, &wok)) {
+				writable(&sockets->net[i]);
+			}
+			if (FD_ISSET(sockets->net[i].fd, &rok)) {
+				readable(&sockets->net[i]);
+			}
+		}
+	}
+}
+
+void oneline() {
+	while (sockets->at < sockets->count) {
+		struct sockifo* ifo = &sockets->net[sockets->at];
+		if (ifo->state & STATE_E_DROP) {
+			sockets->at++;
+			continue;
+		}
+		if ((ifo->state & STATE_TYPE) == STATE_T_NETWORK) {
+			int i = ifo->recvq.start;
+			while (i < ifo->recvq.end) {
+				if (ifo->recvq.data[i] == '\r' && ifo->recvq.data[i+1] == '\n') {
+					ifo->recvq.data[i] = '\n';
+				}
+				if (ifo->recvq.data[i] == '\n') {
+					if (ifo->recvq.start == i) {
+						ifo->recvq.start++;
+					} else {
+						ifo->recvq.data[i] = '\0';
+						fprintf(worker_file, "%d %s\n", ifo->netid, ifo->recvq.data + ifo->recvq.start);
+						ifo->recvq.start = i+1;
+						return;
+					}
+				}
+				i++;
+			}
+		}
+		sockets->at++;
+		if (ifo->state & STATE_E_SOCK) {
+			const char* msg = ifo->msg ? ifo->msg : "Unknown connection error";
+			fprintf(worker_file, "DELINK %d %s\n", ifo->netid, msg);
+			return;
+		}
+	}
+	fputs("L\n", worker_file);
+	sockets->at = 0;
+}
+
+void sqfill(const char* line) {
+	int netid = 0;
+	while (isdigit(*line)) {
+		netid = 10 * netid + (*line - '0');
+		line++;
+	}
+	line++;
+	int i;
+	struct queue* sq;
+	for(i=0; i < sockets->count; i++) {
+		if (sockets->net[i].netid == netid)
+			goto found;
+	}
+	// TODO report error here
+	exit(2);
+	return;
+found:
+	sq = &(sockets->net[i].sendq);
+	while (*line) {
+		if (sq->end < sq->size) {
+			sq->data[sq->end++] = *line++;
+		} else {
+			sq->size += sq->end - sq->start;
+			if (sq->size < IDEAL_SENDQ)
+				sq->size = IDEAL_SENDQ;
+			uint8_t* data = malloc(sq->size);
+			memcpy(data, sq->data + sq->start, sq->end - sq->start);
+			free(sq->data);
+			sq->data = data;
+			sq->end = sq->end - sq->start;
+			sq->start = 0;
+		}
+	}
+	FD_SET(sockets->net[i].fd, &sockets->writers);
 }
 
 
@@ -434,7 +453,7 @@ int main(int argc, char** argv) {
 			delnet(line);
 			break;
 		case 'R':
-			// TODO reboot
+			// TODO implement reboot
 		default:
 			return 1;
 		}
