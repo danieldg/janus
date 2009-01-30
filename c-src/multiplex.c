@@ -203,6 +203,10 @@ void readable(struct sockifo* ifo) {
 }
 
 void writable(struct sockifo* ifo) {
+	if (ifo->state & STATE_F_CONNPEND) {
+		ifo->state &= ~STATE_F_CONNPEND;
+		FD_SET(ifo->fd, &sockets->readers);
+	}
 	int size = ifo->sendq.end - ifo->sendq.start;
 	if (size) {
 		int len = write(ifo->fd, ifo->sendq.data + ifo->sendq.start, size);
@@ -224,7 +228,6 @@ void writable(struct sockifo* ifo) {
 			ifo->sendq.data = malloc(IDEAL_SENDQ);
 		}
 		FD_CLR(ifo->fd, &sockets->writers);
-		FD_SET(ifo->fd, &sockets->readers);
 	} else {
 		FD_SET(ifo->fd, &sockets->writers);
 	}
@@ -458,6 +461,7 @@ void oneline() {
 					// TODO PEND-SSL
 					close(fd);
 				}
+				return;
 			}
 		}
 		sockets->at++;
