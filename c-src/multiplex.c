@@ -2,22 +2,23 @@
  * Copyright (C) 2009 Daniel De Graaf
  * Released under the GNU Affero General Public License v3
  */
+#include <arpa/inet.h>
+#include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <stdarg.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/select.h>
 #include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <ctype.h>
+#include <sys/types.h>
+#include <sys/un.h>
 #include <time.h>
+#include <unistd.h>
 
 #define MIN_RECVQ 8192
 #define IDEAL_SENDQ 16384
@@ -64,7 +65,7 @@ struct iostate {
 
 static pid_t worker_pid;
 static int worker_sock;
-static FILE* worker_file;
+static struct queue worker_recvq;
 static struct iostate* sockets;
 
 void init_worker(const char* conf) {
@@ -96,18 +97,94 @@ void init_worker(const char* conf) {
 	} else {
 		close(sv[1]);
 		worker_sock = sv[0];
-		worker_file = fdopen(worker_sock, "w+");
+	}
+}
+
+void worker_printf(const char* format, ...) {
+	char line[8192];
+	va_list ap;
+	va_start(ap, format);
+	int n = vsnprintf(line, 8192, format, ap);
+	va_end(ap);
+	if (n > 8192) {
+		abort();
+	}
+	char* at = line;
+	while (n) {
+		int r = write(worker_sock, at, n);
+		if (r <= 0) {
+			exit(1);
+		}
+		at += r;
+		n -= r;
+	}
+}
+
+int do_recvq(int fd, struct queue* q) {
+	if (q->start == q->end) {
+		q->start = q->end = 0;
+		if (q->size > IDEAL_RECVQ) {
+			free(q->data);
+			q->data = malloc(IDEAL_RECVQ);
+		}
+	}
+	int slack = q->size - q->end;
+	if (slack < MIN_RECVQ) {
+		int size = q->end - q->start;
+		if (slack + q->start > MIN_RECVQ) {
+			memmove(q->data, q->data + q->start, size);
+			slack += q->start;
+			q->start = 0;
+			q->end = size;
+		} else {
+			int newsiz = (size * 3)/2 + MIN_RECVQ;
+			uint8_t* dat = malloc(newsiz);
+			memcpy(dat, q->data + q->start, size);
+			free(q->data);
+			q->data = dat;
+			q->size = newsiz;
+			q->start = 0;
+			q->end = size;
+			slack = newsiz - size;
+		}
+	}
+	int len = read(fd, q->data + q->end, slack);
+	if (len > 0) {
+		q->end += len;
+		return 0;
+	} else {
+		return 1;
+	}
+}
+
+/*
+ * Get a single line from the worker socket. Trailing \n is replaced by null
+ * Returned pointer is valid until the next call to worker_gets
+ */
+char* worker_gets() {
+	while (1) {
+		int i;
+		for(i = worker_recvq.start; i < worker_recvq.end; i++) {
+			if (worker_recvq.data[i] == '\n') {
+				uint8_t* rv = worker_recvq.data + worker_recvq.start;
+				worker_recvq.data[i] = '\0';
+				worker_recvq.start = i+1;
+				return (char*)rv;
+			}
+		}
+		if (do_recvq(worker_sock, &worker_recvq)) {
+			exit(1);
+		}
 	}
 }
 
 void reboot(const char* conf, const char* line) {
 	// TODO protocol change, "R <filename>"
 	line += 7; // "REBOOT "
-	fclose(worker_file);
+	close(worker_sock);
 	init_worker(conf);
-	fprintf(worker_file, "RESTORE %s", line);
+	worker_printf("RESTORE %s", line);
 }
-
 
 void readable(struct sockifo* ifo) {
 	if ((ifo->state & STATE_TYPE) == STATE_T_LISTEN) {
@@ -118,37 +195,7 @@ void readable(struct sockifo* ifo) {
 		exit(2);
 		return;
 	}
-	if (ifo->recvq.start == ifo->recvq.end) {
-		ifo->recvq.start = ifo->recvq.end = 0;
-		if (ifo->recvq.size > IDEAL_RECVQ) {
-			free(ifo->recvq.data);
-			ifo->recvq.data = malloc(IDEAL_RECVQ);
-		}
-	}
-	int slack = ifo->recvq.size - ifo->recvq.end;
-	if (slack < MIN_RECVQ) {
-		int size = ifo->recvq.end - ifo->recvq.start;
-		if (slack + ifo->recvq.start > MIN_RECVQ) {
-			memmove(ifo->recvq.data, ifo->recvq.data + ifo->recvq.start, size);
-			slack += ifo->recvq.start;
-			ifo->recvq.start = 0;
-			ifo->recvq.end = size;
-		} else {
-			int newsiz = (size * 3)/2 + MIN_RECVQ;
-			uint8_t* dat = malloc(newsiz);
-			memcpy(dat, ifo->recvq.data + ifo->recvq.start, size);
-			free(ifo->recvq.data);
-			ifo->recvq.data = dat;
-			ifo->recvq.size = newsiz;
-			ifo->recvq.start = 0;
-			ifo->recvq.end = size;
-			slack = newsiz - size;
-		}
-	}
-	int len = read(ifo->fd, ifo->recvq.data + ifo->recvq.end, slack);
-	if (len > 0) {
-		ifo->recvq.end += len;
-	} else {
+	if (do_recvq(ifo->fd, &ifo->recvq)) {
 		ifo->state |= STATE_E_SOCK;
 		if (!ifo->msg)
 			ifo->msg = strdup(strerror(errno));
@@ -257,17 +304,17 @@ void addnet(char* line) {
 		FD_SET(fd, &sockets->writers);
 	} else if (type == 'L') {
 		if (bind(fd, (struct sockaddr*)&sa, sizeof(sa))) {
-			fprintf(worker_file, "ERR %s\n", strerror(errno));
+			worker_printf("ERR %s\n", strerror(errno));
 			close(fd);
 			return;
 		}
 		if (listen(fd, 2)) {
-			fprintf(worker_file, "ERR %s\n", strerror(errno));
+			worker_printf("ERR %s\n", strerror(errno));
 			close(fd);
 			return;
 		}
 		state = STATE_T_LISTEN;
-		fputs("OK\n", worker_file);
+		worker_printf("OK\n");
 		FD_SET(fd, &sockets->readers);
 	}
 	// TODO SSL init
@@ -339,7 +386,7 @@ void iowait(const char* line) {
 	fd_set rok = sockets->readers;
 	fd_set wok = sockets->writers;
 	int ready = select(sockets->maxfd + 1, &rok, &wok, NULL, &to);
-	fputs("DONE\n", worker_file);
+	worker_printf("DONE\n");
 	sockets->at = 0;
 	if (ready > 0) {
 		for(i=0; i < sockets->count; i++) {
@@ -371,7 +418,7 @@ void oneline() {
 						ifo->recvq.start++;
 					} else {
 						ifo->recvq.data[i] = '\0';
-						fprintf(worker_file, "%d %s\n", ifo->netid, ifo->recvq.data + ifo->recvq.start);
+						worker_printf("%d %s\n", ifo->netid, ifo->recvq.data + ifo->recvq.start);
 						ifo->recvq.start = i+1;
 						return;
 					}
@@ -391,10 +438,10 @@ void oneline() {
 				fcntl(fd, F_SETFL, flags);
 				fcntl(fd, F_SETFD, FD_CLOEXEC);
 				inet_ntop(AF_INET6, &addr.sin6_addr, linebuf, sizeof(linebuf));
-				fprintf(worker_file, "PEND %d %s\n", ifo->netid, linebuf);
-				fgets(linebuf, 8192, worker_file);
+				worker_printf("PEND %d %s\n", ifo->netid, linebuf);
+				char* line = worker_gets();
 				int netid = 0;
-				if (sscanf(linebuf, "PEND %d", &netid)) {
+				if (sscanf(line, "PEND %d", &netid)) {
 					int id = sockets->count++;
 					if (id >= sockets->size) {
 						sockets->size += 4;
@@ -416,11 +463,11 @@ void oneline() {
 		sockets->at++;
 		if (ifo->state & STATE_E_SOCK) {
 			const char* msg = ifo->msg ? ifo->msg : "Unknown connection error";
-			fprintf(worker_file, "DELINK %d %s\n", ifo->netid, msg);
+			worker_printf("DELINK %d %s\n", ifo->netid, msg);
 			return;
 		}
 	}
-	fputs("L\n", worker_file);
+	worker_printf("L\n");
 	sockets->at = 0;
 }
 
@@ -442,9 +489,14 @@ void sqfill(const char* line) {
 	return;
 found:
 	sq = &(sockets->net[i].sendq);
-	while (*line) {
+	while (1) {
 		if (sq->end < sq->size) {
-			sq->data[sq->end++] = *line++;
+			uint8_t c = *line++;
+			if (c == '\0')
+				c = '\n';
+			sq->data[sq->end++] = c;
+			if (c == '\n')
+				break;
 		} else {
 			sq->size += sq->end - sq->start;
 			if (sq->size < IDEAL_SENDQ)
@@ -472,12 +524,10 @@ int main(int argc, char** argv) {
 	FD_ZERO(&sockets->readers);
 	FD_ZERO(&sockets->writers);
 
-	fputs("BOOT 7\n", worker_file);
+	worker_printf("BOOT 7\n");
 
 	while (1) {
-		char line[8192];
-		if (!fgets(line, 8192, worker_file))
-			break;
+		char* line = worker_gets();
 		switch (*line) {
 		case 'W':
 			iowait(line);
