@@ -100,10 +100,18 @@ void init_worker(const char* conf) {
 	}
 }
 
+void reboot(const char* conf, const char* line) {
+	// TODO protocol change, "R <filename>"
+	line += 7; // "REBOOT "
+	fclose(worker_file);
+	init_worker(conf);
+	fprintf(worker_file, "RESTORE %s", line);
+}
+
+
 void readable(struct sockifo* ifo) {
 	if ((ifo->state & STATE_TYPE) == STATE_T_LISTEN) {
-		// TODO support
-		exit(2);
+		ifo->state |= STATE_F_ACCEPT;
 		return;
 	} else if ((ifo->state & STATE_TYPE) == STATE_T_DNSQ) {
 		// TODO support
@@ -245,7 +253,7 @@ void addnet(char* line) {
 			bind(fd, (struct sockaddr*)&bsa, sizeof(bsa));
 		}
 		connect(fd, (struct sockaddr*)&sa, sizeof(sa));
-		state = STATE_T_NETWORK;
+		state = STATE_T_NETWORK | STATE_F_CONNPEND;
 		FD_SET(fd, &sockets->writers);
 	} else if (type == 'L') {
 		if (bind(fd, (struct sockaddr*)&sa, sizeof(sa))) {
@@ -370,6 +378,40 @@ void oneline() {
 				}
 				i++;
 			}
+		} else if ((ifo->state & STATE_TYPE) == STATE_T_LISTEN && (ifo->state & STATE_F_ACCEPT)) {
+			struct sockaddr_in6 addr;
+			unsigned int addrlen = sizeof(addr);
+			char linebuf[8192];
+			int fd = accept(ifo->fd, (struct sockaddr*)&addr, &addrlen);
+			if (fd < 0) {
+				ifo->state &= ~STATE_F_ACCEPT;
+			} else {
+				int flags = fcntl(fd, F_GETFL);
+				flags |= O_NONBLOCK;
+				fcntl(fd, F_SETFL, flags);
+				fcntl(fd, F_SETFD, FD_CLOEXEC);
+				inet_ntop(AF_INET6, &addr.sin6_addr, linebuf, sizeof(linebuf));
+				fprintf(worker_file, "PEND %d %s\n", ifo->netid, linebuf);
+				fgets(linebuf, 8192, worker_file);
+				int netid = 0;
+				if (sscanf(linebuf, "PEND %d", &netid)) {
+					int id = sockets->count++;
+					if (id >= sockets->size) {
+						sockets->size += 4;
+						sockets = realloc(sockets, sizeof(struct iostate) + sockets->size * sizeof(struct sockifo));
+					}
+					if (sockets->maxfd < fd)
+						sockets->maxfd = fd;
+					memset(&(sockets->net[id]), 0, sizeof(struct sockifo));
+					sockets->net[id].fd = fd;
+					sockets->net[id].state = STATE_T_NETWORK;
+					sockets->net[id].netid = netid;
+					FD_SET(fd, &sockets->readers);
+				} else {
+					// TODO PEND-SSL
+					close(fd);
+				}
+			}
 		}
 		sockets->at++;
 		if (ifo->state & STATE_E_SOCK) {
@@ -453,7 +495,8 @@ int main(int argc, char** argv) {
 			delnet(line);
 			break;
 		case 'R':
-			// TODO implement reboot
+			reboot(argv[1], line);
+			break;
 		default:
 			return 1;
 		}
