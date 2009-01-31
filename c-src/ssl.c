@@ -91,7 +91,6 @@ out_err:
 }
 
 void ssl_close(struct sockifo* ifo) {
-	// TODO the SSL protocol would really like to handshake the "bye"
 	gnutls_deinit(ifo->ssl);
 	gnutls_certificate_free_credentials(ifo->xcred);
 }

@@ -85,7 +85,11 @@ sub timestep {
 			if ($net) {
 				$net->delink($2);
 			} else {
-				cmd("DELNET $1");
+				if ($master_api < 9) {
+					cmd("DELNET $1");
+				} else {
+					cmd("D $1");
+				}
 			}
 		} elsif ($now =~ /^PEND (\d+) (\S+)/) {
 			my($lid, $addr) = ($1,$2);
@@ -93,11 +97,17 @@ sub timestep {
 			my $net = $lnet->init_pending($addr);
 			if ($net) {
 				my($sslkey, $sslcert, $sslca) = &Conffile::find_ssl_keys($net, $lnet);
+				$sslkey ||= '';
 				$sslca ||= '';
-				if ($sslcert) {
-					cmd("PEND-SSL $$net $sslkey $sslcert $sslca");
+				$sslca ||= '';
+				if ($master_api < 9) {
+					if ($sslcert) {
+						cmd("PEND-SSL $$net $sslkey $sslcert $sslca");
+					} else {
+						cmd("PEND $$net");
+					}
 				} else {
-					cmd("PEND $$net");
+					cmd("I $$net $sslkey $sslcert $sslca");
 				}
 				push @active, $net;
 			} else {
@@ -122,7 +132,11 @@ sub timestep {
 		open my $dump, '>janus-state.dat';
 		&Janus::load('Snapshot');
 		&Snapshot::dump_to($dump, 1);
-		cmd("REBOOT janus-state.dat");
+		if ($master_api < 9) {
+			cmd("REBOOT janus-state.dat");
+		} else {
+			cmd('R janus-state.dat');
+		}
 		exit 0;
 	}
 }
@@ -135,7 +149,11 @@ sub drop_socket {
 	for (0..$#Multiplex::active) {
 		next unless $Multiplex::active[$_] == $net;
 		splice @Multiplex::active, $_, 1;
-		&Multiplex::cmd("DELNET $$net");
+		if ($Multiplex::master_api < 9) {
+			&Multiplex::cmd("DELNET $$net");
+		} else {
+			&Multiplex::cmd("D $$net");
+		}
 		return 1;
 	}
 	return 0;
@@ -148,7 +166,9 @@ sub list {
 sub init_listen {
 	my($net, $addr, $port) = @_;
 	$addr ||= '';
-	if ($Multiplex::master_api >= 8) {
+	if ($Multiplex::master_api >= 9) {
+		Multiplex::cmd("IL $$net $addr $port");
+	} elsif ($Multiplex::master_api == 8) {
 		Multiplex::cmd("INITL $$net $addr $port");
 	} elsif ($Multiplex::master_api >= 6) {
 		my $resp = &Multiplex::ask("INITL $$net $addr $port");
@@ -187,8 +207,11 @@ sub init_connection {
 	} elsif ($Multiplex::master_api < 7) {
 		&Multiplex::cmd("INITC $$net $addr $port $bind $sslkey $sslcert");
 		return;
-	} else {
+	} elsif ($Multiplex::master_api < 9) {
 		&Multiplex::cmd("INITC $$net $addr $port $bind $sslkey $sslcert $sslca");
+		return;
+	} else {
+		&Multiplex::cmd("IC $$net $addr $port $bind $sslkey $sslcert $sslca");
 		return;
 	}
 	if ($resp eq 'OK') {

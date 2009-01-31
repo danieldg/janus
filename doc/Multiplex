@@ -3,16 +3,16 @@ Split-process I/O loop commands:
 Start the "src/worker.pl" program with a socket (unix socketpair) open on file
 descriptor 0. All communication with the worker process is via a line-based
 protocol on this socket. When starting the first worker, send "BOOT <apiver>"
-where apiver is the API version. This document describes version 8. After
+where apiver is the API version. This document describes version 9. After
 sending, wait for one of the following commands:
 
-INITC <netid> <addr> <port> <bind> <ssl-key> <ssl-cert> <ssl-ca>
+IC <netid> <addr> <port> <bind> <ssl-key> <ssl-cert> <ssl-ca>
 	Open an outbound connection to the given addr:port. Optionally bind to
 	the given IP. If ssl-key is specified, start SSL; if both ssl-key and
 	ssl-cert are specified, they specify the client SSL certificate to use.
 	The CA file, if specified, is used to verify the server's certificate.
 	No response; errors are communicated through DELINK.
-INITL <netid> <addr> <port>
+IL <netid> <addr> <port>
 	Open a listening socket on the given port, bound to the given IP.
 	<addr> can be blank to bind to all IPs; in this case there will be 2
 	spaces between netid and port.
@@ -31,25 +31,23 @@ N
 	PEND <netid> <address>
 		The listening socket with this ID has an incoming connection
 		from the given IP address (text form). Immediate response:
-		PEND <newID>
+		I <newID> <SSL keyfile> <SSL certfile> <SSL cafile>
 			Accept the connection, using this ID to refer to it in
-			the future
-		PEND-SSL <newID> <SSL keyfile> <SSL certfile> <SSL cafile>
-			Same, but initiate an SSL (server) connection using the
-			named key and certificate files, and verifying the
-			incoming client certificate using the given CA
+			the future. If SSL key/cert files are specified, start
+			SSL server connection, and verify the incoming client
+			certificate using the given CA
 		DROP
 			Drop the connection immediately
 	L
 		No further I/O activity is ready (i.e. last)
 <netid> <line...>
 	Send a line to the network with the given ID. I/O errors are enqueued
-	for the next "N" request. No response.
-DELNET <netid>
+	for the next "N" request. "\r\n" should be appended. No response.
+D <netid>
 	Disconnect the given network; do not report any further errors or I/O
 	readiness. Discard any received data, and disconnect after emptying the
 	send queue. No response.
-REBOOT <filename>
-	Start a new child process, sending "RESTORE <filename>" as the first
-	line. The current process is terminating momentarily, so its socket can
-	be discarded without sending any response.
+R <line...>
+	Start a new child process, sending "RESTORE <line...>" as the first
+	line (i.e. instead of BOOT). The current process is terminating
+	momentarily, so its socket should be closed.

@@ -30,7 +30,6 @@ struct sockifo {
 	gnutls_certificate_credentials_t xcred;
 	gnutls_session_t ssl;
 #endif
-	// TODO dns state
 };
 
 #define STATE_TYPE       0x3

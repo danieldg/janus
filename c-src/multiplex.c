@@ -83,11 +83,10 @@ char* worker_gets() {
 }
 
 void reboot(const char* conf, const char* line) {
-	// TODO protocol change, "R <filename>"
-	line += 7; // "REBOOT "
+	line++;
 	close(worker_sock);
 	init_worker(conf);
-	worker_printf("RESTORE %s", line);
+	worker_printf("RESTORE%s", line);
 }
 
 void readable(struct sockifo* ifo) {
@@ -131,10 +130,10 @@ static struct sockifo* alloc_ifo() {
 
 void addnet(char* line) {
 	int netid = 0;
-	// TODO protocol change, IC/IL
-	line += 4;
+	line++;
 	char type = *line++;
-	if (*line++ != ' ') exit(1);
+	if (type != 'L' && type != 'C') exit(2);
+	if (*line++ != ' ') exit(2);
 	while (isdigit(*line)) {
 		netid = 10 * netid + *line++ - '0';
 	}
@@ -249,7 +248,7 @@ void delnet_real(struct sockifo* ifo) {
 
 void delnet(const char* line) {
 	int netid = 0, i;
-	sscanf(line, "DELNET %d", &netid);
+	sscanf(line, "D %d", &netid);
 	for(i=0; i < sockets->count; i++) {
 		if (sockets->net[i].netid == netid) {
 			sockets->net[i].state |= STATE_E_DROP;
@@ -285,7 +284,7 @@ static inline int need_drop(struct sockifo* ifo) {
 		return 1;
 	if (ifo->state & STATE_F_SSL)
 		return !(ifo->state & (STATE_F_SSL_RBLK | STATE_F_SSL_WBLK));
-	return ifo->sendq.end == 0;
+	return ifo->sendq.end == ifo->sendq.start;
 }
 
 void iowait(const char* line) {
@@ -352,46 +351,46 @@ int do_accept(struct sockifo* lifo) {
 	fcntl(fd, F_SETFD, FD_CLOEXEC);
 	if (addr.sin6_family == AF_INET6) {
 		inet_ntop(AF_INET6, &addr.sin6_addr, linebuf, sizeof(linebuf));
+		char* atxt = linebuf;
+		if (!strncmp("::ffff:", linebuf, 7))
+			atxt += 7;
+		worker_printf("PEND %d %s\n", lifo->netid, atxt);
 	} else {
 		struct sockaddr_in* p = (struct sockaddr_in*)&addr;
 		inet_ntop(AF_INET, &(p->sin_addr), linebuf, sizeof(linebuf));
+		worker_printf("PEND %d %s\n", lifo->netid, linebuf);
 	}
-	worker_printf("PEND %d %s\n", lifo->netid, linebuf);
 	char* line = worker_gets();
+	if (line[0] != 'I' || line[1] != ' ') {
+		close(fd);
+		return 1;
+	}
+	line += 2;
 	int netid = 0;
-	if (sscanf(line, "PEND %d", &netid)) {
-		struct sockifo* nifo = alloc_ifo();
-		nifo->fd = fd;
-		nifo->state = STATE_T_NETWORK;
-		nifo->netid = netid;
-	} else if (!strncmp(line, "PEND-SSL ", 9)) {
-		line += 9;
-		while (isdigit(*line)) {
-			netid = 10 * netid + (*line - '0');
-			line++;
-		}
+	while (isdigit(*line)) {
+		netid = 10 * netid + (*line - '0');
+		line++;
+	}
 
 #define WORDSTRING(x) \
-		const char* x = NULL; \
-		if (*line == ' ') { \
-			*line = '\0'; \
-			x = ++line; \
-			while (*line && *line != ' ') line++; \
-		}
-		WORDSTRING(ssl_key)
-		WORDSTRING(ssl_cert)
-		WORDSTRING(ssl_ca)
-#undef WORDSTRING
-		*line = '\0';
-
-		struct sockifo* nifo = alloc_ifo();
-		nifo->fd = fd;
-		nifo->state = STATE_T_NETWORK;
-		nifo->netid = netid;
-		ssl_init_server(nifo, ssl_key, ssl_cert, ssl_ca);
-	} else {
-		close(fd);
+	const char* x = NULL; \
+	if (*line == ' ') { \
+		*line = '\0'; \
+		x = ++line; \
+		while (*line && *line != ' ') line++; \
 	}
+	WORDSTRING(ssl_key)
+	WORDSTRING(ssl_cert)
+	WORDSTRING(ssl_ca)
+#undef WORDSTRING
+	*line = '\0';
+
+	struct sockifo* nifo = alloc_ifo();
+	nifo->fd = fd;
+	nifo->state = STATE_T_NETWORK;
+	nifo->netid = netid;
+	if (ssl_key && *ssl_key)
+		ssl_init_server(nifo, ssl_key, ssl_cert, ssl_ca);
 	return 1;
 }
 
@@ -449,7 +448,7 @@ int main(int argc, char** argv) {
 	sigaction(SIGPIPE, &ign, NULL);
 	sigaction(SIGCHLD, &ign, NULL);
 	init_worker(argv[1]);
-	worker_printf("BOOT 8\n");
+	worker_printf("BOOT 9\n");
 
 	sockets = malloc(sizeof(struct iostate) + 16 * sizeof(struct sockifo));
 	sockets->size = 16;
