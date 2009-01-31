@@ -93,6 +93,7 @@ sub timestep {
 			my $net = $lnet->init_pending($addr);
 			if ($net) {
 				my($sslkey, $sslcert, $sslca) = &Conffile::find_ssl_keys($net, $lnet);
+				$sslca ||= '';
 				if ($sslcert) {
 					cmd("PEND-SSL $$net $sslkey $sslcert $sslca");
 				} else {
@@ -173,6 +174,7 @@ sub init_connection {
 	$bind ||= '';
 	$sslkey ||= '';
 	$sslcert ||= '';
+	$sslca ||= '';
 	push @Multiplex::active, $net;
 	my $resp;
 	if ($Multiplex::master_api < 3) {

@@ -917,7 +917,10 @@ $moddef{CORE} = {
 	}, SJOIN => sub {
 		my $net = shift;
 		my $ts = $net->sjbint($_[2]);
-		$ts = 42 and &Log::err_in($net, 'Broken (zero) timestamp on '.$_[3]) if $ts == 0;
+		if ($ts == 0) {
+			$ts = 42;
+			&Log::err_in($net, 'Broken (zero) timestamp on '.$_[3]);
+		}
 		my $chan = $net->chan($_[3], $ts);
 		my $applied = ($chan->ts() >= $ts);
 		my $joins = pop;
