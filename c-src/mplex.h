@@ -36,7 +36,6 @@ struct sockifo {
 #define STATE_TYPE       0x3
 #define STATE_T_NETWORK  0x0
 #define STATE_T_LISTEN   0x1
-#define STATE_T_DNSQ     0x2
 
 #define STATE_F_ACCEPT   0x010
 #define STATE_F_CONNPEND 0x020
@@ -57,6 +56,7 @@ void fdprintf(int fd, const char* format, ...);
 
 void ssl_gblinit();
 void ssl_init_client(struct sockifo* ifo, const char* key, const char* cert, const char* ca);
+void ssl_init_server(struct sockifo* ifo, const char* key, const char* cert, const char* ca);
 void ssl_readable(struct sockifo* ifo);
 void ssl_writable(struct sockifo* ifo);
 void ssl_close(struct sockifo* ifo);

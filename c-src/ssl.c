@@ -3,10 +3,14 @@
  * Released under the GNU Affero General Public License v3
  */
 #include "mplex.h"
-#include <stdio.h>
+// #include <gcrypt.h>
+static gnutls_dh_params_t dh_params;
 
 void ssl_gblinit() {
+//	gcry_control(GCRYCTL_ENABLE_QUICK_RANDOM, 0);
 	gnutls_global_init();
+	gnutls_dh_params_init(&dh_params);
+	gnutls_dh_params_generate2(dh_params, 1024);
 }
 
 static void do_eagain(struct sockifo* ifo) {
@@ -45,11 +49,40 @@ void ssl_init_client(struct sockifo* ifo, const char* key, const char* cert, con
 	// NOTE: no handshake here because the connection is still pending
 }
 
+void ssl_init_server(struct sockifo* ifo, const char* key, const char* cert, const char* ca) {
+	ifo->state |= STATE_F_SSL;
+	int rv;
+	rv = gnutls_certificate_allocate_credentials(&ifo->xcred);
+	if (rv < 0) goto out_err;
+	rv = gnutls_certificate_set_x509_key_file(ifo->xcred, cert, key, GNUTLS_X509_FMT_PEM);
+	if (rv < 0) goto out_err;
+	gnutls_certificate_set_dh_params(ifo->xcred, dh_params);
+	if (ca && *ca) {
+		rv = gnutls_certificate_set_x509_trust_file(ifo->xcred, ca, GNUTLS_X509_FMT_PEM);
+		if (rv < 0) goto out_err;
+	}
+	rv = gnutls_init(&ifo->ssl, GNUTLS_SERVER);
+	if (rv < 0) goto out_err;
+	rv = gnutls_set_default_priority(ifo->ssl);
+	if (rv < 0) goto out_err;
+	rv = gnutls_credentials_set(ifo->ssl, GNUTLS_CRD_CERTIFICATE, ifo->xcred);
+	if (rv < 0) goto out_err;
+	gnutls_dh_set_prime_bits(ifo->ssl, 1024);
+	gnutls_certificate_server_set_request(ifo->ssl, GNUTLS_CERT_REQUEST);
+
+	gnutls_transport_set_ptr(ifo->ssl, (gnutls_transport_ptr_t)(long) ifo->fd);
+	ssl_handshake(ifo);
+	return;
+out_err:
+	ifo->state |= STATE_E_SOCK;
+	ifo->msg = gnutls_strerror(rv);
+}
+
 void ssl_close(struct sockifo* ifo) {
 	// TODO the SSL protocol would really like to handshake the "bye"
-	gnutls_bye(ifo->ssl, GNUTLS_SHUT_RDWR);
-	gnutls_certificate_free_credentials(ifo->xcred);
+	gnutls_bye(ifo->ssl, GNUTLS_SHUT_WR);
 	gnutls_deinit(ifo->ssl);
+	gnutls_certificate_free_credentials(ifo->xcred);
 }
 
 void ssl_readable(struct sockifo* ifo) {
