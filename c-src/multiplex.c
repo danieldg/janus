@@ -24,9 +24,6 @@ struct iostate {
 	int count;
 	int at;
 
-	int maxfd;
-	fd_set readers;
-	fd_set writers;
 	struct sockifo net[0];
 };
 
@@ -96,31 +93,33 @@ void readable(struct sockifo* ifo) {
 		ifo->state |= STATE_F_ACCEPT;
 		return;
 	} else if ((ifo->state & STATE_TYPE) == STATE_T_DNSQ) {
-		// TODO support
+		// TODO DNS support
 		exit(2);
 		return;
 	}
-	if (q_read(ifo->fd, &ifo->recvq)) {
-		ifo->state |= STATE_E_SOCK;
-		if (!ifo->msg)
-			ifo->msg = strdup(strerror(errno));
+	if (ifo->state & STATE_F_SSL) {
+		// TODO SSL can read
+	} else {
+		if (q_read(ifo->fd, &ifo->recvq)) {
+			ifo->state |= STATE_E_SOCK;
+			if (!ifo->msg)
+				ifo->msg = strdup(strerror(errno));
+		}
 	}
 }
 
 void writable(struct sockifo* ifo) {
 	if (ifo->state & STATE_F_CONNPEND) {
 		ifo->state &= ~STATE_F_CONNPEND;
-		FD_SET(ifo->fd, &sockets->readers);
 	}
-	if (q_write(ifo->fd, &ifo->sendq)) {
-		ifo->state |= STATE_E_SOCK;
-		if (!ifo->msg)
-			ifo->msg = strdup(strerror(errno));
-		return;
-	} else if (ifo->sendq.end == 0) {
-		FD_CLR(ifo->fd, &sockets->writers);
+	if (ifo->state & STATE_F_SSL) {
+		// TODO SSL can write
 	} else {
-		FD_SET(ifo->fd, &sockets->writers);
+		if (q_write(ifo->fd, &ifo->sendq)) {
+			ifo->state |= STATE_E_SOCK;
+			if (!ifo->msg)
+				ifo->msg = strdup(strerror(errno));
+		}
 	}
 }
 
@@ -195,7 +194,6 @@ void addnet(char* line) {
 		}
 		connect(fd, (struct sockaddr*)&sa, sizeof(sa));
 		state = STATE_T_NETWORK | STATE_F_CONNPEND;
-		FD_SET(fd, &sockets->writers);
 	} else if (type == 'L') {
 		if (bind(fd, (struct sockaddr*)&sa, sizeof(sa))) {
 			worker_printf("ERR %s\n", strerror(errno));
@@ -209,7 +207,6 @@ void addnet(char* line) {
 		}
 		state = STATE_T_LISTEN;
 		worker_printf("OK\n");
-		FD_SET(fd, &sockets->readers);
 	}
 	// TODO SSL init
 
@@ -218,8 +215,6 @@ void addnet(char* line) {
 		sockets->size += 4;
 		sockets = realloc(sockets, sizeof(struct iostate) + sockets->size * sizeof(struct sockifo));
 	}
-	if (sockets->maxfd < fd)
-		sockets->maxfd = fd;
 	memset(&(sockets->net[id]), 0, sizeof(struct sockifo));
 	sockets->net[id].fd = fd;
 	sockets->net[id].state = state;
@@ -228,11 +223,10 @@ void addnet(char* line) {
 
 void delnet_real(struct sockifo* ifo) {
 	int fd = ifo->fd;
-	FD_CLR(fd, &sockets->readers);
-	FD_CLR(fd, &sockets->writers);
 	close(fd);
 	free(ifo->sendq.data);
 	free(ifo->recvq.data);
+	// TODO SSL free
 	free(ifo->msg);
 	sockets->count--;
 	struct sockifo* last = &(sockets->net[sockets->count]);
@@ -247,12 +241,29 @@ void delnet(const char* line) {
 	for(i=0; i < sockets->count; i++) {
 		if (sockets->net[i].netid == netid) {
 			sockets->net[i].state |= STATE_E_DROP;
-			FD_CLR(sockets->net[i].fd, &sockets->readers);
 			return;
 		}
 	}
 	// TODO better error here
 	exit(2);
+}
+
+static inline int need_read(struct sockifo* ifo) {
+	if (ifo->state & STATE_F_CONNPEND)
+		return 0;
+	if (ifo->state & STATE_F_SSL)
+		return ifo->state & STATE_F_SSL_RBLK;
+	if (ifo->state & STATE_E_DROP)
+		return 0;
+	return 1;
+}
+
+static inline int need_write(struct sockifo* ifo) {
+	if (ifo->state & STATE_F_CONNPEND)
+		return 1;
+	if (ifo->state & STATE_F_SSL)
+		return ifo->state & STATE_F_SSL_WBLK;
+	return ifo->sendq.end;
 }
 
 void iowait(const char* line) {
@@ -266,20 +277,30 @@ void iowait(const char* line) {
 		.tv_usec = 0,
 	};
 	int i;
+	int maxfd = 0;
+	fd_set rok, wok;
+	FD_ZERO(&rok);
+	FD_ZERO(&wok);
 	for(i=0; i < sockets->count; i++) {
 		struct sockifo* ifo = &sockets->net[i];
-		if (FD_ISSET(ifo->fd, &sockets->writers) && !(ifo->state & STATE_F_CONNPEND)) {
-			// dump sendq before calling select()
+		if ((ifo->state & STATE_TYPE) == STATE_T_NETWORK && !(ifo->state & STATE_F_CONNPEND)) {
 			writable(ifo);
 		}
-		if (ifo->state & STATE_E_DROP && (ifo->sendq.end == 0 || ifo->state & STATE_E_SOCK)) {
+		if ((ifo->state & STATE_E_DROP) && (ifo->sendq.end == 0 || ifo->state & STATE_E_SOCK)) {
 			delnet_real(ifo);
 			i--;
+			continue;
 		}
+		if (ifo->state & STATE_E_SOCK)
+			continue;
+		if (ifo->fd > maxfd)
+			maxfd = ifo->fd;
+		if (need_read(ifo))
+			FD_SET(ifo->fd, &rok);
+		if (need_write(ifo))
+			FD_SET(ifo->fd, &wok);
 	}
-	fd_set rok = sockets->readers;
-	fd_set wok = sockets->writers;
-	int ready = select(sockets->maxfd + 1, &rok, &wok, NULL, &to);
+	int ready = select(maxfd + 1, &rok, &wok, NULL, &to);
 	worker_printf("DONE\n");
 	sockets->at = 0;
 	if (ready > 0) {
@@ -329,13 +350,10 @@ void oneline() {
 						sockets->size += 4;
 						sockets = realloc(sockets, sizeof(struct iostate) + sockets->size * sizeof(struct sockifo));
 					}
-					if (sockets->maxfd < fd)
-						sockets->maxfd = fd;
 					memset(&(sockets->net[id]), 0, sizeof(struct sockifo));
 					sockets->net[id].fd = fd;
 					sockets->net[id].state = STATE_T_NETWORK;
 					sockets->net[id].netid = netid;
-					FD_SET(fd, &sockets->readers);
 				} else {
 					// TODO PEND-SSL
 					close(fd);
@@ -363,9 +381,9 @@ void sqfill(char* line) {
 	line++;
 	int i;
 	for(i=0; i < sockets->count; i++) {
-		if (sockets->net[i].netid == netid) {
-			q_puts(&(sockets->net[i].sendq), line, 1);
-			FD_SET(sockets->net[i].fd, &sockets->writers);
+		struct sockifo* ifo = &sockets->net[sockets->at];
+		if (ifo->netid == netid) {
+			q_puts(&ifo->sendq, line, 1);
 			return;
 		}
 	}
@@ -380,10 +398,7 @@ int main(int argc, char** argv) {
 	sockets = malloc(sizeof(struct iostate) + 16 * sizeof(struct sockifo));
 	sockets->size = 16;
 	sockets->count = 0;
-	sockets->maxfd = 1;
 	sockets->at = 0;
-	FD_ZERO(&sockets->readers);
-	FD_ZERO(&sockets->writers);
 
 	worker_printf("BOOT 7\n");
 

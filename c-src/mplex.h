@@ -21,7 +21,7 @@ struct sockifo {
 	int netid;
 	char* msg;
 	struct queue sendq, recvq;
-	// TODO ssl state
+	// TODO more SSL state
 	// TODO dns state
 };
 
@@ -29,10 +29,14 @@ struct sockifo {
 #define STATE_T_NETWORK  0x0
 #define STATE_T_LISTEN   0x1
 #define STATE_T_DNSQ     0x2
-#define STATE_F_ACCEPT   0x4
-#define STATE_F_CONNPEND 0x8
-#define STATE_E_SOCK    0x10
-#define STATE_E_DROP    0x20
+
+#define STATE_F_ACCEPT   0x010
+#define STATE_F_CONNPEND 0x020
+#define STATE_E_SOCK     0x040
+#define STATE_E_DROP     0x080
+#define STATE_F_SSL      0x100
+#define STATE_F_SSL_RBLK 0x200
+#define STATE_F_SSL_WBLK 0x400
 
 int q_read(int fd, struct queue* q);
 int q_write(int fd, struct queue* q);
