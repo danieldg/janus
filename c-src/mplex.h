@@ -42,9 +42,12 @@ struct sockifo {
 #define STATE_E_SOCK     0x040
 #define STATE_E_DROP     0x080
 #define STATE_F_SSL      0x100
-#define STATE_F_SSL_OK   0x200
-#define STATE_F_SSL_RBLK 0x400
-#define STATE_F_SSL_WBLK 0x800
+#define STATE_F_SSL_RBLK 0x200
+#define STATE_F_SSL_WBLK 0x400
+#define STATE_F_SSL_HSHK 0x1000
+#define STATE_F_SSL_BYE  0x2000
+#define STATE_SSL_OK(x) (!((x) & 0x3000))
+
 
 int q_bound(struct queue* q, int min, int ideal, int max);
 int q_read(int fd, struct queue* q);

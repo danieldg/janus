@@ -24,7 +24,7 @@ static void do_eagain(struct sockifo* ifo) {
 static void ssl_handshake(struct sockifo* ifo) {
 	int rv = gnutls_handshake(ifo->ssl);
 	if (rv == GNUTLS_E_SUCCESS) {
-		ifo->state |= STATE_F_SSL_OK | STATE_F_SSL_RBLK;
+		ifo->state = (ifo->state & ~(STATE_F_SSL_HSHK | STATE_F_SSL_WBLK)) | STATE_F_SSL_RBLK;
 		// TODO verify remote cert against CA
 	} else if (rv == GNUTLS_E_AGAIN || rv == GNUTLS_E_INTERRUPTED) {
 		do_eagain(ifo);
@@ -34,8 +34,20 @@ static void ssl_handshake(struct sockifo* ifo) {
 	}
 }
 
+static void ssl_bye(struct sockifo* ifo) {
+	int rv = gnutls_bye(ifo->ssl, GNUTLS_SHUT_RDWR);
+	if (rv == GNUTLS_E_SUCCESS) {
+		ifo->state &= ~(STATE_F_SSL_RBLK | STATE_F_SSL_WBLK);
+	} else if (rv == GNUTLS_E_AGAIN || rv == GNUTLS_E_INTERRUPTED) {
+		do_eagain(ifo);
+	} else {
+		ifo->state |= STATE_E_SOCK;
+		ifo->msg = gnutls_strerror(rv);
+	}
+}
+
 void ssl_init_client(struct sockifo* ifo, const char* key, const char* cert, const char* ca) {
-	ifo->state |= STATE_F_SSL;
+	ifo->state |= STATE_F_SSL | STATE_F_SSL_HSHK;
 	gnutls_certificate_allocate_credentials(&ifo->xcred);
 	if (cert && *cert)
 		gnutls_certificate_set_x509_key_file(ifo->xcred, cert, key, GNUTLS_X509_FMT_PEM);
@@ -50,7 +62,7 @@ void ssl_init_client(struct sockifo* ifo, const char* key, const char* cert, con
 }
 
 void ssl_init_server(struct sockifo* ifo, const char* key, const char* cert, const char* ca) {
-	ifo->state |= STATE_F_SSL;
+	ifo->state |= STATE_F_SSL | STATE_F_SSL_HSHK;
 	int rv;
 	rv = gnutls_certificate_allocate_credentials(&ifo->xcred);
 	if (rv < 0) goto out_err;
@@ -80,15 +92,16 @@ out_err:
 
 void ssl_close(struct sockifo* ifo) {
 	// TODO the SSL protocol would really like to handshake the "bye"
-	gnutls_bye(ifo->ssl, GNUTLS_SHUT_WR);
 	gnutls_deinit(ifo->ssl);
 	gnutls_certificate_free_credentials(ifo->xcred);
 }
 
 void ssl_readable(struct sockifo* ifo) {
-	if (!(ifo->state & STATE_F_SSL_OK))
+	if (ifo->state & STATE_F_SSL_HSHK)
 		ssl_handshake(ifo);
-	if (!(ifo->state & STATE_F_SSL_OK))
+	if (ifo->state & STATE_F_SSL_BYE)
+		ssl_bye(ifo);
+	if (!STATE_SSL_OK(ifo->state))
 		return;
 
 	q_bound(&ifo->recvq, MIN_RECVQ, IDEAL_RECVQ, IDEAL_RECVQ);
@@ -108,14 +121,21 @@ void ssl_readable(struct sockifo* ifo) {
 }
 
 void ssl_writable(struct sockifo* ifo) {
-	if (!(ifo->state & STATE_F_SSL_OK))
+	if (ifo->state & STATE_F_SSL_HSHK)
 		ssl_handshake(ifo);
-	if (!(ifo->state & STATE_F_SSL_OK))
+	if (ifo->state & STATE_F_SSL_BYE)
+		ssl_bye(ifo);
+	if (!STATE_SSL_OK(ifo->state))
 		return;
 
 	int size = ifo->sendq.end - ifo->sendq.start;
-	if (!size)
+	if (!size) {
+		if (ifo->state & STATE_E_DROP) {
+			ifo->state |= STATE_F_SSL_BYE;
+			ssl_bye(ifo);
+		}
 		return;
+	}
 	int n = gnutls_record_send(ifo->ssl, ifo->sendq.data + ifo->sendq.start, size);
 	if (n > 0) {
 		ifo->sendq.start += n;

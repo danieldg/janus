@@ -38,7 +38,7 @@ static struct iostate* sockets;
 
 void init_worker(const char* conf) {
 	int sv[2];
-	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, sv)) {
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sv)) {
 		perror("socketpair");
 		exit(1);
 	}
@@ -138,27 +138,6 @@ void addnet(char* line) {
 	while (isdigit(*line)) {
 		netid = 10 * netid + *line++ - '0';
 	}
-	if (*line++ != ' ') exit(1);
-
-	const char* addr = line;
-	int addrtype = 0;
-// 0 = IPv4 (or incomplete IPv6/DNS)
-// 1 = IPv6/DNS (incomplete)
-// 3 = IPv6
-// 7 = DNS
-	while (*line) {
-		char c = *line;
-		if (c == ' ') break;
-		line++;
-		if (isdigit(c) || c == '.')
-			continue;
-		else if ((c > 'a' && c < 'f') || (c > 'A' && c < 'F'))
-			addrtype |= 1;
-		else if (c == ':')
-			addrtype |= 3;
-		else
-			addrtype |= 7;
-	}
 
 #define WORDSTRING(x) \
 	const char* x = NULL; \
@@ -167,6 +146,7 @@ void addnet(char* line) {
 		x = ++line; \
 		while (*line && *line != ' ') line++; \
 	}
+	WORDSTRING(addr)
 	WORDSTRING(port)
 	WORDSTRING(bindto)
 	WORDSTRING(ssl_key)
@@ -175,6 +155,11 @@ void addnet(char* line) {
 #undef WORDSTRING
 	*line = '\0';
 
+	if (!addr || !*addr) {
+		if (type == 'C')
+			exit(2);
+		addr = "::";
+	}
 	if (!port || !*port)
 		exit(2);
 
@@ -185,8 +170,7 @@ void addnet(char* line) {
 	struct addrinfo hints = {
 		.ai_family = AF_UNSPEC,
 		.ai_socktype = SOCK_STREAM,
-		.ai_protocol = PF_UNSPEC,
-		.ai_flags = (type == 'L' ? AI_PASSIVE | AI_ADDRCONFIG : AI_ADDRCONFIG),
+		.ai_flags = (type == 'C' ? AI_ADDRCONFIG : AI_PASSIVE | AI_ADDRCONFIG),
 	};
 	struct addrinfo* ainfo = NULL;
 	int gai_err = getaddrinfo(addr, port, &hints, &ainfo);
@@ -294,6 +278,16 @@ static inline int need_write(struct sockifo* ifo) {
 	return ifo->sendq.end - ifo->sendq.start;
 }
 
+static inline int need_drop(struct sockifo* ifo) {
+	if (!(ifo->state & STATE_E_DROP))
+		return 0;
+	if (ifo->state & STATE_E_SOCK)
+		return 1;
+	if (ifo->state & STATE_F_SSL)
+		return !(ifo->state & (STATE_F_SSL_RBLK | STATE_F_SSL_WBLK));
+	return ifo->sendq.end == 0;
+}
+
 void iowait(const char* line) {
 	time_t now = time(NULL);
 	int ts_end = now;
@@ -314,7 +308,7 @@ void iowait(const char* line) {
 		if ((ifo->state & STATE_TYPE) == STATE_T_NETWORK && !(ifo->state & STATE_F_CONNPEND)) {
 			writable(ifo);
 		}
-		if ((ifo->state & STATE_E_DROP) && (ifo->sendq.end == 0 || ifo->state & STATE_E_SOCK)) {
+		if (need_drop(ifo)) {
 			delnet_real(ifo);
 			i--;
 			continue;
@@ -356,7 +350,12 @@ int do_accept(struct sockifo* lifo) {
 	flags |= O_NONBLOCK;
 	fcntl(fd, F_SETFL, flags);
 	fcntl(fd, F_SETFD, FD_CLOEXEC);
-	inet_ntop(AF_INET6, &addr.sin6_addr, linebuf, sizeof(linebuf));
+	if (addr.sin6_family == AF_INET6) {
+		inet_ntop(AF_INET6, &addr.sin6_addr, linebuf, sizeof(linebuf));
+	} else {
+		struct sockaddr_in* p = (struct sockaddr_in*)&addr;
+		inet_ntop(AF_INET, &(p->sin_addr), linebuf, sizeof(linebuf));
+	}
 	worker_printf("PEND %d %s\n", lifo->netid, linebuf);
 	char* line = worker_gets();
 	int netid = 0;
