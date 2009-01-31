@@ -65,7 +65,7 @@ use constant {
 
 our @queues;
 # netid => [ fd, IO::Socket, state, net, try_r, try_w, ... ]
-our($mpversion, $mpsock,$mpoffset) = 7;
+our($mpversion, $mpsock,$mpoffset) = 8;
 our $tblank = ``;
 
 sub mpsend {
@@ -154,9 +154,20 @@ sub init_connection {
 	}
 }
 
+sub do_listen {
+	my($af,$addr) = @_;
+	my $sock;
+	socket $sock, $af, SOCK_STREAM, 0;
+	my $fd = fileno $sock or return 0;
+	fcntl $sock, F_SETFL, O_NONBLOCK;
+	setsockopt $sock, SOL_SOCKET, SO_REUSEADDR, 1;
+	bind $sock, $addr or return 0;
+	listen $sock, 5 or return 0;
+}
+
 sub init_listen {
 	my($net,$addr,$port) = @_;
-	my($af,$sock);
+	my $af;
 	if (HAS_IPV6 && (!$addr || $addr =~ /:/)) {
 		$af = AF_INET6;
 		my $baddr = inet_pton(AF_INET6, $addr || '::');
@@ -166,16 +177,10 @@ sub init_listen {
 		my $baddr = inet_aton($addr || '0.0.0.0');
 		$addr = sockaddr_in($port, $baddr);
 	}
-	socket $sock, $af, SOCK_STREAM, 0;
-	return 0 unless $sock;
-	my $fd = fileno $sock;
-	fcntl $sock, F_SETFL, O_NONBLOCK;
-	setsockopt $sock, SOL_SOCKET, SO_REUSEADDR, 1;
-	bind $sock, $addr or return 0;
-	listen $sock, 5 or return 0;
-	my $q = [ $fd, $sock, STATE_LISTEN, $net, 1, 0 ];
+	my($fd,$sock) = do_listen($af, $addr);
+	my $q = $fd ? [ $fd, $sock, STATE_LISTEN, $net, 1, 0 ] :
+		[ 0, undef, STATE_NORMAL | STATE_IOERR, $net, 0, 1, "Connection error: $!" ];
 	$queues[ref $net ? $$net : $net] = $q;
-	return 1;
 }
 
 sub drop_socket {
@@ -306,7 +311,7 @@ sub iowait {
 		vec($r,$q->[FD],1) = 1 if $q->[TRY_R];
 		vec($w,$q->[FD],1) = 1 if $q->[TRY_W];
 	}
-	
+
 	my $fd = select $r, $w, undef, $time - time;
 
 	$mpoffset = 0;
@@ -334,7 +339,7 @@ sub do_accept {
 	$queues[ref $net ? $$net : $net] = $q;
 	if (HAS_SSL && $key) {
 		my @sslh = (
-			SSL_server => 1, 
+			SSL_server => 1,
 			SSL_startHandshake => 0,
 			SSL_key_file => $key,
 			SSL_cert_file => $cert,
@@ -396,8 +401,7 @@ sub ts_mplex {
 	} elsif (/^(\d+) (.*)/) {
 		$queues[$1][SENDQ] .= "$2\n";
 	} elsif (/^INITL (\d+) (\S*) (\S+)/) {
-		my $ok = init_listen($1,$2,$3);
-		print $mpsock $ok ? "OK\n" : "ERR $!\n";
+		init_listen($1,$2,$3);
 	} elsif (/^INITC (\d+) (\S+) (\d+) (\S*) (\S*) (\S*) (\S*)$/) {
 		init_connection($1,$2,$3,$4,$5,$6,$7);
 	} elsif (/^DELNET (\d+)/) {

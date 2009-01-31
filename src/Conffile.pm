@@ -199,15 +199,11 @@ sub connect_net {
 		my $list = Listener->new(id => $id, conf => $nconf);
 		my $addr;
 		my $port = $nconf->{addr};
+		&Log::info("Accepting incoming connections on $port");
 		if ($port =~ /^(.*):(\d+)/) {
 			($addr,$port) = ($1,$2);
 		}
-		if (&Connection::init_listen($list,$addr,$port)) {
-			&Log::info("Listening on $nconf->{addr}");
-		} else {
-			&Log::err("Could not listen on port $nconf->{addr}: $!");
-			$list->close();
-		}
+		&Connection::init_listen($list,$addr,$port);
 	} elsif ($nconf->{autoconnect}) {
 		&Log::info("Autoconnecting $id");
 		my $type = 'Server::'.$nconf->{type};
@@ -234,8 +230,7 @@ sub rehash {
 	my %toclose = %Listener::open;
 	delete $toclose{$_} for keys %netconf;
 	for my $net (values %toclose) {
-		$net->close();
-		&Connection::drop_socket($net);
+		$net->delink();
 	}
 	connect_net $_ for keys %netconf;
 }

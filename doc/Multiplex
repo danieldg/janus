@@ -3,7 +3,7 @@ Split-process I/O loop commands:
 Start the "src/worker.pl" program with a socket (unix socketpair) open on file
 descriptor 0. All communication with the worker process is via a line-based
 protocol on this socket. When starting the first worker, send "BOOT <apiver>"
-where apiver is the API version. This document describes version 6. After
+where apiver is the API version. This document describes version 8. After
 sending, wait for one of the following commands:
 
 INITC <netid> <addr> <port> <bind> <ssl-key> <ssl-cert> <ssl-ca>
@@ -14,9 +14,9 @@ INITC <netid> <addr> <port> <bind> <ssl-key> <ssl-cert> <ssl-ca>
 	No response; errors are communicated through DELINK.
 INITL <netid> <addr> <port>
 	Open a listening socket on the given port, bound to the given IP.
-	If successful, respond with "OK"; otherwise, respond with "ERR <reason>".
 	<addr> can be blank to bind to all IPs; in this case there will be 2
 	spaces between netid and port.
+	No response; errors are communicated through DELINK.
 W <time>
 	Wait for I/O activity, or until time (a unix timestamp).
 	Response: "DONE"

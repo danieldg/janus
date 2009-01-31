@@ -148,7 +148,9 @@ sub list {
 sub init_listen {
 	my($net, $addr, $port) = @_;
 	$addr ||= '';
-	if ($Multiplex::master_api >= 6) {
+	if ($Multiplex::master_api >= 8) {
+		Multiplex::cmd("INITL $$net $addr $port");
+	} elsif ($Multiplex::master_api >= 6) {
 		my $resp = &Multiplex::ask("INITL $$net $addr $port");
 		if ($resp =~ /^ERR (.*)/) {
 			&Log::err("Cannot listen: $1");

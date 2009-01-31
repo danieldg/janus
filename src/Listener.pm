@@ -18,9 +18,10 @@ sub _init {
 	$open{$id} = $net;
 }
 
-sub close {
+sub delink {
 	my $net = shift;
 	delete $open{$id[$$net]};
+	&Connection::drop_socket($net);
 }
 
 sub init_pending {

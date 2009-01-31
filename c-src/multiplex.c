@@ -178,7 +178,9 @@ void addnet(char* line) {
 	if (!port || !*port)
 		exit(2);
 
-	int state = 0;
+	struct sockifo* ifo = alloc_ifo();
+	ifo->fd = -1;
+	ifo->netid = netid;
 
 	struct addrinfo hints = {
 		.ai_family = AF_UNSPEC,
@@ -189,24 +191,21 @@ void addnet(char* line) {
 	struct addrinfo* ainfo = NULL;
 	int gai_err = getaddrinfo(addr, port, &hints, &ainfo);
 	if (gai_err) {
-		if (type == 'C') {
-			struct sockifo* ifo = alloc_ifo();
-			ifo->fd = -1;
-			ifo->netid = netid;
-			ifo->state = STATE_T_NETWORK | STATE_E_SOCK;
-			ifo->msg = gai_strerror(gai_err);
-		} else {
-			worker_printf("ERR %s\n", gai_strerror(gai_err));
-		}
+		ifo->state = STATE_T_NETWORK | STATE_E_SOCK;
+		ifo->msg = gai_strerror(gai_err);
 		return;
 	}
 
 	int fd = socket(ainfo->ai_family, ainfo->ai_socktype, ainfo->ai_protocol);
+	if (fd < 0)
+		goto out_err;
+	ifo->fd = fd;
 	int flags = fcntl(fd, F_GETFL);
 	flags |= O_NONBLOCK;
 	fcntl(fd, F_SETFL, flags);
 	fcntl(fd, F_SETFD, FD_CLOEXEC);
 	if (type == 'C') {
+		ifo->state |= STATE_T_NETWORK;
 		if (bindto && *bindto) {
 			if (ainfo->ai_family == AF_INET6) {
 				struct sockaddr_in6 bsa = {
@@ -214,43 +213,41 @@ void addnet(char* line) {
 					.sin6_port = 0,
 				};
 				inet_pton(AF_INET6, bindto, &bsa.sin6_addr);
-				bind(fd, (struct sockaddr*)&bsa, sizeof(bsa));
+				if (bind(fd, (struct sockaddr*)&bsa, sizeof(bsa)))
+					goto out_err;
 			} else {
 				struct sockaddr_in bsa = {
 					.sin_family = AF_INET,
 					.sin_port = 0,
 				};
 				inet_pton(AF_INET, bindto, &bsa.sin_addr);
-				bind(fd, (struct sockaddr*)&bsa, sizeof(bsa));
+				if (bind(fd, (struct sockaddr*)&bsa, sizeof(bsa)))
+					goto out_err;
 			}
 		}
 		connect(fd, ainfo->ai_addr, ainfo->ai_addrlen);
-		state = STATE_T_NETWORK | STATE_F_CONNPEND;
+		ifo->state |= STATE_F_CONNPEND;
 	} else if (type == 'L') {
+		ifo->state |= STATE_T_LISTEN;
 		int optval = 1;
 		setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
-		if (bind(fd, ainfo->ai_addr, ainfo->ai_addrlen)) {
-			worker_printf("ERR %s\n", strerror(errno));
-			close(fd);
-			return;
-		}
-		if (listen(fd, 2)) {
-			worker_printf("ERR %s\n", strerror(errno));
-			close(fd);
-			return;
-		}
-		state = STATE_T_LISTEN;
-		worker_printf("OK\n");
+		if (bind(fd, ainfo->ai_addr, ainfo->ai_addrlen))
+			goto out_err;
+		if (listen(fd, 2))
+			goto out_err;
 	}
-	freeaddrinfo(ainfo);
 
-	struct sockifo* ifo = alloc_ifo();
-	ifo->fd = fd;
-	ifo->state = state;
-	ifo->netid = netid;
 	if (ssl_key && *ssl_key) {
 		ssl_init_client(ifo, ssl_key, ssl_cert, ssl_ca);
 	}
+
+out_free:
+	freeaddrinfo(ainfo);
+	return;
+out_err:
+	ifo->state |= STATE_E_SOCK;
+	ifo->msg = strerror(errno);
+	goto out_free;
 }
 
 void delnet_real(struct sockifo* ifo) {
@@ -453,7 +450,7 @@ int main(int argc, char** argv) {
 	sigaction(SIGPIPE, &ign, NULL);
 	sigaction(SIGCHLD, &ign, NULL);
 	init_worker(argv[1]);
-	worker_printf("BOOT 7\n");
+	worker_printf("BOOT 8\n");
 
 	sockets = malloc(sizeof(struct iostate) + 16 * sizeof(struct sockifo));
 	sockets->size = 16;
