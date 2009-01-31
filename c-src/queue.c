@@ -10,24 +10,29 @@
 #include <unistd.h>
 #include "mplex.h"
 
-int q_read(int fd, struct queue* q) {
+int q_bound(struct queue* q, int min, int ideal, int max) {
+	if (ideal < min)
+		ideal = min;
 	if (q->start == q->end) {
 		q->start = q->end = 0;
-		if (q->size > IDEAL_RECVQ) {
+		if (q->size > max) {
 			free(q->data);
-			q->data = malloc(IDEAL_RECVQ);
+			q->data = malloc(ideal);
+			q->size = ideal;
 		}
 	}
 	int slack = q->size - q->end;
-	if (slack < MIN_RECVQ) {
+	if (slack < min) {
 		int size = q->end - q->start;
-		if (slack + q->start > MIN_RECVQ) {
+		if (slack + q->start > min) {
 			memmove(q->data, q->data + q->start, size);
 			slack += q->start;
 			q->start = 0;
 			q->end = size;
 		} else {
-			int newsiz = (size * 3)/2 + MIN_RECVQ;
+			int newsiz = (size * 3)/2 + min;
+			if (newsiz < ideal)
+				newsiz = ideal;
 			uint8_t* dat = malloc(newsiz);
 			memcpy(dat, q->data + q->start, size);
 			free(q->data);
@@ -38,6 +43,12 @@ int q_read(int fd, struct queue* q) {
 			slack = newsiz - size;
 		}
 	}
+	return slack;
+}
+
+int q_read(int fd, struct queue* q) {
+	int slack = q_bound(q, MIN_RECVQ, IDEAL_RECVQ, IDEAL_RECVQ);
+
 	int len = read(fd, q->data + q->end, slack);
 	if (len > 0) {
 		q->end += len;
@@ -59,13 +70,6 @@ int q_write(int fd, struct queue* q) {
 			return 0;
 		} else {
 			return 1;
-		}
-	}
-	if (q->start == q->end) {
-		q->start = q->end = 0;
-		if (q->size > IDEAL_SENDQ) {
-			free(q->data);
-			q->data = malloc(IDEAL_SENDQ);
 		}
 	}
 	return 0;
@@ -91,18 +95,7 @@ char* q_gets(struct queue* q) {
 void q_puts(struct queue* q, char* line, int wide_newline) {
 	int slen = strlen(line);
 	int needed = slen + 1 + wide_newline;
-	int slack = q->size - q->end;
-	if (slack < needed) {
-		q->size = needed + q->end - q->start;
-		if (q->size < IDEAL_SENDQ)
-			q->size = IDEAL_SENDQ;
-		uint8_t* data = malloc(q->size);
-		memcpy(data, q->data + q->start, q->end - q->start);
-		free(q->data);
-		q->data = data;
-		q->end = q->end - q->start;
-		q->start = 0;
-	}
+	q_bound(q, needed, IDEAL_RECVQ, IDEAL_RECVQ);
 	memcpy(q->data + q->end, line, slen);
 	q->end += slen;
 	if (wide_newline)

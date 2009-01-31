@@ -98,12 +98,11 @@ void readable(struct sockifo* ifo) {
 		return;
 	}
 	if (ifo->state & STATE_F_SSL) {
-		// TODO SSL can read
+		ssl_readable(ifo);
 	} else {
 		if (q_read(ifo->fd, &ifo->recvq)) {
 			ifo->state |= STATE_E_SOCK;
-			if (!ifo->msg)
-				ifo->msg = strdup(strerror(errno));
+			ifo->msg = strerror(errno);
 		}
 	}
 }
@@ -113,12 +112,11 @@ void writable(struct sockifo* ifo) {
 		ifo->state &= ~STATE_F_CONNPEND;
 	}
 	if (ifo->state & STATE_F_SSL) {
-		// TODO SSL can write
+		ssl_writable(ifo);
 	} else {
 		if (q_write(ifo->fd, &ifo->sendq)) {
 			ifo->state |= STATE_E_SOCK;
-			if (!ifo->msg)
-				ifo->msg = strdup(strerror(errno));
+			ifo->msg = strerror(errno);
 		}
 	}
 }
@@ -160,15 +158,19 @@ void addnet(char* line) {
 	while (isdigit(*line)) {
 		port = 10 * port + *line++ - '0';
 	}
-	const char* bindto = NULL;
-	if (*line == ' ') {
-		bindto = ++line;
-		while (*line && *line != ' ') line++;
-		if (*line) {
-			*line++ = '\0';
-			// TODO SSL parse
-		}
+#define WORDSTRING(x) \
+	const char* x = NULL; \
+	if (*line == ' ') { \
+		*line = '\0'; \
+		x = ++line; \
+		while (*line && *line != ' ') line++; \
 	}
+	WORDSTRING(bindto)
+	WORDSTRING(ssl_cert)
+	WORDSTRING(ssl_key)
+	WORDSTRING(ssl_ca)
+#undef WORDSTRING
+	*line = '\0';
 
 	int state = 0;
 	// TODO DNS
@@ -208,7 +210,6 @@ void addnet(char* line) {
 		state = STATE_T_LISTEN;
 		worker_printf("OK\n");
 	}
-	// TODO SSL init
 
 	int id = sockets->count++;
 	if (id >= sockets->size) {
@@ -219,15 +220,17 @@ void addnet(char* line) {
 	sockets->net[id].fd = fd;
 	sockets->net[id].state = state;
 	sockets->net[id].netid = netid;
+	if (ssl_key && *ssl_key) {
+		ssl_init_client(&sockets->net[id], ssl_key, ssl_cert, ssl_ca);
+	}
 }
 
 void delnet_real(struct sockifo* ifo) {
-	int fd = ifo->fd;
-	close(fd);
+	if (ifo->state & STATE_F_SSL)
+		ssl_close(ifo);
+	close(ifo->fd);
 	free(ifo->sendq.data);
 	free(ifo->recvq.data);
-	// TODO SSL free
-	free(ifo->msg);
 	sockets->count--;
 	struct sockifo* last = &(sockets->net[sockets->count]);
 	if (ifo != last) {
@@ -263,7 +266,7 @@ static inline int need_write(struct sockifo* ifo) {
 		return 1;
 	if (ifo->state & STATE_F_SSL)
 		return ifo->state & STATE_F_SSL_WBLK;
-	return ifo->sendq.end;
+	return ifo->sendq.end - ifo->sendq.start;
 }
 
 void iowait(const char* line) {
@@ -381,26 +384,26 @@ void sqfill(char* line) {
 	line++;
 	int i;
 	for(i=0; i < sockets->count; i++) {
-		struct sockifo* ifo = &sockets->net[sockets->at];
+		struct sockifo* ifo = &sockets->net[i];
 		if (ifo->netid == netid) {
 			q_puts(&ifo->sendq, line, 1);
 			return;
 		}
 	}
 	// TODO report error here
-	exit(2);
+	exit(3);
 }
-
 
 int main(int argc, char** argv) {
 	init_worker(argv[1]);
+	worker_printf("BOOT 7\n");
 
 	sockets = malloc(sizeof(struct iostate) + 16 * sizeof(struct sockifo));
 	sockets->size = 16;
 	sockets->count = 0;
 	sockets->at = 0;
 
-	worker_printf("BOOT 7\n");
+	ssl_gblinit();
 
 	while (1) {
 		char* line = worker_gets();
