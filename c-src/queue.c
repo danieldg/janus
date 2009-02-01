@@ -92,44 +92,29 @@ char* q_gets(struct queue* q) {
 	return NULL;
 }
 
-void q_puts(struct queue* q, char* line, int wide_newline) {
+void q_puts(struct queue* q, const char* line, int newlines) {
 	int slen = strlen(line);
-	int needed = slen + 1 + wide_newline;
-	q_bound(q, needed, IDEAL_RECVQ, IDEAL_RECVQ);
+	int needed = slen + newlines;
+	q_bound(q, needed, IDEAL_SENDQ, IDEAL_SENDQ);
 	memcpy(q->data + q->end, line, slen);
 	q->end += slen;
-	if (wide_newline)
+	if (newlines == 2)
 		q->data[q->end++] = '\r';
-	q->data[q->end++] = '\n';
+	if (newlines >= 1)
+		q->data[q->end++] = '\n';
 }
 
-void fdprintf(int fd, const char* format, ...) {
-	char fastbuf[8192];
-	char* slowbuf = NULL;
-	char* at;
+void qprintf(struct queue* q, const char* format, ...) {
+	int slack = q_bound(q, MIN_RECVQ, IDEAL_SENDQ, IDEAL_SENDQ);
 	va_list ap;
 	va_start(ap, format);
-	int n = vsnprintf(fastbuf, 8192, format, ap);
+	int n = vsnprintf((char*)q->data + q->end, slack, format, ap);
 	va_end(ap);
-	if (n >= 8192) {
-		n++;
-		slowbuf = at = malloc(n);
+	while (n >= slack) {
+		slack = q_bound(q, n+2, IDEAL_SENDQ, IDEAL_SENDQ);
 		va_start(ap, format);
-		n = vsnprintf(slowbuf, n, format, ap);
+		n = vsnprintf((char*)q->data + q->end, slack, format, ap);
 		va_end(ap);
-	} else if (n >= 0) {
-		at = fastbuf;
-	} else {
-		abort();
 	}
-	while (n) {
-		int r = write(fd, at, n);
-		if (r <= 0) {
-			exit(1);
-		}
-		at += r;
-		n -= r;
-	}
-	if (slowbuf)
-		free(slowbuf);
+	q->end += n;
 }

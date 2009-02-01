@@ -24,25 +24,22 @@
 struct iostate {
 	int size;
 	int count;
-	int at;
 
 	struct sockifo net[0];
 };
 
-static pid_t worker_pid;
-static int worker_sock;
-static struct queue worker_recvq;
+static const char* conffile;
+static int io_stop;
+static time_t last_ts;
 static struct iostate* sockets;
 
-#define worker_printf(x...) fdprintf(worker_sock, x)
-
-void init_worker(const char* conf) {
+static void init_worker() {
 	int sv[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sv)) {
 		perror("socketpair");
 		exit(1);
 	}
-	worker_pid = fork();
+	pid_t worker_pid = fork();
 	if (worker_pid < 0) {
 		perror("fork");
 		exit(1);
@@ -59,63 +56,32 @@ void init_worker(const char* conf) {
 			exit(1);
 		}
 		dup2(1, 2);
-		execlp("perl", "perl", "src/worker.pl", conf, NULL);
+		execlp("perl", "perl", "src/worker.pl", conffile, NULL);
 		perror("exec");
 		exit(1);
 	} else {
 		close(sv[1]);
-		worker_sock = sv[0];
+		sockets->net[0].fd = sv[0];
 	}
 }
 
-/*
- * Get a single line from the worker socket. Trailing \n is replaced by null
- * Returned pointer is valid until the next call to worker_gets
- */
-char* worker_gets() {
-	while (1) {
-		char* rv = q_gets(&worker_recvq);
-		if (rv)
-			return rv;
-		if (q_read(worker_sock, &worker_recvq))
-			exit(1);
-	}
-}
-
-void reboot(const char* conf, const char* line) {
+static void reboot(const char* line) {
 	line++;
-	close(worker_sock);
-	init_worker(conf);
-	worker_printf("RESTORE%s", line);
+	close(sockets->net[0].fd);
+	init_worker();
+	q_puts(&sockets->net[0].sendq, "RESTORE", 0);
+	q_puts(&sockets->net[0].sendq, line, 1);
 }
 
-void readable(struct sockifo* ifo) {
-	if ((ifo->state & STATE_TYPE) == STATE_T_LISTEN) {
-		ifo->state |= STATE_F_ACCEPT;
+void esock(struct sockifo* ifo, const char* msg) {
+	if (ifo->state & STATE_E_SOCK)
 		return;
-	}
-	if (ifo->state & STATE_F_SSL) {
-		ssl_readable(ifo);
-	} else {
-		if (q_read(ifo->fd, &ifo->recvq)) {
-			ifo->state |= STATE_E_SOCK;
-			ifo->msg = strerror(errno);
-		}
-	}
-}
-
-void writable(struct sockifo* ifo) {
-	if (ifo->state & STATE_F_CONNPEND) {
-		ifo->state &= ~STATE_F_CONNPEND;
-	}
-	if (ifo->state & STATE_F_SSL) {
-		ssl_writable(ifo);
-	} else {
-		if (q_write(ifo->fd, &ifo->sendq)) {
-			ifo->state |= STATE_E_SOCK;
-			ifo->msg = strerror(errno);
-		}
-	}
+	ifo->state |= STATE_E_SOCK;
+	if (ifo->state & STATE_E_DROP)
+		return;
+	if (ifo->state & STATE_T_MPLEX)
+		exit(1);
+	qprintf(&sockets->net[0].sendq, "D %d %s\n", ifo->netid, msg);
 }
 
 static struct sockifo* alloc_ifo() {
@@ -128,7 +94,7 @@ static struct sockifo* alloc_ifo() {
 	return &(sockets->net[id]);
 }
 
-void addnet(char* line) {
+static void addnet(char* line) {
 	int netid = 0;
 	line++;
 	char type = *line++;
@@ -174,8 +140,8 @@ void addnet(char* line) {
 	struct addrinfo* ainfo = NULL;
 	int gai_err = getaddrinfo(addr, port, &hints, &ainfo);
 	if (gai_err) {
-		ifo->state = STATE_T_NETWORK | STATE_E_SOCK;
-		ifo->msg = gai_strerror(gai_err);
+		ifo->state = STATE_T_NETWORK;
+		esock(ifo, gai_strerror(gai_err));
 		return;
 	}
 
@@ -228,12 +194,11 @@ out_free:
 	freeaddrinfo(ainfo);
 	return;
 out_err:
-	ifo->state |= STATE_E_SOCK;
-	ifo->msg = strerror(errno);
+	esock(ifo, strerror(gai_err));
 	goto out_free;
 }
 
-void delnet_real(struct sockifo* ifo) {
+static void delnet_real(struct sockifo* ifo) {
 	if (ifo->state & STATE_F_SSL)
 		ssl_close(ifo);
 	close(ifo->fd);
@@ -246,7 +211,7 @@ void delnet_real(struct sockifo* ifo) {
 	}
 }
 
-void delnet(const char* line) {
+static void delnet(const char* line) {
 	int netid = 0, i;
 	sscanf(line, "D %d", &netid);
 	for(i=0; i < sockets->count; i++) {
@@ -272,8 +237,10 @@ static inline int need_read(struct sockifo* ifo) {
 static inline int need_write(struct sockifo* ifo) {
 	if (ifo->state & STATE_F_CONNPEND)
 		return 1;
-	if (ifo->state & STATE_F_SSL)
-		return ifo->state & STATE_F_SSL_WBLK;
+	if (ifo->state & STATE_F_SSL_WBLK)
+		return 1;
+	if (ifo->state & STATE_F_SSL_HSHK)
+		return 0;
 	return ifo->sendq.end - ifo->sendq.start;
 }
 
@@ -287,85 +254,9 @@ static inline int need_drop(struct sockifo* ifo) {
 	return ifo->sendq.end == ifo->sendq.start;
 }
 
-void iowait(const char* line) {
-	time_t now = time(NULL);
-	int ts_end = now;
-	sscanf(line, "W %d", &ts_end);
-	int wait = ts_end - now;
-	if (wait < 1) wait = 1;
-	struct timeval to = {
-		.tv_sec = wait,
-		.tv_usec = 0,
-	};
-	int i;
-	int maxfd = 0;
-	fd_set rok, wok;
-	FD_ZERO(&rok);
-	FD_ZERO(&wok);
-	for(i=0; i < sockets->count; i++) {
-		struct sockifo* ifo = &sockets->net[i];
-		if ((ifo->state & STATE_TYPE) == STATE_T_NETWORK && !(ifo->state & STATE_F_CONNPEND)) {
-			writable(ifo);
-		}
-		if (need_drop(ifo)) {
-			delnet_real(ifo);
-			i--;
-			continue;
-		}
-		if (ifo->state & STATE_E_SOCK)
-			continue;
-		if (ifo->fd > maxfd)
-			maxfd = ifo->fd;
-		if (need_read(ifo))
-			FD_SET(ifo->fd, &rok);
-		if (need_write(ifo))
-			FD_SET(ifo->fd, &wok);
-	}
-	int ready = select(maxfd + 1, &rok, &wok, NULL, &to);
-	worker_printf("DONE\n");
-	sockets->at = 0;
-	if (ready > 0) {
-		for(i=0; i < sockets->count; i++) {
-			if (FD_ISSET(sockets->net[i].fd, &wok)) {
-				writable(&sockets->net[i]);
-			}
-			if (FD_ISSET(sockets->net[i].fd, &rok)) {
-				readable(&sockets->net[i]);
-			}
-		}
-	}
-}
-
-int do_accept(struct sockifo* lifo) {
-	struct sockaddr_in6 addr;
-	unsigned int addrlen = sizeof(addr);
-	char linebuf[8192];
-	int fd = accept(lifo->fd, (struct sockaddr*)&addr, &addrlen);
-	if (fd < 0) {
-		lifo->state &= ~STATE_F_ACCEPT;
-		return 0;
-	}
-	int flags = fcntl(fd, F_GETFL);
-	flags |= O_NONBLOCK;
-	fcntl(fd, F_SETFL, flags);
-	fcntl(fd, F_SETFD, FD_CLOEXEC);
-	if (addr.sin6_family == AF_INET6) {
-		inet_ntop(AF_INET6, &addr.sin6_addr, linebuf, sizeof(linebuf));
-		char* atxt = linebuf;
-		if (!strncmp("::ffff:", linebuf, 7))
-			atxt += 7;
-		worker_printf("PEND %d %s\n", lifo->netid, atxt);
-	} else {
-		struct sockaddr_in* p = (struct sockaddr_in*)&addr;
-		inet_ntop(AF_INET, &(p->sin_addr), linebuf, sizeof(linebuf));
-		worker_printf("PEND %d %s\n", lifo->netid, linebuf);
-	}
-	char* line = worker_gets();
-	if (line[0] != 'I' || line[1] != ' ') {
-		close(fd);
-		return 1;
-	}
-	line += 2;
+static void do_accept(int fd, char* line) {
+	if (*line++ != ' ')
+		exit(2);
 	int netid = 0;
 	while (isdigit(*line)) {
 		netid = 10 * netid + (*line - '0');
@@ -385,44 +276,53 @@ int do_accept(struct sockifo* lifo) {
 #undef WORDSTRING
 	*line = '\0';
 
+	int flags = fcntl(fd, F_GETFL);
+	flags |= O_NONBLOCK;
+	fcntl(fd, F_SETFL, flags);
+	fcntl(fd, F_SETFD, FD_CLOEXEC);
+
 	struct sockifo* nifo = alloc_ifo();
 	nifo->fd = fd;
 	nifo->state = STATE_T_NETWORK;
 	nifo->netid = netid;
 	if (ssl_key && *ssl_key)
 		ssl_init_server(nifo, ssl_key, ssl_cert, ssl_ca);
-	return 1;
 }
 
-void oneline() {
-	while (sockets->at < sockets->count) {
-		struct sockifo* ifo = &sockets->net[sockets->at];
-		if (ifo->state & STATE_E_DROP) {
-			sockets->at++;
-			continue;
-		}
-		if ((ifo->state & STATE_TYPE) == STATE_T_NETWORK) {
-			char* line = q_gets(&ifo->recvq);
-			if (line) {
-				worker_printf("%d %s\n", ifo->netid, line);
-				return;
+static void line_accept(char* line) {
+	int netid = 0, i;
+	char type = line[1];
+	if (line[1] != 'A' && line[1] != 'D')
+		exit(2);
+	line += 2;
+
+	if (*line++ != ' ')
+		exit(2);
+	while (isdigit(*line)) {
+		netid = 10 * netid + (*line - '0');
+		line++;
+	}
+
+	for(i=0; i < sockets->count; i++) {
+		struct sockifo* lifo = &sockets->net[i];
+		if (lifo->netid == netid) {
+			if (!(lifo->state & STATE_F_ACCEPTED))
+				exit(3);
+			int fd = lifo->ifo_newfd;
+			lifo->state &= ~STATE_F_ACCEPTED;
+			if (type == 'A') {
+				do_accept(fd, line);
+			} else {
+				close(fd);
 			}
-		} else if ((ifo->state & STATE_TYPE) == STATE_T_LISTEN && (ifo->state & STATE_F_ACCEPT)) {
-			if (do_accept(ifo))
-				return;
-		}
-		sockets->at++;
-		if (ifo->state & STATE_E_SOCK) {
-			const char* msg = ifo->msg ? ifo->msg : "Unknown connection error";
-			worker_printf("DELINK %d %s\n", ifo->netid, msg);
 			return;
 		}
 	}
-	worker_printf("L\n");
-	sockets->at = 0;
+	// TODO report error here
+	exit(3);
 }
 
-void sqfill(char* line) {
+static void sqfill(char* line) {
 	int netid = 0;
 	while (isdigit(*line)) {
 		netid = 10 * netid + (*line - '0');
@@ -433,7 +333,7 @@ void sqfill(char* line) {
 	for(i=0; i < sockets->count; i++) {
 		struct sockifo* ifo = &sockets->net[i];
 		if (ifo->netid == netid) {
-			q_puts(&ifo->sendq, line, 1);
+			q_puts(&ifo->sendq, line, 2);
 			return;
 		}
 	}
@@ -441,47 +341,170 @@ void sqfill(char* line) {
 	exit(3);
 }
 
+static void mplex_parse(char* line) {
+	switch (*line) {
+	case '0' ... '9':
+		sqfill(line);
+		break;
+	case 'I':
+		addnet(line);
+		break;
+	case 'L':
+		line_accept(line);
+		break;
+	case 'D':
+		delnet(line);
+		break;
+	case 'S':
+		io_stop = 1;
+		break;
+	case 'R':
+		io_stop = 0;
+		reboot(line);
+		break;
+	default:
+		exit(2);
+	}
+}
+
+static void readable(struct sockifo* ifo) {
+	if (ifo->state & STATE_T_LISTEN) {
+		if (ifo->state & STATE_F_ACCEPTED)
+			return;
+		struct sockaddr_in6 addr;
+		unsigned int addrlen = sizeof(addr);
+		char linebuf[8192];
+		int fd = accept(ifo->fd, (struct sockaddr*)&addr, &addrlen);
+		if (fd < 0)
+			return;
+		if (addr.sin6_family == AF_INET6) {
+			inet_ntop(AF_INET6, &addr.sin6_addr, linebuf, sizeof(linebuf));
+			char* atxt = linebuf;
+			if (!strncmp("::ffff:", linebuf, 7))
+				atxt += 7;
+			qprintf(&sockets->net[0].sendq, "P %d %s\n", ifo->netid, atxt);
+		} else {
+			struct sockaddr_in* p = (struct sockaddr_in*)&addr;
+			inet_ntop(AF_INET, &(p->sin_addr), linebuf, sizeof(linebuf));
+			qprintf(&sockets->net[0].sendq, "P %d %s\n", ifo->netid, linebuf);
+		}
+		ifo->ifo_newfd = fd;
+		ifo->state |= STATE_F_ACCEPTED;
+		return;
+	}
+	if (ifo->state & STATE_F_SSL) {
+		ssl_readable(ifo);
+	} else {
+		if (q_read(ifo->fd, &ifo->recvq)) {
+			esock(ifo, strerror(errno));
+		}
+	}
+	while (1) {
+		char* line = q_gets(&ifo->recvq);
+		if (!line)
+			return;
+		if (ifo->state & STATE_T_NETWORK) {
+			qprintf(&sockets->net[0].sendq, "%d %s\n", ifo->netid, line);
+		} else if (ifo->state & STATE_T_MPLEX) {
+			mplex_parse(line);
+		}
+	}
+}
+
+static void writable(struct sockifo* ifo) {
+	if (ifo->state & STATE_F_CONNPEND) {
+		ifo->state &= ~STATE_F_CONNPEND;
+	}
+	if (ifo->state & STATE_F_SSL) {
+		ssl_writable(ifo);
+	} else {
+		if (q_write(ifo->fd, &ifo->sendq)) {
+			esock(ifo, strerror(errno));
+		}
+	}
+}
+
+static void mplex() {
+	struct timeval timeout = {
+		.tv_sec = 1,
+		.tv_usec = 0,
+	};
+	int i;
+	int maxfd = 0;
+	fd_set rok, wok;
+	FD_ZERO(&rok);
+	FD_ZERO(&wok);
+	if (io_stop == 1) {
+		io_stop = 2;
+		q_puts(&sockets->net[0].sendq, "S", 1);
+	}
+	for(i=0; i < sockets->count; i++) {
+		struct sockifo* ifo = &sockets->net[i];
+		if (need_write(ifo) && !(ifo->state & STATE_F_CONNPEND)) {
+			writable(ifo);
+		}
+		if (need_drop(ifo)) {
+			delnet_real(ifo);
+			i--;
+			continue;
+		}
+		if (ifo->state & STATE_E_SOCK)
+			continue;
+		if (ifo->fd > maxfd)
+			maxfd = ifo->fd;
+		if (need_read(ifo))
+			FD_SET(ifo->fd, &rok);
+		if (need_write(ifo))
+			FD_SET(ifo->fd, &wok);
+		if (io_stop == 2)
+			break;
+	}
+	int ready = select(maxfd + 1, &rok, &wok, NULL, &timeout);
+	time_t now = time(NULL);
+	if (now != last_ts && io_stop != 2) {
+		qprintf(&sockets->net[0].sendq, "T %d\n", now);
+		last_ts = now;
+	}
+	if (ready == 0)
+		return;
+	for(i=0; i < sockets->count; i++) {
+		struct sockifo* ifo = &sockets->net[i];
+		if (FD_ISSET(ifo->fd, &wok)) {
+			writable(ifo);
+		}
+		if (FD_ISSET(ifo->fd, &rok)) {
+			readable(ifo);
+		}
+		if (io_stop == 2)
+			return;
+	}
+	q_puts(&sockets->net[0].sendq, "Q\n", 0);
+}
+
 int main(int argc, char** argv) {
+	if (argc > 1)
+		conffile = argv[1];
+	else
+		conffile = "janus.conf";
+
 	struct sigaction ign = {
 		.sa_handler = SIG_IGN,
 	};
 	sigaction(SIGPIPE, &ign, NULL);
 	sigaction(SIGCHLD, &ign, NULL);
-	init_worker(argv[1]);
-	worker_printf("BOOT 9\n");
 
 	sockets = malloc(sizeof(struct iostate) + 16 * sizeof(struct sockifo));
 	sockets->size = 16;
-	sockets->count = 0;
-	sockets->at = 0;
+	sockets->count = 1;
+	sockets->net[0].state = STATE_T_MPLEX;
+
+	init_worker();
+	q_puts(&sockets->net[0].sendq, "BOOT 10\n", 0);
 
 	ssl_gblinit();
 
-	while (1) {
-		char* line = worker_gets();
-		switch (*line) {
-		case 'W':
-			iowait(line);
-			break;
-		case 'N':
-			oneline();
-			break;
-		case '0' ... '9':
-			sqfill(line);
-			break;
-		case 'I':
-			addnet(line);
-			break;
-		case 'D':
-			delnet(line);
-			break;
-		case 'R':
-			reboot(argv[1], line);
-			break;
-		default:
-			return 1;
-		}
-	}
+	while (1)
+		mplex();
 
 	return 0;
 }

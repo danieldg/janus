@@ -24,19 +24,19 @@ struct sockifo {
 	int state;
 
 	int netid;
-	const char* msg;
 	struct queue sendq, recvq;
+#define ifo_newfd recvq.start
 #if SSL_GNUTLS
 	gnutls_certificate_credentials_t xcred;
 	gnutls_session_t ssl;
 #endif
 };
 
-#define STATE_TYPE       0x3
-#define STATE_T_NETWORK  0x0
-#define STATE_T_LISTEN   0x1
+#define STATE_T_NETWORK  0x1
+#define STATE_T_LISTEN   0x2
+#define STATE_T_MPLEX    0x4
 
-#define STATE_F_ACCEPT   0x010
+#define STATE_F_ACCEPTED 0x010
 #define STATE_F_CONNPEND 0x020
 #define STATE_E_SOCK     0x040
 #define STATE_E_DROP     0x080
@@ -47,14 +47,15 @@ struct sockifo {
 #define STATE_F_SSL_BYE  0x2000
 #define STATE_SSL_OK(x) (!((x) & 0x3000))
 
+void esock(struct sockifo* ifo, const char* msg);
 
 int q_bound(struct queue* q, int min, int ideal, int max);
 int q_read(int fd, struct queue* q);
 int q_write(int fd, struct queue* q);
 
 char* q_gets(struct queue* q);
-void q_puts(struct queue* q, char* line, int wide_newline);
-void fdprintf(int fd, const char* format, ...);
+void q_puts(struct queue* q, const char* line, int newlines);
+void qprintf(struct queue* q, const char* format, ...);
 
 void ssl_gblinit();
 void ssl_init_client(struct sockifo* ifo, const char* key, const char* cert, const char* ca);

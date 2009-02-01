@@ -6,52 +6,27 @@ use warnings;
 use integer;
 use Scalar::Util qw(tainted);
 
+our $master_api;
 BEGIN {
 	die "Cannot override Connection" if $Connection::PRIMARY;
+	die "Cannot reload: Multiplex API too old" if $master_api && $master_api < 10;
 }
 
-our $reboot;
-our $sock;
-our $tblank;
-our $master_api;
+our($sock, $tblank);
+&Janus::static(qw(sock tblank));
 
 our @active;
 unless (defined $tblank) {
 	$tblank = ``;
 	print "WARNING: not running in taint mode\n" unless tainted($tblank);
 }
-$master_api ||= 1;
-if ($RemoteControl::master_api) {
-	@active = @RemoteControl::active;
-	$sock ||= $RemoteControl::sock;
-	$master_api = $RemoteControl::master_api;
-	@RemoteControl::active = ();
-	$RemoteControl::master_api = 0;
-}
-
-&Janus::static(qw(reboot sock tblank));
-
-&Event::command_add({
-	cmd => 'reboot',
-	help => 'Restarts the worker process of janus',
-	acl => 'die',
-	code => sub {
-		$reboot++;
-		&Log::audit($_[0]->netnick . ' initiated a worker reboot');
-		@Log::listeners = (); # will be restored on a rehash
-		&Log::info('Worker reboot complete'); # will be complete when displayed
-		&Janus::jmsg($_[1], 'Done');
-	},
-});
 
 sub cmd {
 #	print ">>> $_[0]\n";
 	print $sock "$_[0]\n";
 }
 
-sub ask {
-#	print ">>? $_[0]\n";
-	print $sock "$_[0]\n";
+sub line {
 	my $r = <$sock>;
 	if (defined $r) {
 		chomp $r;
@@ -61,6 +36,19 @@ sub ask {
 	die "Unexpected read error: $!";
 }
 
+&Event::command_add({
+	cmd => 'reboot',
+	help => 'Restarts the worker process of janus',
+	acl => 'die',
+	code => sub {
+		cmd('S');
+		&Log::audit($_[0]->netnick . ' initiated a worker reboot');
+		@Log::listeners = (); # will be restored on a rehash
+		&Log::info('Worker reboot complete'); # will be complete when displayed
+		&Janus::jmsg($_[1], 'Done');
+	},
+});
+
 sub find {
 	local $_;
 	my @r = grep { $$_ == $_[0] } @active;
@@ -69,29 +57,24 @@ sub find {
 }
 
 sub timestep {
-	my $next = &Event::next_event($Janus::time + 60);
-	my $now = ask("W $next");
-	&Event::timer(time);
+	my $reboot = 0;
 	while (1) {
-		$now = ask('N');
-		if ($now eq 'L') {
-			last;
-		} elsif ($now =~ /^(\d+) (.*)/) {
+		my $now = line();
+		if ($now =~ /^(\d+) (.*)/) {
 			my($nid, $line) = ($1,$2);
 			my $net = find($nid);
 			$net->in_socket($tblank . $line) if $net;
-		} elsif ($now =~ /^DELINK (\d+) (.*)/) {
+		} elsif ($now =~ /^T (\d+)/) {
+			&Event::timer($1);
+			last;
+		} elsif ($now =~ /^D (\d+) (.*)/) {
 			my $net = find($1);
 			if ($net) {
 				$net->delink($2);
 			} else {
-				if ($master_api < 9) {
-					cmd("DELNET $1");
-				} else {
-					cmd("D $1");
-				}
+				cmd("D $1");
 			}
-		} elsif ($now =~ /^PEND (\d+) (\S+)/) {
+		} elsif ($now =~ /^P (\d+) (\S+)/) {
 			my($lid, $addr) = ($1,$2);
 			my $lnet = find($lid);
 			my $net = $lnet->init_pending($addr);
@@ -100,21 +83,18 @@ sub timestep {
 				$sslkey ||= '';
 				$sslca ||= '';
 				$sslca ||= '';
-				if ($master_api < 9) {
-					if ($sslcert) {
-						cmd("PEND-SSL $$net $sslkey $sslcert $sslca");
-					} else {
-						cmd("PEND $$net");
-					}
-				} else {
-					cmd("I $$net $sslkey $sslcert $sslca");
-				}
+				cmd("LA $lid $$net $sslkey $sslcert $sslca");
 				push @active, $net;
 			} else {
-				cmd('DROP');
+				cmd("LD $lid");
 			}
+		} elsif ($now eq 'Q') {
+			last;
+		} elsif ($now eq 'S') {
+			$reboot++;
+			last;
 		} else {
-			&Log::err('Bad Multiplex response '.$now);
+			&Log::err('Bad Multiplex line '.$now);
 		}
 	}
 	
@@ -132,11 +112,7 @@ sub timestep {
 		open my $dump, '>janus-state.dat';
 		&Janus::load('Snapshot');
 		&Snapshot::dump_to($dump, 1);
-		if ($master_api < 9) {
-			cmd("REBOOT janus-state.dat");
-		} else {
-			cmd('R janus-state.dat');
-		}
+		cmd('R janus-state.dat');
 		exit 0;
 	}
 }
@@ -149,11 +125,7 @@ sub drop_socket {
 	for (0..$#Multiplex::active) {
 		next unless $Multiplex::active[$_] == $net;
 		splice @Multiplex::active, $_, 1;
-		if ($Multiplex::master_api < 9) {
-			&Multiplex::cmd("DELNET $$net");
-		} else {
-			&Multiplex::cmd("D $$net");
-		}
+		Multiplex::cmd("D $$net");
 		return 1;
 	}
 	return 0;
@@ -166,63 +138,18 @@ sub list {
 sub init_listen {
 	my($net, $addr, $port) = @_;
 	$addr ||= '';
-	if ($Multiplex::master_api >= 9) {
-		Multiplex::cmd("IL $$net $addr $port");
-	} elsif ($Multiplex::master_api == 8) {
-		Multiplex::cmd("INITL $$net $addr $port");
-	} elsif ($Multiplex::master_api >= 6) {
-		my $resp = &Multiplex::ask("INITL $$net $addr $port");
-		if ($resp =~ /^ERR (.*)/) {
-			&Log::err("Cannot listen: $1");
-			return 0;
-		}
-	} else {
-		my $resp = &Multiplex::ask("INITL $addr $port");
-		if ($resp eq 'OK') {
-			Multiplex::cmd("ID $$net");
-		} elsif ($resp =~ /^FD (\d+)/) {
-			Multiplex::cmd("ADDNET $1 $$net");
-		} else {
-			&Log::err("Cannot listen: $1") if $resp =~ /^ERR (.*)/;
-			return 0;
-		}
-	}
+	Multiplex::cmd("IL $$net $addr $port");
 	push @Multiplex::active, $net;
-	return 1;
 }
 
 sub init_connection {
-	my($net,$addr, $port, $bind, $sslkey, $sslcert, $sslca) = @_;
+	my($net, $addr, $port, $bind, $sslkey, $sslcert, $sslca) = @_;
 	$bind ||= '';
 	$sslkey ||= '';
 	$sslcert ||= '';
 	$sslca ||= '';
+	Multiplex::cmd("IC $$net $addr $port $bind $sslkey $sslcert $sslca");
 	push @Multiplex::active, $net;
-	my $resp;
-	if ($Multiplex::master_api < 3) {
-		my $ssl = $sslkey ? 1 : 0;
-		$resp = &Multiplex::ask("INITC $addr $port $bind $ssl");
-	} elsif ($Multiplex::master_api < 5) {
-		$resp = &Multiplex::ask("INITC $addr $port $bind $sslkey $sslcert");
-	} elsif ($Multiplex::master_api < 7) {
-		&Multiplex::cmd("INITC $$net $addr $port $bind $sslkey $sslcert");
-		return;
-	} elsif ($Multiplex::master_api < 9) {
-		&Multiplex::cmd("INITC $$net $addr $port $bind $sslkey $sslcert $sslca");
-		return;
-	} else {
-		&Multiplex::cmd("IC $$net $addr $port $bind $sslkey $sslcert $sslca");
-		return;
-	}
-	if ($resp eq 'OK') {
-		Multiplex::cmd("ID $$net");
-	} elsif ($resp =~ /^FD (\d+)/) {
-		Multiplex::cmd("ADDNET $1 $$net");
-	} else {
-		$resp =~ /^ERR (.*)/;
-		&Log::err("Cannot connect: $1");
-		pop @Multiplex::active;
-	}
 }
 
 1;

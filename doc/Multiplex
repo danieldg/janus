@@ -3,43 +3,26 @@ Split-process I/O loop commands:
 Start the "src/worker.pl" program with a socket (unix socketpair) open on file
 descriptor 0. All communication with the worker process is via a line-based
 protocol on this socket. When starting the first worker, send "BOOT <apiver>"
-where apiver is the API version. This document describes version 9. After
-sending, wait for one of the following commands:
+where apiver is the API version. This document describes version 10.
 
+Lines in this protocol are sent without acknowledgment.
+
+Client lines:
 IC <netid> <addr> <port> <bind> <ssl-key> <ssl-cert> <ssl-ca>
 	Open an outbound connection to the given addr:port. Optionally bind to
 	the given IP. If ssl-key is specified, start SSL; if both ssl-key and
 	ssl-cert are specified, they specify the client SSL certificate to use.
 	The CA file, if specified, is used to verify the server's certificate.
-	No response; errors are communicated through DELINK.
 IL <netid> <addr> <port>
 	Open a listening socket on the given port, bound to the given IP.
 	<addr> can be blank to bind to all IPs; in this case there will be 2
 	spaces between netid and port.
-	No response; errors are communicated through DELINK.
-W <time>
-	Wait for I/O activity, or until time (a unix timestamp).
-	Response: "DONE"
-N
-	Get one line of I/O activity. Possible responses:
-	<netid> <line...>
-		The network with the given (numeric) ID has a line ready.
-		Line should have the trailing \r\n stripped.
-	DELINK <netid> <error...>
-		The network with this ID has disconnected, with the given error
-		message (i.e. connection closed)
-	PEND <netid> <address>
-		The listening socket with this ID has an incoming connection
-		from the given IP address (text form). Immediate response:
-		I <newID> <SSL keyfile> <SSL certfile> <SSL cafile>
-			Accept the connection, using this ID to refer to it in
-			the future. If SSL key/cert files are specified, start
-			SSL server connection, and verify the incoming client
-			certificate using the given CA
-		DROP
-			Drop the connection immediately
-	L
-		No further I/O activity is ready (i.e. last)
+LA <listenID> <newID> <SSL keyfile> <SSL certfile> <SSL cafile>
+	Accept the incoming connection, using the given ID to refer to it in the
+	future. If SSL key/cert files are specified, start SSL server
+	connection, and verify the client certificate using the given CA
+LD <listenID>
+	Drop the pending incoming connection on this socket
 <netid> <line...>
 	Send a line to the network with the given ID. I/O errors are enqueued
 	for the next "N" request. "\r\n" should be appended. No response.
@@ -47,7 +30,29 @@ D <netid>
 	Disconnect the given network; do not report any further errors or I/O
 	readiness. Discard any received data, and disconnect after emptying the
 	send queue. No response.
+S
+	Stop I/O multiplexing. Server will respond with "S" when it is finished.
 R <line...>
 	Start a new child process, sending "RESTORE <line...>" as the first
 	line (i.e. instead of BOOT). The current process is terminating
-	momentarily, so its socket should be closed.
+	momentarily, so its socket should be closed. To avoid missing lines due
+	to buffering, the "S" command should be used, and the sending of "R"
+	delayed until the receipt of the server's "S" line.
+
+Server commands:
+<netid> <line...>
+	The network with the given (numeric) ID has a line ready.
+	Line should have the trailing \r\n stripped.
+D <netid> <error...>
+	The network with this ID has disconnected, with the given error
+	message (i.e. connection closed)
+P <netid> <address>
+	The listening socket with this ID has an incoming connection from the
+	given IP address (text form). An IA or ID response is required before
+	the next wait line
+Q
+	Queues are empty, getting ready to select()
+T <time>
+	Timestamp, returned once per second.
+S
+	I/O multiplexing has stopped, send "R" line to boot replacement worker
