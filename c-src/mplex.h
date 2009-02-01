@@ -62,4 +62,5 @@ void ssl_init_client(struct sockifo* ifo, const char* key, const char* cert, con
 void ssl_init_server(struct sockifo* ifo, const char* key, const char* cert, const char* ca);
 void ssl_readable(struct sockifo* ifo);
 void ssl_writable(struct sockifo* ifo);
+void ssl_drop(struct sockifo* ifo);
 void ssl_close(struct sockifo* ifo);

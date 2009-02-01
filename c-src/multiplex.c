@@ -61,6 +61,9 @@ static void init_worker() {
 		exit(1);
 	} else {
 		close(sv[1]);
+		int flags = fcntl(sv[0], F_GETFL);
+		flags |= O_NONBLOCK;
+		fcntl(sv[0], F_SETFL, flags);
 		sockets->net[0].fd = sv[0];
 	}
 }
@@ -215,8 +218,13 @@ static void delnet(const char* line) {
 	int netid = 0, i;
 	sscanf(line, "D %d", &netid);
 	for(i=0; i < sockets->count; i++) {
-		if (sockets->net[i].netid == netid) {
-			sockets->net[i].state |= STATE_E_DROP;
+		struct sockifo* ifo = &sockets->net[i];
+		if (ifo->state & STATE_E_DROP)
+			continue;
+		if (ifo->netid == netid) {
+			ifo->state |= STATE_E_DROP;
+			if (ifo->state & STATE_F_SSL)
+				ssl_drop(ifo);
 			return;
 		}
 	}
@@ -238,6 +246,8 @@ static inline int need_write(struct sockifo* ifo) {
 	if (ifo->state & STATE_F_CONNPEND)
 		return 1;
 	if (ifo->state & STATE_F_SSL_WBLK)
+		return 1;
+	if (ifo->state & STATE_E_DROP && !(ifo->state & STATE_F_SSL_RBLK))
 		return 1;
 	if (ifo->state & STATE_F_SSL_HSHK)
 		return 0;
@@ -305,6 +315,8 @@ static void line_accept(char* line) {
 
 	for(i=0; i < sockets->count; i++) {
 		struct sockifo* lifo = &sockets->net[i];
+		if (lifo->state & STATE_E_DROP)
+			continue;
 		if (lifo->netid == netid) {
 			if (!(lifo->state & STATE_F_ACCEPTED))
 				exit(3);
@@ -332,6 +344,8 @@ static void sqfill(char* line) {
 	int i;
 	for(i=0; i < sockets->count; i++) {
 		struct sockifo* ifo = &sockets->net[i];
+		if (ifo->state & STATE_E_DROP)
+			continue;
 		if (ifo->netid == netid) {
 			q_puts(&ifo->sendq, line, 2);
 			return;
@@ -403,7 +417,7 @@ static void readable(struct sockifo* ifo) {
 		char* line = q_gets(&ifo->recvq);
 		if (!line)
 			return;
-		if (ifo->state & STATE_T_NETWORK) {
+		if (ifo->state & STATE_T_NETWORK && !(ifo->state & STATE_E_DROP)) {
 			qprintf(&sockets->net[0].sendq, "%d %s\n", ifo->netid, line);
 		} else if (ifo->state & STATE_T_MPLEX) {
 			mplex_parse(line);
@@ -492,6 +506,9 @@ int main(int argc, char** argv) {
 	};
 	sigaction(SIGPIPE, &ign, NULL);
 	sigaction(SIGCHLD, &ign, NULL);
+	close(0);
+	close(1);
+	close(2);
 
 	sockets = malloc(sizeof(struct iostate) + 16 * sizeof(struct sockifo));
 	sockets->size = 16;

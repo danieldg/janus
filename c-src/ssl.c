@@ -122,10 +122,6 @@ void ssl_writable(struct sockifo* ifo) {
 
 	int size = ifo->sendq.end - ifo->sendq.start;
 	if (!size) {
-		if (ifo->state & STATE_E_DROP) {
-			ifo->state |= STATE_F_SSL_BYE;
-			ssl_bye(ifo);
-		}
 		return;
 	}
 	int n = gnutls_record_send(ifo->ssl, ifo->sendq.data + ifo->sendq.start, size);
@@ -140,4 +136,9 @@ void ssl_writable(struct sockifo* ifo) {
 	} else {
 		esock(ifo, n == 0 ? "Client closed connection" : gnutls_strerror(n));
 	}
+}
+
+void ssl_drop(struct sockifo* ifo) {
+	ifo->state |= STATE_F_SSL_BYE;
+	ssl_bye(ifo);
 }
