@@ -4,8 +4,6 @@ package Connection;
 use strict;
 use warnings;
 use integer;
-# NOTE: this file cannot depend on the rest of the Janus framework
-# as it is used in the I/O loop of multiplex.pl
 
 BEGIN {
 	die 'Cannot load Connection when Multiplex is loaded' if $Multiplex::master_api;
@@ -65,13 +63,7 @@ use constant {
 
 our @queues;
 # netid => [ fd, IO::Socket, state, net, try_r, try_w, ... ]
-our($mpversion, $mpsock,$mpoffset) = 8;
 our $tblank = ``;
-
-sub mpsend {
-	return unless $mpsock;
-	print $mpsock join(' ',@_), "\n";
-}
 
 sub peer_to_addr {
 	my $peer = shift;
@@ -296,7 +288,6 @@ sub run_sendq {
 
 sub iowait {
 	my($r,$w,$time) = ('','',$_[0]);
-	vec($r,fileno($mpsock),1) = 1 if $mpsock;
 	for my $i (0..$#queues) {
 		my $q = $queues[$i] or next;
 		if (!@$q || $q->[STATE] & STATE_DROPPED) {
@@ -313,9 +304,6 @@ sub iowait {
 	}
 
 	my $fd = select $r, $w, undef, $time - time;
-
-	$mpoffset = 0;
-	mpsend('DONE');
 
 	for my $q (@queues) {
 		next unless $q;
@@ -356,71 +344,6 @@ sub do_accept {
 			$q->[EINFO] = 'Cannot initiate SSL accept';
 		}
 	}
-}
-
-sub ts_mplex {
-	local $_ = <$mpsock>;
-	return 0 unless defined;
-	chomp;
-	if (/^W (\d+)/) {
-		iowait($1);
-	} elsif ($_ eq 'N') {
-		while ($mpoffset <= $#queues) {
-			my $q = $queues[$mpoffset];
-			if (!$q || $q->[STATE] & STATE_DROPPED) {
-				$mpoffset++;
-				next;
-			}
-			if ($q->[STATE] & STATE_NORMAL && $q->[RECVQ] =~ s/^([^\r\n]*)[\r\n]+//) {
-				print $mpsock "$q->[NET] $1\n";
-				return 1;
-			}
-			if ($q->[STATE] & STATE_IOERR) {
-				print $mpsock "DELINK $q->[NET] $q->[EINFO]\n";
-				$mpoffset++;
-				return 1;
-			} elsif ($q->[STATE] & STATE_ACCEPT) {
-				do_accept($q, sub {
-					my $addr = shift;
-					print $mpsock "PEND $q->[NET] $addr\n";
-					$_ = <$mpsock>;
-					chomp;
-					if (/^PEND-SSL (\d+) (\S+) (\S*) (\S*)$/) {
-						return ($1,$2,$3,$4);
-					} elsif (/^PEND (\d+)/) {
-						return $1;
-					} else {
-						return 0;
-					}
-				});
-				return 1;
-			}
-			$mpoffset++;
-		}
-		print $mpsock "L\n";
-	} elsif (/^(\d+) (.*)/) {
-		$queues[$1][SENDQ] .= "$2\n";
-	} elsif (/^INITL (\d+) (\S*) (\S+)/) {
-		init_listen($1,$2,$3);
-	} elsif (/^INITC (\d+) (\S+) (\d+) (\S*) (\S*) (\S*) (\S*)$/) {
-		init_connection($1,$2,$3,$4,$5,$6,$7);
-	} elsif (/^DELNET (\d+)/) {
-		drop_socket($1);
-	} elsif (/^REBOOT (\S+)/) {
-		my $save = $1;
-		close $mpsock;
-		$mpsock = &main::start_child();
-		print $mpsock "RESTORE $save\n";
-	} elsif (/^EVAL (.+)/) {
-		my $ev = $1;
-		my $rv = eval $ev;
-		$rv =~ s/\n//g;
-		print $mpsock "R $rv\n";
-	} elsif ($_ eq '') {
-	} else {
-		die "bad line $_";
-	}
-	return 1;
 }
 
 # This sub is allowed to use Janus API as it is not called from multiplex
