@@ -517,6 +517,7 @@ int main(int argc, char** argv) {
 
 	init_worker();
 	q_puts(&sockets->net[0].sendq, "BOOT 10\n", 0);
+	writable(&sockets->net[0]);
 
 	ssl_gblinit();
 

@@ -72,6 +72,7 @@ sub timestep {
 			if ($net) {
 				$net->delink($2);
 			} else {
+				&Log::warn("Incoming delink on unknown network $1");
 				cmd("D $1");
 			}
 		} elsif ($now =~ /^P (\d+) (\S+)/) {
@@ -101,7 +102,7 @@ sub timestep {
 	for my $net (@active) {
 		eval {
 			my $sendq = $net->dump_sendq();
-			for (split /\n+/, $sendq) {
+			for (split /[\r\n]+/, $sendq) {
 				cmd("$$net $_");
 			}
 			1;
