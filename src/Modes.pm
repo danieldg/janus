@@ -26,13 +26,30 @@ $mtype{$_} = 'r' for qw/
 
 our @nmode_txt = qw{owner admin op halfop voice};
 our @nmode_sym = qw{~ & @ % +};
-&Janus::static(qw(nmode_txt nmode_sym));
+&Janus::static(qw(nmode_txt nmode_sym mtype));
 
 =head1 IRC Mode utilities
 
 Intended to be used by IRC server parsers
 
 =over
+
+=item type Modes::mtype(text)
+
+Gives the channel mode type, which is one of:
+
+ r - regular mode, value is integer 0/1 (or 2+ for tristate modes)
+ v - text-valued mode, value is text of mode
+ l - list-valued mode, value is listref; set/unset single list item
+ n - nick-valued mode, value is nick object
+
+=cut
+
+sub mtype {
+	my $m = $_[0];
+	local $1;
+	return $mtype{$m} || ($m =~ /^_(.)/ ? $1 : '');
+}
 
 =item (modes,args,dirs) Modes::from_irc(net,chan,mode,args...)
 
@@ -119,7 +136,7 @@ sub to_multi {
 	my @args;
 	while (@modin) {
 		my($txt,$arg,$dir) = (shift @modin, shift @argin, shift @dirin);
-		my $type = $mtype{$txt};
+		my $type = mtype($txt);
 		my $out = ($type ne 'r');
 
 		my $char = $net->txt2cmode($type.'_'.$txt);
@@ -175,7 +192,7 @@ sub dump {
 	my %modes = %{$chan->all_modes()};
 	my(@modes, @args, @dirs);
 	for my $txt (keys %modes) {
-		my $type = $mtype{$txt};
+		my $type = mtype($txt);
 		next if $type eq 'l';
 		push @modes, $txt;
 		push @dirs, '+';
@@ -200,7 +217,7 @@ sub delta {
 		();
 	my(@modes, @args, @dirs);
 	for my $txt (keys %current) {
-		my $type = $mtype{$txt};
+		my $type = mtype($txt);
 		if ($type eq 'l') {
 			my %torm = map { $_ => 1 } @{$current{$txt}};
 			if (exists $add{$txt}) {
@@ -237,7 +254,7 @@ sub delta {
 		delete $add{$txt};
 	}
 	for my $txt (keys %add) {
-		my $type = $mtype{$txt};
+		my $type = mtype($txt);
 		if ($type eq 'l') {
 			for my $i (@{$add{$txt}}) {
 				push @modes, $txt;

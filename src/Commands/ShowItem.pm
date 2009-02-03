@@ -39,7 +39,7 @@ use warnings;
 			}
 			my $out = '';
 			for my $mk (sort keys %$modeh) {
-				my $t = $Modes::mtype{$mk} || '?';
+				my $t = Modes::mtype($mk);
 				my $mv = $modeh->{$mk};
 				if ($t eq 'r') {
 					$out .= ' '.$mk.('+'x($mv - 1));

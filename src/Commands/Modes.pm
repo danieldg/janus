@@ -30,7 +30,7 @@ use Modes;
 		}
 		my $out = 'Modes:';
 		for my $mk (sort keys %$modeh) {
-			my $t = $Modes::mtype{$mk} || '?';
+			my $t = Modes::mtype($mk);
 			my $mv = $modeh->{$mk};
 			if ($t eq 'r') {
 				$out .= ' '.$mk.('+'x($mv - 1));
@@ -65,7 +65,7 @@ use Modes;
 				return;
 			};
 			my($d,$txt,$v) = ($1,$2,$3);
-			my $type = $Modes::mtype{$txt} or do {
+			my $type = Modes::mtype($txt) or do {
 				&Janus::jmsg($dst, "Unknown mode $txt");
 				return;
 			};
@@ -134,7 +134,7 @@ use Modes;
 		&Interface::msgtable($dst, [
 			map {
 				my $m = $_;
-				my $type = $Modes::mtype{$m};
+				my $type = Modes::mtype($m);
 				my $netv = '';
 				if ($net->can('txt2cmode')) {
 					$netv .= ($net->txt2cmode($_ . '_' . $m) || '') for qw/r t1 t2 v s n l/;

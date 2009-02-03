@@ -179,7 +179,7 @@ sub part {
 		for my $i (@{$act->{mode}}) {
 			my $pm = shift @dirs;
 			my $arg = shift @args;
-			my $t = $Modes::mtype{$i} || '?';
+			my $t = Modes::mtype($i);
 			if ($t eq 'n') {
 				unless (ref $arg && $arg->isa('Nick')) {
 					warn "$i without nick arg!";

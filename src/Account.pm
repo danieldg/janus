@@ -76,7 +76,7 @@ sub chan_access_chk {
 	}
 	my $chanacl = Setting::get(link_requires => $net);
 	$chanacl = 'op' if $acl eq 'info';
-	if ('n' eq ($Modes::mtype{$chanacl} || '')) {
+	if ('n' eq Modes::mtype($chanacl)) {
 		return 1 if $chan->has_nmode($chanacl, $nick);
 		&Janus::jmsg($errs, "You must be a channel $chanacl to use this command");
 	} else {

@@ -12,8 +12,8 @@ use warnings;
 use integer;
 use Link;
 
-our(@sendq, @self, @kicks, @lchan, @flood_bkt, @flood_ts, @half_cmd);
-&Persist::register_vars(qw(sendq self kicks lchan flood_bkt flood_ts half_cmd));
+our(@sendq, @self, @kicks, @lchan, @cmode2txt, @txt2cmode, @flood_bkt, @flood_ts, @half_cmd);
+&Persist::register_vars(qw(sendq self kicks lchan cmode2txt txt2cmode flood_bkt flood_ts half_cmd));
 # $kicks[$$net]{$lid$channel} = 1 for a rejoin enabled
 # lchan = last channel we tried to join
 # half_cmd = Part of a multi-line response that will be processed later
@@ -23,10 +23,6 @@ our $awaken;
 
 my %fromirc;
 my %toirc;
-sub _init {
-	my $net = shift;
-	$sendq[$$net] = [];
-}
 
 sub ignore { () }
 
@@ -64,7 +60,7 @@ sub intro {
 	$flood_ts[$$net] = $Janus::time;
 }
 
-my %cmode2txt = (qw/
+my %def_c2t = (qw/
 	q n_op
 	a n_op
 	o n_op
@@ -81,15 +77,22 @@ my %cmode2txt = (qw/
 	t r_topic
 /);
 
-my %txt2cmode;
-$txt2cmode{$cmode2txt{$_}} = $_ for keys %cmode2txt;
-$txt2cmode{n_op} = 'o';
+my %def_t2c;
+$def_t2c{$def_c2t{$_}} = $_ for keys %def_c2t;
+$def_t2c{n_op} = 'o';
+
+sub _init {
+	my $net = shift;
+	$sendq[$$net] = [];
+	$cmode2txt[$$net] = { %def_c2t };
+	$txt2cmode[$$net] = { %def_t2c };
+}
 
 sub cmode2txt {
-	$cmode2txt{$_[1]};
+	$cmode2txt[${$_[0]}]{$_[1]};
 }
 sub txt2cmode {
-	$txt2cmode{$_[1]};
+	$txt2cmode[${$_[0]}]{$_[1]};
 }
 
 sub cli_hostintro {
@@ -389,7 +392,7 @@ sub nicklen { 40 }
 		my @md = @{$act->{dirs}};
 		my $i = 0;
 		while ($i < @mm) {
-			if ($Modes::mtype{$mm[$i]} eq 'n' && $ma[$i]->homenet != $net) {
+			if (Modes::mtype($mm[$i]) eq 'n' && $ma[$i]->homenet != $net) {
 				splice @mm, $i, 1;
 				splice @ma, $i, 1;
 				splice @md, $i, 1;
@@ -678,7 +681,7 @@ sub kicked {
 			my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, @_[3 .. $#_]);
 			my $i = 0;
 			while ($i < @$modes) {
-				if ($Modes::mtype{$modes->[$i]} eq 'n' && $args->[$i]->homenet != $net) {
+				if (Modes::mtype($modes->[$i]) eq 'n' && $args->[$i]->homenet != $net) {
 					splice @$modes, $i, 1;
 					splice @$args, $i, 1;
 					splice @$dirs, $i, 1;
@@ -724,8 +727,35 @@ sub kicked {
 	'002' => \&ignore,
 	'003' => \&ignore,
 	'004' => \&ignore,
-	'005' => \&ignore,
-# TODO parse 005 and extract some feature information.
+	'005' => sub {
+		my $net = shift;
+		for (@_[3..($#_-1)]) {
+			if (/^CHANMODES=([^,]*),([^,]*),([^,]*),([^,]*)/) {
+				my @g = ($1,$2,$3,$4);
+				my @ltype = qw(l v s r);
+				my @ttype = qw(l v v r);
+				my %c2t;
+				my %t2c;
+				for my $i (0..3) {
+					for (split //, $g[$i]) {
+						my $name = $ltype[$i].'__'.$ttype[$i].($_ eq lc $_ ? 'l' : 'u').(lc $_);
+
+						my $def = $def_c2t{$_};
+						if ($def && $def =~ /^._(.*)/ && Modes::mtype($1) eq $ttype[$i]) {
+							$name = $ltype[$i].'_'.$1;
+						}
+
+						$c2t{$_} = $name;
+						$t2c{$name} = $_;
+					}
+				}
+				$txt2cmode[$$net] = \%t2c;
+				$cmode2txt[$$net] = \%c2t;
+			}
+			# TODO more parsing of 005
+		}
+		();
+	},
 	'042' => \&ignore,
 	# intro (/lusers etc)
 	250 => \&ignore,

@@ -99,7 +99,7 @@ sub acl_ok {
 		}
 		my($m,$a,$d) = @nact{qw/mode args dirs/};
 		for my $i (0 .. $#$d) {
-			my $t = $Modes::mtype{$m->[$i]};
+			my $t = Modes::mtype($m->[$i]);
 			my $val = $t eq 'n' ? $chan->has_nmode($m->[$i], $a->[$i]) : $chan->get_mode($m->[$i]);
 			$d->[$i] = $val ? '+' : '-';
 			if ($t eq 'r') {
