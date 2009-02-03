@@ -15,7 +15,7 @@ our @bans;
 #	ident  iRE for ident
 #	host   iRE for host
 #	name   iRE for name
-#	setter realhostmask of setter
+#	setter netnick of setter
 #	reason reason
 #	perlre anchored match against "nick!ident@host:name"
 #   expire timestamp of expiration, 0 for perm
@@ -130,7 +130,7 @@ my %timespec = (
 			&Janus::jmsg($dst, 'No bans defined') unless @bans;
 		} elsif ($cmd eq 'add') {
 			my %ban = (
-				setter => $src->realhostmask,
+				setter => $src->netnick,
 				to => $net->name,
 			);
 			local $_ = join ' ', @args;
@@ -215,7 +215,7 @@ my %timespec = (
 					args => [ $nick->vhostmask ],
 				});
 			}
-			$ban->{setter} =~ /^(.*?)!/;
+			$ban->{setter} =~ /^(.*?)(?:!|$)/;
 			my $msg = 'Banned from all janus channels by '.$1;
 			if ($ban->{to}) {
 				$msg = "Banned from ".$net->netname.' by '.$1;
