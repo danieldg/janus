@@ -409,8 +409,9 @@ static void readable(struct sockifo* ifo) {
 	if (ifo->state & STATE_F_SSL) {
 		ssl_readable(ifo);
 	} else {
-		if (q_read(ifo->fd, &ifo->recvq)) {
-			esock(ifo, strerror(errno));
+		int r = q_read(ifo->fd, &ifo->recvq);
+		if (r) {
+			esock(ifo, r == 1 ? "Connection closed" : strerror(errno));
 		}
 	}
 	while (1) {
@@ -432,8 +433,9 @@ static void writable(struct sockifo* ifo) {
 	if (ifo->state & STATE_F_SSL) {
 		ssl_writable(ifo);
 	} else {
-		if (q_write(ifo->fd, &ifo->sendq)) {
-			esock(ifo, strerror(errno));
+		int r = q_write(ifo->fd, &ifo->sendq);
+		if (r) {
+			esock(ifo, r == 1 ? "Connection closed" : strerror(errno));
 		}
 	}
 }
@@ -445,9 +447,10 @@ static void mplex() {
 	};
 	int i;
 	int maxfd = 0;
-	fd_set rok, wok;
+	fd_set rok, wok, xok;
 	FD_ZERO(&rok);
 	FD_ZERO(&wok);
+	FD_ZERO(&xok);
 	if (io_stop == 1) {
 		io_stop = 2;
 		q_puts(&sockets->net[0].sendq, "S", 1);
@@ -470,10 +473,11 @@ static void mplex() {
 			FD_SET(ifo->fd, &rok);
 		if (need_write(ifo))
 			FD_SET(ifo->fd, &wok);
+		FD_SET(ifo->fd, &xok);
 		if (io_stop == 2)
 			break;
 	}
-	int ready = select(maxfd + 1, &rok, &wok, NULL, &timeout);
+	int ready = select(maxfd + 1, &rok, &wok, &xok, &timeout);
 	time_t now = time(NULL);
 	if (now != last_ts && io_stop != 2) {
 		qprintf(&sockets->net[0].sendq, "T %d\n", now);
@@ -483,6 +487,10 @@ static void mplex() {
 		return;
 	for(i=0; i < sockets->count; i++) {
 		struct sockifo* ifo = &sockets->net[i];
+		if (FD_ISSET(ifo->fd, &xok)) {
+			esock(ifo, "Exception on socket");
+			continue;
+		}
 		if (FD_ISSET(ifo->fd, &wok)) {
 			writable(ifo);
 		}

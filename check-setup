@@ -15,6 +15,8 @@ use Fcntl;
 eval { require Digest::SHA; 1 } || eval { require Digest::SHA1; 1 } ||
 	die "One of Digest::SHA or Digest::SHA1 is required";
 
+print "All required modules found.\nOptional modules:\n";
+
 print "SSL: ", eval {
 	require IO::Socket::SSL;
 	1;
@@ -30,5 +32,3 @@ print "DNS: ", eval {
 	require Net::DNS;
 	1;
 } ? "OK\n" : "Not available (install Net::DNS)\n";
-
-print "All required modules found.\n";

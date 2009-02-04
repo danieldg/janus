@@ -56,23 +56,24 @@ int q_read(int fd, struct queue* q) {
 	} else if (len == -1 && (errno == EAGAIN || errno == EINTR)) {
 		return 0;
 	} else {
-		return 1;
+		return (len == 0) ? 1 : 2;
 	}
 }
 
 int q_write(int fd, struct queue* q) {
 	int size = q->end - q->start;
-	if (size) {
-		int len = write(fd, q->data + q->start, size);
-		if (len > 0) {
-			q->start += len;
-		} else if (len == -1 && (errno == EAGAIN || errno == EINTR)) {
-			return 0;
-		} else {
-			return 1;
-		}
+	if (!size)
+		return 0;
+
+	int len = write(fd, q->data + q->start, size);
+	if (len > 0) {
+		q->start += len;
+		return 0;
+	} else if (len == -1 && (errno == EAGAIN || errno == EINTR)) {
+		return 0;
+	} else {
+		return (len == 0) ? 1 : 2;
 	}
-	return 0;
 }
 
 char* q_gets(struct queue* q) {
