@@ -132,9 +132,9 @@ sub all_cmodes {
 }
 
 sub umode2txt {
-	my($net,$um) = @_;
+	my($net,$um,$ok) = @_;
 	my $t = $umode2txt[$$net]{$um};
-	if (!defined $t) {
+	if (!defined $t && !$ok) {
 		&Log::warn_in($net, "Unknown umode '$um'");
 		$t = '';
 	}

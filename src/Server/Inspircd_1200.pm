@@ -200,9 +200,12 @@ sub process_capabs {
 		$net->send($net->ncmd(SNONOTICE => 'l', 'Possible desync - CHANMODES do not match module list: '.
 			"expected $expect, got $capabs[$$net]{CHANMODES}"));
 	}
-	$expect = join '', sort map { ref $_ ? () : $_} map { $net->txt2umode($_) } $net->all_umodes;
+	$expect = '';
+	for ('0'..'9','A'..'Z','a'..'z') {
+		$expect .= $_ if defined $net->umode2txt($_, 1);
+	}
+	$expect =~ s/s//;
 	my $given = $capabs[$$net]{USERMODES};
-	$given =~ s/r//;
 	unless (",,s,$expect" eq $given) {
 		$net->send($net->ncmd(SNONOTICE => 'l', 'Possible desync - USERMODES do not match module list: '.
 			"expected ,,s,$expect, got $given"));
