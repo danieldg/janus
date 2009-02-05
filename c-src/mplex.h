@@ -2,7 +2,9 @@
  * Copyright (C) 2009 Daniel De Graaf
  * Released under the GNU Affero General Public License v3
  */
-#define SSL_GNUTLS 1
+#if SSL_GNUTLS
+#define SSL_ENABLED 1
+#endif
 
 #include <stdint.h>
 #if SSL_GNUTLS
@@ -40,12 +42,20 @@ struct sockifo {
 #define STATE_F_CONNPEND 0x020
 #define STATE_E_SOCK     0x040
 #define STATE_E_DROP     0x080
+
+#if SSL_ENABLED
 #define STATE_F_SSL      0x100
 #define STATE_F_SSL_RBLK 0x200
 #define STATE_F_SSL_WBLK 0x400
 #define STATE_F_SSL_HSHK 0x1000
 #define STATE_F_SSL_BYE  0x2000
 #define STATE_SSL_OK(x) (!((x) & 0x3000))
+#else
+#define STATE_F_SSL      0
+#define STATE_F_SSL_RBLK 0
+#define STATE_F_SSL_WBLK 0
+#define STATE_F_SSL_HSHK 0
+#endif
 
 void esock(struct sockifo* ifo, const char* msg);
 
@@ -57,6 +67,7 @@ char* q_gets(struct queue* q);
 void q_puts(struct queue* q, const char* line, int newlines);
 void qprintf(struct queue* q, const char* format, ...);
 
+#if SSL_ENABLED
 void ssl_gblinit();
 void ssl_init_client(struct sockifo* ifo, const char* key, const char* cert, const char* ca);
 void ssl_init_server(struct sockifo* ifo, const char* key, const char* cert, const char* ca);
@@ -64,3 +75,13 @@ void ssl_readable(struct sockifo* ifo);
 void ssl_writable(struct sockifo* ifo);
 void ssl_drop(struct sockifo* ifo);
 void ssl_close(struct sockifo* ifo);
+#else
+#define ssl_init_client(i,a,b,c) esock(i, "SSL support not enabled")
+#define ssl_init_server(i,a,b,c) esock(i, "SSL support not enabled")
+#define ssl_gblinit() do {} while (0)
+#define ssl_readable(i) do {} while (0)
+#define ssl_writable(i) do {} while (0)
+#define ssl_drop(i) do {} while (0)
+#define ssl_close(i) do {} while (0)
+#endif
+
