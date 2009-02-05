@@ -23,6 +23,13 @@ set {
 	#  link - network partition, channels must be explicitly linked
 	#  bridge - transpaent link, all channels linked, opers are more global
 	lmode link
+	# Run mode - process execution style
+	#  mplex - Handle SSL and sockets using C; allows for perl process to be
+	#	transparently restarted if perl's memory allocation gets too large
+	#  uproc - Handle sockets internally to the worker process
+	# If "-daemon" is appended, janus will daemonize and optionally record its PID
+#	pidfile janus.pid
+#	runmode uproc-daemon
 
 	# Other parameters as defined by modules may be present here
 	# Example: Commands::Debug takes a date-based format for the dump files

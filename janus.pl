@@ -21,6 +21,7 @@ our $VERSION = '1.12';
 
 if ($^P) {
 	# $^P is nonzero if run inside perl -d
+	print "Debug mode, log outputs to console\n";
 	require Log::Debug;
 	no warnings 'once';
 	@Log::listeners = $Log::Debug::INST;
@@ -42,7 +43,18 @@ unless (%Conffile::netconf) {
 	exit 1;
 }
 
-unless ($^P || $Conffile::netconf{set}{nofork}) {
+my $runmode = $Conffile::netconf{set}{runmode};
+$runmode = 'debug' if $^P;
+unless ($runmode) {
+	if (-x 'c-src/multiplex') {
+		$runmode = 'mplex-daemon';
+	} else {
+		$runmode = 'uproc-daemon';
+	}
+	$runmode =~ s/-daemon// if $Conffile::netconf{set}{nofork};
+}
+
+if ($runmode =~ s/-daemon$//) {
 	open STDIN, '/dev/null' or die $!;
 	if (-t STDOUT) {
 		open STDOUT, '>daemon.log' or die $!;
@@ -51,15 +63,24 @@ unless ($^P || $Conffile::netconf{set}{nofork}) {
 	my $pid = fork;
 	die $! unless defined $pid;
 	if ($pid) {
-		if ($ARGV[0] && $ARGV[0] =~ /^-.*p/) {
-			open P, '>janus.pid' or die $!;
+		if ($Conffile::netconf{set}{pidfile}) {
+			open P, '>', $Conffile::netconf{set}{pidfile} or die $!;
 			print P $pid,"\n";
 			close P;
 		}
-		exit;
+		exit 0;
 	}
 	require POSIX;
 	POSIX::setsid;
+}
+
+if ($runmode eq 'mplex') {
+	exec { './c-src/multiplex' } 'janus', @ARGV;
+	exit 1;
+}
+
+if ($runmode ne 'uproc' && $runmode ne 'debug') {
+	&Log::warn('Invalid value for runmode in configuration');
 }
 
 &Log::timestamp($Janus::time);
