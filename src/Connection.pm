@@ -376,6 +376,7 @@ sub ts_simple {
 
 	for my $q (@queues) {
 		my $net = $q && $q->[NET] or next;
+		next if $q->[STATE] & STATE_DROPPED;
 		eval {
 			my $sendq = $net->dump_sendq();
 			$queues[$$net][SENDQ] .= $sendq;
