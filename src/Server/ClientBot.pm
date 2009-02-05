@@ -68,6 +68,8 @@ my %def_c2t = (qw/
 	v n_voice
 
 	b l_ban
+	e l_except
+	I l_invite
 	l s_limit
 	i r_invite
 	m r_moderated
@@ -750,23 +752,26 @@ sub kicked {
 			push @ltype, 'n';
 			push @ttype, 'n';
 		}
-		my %c2t;
-		my %t2c;
-		for my $i (0..$#g) {
-			for (split //, $g[$i]) {
-				my $name = $ltype[$i].'__'.$ttype[$i].($_ eq lc $_ ? 'l' : 'u').(lc $_);
+		if (@g) {
+			my %c2t;
+			my %t2c;
+			for my $i (0..$#g) {
+				for (split //, $g[$i]) {
+					my $name = $ltype[$i].'__'.$ttype[$i].($_ eq lc $_ ? 'l' : 'u').(lc $_);
 
-				my $def = $def_c2t{$_};
-				if ($def && $def =~ /^._(.*)/ && Modes::mtype($1) eq $ttype[$i]) {
-					$name = $ltype[$i].'_'.$1;
+					my $def = $def_c2t{$_};
+					if ($def && $def =~ /^._(.*)/ && Modes::mtype($1) eq $ttype[$i]) {
+						$name = $ltype[$i].'_'.$1;
+					}
+
+					$c2t{$_} = $name;
+					$t2c{$name} = $_;
 				}
-
-				$c2t{$_} = $name;
-				$t2c{$name} = $_;
 			}
+			$t2c{n_op} = 'o';
+			$txt2cmode[$$net] = \%t2c;
+			$cmode2txt[$$net] = \%c2t;
 		}
-		$txt2cmode[$$net] = \%t2c;
-		$cmode2txt[$$net] = \%c2t;
 		();
 	},
 	'042' => \&ignore,
