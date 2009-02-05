@@ -1,0 +1,75 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use integer;
+use constant TEST => 1;
+require 5.8.0;
+
+eval {
+	require Carp;
+	require POSIX;
+	require IO::Handle;
+	require Socket;
+	require Scalar::Util;
+	require Fcntl;
+	require overload;
+	Carp->import('cluck');
+	Scalar::Util->import(qw(weaken tainted));
+	1;
+} or die "A required perl module was not found: $@";
+
+eval { require Digest::SHA; 1 } || eval { require Digest::SHA1; 1 } ||
+	die "One of Digest::SHA or Digest::SHA1 is required";
+
+print "All required perl modules found.\n";
+
+print "Uniprocess optional modules:\n";
+print "      SSL: ", eval {
+	require IO::Socket::SSL;
+	1;
+} ? "OK\n" : "Not available (install IO::Socket::SSL)\n";
+
+print "      IPv6: ", eval {
+	require Socket6;
+	require IO::Socket::INET6;
+	1;
+} ? "OK\n" : "Not available (install IO::Socket::INET6)\n";
+
+print "      DNS: ", eval {
+	require Net::DNS;
+	1;
+} ? "OK\n" : "Not available (install Net::DNS)\n";
+
+print "Multiplex process:\n";
+
+my @cflag = qw(-Wall -O2 -std=c99 -D_XOPEN_SOURCE=600);
+my @cfiles = qw(multiplex.c queue.c);
+
+my $gnutls = `libgnutls-config --version 2>/dev/null`;
+if ($gnutls) {
+	chomp $gnutls;
+	print "      GnuTLS version $gnutls found\n";
+	push @cflag, '-DSSL_GNUTLS=1';
+	push @cflag, split /\s+/, `libgnutls-config --cflags`;
+	push @cflag, split /\s+/, `libgnutls-config --libs`;
+	push @cfiles, 'ssl-gnutls.c';
+} else {
+	print "      GnuTLS not found, multiplex will have no SSL support\n";
+}
+
+if (@ARGV && $ARGV[0] =~ /debug/) {
+	push @cflag, '-g';
+}
+
+unless (fork) {
+	chdir 'c-src';
+	exec 'cc', '-o', 'multiplex', @cflag, @cfiles;
+	exit 1;
+} else {
+	wait;
+	if ($?) {
+		print "Compilation failed, multiplex support not available\n";
+	} else {
+		print "      Multiplex process support available.\n";
+	}
+}
