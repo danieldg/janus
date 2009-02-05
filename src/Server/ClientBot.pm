@@ -12,8 +12,8 @@ use warnings;
 use integer;
 use Link;
 
-our(@sendq, @self, @kicks, @lchan, @cmode2txt, @txt2cmode, @flood_bkt, @flood_ts, @half_cmd);
-&Persist::register_vars(qw(sendq self kicks lchan cmode2txt txt2cmode flood_bkt flood_ts half_cmd));
+our(@sendq, @self, @kicks, @lchan, @cmode2txt, @txt2cmode, @capabs, @flood_bkt, @flood_ts, @half_cmd);
+&Persist::register_vars(qw(sendq self kicks lchan cmode2txt txt2cmode capabs flood_bkt flood_ts half_cmd));
 # $kicks[$$net]{$lid$channel} = 1 for a rejoin enabled
 # lchan = last channel we tried to join
 # half_cmd = Part of a multi-line response that will be processed later
@@ -84,8 +84,11 @@ $def_t2c{n_op} = 'o';
 sub _init {
 	my $net = shift;
 	$sendq[$$net] = [];
-	$cmode2txt[$$net] = { %def_c2t };
-	$txt2cmode[$$net] = { %def_t2c };
+	$capabs[$$net] = {
+		MODES => 4,
+	};
+	$cmode2txt[$$net] = \%def_c2t;
+	$txt2cmode[$$net] = \%def_t2c;
 }
 
 sub cmode2txt {
@@ -397,7 +400,7 @@ sub nicklen { 40 }
 				splice @ma, $i, 1;
 				splice @md, $i, 1;
 			} elsif ($mm[$i] eq 'cb_modesync' && $md[$i] eq '+') {
-				my @modes = &Modes::to_multi($net, &Modes::delta(undef, $chan), 12);
+				my @modes = &Modes::to_multi($net, &Modes::delta(undef, $chan), $capabs[$$net]{MODES});
 				return map $net->cmd1(MODE => $chan, @$_), @modes;
 			} else {
 				$i++;
@@ -405,7 +408,7 @@ sub nicklen { 40 }
 		}
 		return () unless $chan->get_mode('cb_modesync');
 
-		my @modes = &Modes::to_multi($net, \@mm, \@ma, \@md, 12);
+		my @modes = &Modes::to_multi($net, \@mm, \@ma, \@md, $capabs[$$net]{MODES});
 		map $net->cmd1(MODE => $chan, @$_), @modes;
 	},
 	TOPIC => sub {
@@ -730,30 +733,40 @@ sub kicked {
 	'005' => sub {
 		my $net = shift;
 		for (@_[3..($#_-1)]) {
-			if (/^CHANMODES=([^,]*),([^,]*),([^,]*),([^,]*)/) {
-				my @g = ($1,$2,$3,$4);
-				my @ltype = qw(l v s r);
-				my @ttype = qw(l v v r);
-				my %c2t;
-				my %t2c;
-				for my $i (0..3) {
-					for (split //, $g[$i]) {
-						my $name = $ltype[$i].'__'.$ttype[$i].($_ eq lc $_ ? 'l' : 'u').(lc $_);
-
-						my $def = $def_c2t{$_};
-						if ($def && $def =~ /^._(.*)/ && Modes::mtype($1) eq $ttype[$i]) {
-							$name = $ltype[$i].'_'.$1;
-						}
-
-						$c2t{$_} = $name;
-						$t2c{$name} = $_;
-					}
-				}
-				$txt2cmode[$$net] = \%t2c;
-				$cmode2txt[$$net] = \%c2t;
+			if (/^([^=]+)(?:=(.*))?$/) {
+				$capabs[$$net]{$1} = $2;
+			} else {
+				&Log::warn_in($net, "Invalid 005 line: $_");
 			}
-			# TODO more parsing of 005
 		}
+		my(@g,@ltype,@ttype);
+		if ($capabs[$$net]{CHANMODES} && $capabs[$$net]{CHANMODES} =~ /^([^,]*),([^,]*),([^,]*),([^,]*)$/) {
+			@g = ($1,$2,$3,$4);
+			@ltype = qw(l v s r);
+			@ttype = qw(l v v r);
+		}
+		if ($capabs[$$net]{PREFIX} && $capabs[$$net]{PREFIX} =~ /^\(([^()]+)\)/) {
+			push @g, $1;
+			push @ltype, 'n';
+			push @ttype, 'n';
+		}
+		my %c2t;
+		my %t2c;
+		for my $i (0..$#g) {
+			for (split //, $g[$i]) {
+				my $name = $ltype[$i].'__'.$ttype[$i].($_ eq lc $_ ? 'l' : 'u').(lc $_);
+
+				my $def = $def_c2t{$_};
+				if ($def && $def =~ /^._(.*)/ && Modes::mtype($1) eq $ttype[$i]) {
+					$name = $ltype[$i].'_'.$1;
+				}
+
+				$c2t{$_} = $name;
+				$t2c{$name} = $_;
+			}
+		}
+		$txt2cmode[$$net] = \%t2c;
+		$cmode2txt[$$net] = \%c2t;
 		();
 	},
 	'042' => \&ignore,
@@ -935,6 +948,16 @@ sub kicked {
 			net => $net,
 		};
 	}
+);
+
+&Event::hook_add(
+	INFO => 'Network:1' => sub {
+		my($dst, $net, $asker) = @_;
+		return unless $net->isa(__PACKAGE__);
+		&Janus::jmsg($dst, 'Server 005 line: '.join ' ', sort map {
+			defined $capabs[$$net]{$_} ? "$_=$capabs[$$net]{$_}" : $_
+		} keys %{$capabs[$$net]});
+	},
 );
 
 1;
