@@ -32,6 +32,7 @@ static const char* conffile;
 static int io_stop;
 static time_t last_ts;
 static struct iostate* sockets;
+static pid_t worker_pid;
 
 static void init_worker() {
 	int sv[2];
@@ -39,7 +40,7 @@ static void init_worker() {
 		perror("socketpair");
 		exit(1);
 	}
-	pid_t worker_pid = fork();
+	worker_pid = fork();
 	if (worker_pid < 0) {
 		perror("fork");
 		exit(1);
@@ -50,7 +51,7 @@ static void init_worker() {
 		if (sv[1])
 			close(sv[1]);
 		close(1);
-		int log = open("daemon2.log", O_WRONLY| O_CREAT, 0666);
+		int log = open("daemon.log", O_WRONLY| O_CREAT, 0666);
 		if (log != 1) {
 			perror("open");
 			exit(1);
@@ -83,7 +84,7 @@ void esock(struct sockifo* ifo, const char* msg) {
 	if (ifo->state & STATE_E_DROP)
 		return;
 	if (ifo->state & STATE_T_MPLEX)
-		exit(1);
+		exit(0);
 	qprintf(&sockets->net[0].sendq, "D %d %s\n", ifo->netid, msg);
 }
 
@@ -483,7 +484,7 @@ static void mplex() {
 		qprintf(&sockets->net[0].sendq, "T %d\n", now);
 		last_ts = now;
 	}
-	if (ready == 0)
+	if (ready <= 0)
 		return;
 	for(i=0; i < sockets->count; i++) {
 		struct sockifo* ifo = &sockets->net[i];
@@ -503,17 +504,22 @@ static void mplex() {
 	q_puts(&sockets->net[0].sendq, "Q\n", 0);
 }
 
-int main(int argc, char** argv) {
-	if (argc > 1)
-		conffile = argv[1];
-	else
-		conffile = "janus.conf";
+static void sig2child(int sig) {
+	kill(worker_pid, sig);
+}
 
-	struct sigaction ign = {
+static void init() {
+	struct sigaction sig = {
 		.sa_handler = SIG_IGN,
 	};
-	sigaction(SIGPIPE, &ign, NULL);
-	sigaction(SIGCHLD, &ign, NULL);
+	sigaction(SIGPIPE, &sig, NULL);
+	sigaction(SIGCHLD, &sig, NULL);
+
+	sig.sa_handler = sig2child;
+	sigaction(SIGHUP, &sig, NULL);
+	sigaction(SIGUSR1, &sig, NULL);
+	sigaction(SIGUSR2, &sig, NULL);
+
 	close(0);
 	close(1);
 	close(2);
@@ -528,9 +534,16 @@ int main(int argc, char** argv) {
 	writable(&sockets->net[0]);
 
 	ssl_gblinit();
+}
+
+int main(int argc, char** argv) {
+	if (argc > 1)
+		conffile = argv[1];
+	else
+		conffile = "janus.conf";
+
+	init();
 
 	while (1)
 		mplex();
-
-	return 0;
 }
