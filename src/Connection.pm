@@ -155,6 +155,7 @@ sub do_listen {
 	setsockopt $sock, SOL_SOCKET, SO_REUSEADDR, 1;
 	bind $sock, $addr or return 0;
 	listen $sock, 5 or return 0;
+	($fd,$sock);
 }
 
 sub init_listen {
