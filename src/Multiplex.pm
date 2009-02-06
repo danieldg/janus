@@ -12,8 +12,8 @@ BEGIN {
 	die "Cannot reload: Multiplex API too old" if $master_api && $master_api < 10;
 }
 
-our($sock, $tblank);
-&Janus::static(qw(sock tblank));
+our($sock, $tblank, $dbg);
+&Janus::static(qw(sock tblank dbg));
 
 our @active;
 unless (defined $tblank) {
@@ -22,7 +22,7 @@ unless (defined $tblank) {
 }
 
 sub cmd {
-#	print ">>> $_[0]\n";
+	print $dbg ">>> $_[0]\n" if $dbg;
 	print $sock "$_[0]\n";
 }
 
@@ -30,7 +30,7 @@ sub line {
 	my $r = <$sock>;
 	if (defined $r) {
 		chomp $r;
-#		print "<<< $r\n";
+		print $dbg "<<< $r\n" if $dbg;
 		return $r;
 	}
 	die "Unexpected read error: $!";
