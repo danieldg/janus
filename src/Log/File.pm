@@ -12,6 +12,7 @@ use Persist 'Log::Base';
 our(@filename, @fh, @rotate, @closeact, @dump);
 &Persist::register_vars(qw(filename fh rotate closeact dump));
 &Persist::autoinit(qw(rotate closeact dump));
+&Janus::static(qw(fh));
 
 for my $rot (@rotate) {
 	next unless $rot;
