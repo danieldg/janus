@@ -122,6 +122,7 @@ void ssl_writable(struct sockifo* ifo) {
 
 	int size = ifo->sendq.end - ifo->sendq.start;
 	if (!size) {
+		ifo->state = (ifo->state & ~STATE_F_SSL_WBLK) | STATE_F_SSL_RBLK;
 		return;
 	}
 	int n = gnutls_record_send(ifo->ssl, ifo->sendq.data + ifo->sendq.start, size);
@@ -130,7 +131,7 @@ void ssl_writable(struct sockifo* ifo) {
 		if (size > n)
 			ifo->state |= STATE_F_SSL_WBLK;
 		else
-			ifo->state &= ~STATE_F_SSL_WBLK;
+			ifo->state = (ifo->state & ~STATE_F_SSL_WBLK) | STATE_F_SSL_RBLK;
 	} else if (n == GNUTLS_E_AGAIN || n == GNUTLS_E_INTERRUPTED) {
 		do_eagain(ifo);
 	} else {
