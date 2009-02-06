@@ -79,8 +79,7 @@ sub str {
 }
 
 sub id {
-	cluck "id called on a network";
-	$_[0]->name();
+	$_[0]->name;
 }
 
 sub netnick {
