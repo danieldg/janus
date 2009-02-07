@@ -32,6 +32,25 @@ sub ire {
 	$i =~ /^$x$/;
 }
 
+sub slowmatch {
+	my($b, $new) = @_;
+	my $from = $new->homenet->name;
+	$from = qr/(^|,)$from(,|$)/;
+	my $nick = $new->homenick;
+	my $ident = $new->info('ident');
+	my $host = $new->info('host');
+	my $ip = $new->info('ip');
+	my $name = $new->info('name');
+	my $retxt = "$nick\!$ident\@$host\:$name";
+	return 0 if $b->{from} && $b->{from} !~ /$from/;
+	return 0 if $b->{perlre} && $retxt !~ /^$b->{perlre}$/;
+	return 0 unless ire($b->{nick}, $nick);
+	return 0 unless ire($b->{ident}, $ident);
+	return 0 unless ire($b->{host}, $host) || ire($b->{host}, $ip);
+	return 0 unless ire($b->{name}, $name);
+	return 1;
+}
+
 sub find {
 	my($new, $netto) = @_;
 	my $to = $netto->name;
@@ -76,6 +95,7 @@ my %timespec = (
 		'Bans are matched on connects to shared channels, and generate autokicks.',
 		" \002ban list\002               List all active janus bans",
 		" \002ban add\002 expr           Add a ban (applied to new users only)",
+		" \002ban kadd\002 expr          Add a ban and applies it to current users",
 		" \002ban del\002 index          Remove a ban by index in the ban list",
 		'expr consists of one or more of the following:',
 		'  (nick|ident|host|name) item   Matches using standard IRC ban syntax',
@@ -128,7 +148,7 @@ my %timespec = (
 			}
 			&Interface::msgtable($dst, \@tbl) if @bans;
 			&Janus::jmsg($dst, 'No bans defined') unless @bans;
-		} elsif ($cmd eq 'add') {
+		} elsif ($cmd eq 'add' || $cmd eq 'kadd') {
 			my %ban = (
 				setter => $src->netnick,
 				to => $net->name,
@@ -173,8 +193,18 @@ my %timespec = (
 			exists $ban{$_} and $itms++ for qw(nick ident host name perlre);
 			return &Janus::jmsg($dst, 'Ban too wide') unless $itms;
 			push @bans, \%ban;
+			if ($cmd eq 'kadd') {
+				for my $n ($net->all_nicks) {
+					next unless slowmatch(\%ban, $n);
+					&Event::append(+{
+						type => 'KILL',
+						dst => $n,
+						net => $net,
+						msg => 'Banned by '.$ban{setter},
+					});
+				}
+			}
 			&Janus::jmsg($dst, 'Ban added');
-			# TODO kadd
 		} elsif ($cmd eq 'del') {
 			for (@args) {
 				my $ban = /^\d+$/ && $bans[$_ - 1];
