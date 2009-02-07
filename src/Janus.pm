@@ -102,7 +102,6 @@ sub Janus::INC {
 	if ($modinfo{Event}{active}) {
 		Event::named_hook('module_read', $module, $rv);
 	}
-	csum_read($module, $rv);
 	unless ($modinfo{$module}{load}) {
 		$modinfo{$module}{load} = 1;
 		Event::schedule({
@@ -110,6 +109,7 @@ sub Janus::INC {
 			module => $module,
 		});
 	}
+	csum_read($module, $rv);
 	$rv;
 }
 
@@ -210,7 +210,10 @@ sub csum_read {
 	}
 	$modinfo{$mod}{version} = $ver;
 	$fn =~ s#^src/##;
-	$INC{$fn} = $ver.'/'.$fn;
+	if ($modinfo{$mod}{load}) {
+		delete $INC{$fn};
+		$INC{$fn} = $ver.'/'.$fn;
+	}
 }
 
 =head2 Module load commands
