@@ -260,7 +260,8 @@ static void start_ssl(char* line) {
 			int server = (type == 'S');
 			ssl_init(ifo, ssl_key, ssl_cert, ssl_ca, server);
 #else
-			esock(ifo, "SSL support not enabled")
+			(void) type;
+			esock(ifo, "SSL support not enabled");
 #endif
 			return;
 		}
