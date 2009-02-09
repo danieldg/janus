@@ -573,6 +573,10 @@ sub kicked {
 	},
 	NICK => sub {
 		my $net = shift;
+		if (lc $_[0] eq lc $self[$$net]) {
+			$self[$$net] = $_[2];
+			return ();
+		}
 		my $nick = $net->mynick($_[0]) or return ();
 		my $replace = (lc $_[0] eq lc $_[2]) ? undef : $net->item($_[2]);
 		my @out;
