@@ -177,42 +177,59 @@ sub read_conf {
 	}
 }
 
+sub value {
+	my($key, $net) = @_;
+	$net = $net->id if ref $net;
+	my $nc = $Conffile::netconf{$net} or return undef;
+	return $nc->{$key} if $nc->{$key};
+	my $fbid = $nc->{fb_id} || 0;
+	my $fbmax = $nc->{fb_max};
+	unless ($fbmax) {
+		$fbmax = 1;
+		for (keys %$nc) {
+			$fbmax = $1 if /\.(\d+)$/ && $fbmax < $1;
+		}
+		$nc->{fb_max} = $fbmax;
+	}
+	$fbid = 1 + ($fbid % $fbmax);
+	$nc->{"$key.$fbid"};
+}
+
 sub find_ssl_keys {
 	my($net,$lnet) = @_;
-	my $nconf = $Conffile::netconf{ref $net ? $net->id : $net};
-	my $lconf = $lnet ? $Conffile::netconf{$lnet->id} : undef;
-	my $sconf = $Conffile::netconf{set};
-	return undef unless $nconf->{linktype} =~ /ssl/;
-	return ($nconf->{ssl_keyfile}, $nconf->{ssl_certfile}, $nconf->{ssl_cafile}) if $nconf->{ssl_certfile};
-	return ($lconf->{keyfile}, $lconf->{certfile}, $lconf->{cafile}) if $lconf && $lconf->{certfile};
-	return ($sconf->{ssl_keyfile}, $sconf->{ssl_certfile}, $nconf->{ssl_cafile}) if $sconf->{ssl_certfile};
+	return () unless value(linktype => $net) eq 'ssl';
+	return (value(ssl_keyfile => $net), value(ssl_certfile => $net), value(ssl_cafile => $net)) if value(ssl_certfile => $net);
+	return (value(keyfile => $lnet), value(certfile => $lnet), value(cafile => $lnet)) if $lnet && value(certfile => $lnet);
+	return (value(ssl_keyfile => 'set'), value(ssl_certfile => 'set'), value(ssl_cafile => 'set')) if value(ssl_certfile => 'set');
 	&Log::warn_in($net, 'Could not find SSL certificates') if $lnet;
 	return ('client', '', '');
 }
 
 sub connect_net {
 	my($id) = @_;
-	my $nconf = $netconf{$id};
-	return if !$nconf || $Janus::nets{$id} || $Janus::ijnets{$id} || $Janus::pending{$id};
+	return if !$netconf{$id} || $Janus::nets{$id} || $Janus::ijnets{$id} || $Janus::pending{$id};
 	if ($id =~ /^LISTEN:/) {
 		return if $Listener::open{$id};
-		my $list = Listener->new(id => $id, conf => $nconf);
+		my $list = Listener->new(id => $id, conf => $netconf{$id});
 		my $addr;
-		my $port = $nconf->{addr};
+		my $port = value(addr => $id);
 		&Log::info("Accepting incoming connections on $port");
 		if ($port =~ /^(.*):(\d+)/) {
 			($addr,$port) = ($1,$2);
 		}
 		&Connection::init_listen($list,$addr,$port);
-	} elsif ($nconf->{autoconnect}) {
+	} elsif ($netconf{$id}{autoconnect}) {
 		&Log::info("Autoconnecting $id");
-		my $type = 'Server::'.$nconf->{type};
+		my $type = 'Server::'.value(type => $id);
 		unless (&Janus::load($type)) {
 			&Log::err("Error creating $type network $id: $@");
 		} else {
-			&Log::info("Setting up nonblocking connection to $nconf->{netname} at $nconf->{linkaddr}:$nconf->{linkport}");
+			my $name = value(netname => $id);
+			my $addr = value(linkaddr => $id);
+			my $port = value(linkport => $id);
+			my $bind = value(linkbind => $id);
+			&Log::info("Setting up nonblocking connection to $name at $addr:$port");
 
-			my($addr, $port, $bind) = @$nconf{qw(linkaddr linkport linkbind)};
 			my($ssl_key, $ssl_cert, $ssl_ca) = find_ssl_keys($id);
 
 			my $net = &Persist::new($type, id => $id);
@@ -220,7 +237,7 @@ sub connect_net {
 
 			&Connection::init_connection($net, $addr, $port, $bind, $ssl_key, $ssl_cert, $ssl_ca);
 			$Janus::pending{$id} = $net;
-			$net->intro($nconf);
+			$net->intro($Conffile::netconf{$id});
 		}
 	}
 }
@@ -243,15 +260,13 @@ sub autoconnect {
 			connect_net $id unless $Listener::open{$id};
 		} elsif (!$netconf{$id}{autoconnect} || exists $Janus::nets{$id} || exists $Janus::ijnets{$id}) {
 			$netconf{$id}{backoff} = 0;
+			$netconf{$id}{fb_id} = 0;
+		} elsif ($netconf{$id}{fb_id} < $netconf{$id}{backoff}) {
+			$netconf{$id}{backoff} = 0;
+			$netconf{$id}{fb_id}++;
+			connect_net $id;
 		} else {
-			my $item = 2 * $netconf{$id}{backoff}++;
-			my $rt = int sqrt $item;
-			if ($item == $rt * ($rt + 1)) {
-				&Log::debug("Backoff $id (#$item) - Connecting");
-				connect_net $id;
-			} else {
-				&Log::debug("Backoff $id: $item != ".$rt*($rt+1));
-			}
+			$netconf{$id}{backoff}++;
 		}
 	}
 }
