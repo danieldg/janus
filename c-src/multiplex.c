@@ -272,6 +272,8 @@ static void start_ssl(char* line) {
 static inline int need_read(struct sockifo* ifo) {
 	if (ifo->state & STATE_F_CONNPEND)
 		return 0;
+	if (ifo->state & STATE_F_ACCEPTED)
+		return 0;
 	if (ifo->state & STATE_F_SSL)
 		return ifo->state & STATE_F_SSL_RBLK;
 	if (ifo->state & STATE_E_DROP)
