@@ -34,8 +34,8 @@ sub str {
 }
 
 sub intro {
-	my($net,$param) = @_;
-	$net->SUPER::intro($param);
+	my($net,@param) = @_;
+	$net->SUPER::intro(@param);
 	my @out;
 	$sendq1[$$net] .= "CAPAB START\r\n";
 	# we cannot continue until we get the remote CAPAB list so we can
