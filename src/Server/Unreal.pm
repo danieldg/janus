@@ -147,11 +147,12 @@ sub intro {
 	my($net, $param, $addr) = @_;
 	$net->SUPER::intro($param, $addr);
 	if ($net->auth_should_send) {
+		my $name = $net->cparam('linkname');
 		my $num = $net->numeric_for($net);
 		$net->send(
-			'PASS :'.$param->{sendpass},
+			'PASS :'.$net->cparam('sendpass'),
 			'PROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS UMODE2 TKLEXT SJB64',
-			"SERVER $param->{linkname} 1 :U2309-hX6eE-$num Janus Network Link",
+			"SERVER $name 1 :U2309-hX6eE-$num Janus Network Link",
 		);
 	}
 }

@@ -178,20 +178,25 @@ sub read_conf {
 }
 
 sub value {
-	my($key, $net) = @_;
-	$net = $net->id if ref $net;
-	my $nc = $Conffile::netconf{$net} or return undef;
+	my($key, $net, $fbid) = @_;
+	my $nc =
+		'HASH' eq ref $net ? $net :
+		ref $net ? $Conffile::netconf{$net->id} :
+		$Conffile::netconf{$net};
+	return undef unless $nc;
 	return $nc->{$key} if $nc->{$key};
-	my $fbid = $nc->{fb_id} || 0;
-	my $fbmax = $nc->{fb_max};
-	unless ($fbmax) {
-		$fbmax = 1;
-		for (keys %$nc) {
-			$fbmax = $1 if /\.(\d+)$/ && $fbmax < $1;
+	unless ($fbid) {
+		$fbid = $nc->{fb_id} || 0;
+		my $fbmax = $nc->{fb_max};
+		unless ($fbmax) {
+			$fbmax = 1;
+			for (keys %$nc) {
+				$fbmax = $1 if /\.(\d+)$/ && $fbmax < $1;
+			}
+			$nc->{fb_max} = $fbmax;
 		}
-		$nc->{fb_max} = $fbmax;
+		$fbid = 1 + ($fbid % $fbmax);
 	}
-	$fbid = 1 + ($fbid % $fbmax);
 	$nc->{"$key.$fbid"};
 }
 

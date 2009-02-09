@@ -15,23 +15,25 @@ use constant {
 	AUTH_DIR     => 0xC,
 };
 
-our(@cparms, @nickseq, @auth);
-Persist::register_vars(qw(cparms nickseq auth));
+our(@fbid, @cparms, @nickseq, @auth);
+Persist::register_vars(qw(fbid cparms nickseq auth));
 
 sub param {
 	my $net = shift;
-	$Conffile::netconf{$net->name()}{$_[0]};
+	Conffile::value($_[0], $net, $fbid[$$net]);
 }
 
 sub cparam {
-	$cparms[${$_[0]}]{$_[1]};
+	my $net = shift;
+	Conffile::value($_[0], $cparms[$$net], $fbid[$$net]);
 }
 
 sub intro {
 	my($net,$conf,$peer) = @_;
 	$auth[$$net] = $peer ? AUTH_DIR_IN : AUTH_DIR_OUT;
-	$cparms[$$net] = { %{$Conffile::netconf{$net->name()}} };
-	$net->_set_netname($cparms[$$net]->{netname});
+	$fbid[$$net] = $conf->{fb_id};
+	$cparms[$$net] = { %$conf };
+	$net->_set_netname($net->cparam('netname'));
 }
 
 sub next_nickgid {
