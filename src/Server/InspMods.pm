@@ -349,7 +349,8 @@ mdef 12, 'm_sanick.so', cmds => {
 	},
 };
 mdef 'm_sapart.so', cmds => { 'SAPART' => \&ignore };
-mdef 'm_saquit.so',	cmds => { 'SAQUIT' => 'KILL' };
+mdef 1105, 'm_saquit.so', cmds => { 'SAQUIT' => 'KILL' };
+mdef 12, 'm_saquit.so', cmds => { 'SAQUIT' => \&ignore };
 mdef 'm_securelist.so';
 mdef 'm_seenicks.so';
 mdef 1105, 'm_services.so', cmode => {
