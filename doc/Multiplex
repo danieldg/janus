@@ -27,9 +27,9 @@ LD <listenID>
 	Send a line to the network with the given ID. I/O errors are enqueued
 	for the next "N" request. "\r\n" should be appended. No response.
 D <netid>
-	Disconnect the given network; do not report any further errors or I/O
-	readiness. Discard any received data, and disconnect after emptying the
-	send queue. No response.
+	Disconnect the given network. The network ID should not be reused until
+	the server has responded with a delete command. Any data remaining in
+	the sendqueue should be relayed to the socket before closing.
 S
 	Stop I/O multiplexing. Server will respond with "S" when it is finished.
 R <line...>
@@ -45,7 +45,8 @@ Server commands:
 	Line should have the trailing \r\n stripped.
 D <netid> <error...>
 	The network with this ID has disconnected, with the given error
-	message (i.e. connection closed)
+	message (i.e. connection closed). The client must send a delete message
+	to acknowledge this.
 P <netid> <address>
 	The listening socket with this ID has an incoming connection from the
 	given IP address (text form). An IA or ID response is required before

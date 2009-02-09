@@ -226,6 +226,7 @@ static void delnet(const char* line) {
 			ifo->state |= STATE_E_DROP;
 			if (ifo->state & STATE_F_SSL)
 				ssl_drop(ifo);
+			qprintf(&sockets->net[0].sendq, "D %d Drop Requested\n", ifo->netid);
 			return;
 		}
 	}

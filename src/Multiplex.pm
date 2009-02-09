@@ -16,6 +16,7 @@ our($sock, $tblank, $dbg);
 &Janus::static(qw(sock tblank dbg));
 
 our @active;
+our %waiting;
 unless (defined $tblank) {
 	$tblank = ``;
 	print "WARNING: not running in taint mode\n" unless tainted($tblank);
@@ -51,9 +52,10 @@ sub line {
 
 sub find {
 	local $_;
-	my @r = grep { $$_ == $_[0] } @active;
-	&Log::err("Find on unknown network $_[0]") unless @r;
-	$r[0];
+	for (@active) {
+		return $_ if $$_ == $_[0];
+	}
+	undef;
 }
 
 sub timestep {
@@ -70,19 +72,19 @@ sub timestep {
 		} elsif ($now =~ /^D (\d+) (.*)/) {
 			my $net = find($1);
 			if ($net) {
+				$waiting{$1} = 1;
 				$net->delink($2);
-			} else {
-				&Log::warn("Incoming delink on unknown network $1");
-				cmd("D $1");
+			} elsif (!delete $waiting{$1}) {
+				&Log::warn("Multiplex delink on unknown network ID $1: $2");
 			}
 		} elsif ($now =~ /^P (\d+) (\S+)/) {
 			my($lid, $addr) = ($1,$2);
-			my $lnet = find($lid);
+			my $lnet = find($lid) or next;
 			my $net = $lnet->init_pending($addr);
 			if ($net) {
 				my($sslkey, $sslcert, $sslca) = &Conffile::find_ssl_keys($net, $lnet);
 				$sslkey ||= '';
-				$sslca ||= '';
+				$sslcert ||= '';
 				$sslca ||= '';
 				cmd("LA $lid $$net $sslkey $sslcert $sslca");
 				push @active, $net;
@@ -126,6 +128,9 @@ sub drop_socket {
 	for (0..$#Multiplex::active) {
 		next unless $Multiplex::active[$_] == $net;
 		splice @Multiplex::active, $_, 1;
+		unless (delete $waiting{$$net}) {
+			$waiting{$$net} = $net;
+		}
 		Multiplex::cmd("D $$net");
 		return 1;
 	}
