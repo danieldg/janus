@@ -69,15 +69,12 @@ void qprintf(struct queue* q, const char* format, ...);
 
 #if SSL_ENABLED
 void ssl_gblinit();
-void ssl_init_client(struct sockifo* ifo, const char* key, const char* cert, const char* ca);
-void ssl_init_server(struct sockifo* ifo, const char* key, const char* cert, const char* ca);
+void ssl_init(struct sockifo* ifo, const char* key, const char* cert, const char* ca, int server);
 void ssl_readable(struct sockifo* ifo);
 void ssl_writable(struct sockifo* ifo);
 void ssl_drop(struct sockifo* ifo);
 void ssl_close(struct sockifo* ifo);
 #else
-#define ssl_init_client(i,a,b,c) esock(i, "SSL support not enabled")
-#define ssl_init_server(i,a,b,c) esock(i, "SSL support not enabled")
 #define ssl_gblinit() do {} while (0)
 #define ssl_readable(i) do {} while (0)
 #define ssl_writable(i) do {} while (0)

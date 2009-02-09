@@ -42,7 +42,7 @@ print "      DNS: ", eval {
 
 print "Multiplex process:\n";
 
-my @cflag = qw(-Wall -O2 -std=c99 -D_XOPEN_SOURCE=600);
+my @cflag = qw(-Wall -std=c99 -D_XOPEN_SOURCE=600);
 my @cfiles = qw(multiplex.c queue.c);
 
 my $gnutls = `libgnutls-config --version 2>/dev/null`;
@@ -59,6 +59,8 @@ if ($gnutls) {
 
 if (@ARGV && $ARGV[0] =~ /debug/) {
 	push @cflag, '-g';
+} else {
+	push @cflag, '-O2',
 }
 
 unless (fork) {

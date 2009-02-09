@@ -118,9 +118,6 @@ static void addnet(char* line) {
 	WORDSTRING(addr)
 	WORDSTRING(port)
 	WORDSTRING(bindto)
-	WORDSTRING(ssl_key)
-	WORDSTRING(ssl_cert)
-	WORDSTRING(ssl_ca)
 #undef WORDSTRING
 	*line = '\0';
 
@@ -190,10 +187,6 @@ static void addnet(char* line) {
 			goto out_err;
 	}
 
-	if (ssl_key && *ssl_key) {
-		ssl_init_client(ifo, ssl_key, ssl_cert, ssl_ca);
-	}
-
 out_free:
 	freeaddrinfo(ainfo);
 	return;
@@ -226,11 +219,52 @@ static void delnet(const char* line) {
 			ifo->state |= STATE_E_DROP;
 			if (ifo->state & STATE_F_SSL)
 				ssl_drop(ifo);
-			qprintf(&sockets->net[0].sendq, "D %d Drop Requested\n", ifo->netid);
+			if (!(ifo->state & STATE_E_SOCK))
+				qprintf(&sockets->net[0].sendq, "D %d Drop Requested\n", ifo->netid);
 			return;
 		}
 	}
 	// TODO better error here
+	exit(2);
+}
+
+static void start_ssl(char* line) {
+	int i;
+	int netid = 0;
+	char type = line[1];
+	if (line[2] != ' ') exit(2);
+	line += 3;
+	while (isdigit(*line)) {
+		netid = 10 * netid + *line++ - '0';
+	}
+
+#define WORDSTRING(x) \
+	const char* x = NULL; \
+	if (*line == ' ') { \
+		*line = '\0'; \
+		x = ++line; \
+		while (*line && *line != ' ') line++; \
+	}
+	WORDSTRING(ssl_key)
+	WORDSTRING(ssl_cert)
+	WORDSTRING(ssl_ca)
+#undef WORDSTRING
+	*line = '\0';
+
+	for(i=0; i < sockets->count; i++) {
+		struct sockifo* ifo = &sockets->net[i];
+		if (ifo->state & STATE_E_DROP)
+			continue;
+		if (ifo->netid == netid) {
+#if SSL_ENABLED
+			int server = (type == 'S');
+			ssl_init(ifo, ssl_key, ssl_cert, ssl_ca, server);
+#else
+			esock(ifo, "SSL support not enabled")
+#endif
+			return;
+		}
+	}
 	exit(2);
 }
 
@@ -275,19 +309,6 @@ static void do_accept(int fd, char* line) {
 		line++;
 	}
 
-#define WORDSTRING(x) \
-	const char* x = NULL; \
-	if (*line == ' ') { \
-		*line = '\0'; \
-		x = ++line; \
-		while (*line && *line != ' ') line++; \
-	}
-	WORDSTRING(ssl_key)
-	WORDSTRING(ssl_cert)
-	WORDSTRING(ssl_ca)
-#undef WORDSTRING
-	*line = '\0';
-
 	int flags = fcntl(fd, F_GETFL);
 	flags |= O_NONBLOCK;
 	fcntl(fd, F_SETFL, flags);
@@ -297,8 +318,6 @@ static void do_accept(int fd, char* line) {
 	nifo->fd = fd;
 	nifo->state = STATE_T_NETWORK;
 	nifo->netid = netid;
-	if (ssl_key && *ssl_key)
-		ssl_init_server(nifo, ssl_key, ssl_cert, ssl_ca);
 }
 
 static void line_accept(char* line) {
@@ -372,6 +391,9 @@ static void mplex_parse(char* line) {
 		delnet(line);
 		break;
 	case 'S':
+		start_ssl(line);
+		break;
+	case 'X':
 		io_stop = 1;
 		break;
 	case 'R':
@@ -455,7 +477,7 @@ static void mplex() {
 	FD_ZERO(&xok);
 	if (io_stop == 1) {
 		io_stop = 2;
-		q_puts(&sockets->net[0].sendq, "S", 1);
+		q_puts(&sockets->net[0].sendq, "X", 1);
 	}
 	for(i=0; i < sockets->count; i++) {
 		struct sockifo* ifo = &sockets->net[i];
@@ -531,7 +553,7 @@ static void init() {
 	sockets->net[0].state = STATE_T_MPLEX;
 
 	init_worker();
-	q_puts(&sockets->net[0].sendq, "BOOT 10\n", 0);
+	q_puts(&sockets->net[0].sendq, "BOOT 11\n", 0);
 	writable(&sockets->net[0]);
 
 	ssl_gblinit();

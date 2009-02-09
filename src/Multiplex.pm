@@ -42,7 +42,7 @@ sub line {
 	help => 'Restarts the worker process of janus',
 	acl => 'die',
 	code => sub {
-		cmd('S');
+		cmd($master_api == 10 ? 'S' : 'X');
 		&Log::audit($_[0]->netnick . ' initiated a worker reboot');
 		@Log::listeners = (); # will be restored on a rehash
 		&Log::info('Worker reboot complete'); # will be complete when displayed
@@ -86,14 +86,19 @@ sub timestep {
 				$sslkey ||= '';
 				$sslcert ||= '';
 				$sslca ||= '';
-				cmd("LA $lid $$net $sslkey $sslcert $sslca");
+				if ($master_api == 10) {
+					cmd("LA $lid $$net $sslkey $sslcert $sslca");
+				} else {
+					cmd("LA $lid $$net");
+					cmd("SS $sslkey $sslcert $sslca") if $sslkey;
+				}
 				push @active, $net;
 			} else {
 				cmd("LD $lid");
 			}
 		} elsif ($now eq 'Q') {
 			last;
-		} elsif ($now eq 'S') {
+		} elsif ($now eq ($master_api == 10 ? 'S' : 'X')) {
 			$reboot++;
 			last;
 		} else {
@@ -154,7 +159,12 @@ sub init_connection {
 	$sslkey ||= '';
 	$sslcert ||= '';
 	$sslca ||= '';
-	Multiplex::cmd("IC $$net $addr $port $bind $sslkey $sslcert $sslca");
+	if ($Multiplex::master_api == 10) {
+		Multiplex::cmd("IC $$net $addr $port $bind $sslkey $sslcert $sslca");
+	} else {
+		Multiplex::cmd("IC $$net $addr $port $bind");
+		Multiplex::cmd("SC $$net $sslkey $sslcert $sslca") if $sslkey;
+	}
 	push @Multiplex::active, $net;
 }
 

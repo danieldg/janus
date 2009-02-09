@@ -44,45 +44,41 @@ static void ssl_bye(struct sockifo* ifo) {
 	}
 }
 
-void ssl_init_client(struct sockifo* ifo, const char* key, const char* cert, const char* ca) {
-	ifo->state |= STATE_F_SSL | STATE_F_SSL_HSHK;
-	gnutls_certificate_allocate_credentials(&ifo->xcred);
-	if (cert && *cert)
-		gnutls_certificate_set_x509_key_file(ifo->xcred, cert, key, GNUTLS_X509_FMT_PEM);
-	if (ca && *ca)
-		gnutls_certificate_set_x509_trust_file(ifo->xcred, ca, GNUTLS_X509_FMT_PEM);
-	gnutls_init(&ifo->ssl, GNUTLS_CLIENT);
-	gnutls_set_default_priority(ifo->ssl);
-	gnutls_credentials_set(ifo->ssl, GNUTLS_CRD_CERTIFICATE, ifo->xcred);
-
-	gnutls_transport_set_ptr(ifo->ssl, (gnutls_transport_ptr_t)(long) ifo->fd);
-	// NOTE: no handshake here because the connection is still pending
-}
-
-void ssl_init_server(struct sockifo* ifo, const char* key, const char* cert, const char* ca) {
+void ssl_init(struct sockifo* ifo, const char* key, const char* cert, const char* ca, int server) {
 	ifo->state |= STATE_F_SSL | STATE_F_SSL_HSHK;
 	int rv;
 	rv = gnutls_certificate_allocate_credentials(&ifo->xcred);
 	if (rv < 0) goto out_err;
-	rv = gnutls_certificate_set_x509_key_file(ifo->xcred, cert, key, GNUTLS_X509_FMT_PEM);
-	if (rv < 0) goto out_err;
-	gnutls_certificate_set_dh_params(ifo->xcred, dh_params);
+	if (cert && *cert) {
+		rv = gnutls_certificate_set_x509_key_file(ifo->xcred, cert, key, GNUTLS_X509_FMT_PEM);
+		if (rv < 0) goto out_err_cred;
+	}
 	if (ca && *ca) {
 		rv = gnutls_certificate_set_x509_trust_file(ifo->xcred, ca, GNUTLS_X509_FMT_PEM);
-		if (rv < 0) goto out_err;
+		if (rv < 0) goto out_err_cred;
 	}
-	rv = gnutls_init(&ifo->ssl, GNUTLS_SERVER);
-	if (rv < 0) goto out_err;
+	gnutls_certificate_set_dh_params(ifo->xcred, dh_params);
+	rv = gnutls_init(&ifo->ssl, server ? GNUTLS_SERVER : GNUTLS_CLIENT);
+	if (rv < 0) goto out_err_cred;
 	rv = gnutls_set_default_priority(ifo->ssl);
-	if (rv < 0) goto out_err;
+	if (rv < 0) goto out_err_all;
 	rv = gnutls_credentials_set(ifo->ssl, GNUTLS_CRD_CERTIFICATE, ifo->xcred);
-	if (rv < 0) goto out_err;
-	gnutls_dh_set_prime_bits(ifo->ssl, 1024);
-	gnutls_certificate_server_set_request(ifo->ssl, GNUTLS_CERT_REQUEST);
+	if (rv < 0) goto out_err_all;
+
+	if (server) {
+		gnutls_dh_set_prime_bits(ifo->ssl, 1024);
+		gnutls_certificate_server_set_request(ifo->ssl, GNUTLS_CERT_REQUEST);
+	}
 
 	gnutls_transport_set_ptr(ifo->ssl, (gnutls_transport_ptr_t)(long) ifo->fd);
-	ssl_handshake(ifo);
+	if (server)
+		ssl_handshake(ifo);
 	return;
+
+out_err_all:
+	gnutls_deinit(ifo->ssl);
+out_err_cred:
+	gnutls_certificate_free_credentials(ifo->xcred);
 out_err:
 	esock(ifo, gnutls_strerror(rv));
 }

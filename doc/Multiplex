@@ -3,26 +3,31 @@ Split-process I/O loop commands:
 Start the "src/worker.pl" program with a socket (unix socketpair) open on file
 descriptor 0. All communication with the worker process is via a line-based
 protocol on this socket. When starting the first worker, send "BOOT <apiver>"
-where apiver is the API version. This document describes version 10.
+where apiver is the API version. This document describes version 11.
 
 Lines in this protocol are sent without acknowledgment.
 
 Client lines:
-IC <netid> <addr> <port> <bind> <ssl-key> <ssl-cert> <ssl-ca>
+IC <netid> <addr> <port> <bind>
 	Open an outbound connection to the given addr:port. Optionally bind to
-	the given IP. If ssl-key is specified, start SSL; if both ssl-key and
-	ssl-cert are specified, they specify the client SSL certificate to use.
-	The CA file, if specified, is used to verify the server's certificate.
+	the given IP.
 IL <netid> <addr> <port>
 	Open a listening socket on the given port, bound to the given IP.
 	<addr> can be blank to bind to all IPs; in this case there will be 2
 	spaces between netid and port.
-LA <listenID> <newID> <SSL keyfile> <SSL certfile> <SSL cafile>
+LA <listenID> <newID>
 	Accept the incoming connection, using the given ID to refer to it in the
 	future. If SSL key/cert files are specified, start SSL server
 	connection, and verify the client certificate using the given CA
 LD <listenID>
 	Drop the pending incoming connection on this socket
+SS <netID> <ssl-key> <ssl-cert> <ssl-ca>
+	Start SSL handshake as a server; ssl-key and ssl-cert are required.
+	The CA file, if specified, is used to verify the client certificate.
+SC <netID> <ssl-key> <ssl-cert> <ssl-ca>
+	Start SSL handshake as a client; parameters optional. The CA file is
+	used to verify the server's certificate, and the key/cert are used as a
+	client certificate.
 <netid> <line...>
 	Send a line to the network with the given ID. I/O errors are enqueued
 	for the next "N" request. "\r\n" should be appended. No response.
@@ -30,8 +35,8 @@ D <netid>
 	Disconnect the given network. The network ID should not be reused until
 	the server has responded with a delete command. Any data remaining in
 	the sendqueue should be relayed to the socket before closing.
-S
-	Stop I/O multiplexing. Server will respond with "S" when it is finished.
+X
+	Stop I/O multiplexing. Server will respond with "X" when it is finished.
 R <line...>
 	Start a new child process, sending "RESTORE <line...>" as the first
 	line (i.e. instead of BOOT). The current process is terminating
@@ -55,5 +60,5 @@ Q
 	Queues are empty, getting ready to select()
 T <time>
 	Timestamp, returned once per second.
-S
+X
 	I/O multiplexing has stopped, send "R" line to boot replacement worker
