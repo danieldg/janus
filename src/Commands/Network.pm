@@ -40,7 +40,7 @@ use integer;
 		print "Will exit in 1 second\n";
 		&Event::schedule(+{
 			delay => 1,
-			code => sub { exit },
+			code => sub { exit 0 },
 		});
 	},
 }, {
@@ -64,10 +64,9 @@ use integer;
 		}
 		# sechedule the actual exec at a later time to try to send the restart netsplit message around
 		&Event::schedule(+{
-			delay => 2,
+			delay => 1,
 			code => sub {
-				my @arg = map { /(.*)/ ? $1 : () } @main::ARGV;
-				exec 'perl', '-T', 'janus.pl', @arg;
+				exec 'perl', 'janus.pl', $Conffile::conffile;
 			},
 		});
 	},

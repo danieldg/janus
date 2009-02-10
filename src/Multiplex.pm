@@ -4,7 +4,6 @@ package Multiplex;
 use strict;
 use warnings;
 use integer;
-use Scalar::Util qw(tainted);
 
 our $master_api;
 BEGIN {
@@ -19,7 +18,6 @@ our @active;
 our %waiting;
 unless (defined $tblank) {
 	$tblank = ``;
-	print "WARNING: not running in taint mode\n" unless tainted($tblank);
 }
 
 sub cmd {
