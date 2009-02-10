@@ -282,8 +282,6 @@ sub dump_sendq {
 
 sub request_newnick {
 	my($net, $nick, $reqnick, $tag) = @_;
-# uncomment to force tags
-#	$tag = 1;
 	$reqnick = $self[$$net] if $nick == $Interface::janus;
 	&Server::BaseNick::request_nick($net, $nick, $reqnick, $tag);
 }

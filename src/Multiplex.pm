@@ -39,6 +39,7 @@ sub line {
 	cmd => 'reboot',
 	help => 'Restarts the worker process of janus',
 	acl => 'die',
+	section => 'Admin',
 	code => sub {
 		cmd($master_api == 10 ? 'S' : 'X');
 		&Log::audit($_[0]->netnick . ' initiated a worker reboot');
