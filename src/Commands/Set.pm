@@ -15,8 +15,9 @@ Event::command_add({
 		my @table = [ qw/Type Name Default Description/ ];
 		for my $set (sort { $a->{name} cmp $b->{name} } values %Event::settings) {
 			my($desc,@ifo) = @$set{qw/help type name default/};
+			$ifo[0] =~ s/^Server:://;
 			my @desc = ref $desc ? @$desc : $desc;
-			push @table, [ @ifo, pop @desc ];
+			push @table, [ @ifo, shift @desc ];
 			push @table, map [ '', '', '', $_ ], @desc;
 		}
 		Interface::msgtable($dst, \@table);
