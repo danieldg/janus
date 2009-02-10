@@ -16,7 +16,6 @@ BEGIN {
 	delete @ENV{'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
 	do './src/Janus.pm' or die $@;
 }
-use POSIX 'setsid';
 
 our $VERSION = '1.14';
 
@@ -38,23 +37,21 @@ if ($^P) {
 
 my $line = <$Multiplex::sock>;
 chomp $line;
-if ($line =~ /^BOOT(?: (\d+))?/) {
+if ($line =~ /^BOOT (\d+)/) {
 	no warnings 'once';
-	$Multiplex::master_api = ($1 || 1);
+	$Multiplex::master_api = $1;
 	&Janus::load('Conffile') or die;
 	&Event::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
 	&Log::timestamp($Janus::time);
 	&Janus::load('Multiplex') or die;
 	&Event::insert_full(+{ type => 'INIT', args => \@ARGV });
 	&Event::insert_full(+{ type => 'RUN' });
-} elsif ($line =~ /^RESTORE (\S+)/) {
+} elsif ($line =~ /^R\S* (\S+)$/) {
 	my $file = $1;
 	&Janus::load('Snapshot') or die;
 	&Snapshot::restore_from($file);
 } else {
 	die "Bad line from control socket: $line";
 }
-eval {
-	&Multiplex::timestep while 1;
-	1;
-} ? &Log::info("Goodbye!\n") : &Log::err("Aborting, error=$@");
+
+&Multiplex::timestep while 1;

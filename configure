@@ -8,10 +8,7 @@ require 5.8.0;
 eval {
 	require Carp;
 	require POSIX;
-	require IO::Handle;
-	require Socket;
 	require Scalar::Util;
-	require Fcntl;
 	require overload;
 	Carp->import('cluck');
 	Scalar::Util->import(qw(weaken tainted));
@@ -21,24 +18,32 @@ eval {
 eval { require Digest::SHA; 1 } || eval { require Digest::SHA1; 1 } ||
 	die "One of Digest::SHA or Digest::SHA1 is required";
 
-print "All required perl modules found.\n";
+print "Required modules found.\n";
 
-print "Uniprocess optional modules:\n";
-print "      SSL: ", eval {
-	require IO::Socket::SSL;
+if (eval {
+	require Socket;
+	require Fcntl;
 	1;
-} ? "OK\n" : "Not available (install IO::Socket::SSL)\n";
+}) {
+	print "Uniprocess:\n";
+	print "      SSL: ", eval {
+		require IO::Socket::SSL;
+		1;
+	} ? "OK\n" : "Not available (install IO::Socket::SSL)\n";
 
-print "      IPv6: ", eval {
-	require Socket6;
-	require IO::Socket::INET6;
-	1;
-} ? "OK\n" : "Not available (install IO::Socket::INET6)\n";
+	print "      IPv6: ", eval {
+		require Socket6;
+		require IO::Socket::INET6;
+		1;
+	} ? "OK\n" : "Not available (install IO::Socket::INET6)\n";
 
-print "      DNS: ", eval {
-	require Net::DNS;
-	1;
-} ? "OK\n" : "Not available (install Net::DNS)\n";
+	print "      DNS: ", eval {
+		require Net::DNS;
+		1;
+	} ? "OK\n" : "Not available (install Net::DNS)\n";
+} else {
+	print "Uniprocess runner not available: $@\n";
+}
 
 print "Multiplex process:\n";
 
@@ -63,6 +68,8 @@ if (@ARGV && $ARGV[0] =~ /debug/) {
 	push @cflag, '-O2',
 }
 
+print "      Compiling...\n";
+
 unless (fork) {
 	chdir 'c-src';
 	exec 'cc', '-o', 'multiplex', @cflag, @cfiles;
@@ -70,7 +77,7 @@ unless (fork) {
 } else {
 	wait;
 	if ($?) {
-		print "Compilation failed, multiplex support not available\n";
+		print "      Compilation failed, multiplex support not available\n";
 	} else {
 		print "      Multiplex process support available.\n";
 	}
