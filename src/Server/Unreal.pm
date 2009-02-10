@@ -684,15 +684,46 @@ $moddef{CORE} = {
 	NICK => sub {
 		my $net = shift;
 		if (@_ < 7) {
-			# Nick Change
 			my $nick = $net->mynick($_[0]) or return ();
-			return +{
+			my $stomp = $net->nick($_[2], 1);
+			my $nts = (@_ == 4 ? $net->sjbint($_[3]) : $Janus::time);
+			my @out;
+			if ($stomp && $stomp != $nick) {
+				if ($stomp->ts < $nts) {
+					$net->send({
+						type => 'QUIT',
+						dst => $stomp,
+						msg => "Nickname collision ($_[0] -> $_[2])",
+					});
+					return +{
+						type => 'QUIT',
+						dst => $nick,
+						msg => "Nickname collision ($_[0] -> $_[2])",
+					}, {
+						type => 'RECONNECT',
+						dst => $stomp,
+						net => $net,
+						killed => 1,
+						altnick => 1,
+					};
+				} else {
+					push @out, {
+						type => 'RECONNECT',
+						dst => $stomp,
+						net => $net,
+						killed => 1,
+						altnick => 1,
+					};
+				}
+			}
+			push @out, {
 				type => 'NICK',
 				src => $nick,
 				dst => $nick,
 				nick => $_[2],
-				nickts => (@_ == 4 ? $net->sjbint($_[3]) : $Janus::time),
+				nickts => $nts,
 			};
+			return @out;
 		}
 		# NICKv2 introduction
 		my %nick = (

@@ -108,7 +108,7 @@ my %to_ij = (
 		$out .= $act->{dst}->to_ij($ij);
 		$out . '>>';
 	}, NICK => sub {
-		send_hdr(@_,qw/dst nick/) . '>';
+		send_hdr(@_,qw/dst nick nickts/) . '>';
 	},
 );
 
