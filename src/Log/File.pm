@@ -56,7 +56,7 @@ sub openlog {
 	my $log = shift;
 	my $fn = $filename[$$log] = strftime $log->name, gmtime $Janus::time;
 	open my $fh, '>', $fn or die $!;
-	$fh->autoflush(1);
+	my $ofh = select $fh; $| = 1; select $ofh;
 	$fh[$$log] = $fh;
 	if ($dump[$$log] && &Janus::load('Snapshot')) {
 		for (1..10) {

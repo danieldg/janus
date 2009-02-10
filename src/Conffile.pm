@@ -1,7 +1,6 @@
 # Copyright (C) 2007-2009 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
 package Conffile;
-use IO::Handle;
 use strict;
 use warnings;
 use integer;
@@ -22,14 +21,13 @@ sub read_conf {
 		&Log::err("Could not open configuration file: $!");
 		return;
 	};
-	$conf->untaint();
-		# the configurator is assumed to have at least half a brain :)
 	while (<$conf>) {
 		chomp;
 		s/\s*$//;
 		next if /^\s*(#|$)/;
-		s/^\s*(\S+)\s*// or die;
+		s/^\s*(\S+)\s*(.*)// or die;
 		my $type = $1;
+		$_ = $2; # untaint
 
 		if ($type eq 'link') {
 			if (defined $current) {
