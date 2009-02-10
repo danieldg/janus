@@ -197,6 +197,7 @@ sub send {
 				$rjto = $Janus::global;
 			} elsif (s/^\@(\S+)\s+//) {
 				$rjto = $Janus::ijnets{$1};
+				$rjto = $RemoteJanus::self if $1 eq $RemoteJanus::self->id;
 				&Janus::jmsg($dst, 'Cannot find that network') unless $rjto;
 			}
 			next unless $rjto;
