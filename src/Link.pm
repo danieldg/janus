@@ -23,13 +23,7 @@ our %request;
 #  mode 2: deny default
 #   ack{net} => =1 allows
 
-our %def_ack;
-# {network} = default contents of the "ack" entry
-
-&Janus::save_vars(
-	request => \%request,
-	def_ack => \%def_ack,
-);
+&Janus::save_vars(request => \%request);
 
 sub link_to_janus {
 	my $chan = shift;
@@ -219,7 +213,11 @@ sub send_avail {
 			mask => $act->{reqby},
 			'time', $act->{reqtime},
 		);
-		$req{ack} = { %{$def_ack{$net->name}} } if $def_ack{$net->name};
+		my $defacl = Setting::get(link_acl => $net);
+		for (split /,/, $defacl) {
+			my $m = s/([-+])// ? $1 eq '+' : 0;
+			($_ ? $req{ack}{$_} : $req{mode}) = $m;
+		}
 		if ($act->{remove}) {
 			delete $request{$net->name}{$name};
 			return if $net->jlink;
@@ -253,8 +251,19 @@ sub send_avail {
 &Event::setting_add({
 	name => 'link_requires',
 	type => 'LocalNetwork',
-	help => 'Minimum access level to link a channel. Good values include "op", "owner", or "oper"',
+	help => [
+		'Minimum access level to link a channel.',
+		'Good values include "op", "owner", or "oper"',
+	],
 	default => 'owner',
+}, {
+	name => 'link_acl',
+	type => 'LocalNetwork',
+	help => [
+		'Default ACL for a created channel',
+		'"+,+net1,-net2" denies net2, allows net1 and others'
+	],
+	default => '+',
 });
 
 1;
