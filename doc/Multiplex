@@ -3,24 +3,25 @@ Split-process I/O loop commands:
 Start the "src/worker.pl" program with a socket (unix socketpair) open on file
 descriptor 0. All communication with the worker process is via a line-based
 protocol on this socket. When starting the first worker, send "BOOT <apiver>"
-where apiver is the API version. This document describes version 11.
+where apiver is the API version. This document describes version 12.
 
 Lines in this protocol are sent without acknowledgment.
 
 Client lines:
-IC <netid> <addr> <port> <bind>
+IC <netid> <addr> <port> <bind> <frozen>
 	Open an outbound connection to the given addr:port. Optionally bind to
 	the given IP.
 IL <netid> <addr> <port>
 	Open a listening socket on the given port, bound to the given IP.
 	<addr> can be blank to bind to all IPs; in this case there will be 2
 	spaces between netid and port.
-LA <listenID> <newID>
+LA <listenID> <newID> <frozen>
 	Accept the incoming connection, using the given ID to refer to it in the
-	future. If SSL key/cert files are specified, start SSL server
-	connection, and verify the client certificate using the given CA
+	future.
 LD <listenID>
 	Drop the pending incoming connection on this socket
+F <netID> <frozen>
+	Freeze the recvq for the network; used to synchronize SSL handshake
 SS <netID> <ssl-key> <ssl-cert> <ssl-ca>
 	Start SSL handshake as a server; ssl-key and ssl-cert are required.
 	The CA file, if specified, is used to verify the client certificate.

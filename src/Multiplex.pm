@@ -14,6 +14,11 @@ BEGIN {
 our($sock, $tblank, $dbg);
 &Janus::static(qw(sock tblank dbg));
 
+sub open_dbg {
+	open $dbg, '>log/mplex.log';
+	select $dbg; $|++; select STDOUT;
+}
+
 our @active;
 our %waiting;
 unless (defined $tblank) {
@@ -88,8 +93,12 @@ sub timestep {
 				if ($master_api == 10) {
 					cmd("LA $lid $$net $sslkey $sslcert $sslca");
 				} else {
-					cmd("LA $lid $$net");
-					cmd("SS $sslkey $sslcert $sslca") if $sslkey;
+					if ($sslkey) {
+						cmd("LA $lid $$net 1");
+						cmd("SS $$net $sslkey $sslcert $sslca");
+					} else {
+						cmd("LA $lid $$net 0");
+					}
 				}
 				push @active, $net;
 			} else {
@@ -161,8 +170,12 @@ sub init_connection {
 	if ($Multiplex::master_api == 10) {
 		Multiplex::cmd("IC $$net $addr $port $bind $sslkey $sslcert $sslca");
 	} else {
-		Multiplex::cmd("IC $$net $addr $port $bind");
-		Multiplex::cmd("SC $$net $sslkey $sslcert $sslca") if $sslkey;
+		if ($sslkey) {
+			Multiplex::cmd("IC $$net $addr $port $bind 1");
+			Multiplex::cmd("SC $$net $sslkey $sslcert $sslca") if $sslkey;
+		} else {
+			Multiplex::cmd("IC $$net $addr $port $bind 0");
+		}
 	}
 	push @Multiplex::active, $net;
 }

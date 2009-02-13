@@ -34,6 +34,25 @@ static time_t last_ts;
 static struct iostate* sockets;
 static pid_t worker_pid;
 
+#define WORDSTRING(x) \
+	const char* x = NULL; \
+	if (*line == ' ') { \
+		*line++ = '\0'; \
+		x = line; \
+		while (*line && *line != ' ') line++; \
+	}
+
+#define INTSTRING(x) \
+	int x = 0; \
+	if (*line == ' ') { \
+		*line++ = '\0'; \
+		while (isdigit(*line)) { \
+			x = 10 * x + *line++ - '0'; \
+		} \
+	}
+
+#define ENDSTRING() do { *line = '\0'; } while (0)
+
 static void init_worker() {
 	int sv[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sv)) {
@@ -78,12 +97,13 @@ static void reboot(const char* line) {
 }
 
 void esock(struct sockifo* ifo, const char* msg) {
-	if (ifo->state & STATE_E_SOCK)
+	if (ifo->fd == -1)
 		return;
-	ifo->state |= STATE_E_SOCK;
-	if (ifo->state & STATE_E_DROP)
+	close(ifo->fd);
+	ifo->fd = -1;
+	if (ifo->state.mplex_dropped)
 		return;
-	if (ifo->state & STATE_T_MPLEX)
+	if (ifo->state.type == TYPE_MPLEX)
 		exit(0);
 	qprintf(&sockets->net[0].sendq, "D %d %s\n", ifo->netid, msg);
 }
@@ -98,35 +118,57 @@ static struct sockifo* alloc_ifo() {
 	return &(sockets->net[id]);
 }
 
+static struct sockifo* find(int netid) {
+	int i;
+	if (netid <= 0)
+		return NULL;
+	for(i=0; i < sockets->count; i++) {
+		struct sockifo* ifo = sockets->net + i;
+		if (ifo->netid == netid)
+			return ifo;
+	}
+	return NULL;
+}
+
+static void writable(struct sockifo* ifo) {
+	if (ifo->state.connpend) {
+		ifo->state.connpend = 0;
+		ifo->state.poll = ifo->state.frozen ? POLL_HANG : POLL_NORMAL;
+	}
+#if SSL_ENABLED
+	if (ifo->state.ssl) {
+		ssl_writable(ifo);
+	} else
+#endif
+	{
+		int r = q_write(ifo->fd, &ifo->sendq);
+		if (r) {
+			esock(ifo, r == 1 ? "Connection closed" : strerror(errno));
+		} else if (ifo->state.mplex_dropped && ifo->sendq.start == ifo->sendq.end) {
+			close(ifo->fd);
+			ifo->fd = -1;
+		}
+	}
+}
+
 static void addnet(char* line) {
-	int netid = 0;
 	line++;
 	char type = *line++;
 	if (type != 'L' && type != 'C') exit(2);
-	if (*line++ != ' ') exit(2);
-	while (isdigit(*line)) {
-		netid = 10 * netid + *line++ - '0';
-	}
 
-#define WORDSTRING(x) \
-	const char* x = NULL; \
-	if (*line == ' ') { \
-		*line = '\0'; \
-		x = ++line; \
-		while (*line && *line != ' ') line++; \
-	}
-	WORDSTRING(addr)
-	WORDSTRING(port)
-	WORDSTRING(bindto)
-#undef WORDSTRING
-	*line = '\0';
+	INTSTRING(netid);
+	WORDSTRING(addr);
+	WORDSTRING(port);
+	WORDSTRING(bindto);
+	INTSTRING(freeze);
+	ENDSTRING();
 
 	if (!addr || !*addr) {
 		if (type == 'C')
 			exit(2);
 		addr = "::";
 	}
-	if (!port || !*port)
+	if (!netid || !port || !*port)
 		exit(2);
 
 	struct sockifo* ifo = alloc_ifo();
@@ -141,7 +183,6 @@ static void addnet(char* line) {
 	struct addrinfo* ainfo = NULL;
 	int gai_err = getaddrinfo(addr, port, &hints, &ainfo);
 	if (gai_err) {
-		ifo->state = STATE_T_NETWORK;
 		esock(ifo, gai_strerror(gai_err));
 		return;
 	}
@@ -155,7 +196,8 @@ static void addnet(char* line) {
 	fcntl(fd, F_SETFL, flags);
 	fcntl(fd, F_SETFD, FD_CLOEXEC);
 	if (type == 'C') {
-		ifo->state |= STATE_T_NETWORK;
+		ifo->state.type = TYPE_NETWORK;
+		ifo->state.frozen = freeze;
 		if (bindto && *bindto) {
 			if (ainfo->ai_family == AF_INET6) {
 				struct sockaddr_in6 bsa = {
@@ -176,9 +218,12 @@ static void addnet(char* line) {
 			}
 		}
 		connect(fd, ainfo->ai_addr, ainfo->ai_addrlen);
-		ifo->state |= STATE_F_CONNPEND;
+		ifo->state.connpend = 1;
+		ifo->state.poll = POLL_FORCE_WOK;
 	} else if (type == 'L') {
-		ifo->state |= STATE_T_LISTEN;
+		ifo->state.type = TYPE_LISTEN;
+		ifo->state.poll = POLL_FORCE_ROK;
+		ifo->ifo_newfd = -1;
 		int optval = 1;
 		setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
 		if (bind(fd, ainfo->ai_addr, ainfo->ai_addrlen))
@@ -196,9 +241,12 @@ out_err:
 }
 
 static void delnet_real(struct sockifo* ifo) {
-	if (ifo->state & STATE_F_SSL)
-		ssl_close(ifo);
-	close(ifo->fd);
+#if SSL_ENABLED
+	if (ifo->state.ssl)
+		ssl_free(ifo);
+#endif
+	if (ifo->fd >= 0)
+		close(ifo->fd);
 	free(ifo->sendq.data);
 	free(ifo->recvq.data);
 	sockets->count--;
@@ -208,109 +256,93 @@ static void delnet_real(struct sockifo* ifo) {
 	}
 }
 
-static void delnet(const char* line) {
-	int netid = 0, i;
-	sscanf(line, "D %d", &netid);
-	for(i=0; i < sockets->count; i++) {
-		struct sockifo* ifo = &sockets->net[i];
-		if (ifo->state & STATE_E_DROP)
-			continue;
-		if (ifo->netid == netid) {
-			ifo->state |= STATE_E_DROP;
-			if (ifo->state & STATE_F_SSL)
-				ssl_drop(ifo);
-			if (!(ifo->state & STATE_E_SOCK))
-				qprintf(&sockets->net[0].sendq, "D %d Drop Requested\n", ifo->netid);
-			return;
-		}
+static void delnet(char* line) {
+	line++;
+	INTSTRING(netid);
+	struct sockifo* ifo = find(netid);
+
+	if (!ifo)
+		exit(2);
+	ifo->state.mplex_dropped = 1;
+	if (ifo->fd >= 0)
+		qprintf(&sockets->net[0].sendq, "D %d Drop Requested\n", ifo->netid);
+
+#if SSL_ENABLED
+	if (ifo->state.ssl)
+		ssl_drop(ifo);
+	else
+#endif
+	{
+		ifo->state.poll = POLL_FORCE_WOK;
+		writable(ifo);
 	}
-	// TODO better error here
-	exit(2);
+}
+
+static void freeze_net(char* line) {
+	line++;
+	INTSTRING(netid);
+	INTSTRING(freeze);
+	struct sockifo* ifo = find(netid);
+	if (!ifo)
+		exit(2);
+	ifo->state.frozen = freeze;
+	writable(ifo);
 }
 
 static void start_ssl(char* line) {
-	int i;
-	int netid = 0;
 	char type = line[1];
-	if (line[2] != ' ') exit(2);
-	line += 3;
-	while (isdigit(*line)) {
-		netid = 10 * netid + *line++ - '0';
-	}
+	line += 2;
+	INTSTRING(netid);
 
-#define WORDSTRING(x) \
-	const char* x = NULL; \
-	if (*line == ' ') { \
-		*line = '\0'; \
-		x = ++line; \
-		while (*line && *line != ' ') line++; \
-	}
-	WORDSTRING(ssl_key)
-	WORDSTRING(ssl_cert)
-	WORDSTRING(ssl_ca)
-#undef WORDSTRING
-	*line = '\0';
-
-	for(i=0; i < sockets->count; i++) {
-		struct sockifo* ifo = &sockets->net[i];
-		if (ifo->state & STATE_E_DROP)
-			continue;
-		if (ifo->netid == netid) {
-#if SSL_ENABLED
-			int server = (type == 'S');
-			ssl_init(ifo, ssl_key, ssl_cert, ssl_ca, server);
-#else
-			(void) type;
-			esock(ifo, "SSL support not enabled");
-#endif
-			return;
-		}
-	}
-	exit(2);
-}
-
-static inline int need_read(struct sockifo* ifo) {
-	if (ifo->state & STATE_F_CONNPEND)
-		return 0;
-	if (ifo->state & STATE_F_ACCEPTED)
-		return 0;
-	if (ifo->state & STATE_F_SSL)
-		return ifo->state & STATE_F_SSL_RBLK;
-	if (ifo->state & STATE_E_DROP)
-		return 0;
-	return 1;
-}
-
-static inline int need_write(struct sockifo* ifo) {
-	if (ifo->state & STATE_F_CONNPEND)
-		return 1;
-	if (ifo->state & STATE_F_SSL_WBLK)
-		return 1;
-	if (ifo->state & STATE_E_DROP && !(ifo->state & STATE_F_SSL_RBLK))
-		return 1;
-	if (ifo->state & STATE_F_SSL_HSHK)
-		return 0;
-	return ifo->sendq.end - ifo->sendq.start;
-}
-
-static inline int need_drop(struct sockifo* ifo) {
-	if (!(ifo->state & STATE_E_DROP))
-		return 0;
-	if (ifo->state & STATE_E_SOCK)
-		return 1;
-	if (ifo->state & STATE_F_SSL)
-		return !(ifo->state & (STATE_F_SSL_RBLK | STATE_F_SSL_WBLK));
-	return ifo->sendq.end == ifo->sendq.start;
-}
-
-static void do_accept(int fd, char* line) {
-	if (*line++ != ' ')
+	struct sockifo* ifo = find(netid);
+	if (!ifo) {
 		exit(2);
-	int netid = 0;
-	while (isdigit(*line)) {
-		netid = 10 * netid + (*line - '0');
-		line++;
 	}
+
+#if SSL_ENABLED
+	WORDSTRING(ssl_key);
+	WORDSTRING(ssl_cert);
+	WORDSTRING(ssl_ca);
+	ENDSTRING();
+
+	ifo->state.frozen = 0;
+	if (ifo->state.poll == POLL_HANG)
+		ifo->state.poll = POLL_NORMAL;
+
+	int server = (type == 'S');
+	ssl_init(ifo, ssl_key, ssl_cert, ssl_ca, server);
+#else
+	esock(ifo, "SSL support not enabled");
+#endif
+}
+
+static void line_accept(char* line) {
+	char type = line[1];
+	if (type != 'A' && type != 'D')
+		exit(2);
+	line += 2;
+
+	INTSTRING(lnetid);
+
+	struct sockifo* lifo = find(lnetid);
+
+	if (!lifo || lifo->state.type != TYPE_LISTEN)
+		exit(2);
+	int fd = lifo->ifo_newfd;
+	if (fd <= 0)
+		exit(3);
+	lifo->ifo_newfd = -1;
+	lifo->state.poll = POLL_FORCE_ROK;
+	if (type == 'D') {
+		close(fd);
+		return;
+	}
+
+	INTSTRING(nnetid);
+	INTSTRING(freeze);
+
+	if (!nnetid)
+		exit(2);
 
 	int flags = fcntl(fd, F_GETFL);
 	flags |= O_NONBLOCK;
@@ -319,64 +351,24 @@ static void do_accept(int fd, char* line) {
 
 	struct sockifo* nifo = alloc_ifo();
 	nifo->fd = fd;
-	nifo->state = STATE_T_NETWORK;
-	nifo->netid = netid;
+	nifo->netid = nnetid;
+	nifo->state.type = TYPE_NETWORK;
+	nifo->state.frozen = freeze;
+	nifo->state.poll = freeze ? POLL_HANG : POLL_FORCE_ROK;
 }
 
-static void line_accept(char* line) {
-	int netid = 0, i;
-	char type = line[1];
-	if (line[1] != 'A' && line[1] != 'D')
-		exit(2);
-	line += 2;
 
-	if (*line++ != ' ')
-		exit(2);
-	while (isdigit(*line)) {
-		netid = 10 * netid + (*line - '0');
-		line++;
-	}
-
-	for(i=0; i < sockets->count; i++) {
-		struct sockifo* lifo = &sockets->net[i];
-		if (lifo->state & STATE_E_DROP)
-			continue;
-		if (lifo->netid == netid) {
-			if (!(lifo->state & STATE_F_ACCEPTED))
-				exit(3);
-			int fd = lifo->ifo_newfd;
-			lifo->state &= ~STATE_F_ACCEPTED;
-			if (type == 'A') {
-				do_accept(fd, line);
-			} else {
-				close(fd);
-			}
-			return;
-		}
-	}
-	// TODO report error here
-	exit(3);
-}
 
 static void sqfill(char* line) {
 	int netid = 0;
 	while (isdigit(*line)) {
-		netid = 10 * netid + (*line - '0');
-		line++;
+		netid = 10 * netid + *line++ - '0';
 	}
+	struct sockifo* ifo = find(netid);
+	if (!ifo)
+		exit(3);
 	line++;
-	int i;
-	for(i=0; i < sockets->count; i++) {
-		struct sockifo* ifo = &sockets->net[i];
-		if (ifo->state & STATE_E_DROP)
-			continue;
-		if (ifo->netid == netid) {
-			q_puts(&ifo->sendq, line, 2);
-			return;
-		}
-	}
-	// TODO report error here
-	exit(3);
+	q_puts(&ifo->sendq, line, 2);
 }
 
 static void mplex_parse(char* line) {
@@ -389,6 +381,9 @@ static void mplex_parse(char* line) {
 		break;
 	case 'L':
 		line_accept(line);
+		break;
+	case 'F':
+		freeze_net(line);
 		break;
 	case 'D':
 		delnet(line);
@@ -409,9 +404,11 @@ static void mplex_parse(char* line) {
 }
 
 static void readable(struct sockifo* ifo) {
-	if (ifo->state & STATE_T_LISTEN) {
-		if (ifo->state & STATE_F_ACCEPTED)
+	if (ifo->state.type == TYPE_LISTEN) {
+		if (ifo->ifo_newfd >= 0) {
+			ifo->state.poll = POLL_HANG;
 			return;
+		}
 		struct sockaddr_in6 addr;
 		unsigned int addrlen = sizeof(addr);
 		char linebuf[8192];
@@ -430,12 +427,16 @@ static void readable(struct sockifo* ifo) {
 			qprintf(&sockets->net[0].sendq, "P %d %s\n", ifo->netid, linebuf);
 		}
 		ifo->ifo_newfd = fd;
-		ifo->state |= STATE_F_ACCEPTED;
+		ifo->state.poll = POLL_HANG;
 		return;
 	}
-	if (ifo->state & STATE_F_SSL) {
+#if SSL_ENABLED
+	if (ifo->state.ssl) {
 		ssl_readable(ifo);
-	} else {
+	}
+	else
+#endif
+	{
 		int r = q_read(ifo->fd, &ifo->recvq);
 		if (r) {
 			esock(ifo, r == 1 ? "Connection closed" : strerror(errno));
@@ -445,24 +446,10 @@ static void readable(struct sockifo* ifo) {
 		char* line = q_gets(&ifo->recvq);
 		if (!line)
 			return;
-		if (ifo->state & STATE_T_NETWORK && !(ifo->state & STATE_E_DROP)) {
+		if (ifo->state.type == TYPE_NETWORK && !ifo->state.mplex_dropped) {
 			qprintf(&sockets->net[0].sendq, "%d %s\n", ifo->netid, line);
-		} else if (ifo->state & STATE_T_MPLEX) {
+		} else if (ifo->state.type == TYPE_MPLEX) {
 			mplex_parse(line);
-		}
-	}
-}
-
-static void writable(struct sockifo* ifo) {
-	if (ifo->state & STATE_F_CONNPEND) {
-		ifo->state &= ~STATE_F_CONNPEND;
-	}
-	if (ifo->state & STATE_F_SSL) {
-		ssl_writable(ifo);
-	} else {
-		int r = q_write(ifo->fd, &ifo->sendq);
-		if (r) {
-			esock(ifo, r == 1 ? "Connection closed" : strerror(errno));
 		}
 	}
 }
@@ -484,21 +471,41 @@ static void mplex() {
 	}
 	for(i=0; i < sockets->count; i++) {
 		struct sockifo* ifo = &sockets->net[i];
-		if (need_write(ifo) && !(ifo->state & STATE_F_CONNPEND)) {
-			writable(ifo);
-		}
-		if (need_drop(ifo)) {
-			delnet_real(ifo);
-			i--;
+		if (ifo->fd < 0) {
+			if (ifo->state.mplex_dropped) {
+				delnet_real(ifo);
+				i--;
+			}
 			continue;
 		}
-		if (ifo->state & STATE_E_SOCK)
-			continue;
 		if (ifo->fd > maxfd)
 			maxfd = ifo->fd;
-		if (need_read(ifo))
+
+		int need_read, need_write;
+		switch (ifo->state.poll) {
+		case POLL_NORMAL:
+			need_read = 1;
+			need_write = (ifo->sendq.start != ifo->sendq.end);
+			if (need_write)
+				writable(ifo);
+			need_write = (ifo->sendq.start != ifo->sendq.end);
+			break;
+		case POLL_FORCE_ROK:
+			need_read = 1;
+			need_write = 0;
+			break;
+		case POLL_FORCE_WOK:
+			need_read = 0;
+			need_write = 1;
+			break;
+		case POLL_HANG:
+		default:
+			need_read = 0;
+			need_write = 0;
+		}
+		if (need_read)
 			FD_SET(ifo->fd, &rok);
-		if (need_write(ifo))
+		if (need_write)
 			FD_SET(ifo->fd, &wok);
 		FD_SET(ifo->fd, &xok);
 		if (io_stop == 2)
@@ -514,12 +521,16 @@ static void mplex() {
 		return;
 	for(i=0; i < sockets->count; i++) {
 		struct sockifo* ifo = &sockets->net[i];
+		if (ifo->fd < 0)
+			continue;
 		if (FD_ISSET(ifo->fd, &xok)) {
 			esock(ifo, "Exception on socket");
 			continue;
 		}
 		if (FD_ISSET(ifo->fd, &wok)) {
 			writable(ifo);
+			if (ifo->fd < 0)
+				continue;
 		}
 		if (FD_ISSET(ifo->fd, &rok)) {
 			readable(ifo);
@@ -553,13 +564,15 @@ static void init() {
 	sockets = malloc(sizeof(struct iostate) + 16 * sizeof(struct sockifo));
 	sockets->size = 16;
 	sockets->count = 1;
-	sockets->net[0].state = STATE_T_MPLEX;
+	sockets->net[0].state.type = TYPE_MPLEX;
 
 	init_worker();
-	q_puts(&sockets->net[0].sendq, "BOOT 11\n", 0);
+	q_puts(&sockets->net[0].sendq, "BOOT 12\n", 0);
 	writable(&sockets->net[0]);
 
+#if SSL_ENABLED
 	ssl_gblinit();
+#endif
 }
 
 int main(int argc, char** argv) {

@@ -48,6 +48,7 @@ set {
 modules {
 	Commands::*
 	Modules::Ban
+	Modules::KeepMode
 	Modules::Signals
 }
 

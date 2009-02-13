@@ -10,15 +10,13 @@
 #include <unistd.h>
 #include "mplex.h"
 
-int q_bound(struct queue* q, int min, int ideal, int max) {
-	if (ideal < min)
-		ideal = min;
+int q_bound(struct queue* q, int min, int max) {
 	if (q->start == q->end) {
 		q->start = q->end = 0;
-		if (q->size > max) {
+		if (max && q->size > max) {
 			free(q->data);
-			q->data = malloc(ideal);
-			q->size = ideal;
+			q->data = malloc(max);
+			q->size = max;
 		}
 	}
 	int slack = q->size - q->end;
@@ -31,8 +29,8 @@ int q_bound(struct queue* q, int min, int ideal, int max) {
 			q->end = size;
 		} else {
 			int newsiz = (size * 3)/2 + min;
-			if (newsiz < ideal)
-				newsiz = ideal;
+			if (newsiz < size + QUEUE_JUMP)
+				newsiz = size + QUEUE_JUMP;
 			uint8_t* dat = malloc(newsiz);
 			memcpy(dat, q->data + q->start, size);
 			free(q->data);
@@ -47,7 +45,7 @@ int q_bound(struct queue* q, int min, int ideal, int max) {
 }
 
 int q_read(int fd, struct queue* q) {
-	int slack = q_bound(q, MIN_RECVQ, IDEAL_RECVQ, IDEAL_RECVQ);
+	int slack = q_bound(q, MIN_QUEUE, IDEAL_QUEUE);
 
 	int len = read(fd, q->data + q->end, slack);
 	if (len > 0) {
@@ -96,7 +94,7 @@ char* q_gets(struct queue* q) {
 void q_puts(struct queue* q, const char* line, int newlines) {
 	int slen = strlen(line);
 	int needed = slen + newlines;
-	q_bound(q, needed, IDEAL_SENDQ, IDEAL_SENDQ);
+	q_bound(q, needed, IDEAL_QUEUE);
 	memcpy(q->data + q->end, line, slen);
 	q->end += slen;
 	if (newlines == 2)
@@ -106,13 +104,13 @@ void q_puts(struct queue* q, const char* line, int newlines) {
 }
 
 void qprintf(struct queue* q, const char* format, ...) {
-	int slack = q_bound(q, MIN_RECVQ, IDEAL_SENDQ, IDEAL_SENDQ);
+	int slack = q_bound(q, MIN_QUEUE, IDEAL_QUEUE);
 	va_list ap;
 	va_start(ap, format);
 	int n = vsnprintf((char*)q->data + q->end, slack, format, ap);
 	va_end(ap);
 	while (n >= slack) {
-		slack = q_bound(q, n+2, IDEAL_SENDQ, IDEAL_SENDQ);
+		slack = q_bound(q, n+2, IDEAL_QUEUE);
 		va_start(ap, format);
 		n = vsnprintf((char*)q->data + q->end, slack, format, ap);
 		va_end(ap);

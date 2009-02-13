@@ -10,9 +10,10 @@
 #if SSL_GNUTLS
 #include <gnutls/gnutls.h>
 #endif
-#define MIN_RECVQ 8192
-#define IDEAL_SENDQ 16384
-#define IDEAL_RECVQ 16384
+
+#define MIN_QUEUE 16384
+#define IDEAL_QUEUE 32768
+#define QUEUE_JUMP 32768
 
 struct queue {
 	uint8_t* data;
@@ -23,9 +24,20 @@ struct queue {
 
 struct sockifo {
 	int fd;
-	int state;
-
 	int netid;
+	struct {
+		unsigned int type:2;
+		unsigned int poll:2;
+
+		unsigned int mplex_dropped:1;
+		unsigned int connpend:1;
+		unsigned int frozen:1;
+
+#if SSL_GNUTLS
+		unsigned int ssl:2;
+#endif
+	} state;
+
 	struct queue sendq, recvq;
 #define ifo_newfd recvq.start
 #if SSL_GNUTLS
@@ -34,32 +46,27 @@ struct sockifo {
 #endif
 };
 
-#define STATE_T_NETWORK  0x1
-#define STATE_T_LISTEN   0x2
-#define STATE_T_MPLEX    0x4
+#define TYPE_NETWORK 0
+#define TYPE_LISTEN 1
+#define TYPE_MPLEX 2
 
-#define STATE_F_ACCEPTED 0x010
-#define STATE_F_CONNPEND 0x020
-#define STATE_E_SOCK     0x040
-#define STATE_E_DROP     0x080
+enum polling {
+	POLL_NORMAL,
+	POLL_FORCE_ROK,
+	POLL_FORCE_WOK,
+	POLL_HANG,
+};
 
-#if SSL_ENABLED
-#define STATE_F_SSL      0x100
-#define STATE_F_SSL_RBLK 0x200
-#define STATE_F_SSL_WBLK 0x400
-#define STATE_F_SSL_HSHK 0x1000
-#define STATE_F_SSL_BYE  0x2000
-#define STATE_SSL_OK(x) (!((x) & 0x3000))
-#else
-#define STATE_F_SSL      0
-#define STATE_F_SSL_RBLK 0
-#define STATE_F_SSL_WBLK 0
-#define STATE_F_SSL_HSHK 0
-#endif
+enum ssl_state {
+	PLAIN = 0,
+	SSL_HSHK,
+	SSL_ACTIVE,
+	SSL_BYE,
+};
 
 void esock(struct sockifo* ifo, const char* msg);
 
-int q_bound(struct queue* q, int min, int ideal, int max);
+int q_bound(struct queue* q, int min, int ideal);
 int q_read(int fd, struct queue* q);
 int q_write(int fd, struct queue* q);
 
@@ -73,12 +80,6 @@ void ssl_init(struct sockifo* ifo, const char* key, const char* cert, const char
 void ssl_readable(struct sockifo* ifo);
 void ssl_writable(struct sockifo* ifo);
 void ssl_drop(struct sockifo* ifo);
-void ssl_close(struct sockifo* ifo);
-#else
-#define ssl_gblinit() do {} while (0)
-#define ssl_readable(i) do {} while (0)
-#define ssl_writable(i) do {} while (0)
-#define ssl_drop(i) do {} while (0)
-#define ssl_close(i) do {} while (0)
+void ssl_free(struct sockifo* ifo);
 #endif
 

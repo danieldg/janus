@@ -3,6 +3,7 @@
  * Released under the GNU Affero General Public License v3
  */
 #include "mplex.h"
+#include <unistd.h>
 // #include <gcrypt.h>
 static gnutls_dh_params_t dh_params;
 
@@ -15,16 +16,22 @@ void ssl_gblinit() {
 
 static void do_eagain(struct sockifo* ifo) {
 	if (gnutls_record_get_direction(ifo->ssl)) {
-		ifo->state = (ifo->state & ~STATE_F_SSL_RBLK) | STATE_F_SSL_WBLK;
+		ifo->state.poll = POLL_FORCE_WOK;
 	} else {
-		ifo->state = (ifo->state & ~STATE_F_SSL_WBLK) | STATE_F_SSL_RBLK;
+		ifo->state.poll = POLL_FORCE_ROK;
 	}
+}
+
+void ssl_free(struct sockifo* ifo) {
+	gnutls_deinit(ifo->ssl);
+	gnutls_certificate_free_credentials(ifo->xcred);
 }
 
 static void ssl_handshake(struct sockifo* ifo) {
 	int rv = gnutls_handshake(ifo->ssl);
 	if (rv == GNUTLS_E_SUCCESS) {
-		ifo->state = (ifo->state & ~(STATE_F_SSL_HSHK | STATE_F_SSL_WBLK)) | STATE_F_SSL_RBLK;
+		ifo->state.poll = POLL_FORCE_ROK;
+		ifo->state.ssl = SSL_ACTIVE;
 		// TODO verify remote cert against CA
 	} else if (rv == GNUTLS_E_AGAIN || rv == GNUTLS_E_INTERRUPTED) {
 		do_eagain(ifo);
@@ -36,7 +43,8 @@ static void ssl_handshake(struct sockifo* ifo) {
 static void ssl_bye(struct sockifo* ifo) {
 	int rv = gnutls_bye(ifo->ssl, GNUTLS_SHUT_RDWR);
 	if (rv == GNUTLS_E_SUCCESS) {
-		ifo->state &= ~(STATE_F_SSL_RBLK | STATE_F_SSL_WBLK);
+		close(ifo->fd);
+		ifo->fd = -1;
 	} else if (rv == GNUTLS_E_AGAIN || rv == GNUTLS_E_INTERRUPTED) {
 		do_eagain(ifo);
 	} else {
@@ -45,7 +53,7 @@ static void ssl_bye(struct sockifo* ifo) {
 }
 
 void ssl_init(struct sockifo* ifo, const char* key, const char* cert, const char* ca, int server) {
-	ifo->state |= STATE_F_SSL | STATE_F_SSL_HSHK;
+	ifo->state.ssl = SSL_HSHK;
 	int rv;
 	rv = gnutls_certificate_allocate_credentials(&ifo->xcred);
 	if (rv < 0) goto out_err;
@@ -83,22 +91,18 @@ out_err:
 	esock(ifo, gnutls_strerror(rv));
 }
 
-void ssl_close(struct sockifo* ifo) {
-	gnutls_deinit(ifo->ssl);
-	gnutls_certificate_free_credentials(ifo->xcred);
-}
-
 void ssl_readable(struct sockifo* ifo) {
-	if (ifo->state & STATE_F_SSL_HSHK)
+	if (ifo->state.ssl == SSL_HSHK)
 		ssl_handshake(ifo);
-	if (ifo->state & STATE_F_SSL_BYE)
+	if (ifo->state.ssl == SSL_BYE)
 		ssl_bye(ifo);
-	if (!STATE_SSL_OK(ifo->state))
+	if (ifo->state.ssl != SSL_ACTIVE)
 		return;
 
-	q_bound(&ifo->recvq, MIN_RECVQ, IDEAL_RECVQ, IDEAL_RECVQ);
-	int n = gnutls_record_recv(ifo->ssl, ifo->recvq.data + ifo->recvq.end,
-		ifo->recvq.size - ifo->recvq.end);
+	ifo->state.poll = POLL_NORMAL;
+
+	int slack = q_bound(&ifo->recvq, MIN_QUEUE, IDEAL_QUEUE);
+	int n = gnutls_record_recv(ifo->ssl, ifo->recvq.data + ifo->recvq.end, slack);
 	if (n > 0) {
 		ifo->recvq.end += n;
 	} else if (n == GNUTLS_E_AGAIN || n == GNUTLS_E_INTERRUPTED) {
@@ -109,25 +113,25 @@ void ssl_readable(struct sockifo* ifo) {
 }
 
 void ssl_writable(struct sockifo* ifo) {
-	if (ifo->state & STATE_F_SSL_HSHK)
+	if (ifo->state.ssl == SSL_HSHK)
 		ssl_handshake(ifo);
-	if (ifo->state & STATE_F_SSL_BYE)
+	if (ifo->state.ssl == SSL_BYE)
 		ssl_bye(ifo);
-	if (!STATE_SSL_OK(ifo->state))
+	if (ifo->state.ssl != SSL_ACTIVE)
 		return;
 
 	int size = ifo->sendq.end - ifo->sendq.start;
 	if (!size) {
-		ifo->state = (ifo->state & ~STATE_F_SSL_WBLK) | STATE_F_SSL_RBLK;
+		ifo->state.poll = POLL_NORMAL;
 		return;
 	}
 	int n = gnutls_record_send(ifo->ssl, ifo->sendq.data + ifo->sendq.start, size);
 	if (n > 0) {
 		ifo->sendq.start += n;
 		if (size > n)
-			ifo->state |= STATE_F_SSL_WBLK;
+			ifo->state.poll = POLL_FORCE_WOK;
 		else
-			ifo->state = (ifo->state & ~STATE_F_SSL_WBLK) | STATE_F_SSL_RBLK;
+			ifo->state.poll = POLL_NORMAL;
 	} else if (n == GNUTLS_E_AGAIN || n == GNUTLS_E_INTERRUPTED) {
 		do_eagain(ifo);
 	} else {
@@ -136,6 +140,6 @@ void ssl_writable(struct sockifo* ifo) {
 }
 
 void ssl_drop(struct sockifo* ifo) {
-	ifo->state |= STATE_F_SSL_BYE;
+	ifo->state.ssl = SSL_BYE;
 	ssl_bye(ifo);
 }
