@@ -19,6 +19,7 @@ our @bans;
 #	reason reason
 #	perlre anchored match against "nick!ident@host:name"
 #   expire timestamp of expiration, 0 for perm
+#   setat  timestamp of ban setting
 # }
 # iRE := HOSTMASK_CHARS | "*" | "?"
 
@@ -141,8 +142,10 @@ my %timespec = (
 				}
 				if ($ban->{expire}) {
 					push @row, ($ban->{expire} - $Janus::time).'s ('.gmtime($ban->{expire}).')';
+				} elsif ($ban->{setat}) {
+					push @row, 'Permanent, set at '.gmtime($ban->{setat});
 				} else {
-					push @row, 'Does not expire';
+					push @row, 'Permanent';
 				}
 				push @tbl, \@row;
 			}
@@ -151,6 +154,7 @@ my %timespec = (
 		} elsif ($cmd eq 'add' || $cmd eq 'kadd') {
 			my %ban = (
 				setter => $src->netnick,
+				setat => $Janus::time,
 				to => $net->name,
 			);
 			local $_ = join ' ', @args;
