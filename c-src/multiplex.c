@@ -484,10 +484,9 @@ static void mplex() {
 		int need_read, need_write;
 		switch (ifo->state.poll) {
 		case POLL_NORMAL:
-			need_read = 1;
-			need_write = (ifo->sendq.start != ifo->sendq.end);
-			if (need_write)
+			if (ifo->sendq.start != ifo->sendq.end)
 				writable(ifo);
+			need_read = 1;
 			need_write = (ifo->sendq.start != ifo->sendq.end);
 			break;
 		case POLL_FORCE_ROK:
@@ -538,7 +537,8 @@ static void mplex() {
 		if (io_stop == 2)
 			return;
 	}
-	q_puts(&sockets->net[0].sendq, "Q\n", 0);
+	if (ready > 1 || !FD_ISSET(sockets->net[0].fd, &rok))
+		q_puts(&sockets->net[0].sendq, "Q\n", 0);
 }
 
 static void sig2child(int sig) {

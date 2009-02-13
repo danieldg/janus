@@ -30,7 +30,7 @@ void ssl_free(struct sockifo* ifo) {
 static void ssl_handshake(struct sockifo* ifo) {
 	int rv = gnutls_handshake(ifo->ssl);
 	if (rv == GNUTLS_E_SUCCESS) {
-		ifo->state.poll = POLL_FORCE_ROK;
+		ifo->state.poll = POLL_NORMAL;
 		ifo->state.ssl = SSL_ACTIVE;
 		// TODO verify remote cert against CA
 	} else if (rv == GNUTLS_E_AGAIN || rv == GNUTLS_E_INTERRUPTED) {
@@ -53,7 +53,6 @@ static void ssl_bye(struct sockifo* ifo) {
 }
 
 void ssl_init(struct sockifo* ifo, const char* key, const char* cert, const char* ca, int server) {
-	ifo->state.ssl = SSL_HSHK;
 	int rv;
 	rv = gnutls_certificate_allocate_credentials(&ifo->xcred);
 	if (rv < 0) goto out_err;
@@ -79,7 +78,9 @@ void ssl_init(struct sockifo* ifo, const char* key, const char* cert, const char
 	}
 
 	gnutls_transport_set_ptr(ifo->ssl, (gnutls_transport_ptr_t)(long) ifo->fd);
-	if (server)
+
+	ifo->state.ssl = SSL_HSHK;
+	if (!ifo->state.connpend)
 		ssl_handshake(ifo);
 	return;
 
