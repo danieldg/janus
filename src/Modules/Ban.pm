@@ -69,6 +69,7 @@ my %timespec = (
 				setter => $src->netnick,
 				setat => $Janus::time,
 				to => $net->name,
+				'for' => Setting::get(ban_time => $Interface::network),
 				nick => '*',
 				ident => '*',
 				host => '*',
@@ -98,7 +99,7 @@ my %timespec = (
 				}
 			}
 			if ($ban{for}) {
-				$_ = delete $ban{for};
+				$_ = $ban{for};
 				my $t = $Janus::time;
 				$t += $1*($timespec{lc $2} || 1) while s/^(\d+)(\D?)//;
 				$ban{expire} = $t;
@@ -106,10 +107,8 @@ my %timespec = (
 					&Janus::jmsg($dst, 'Invalid characters in ban length');
 					return;
 				}
-			} elsif (defined delete $ban{for}) {
-				$ban{expire} = 0;
 			} else {
-				$ban{expire} = $Janus::time + 604800;
+				$ban{expire} = 0;
 			}
 			if (!$ban{match}) {
 				for (qw(nick ident host from name)) {
@@ -155,6 +154,13 @@ my %timespec = (
 			&Janus::jmsg($dst, 'Invalid syntax. See "help ban" for the syntax');
 		}
 	}
+});
+
+Event::setting_add({
+	name => 'ban_time',
+	type => 'Interface',
+	help => 'Default length of janus ban',
+	default => '1w',
 });
 
 1;

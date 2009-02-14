@@ -16,6 +16,7 @@ Event::command_add({
 		for my $set (sort { $a->{name} cmp $b->{name} } values %Event::settings) {
 			my($desc,@ifo) = @$set{qw/help type name default/};
 			$ifo[0] =~ s/^Server:://;
+			$ifo[0] = 'Janus' if $ifo[0] eq 'Interface';
 			my @desc = ref $desc ? @$desc : $desc;
 			push @table, [ @ifo, shift @desc ];
 			push @table, map [ '', '', '', $_ ], @desc;
@@ -54,6 +55,7 @@ Event::command_add({
 			return;
 		}
 		Setting::set($key, $item, $value);
+		Janus::jmsg($dst, 'Done');
 	},
 });
 
