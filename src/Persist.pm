@@ -18,7 +18,7 @@ sub dump_all_refs {
 	for my $pk (keys %vars) {
 		my %oops;
 		for my $var (keys %{$vars{$pk}}) {
-			next if $Janus::static{$pk.'::'.$var};
+			next if $Janus::static{$var =~ /:/ ? $var : $pk.'::'.$var};
 			my $arr = $vars{$pk}{$var};
 			for my $i (0..$#$arr) {
 				next unless exists $arr->[$i];
