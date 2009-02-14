@@ -95,8 +95,8 @@ my %timespec = (
 	details => [
 		'Bans are matched on connects to shared channels, and generate autokicks.',
 		" \002ban list\002               List all active janus bans",
-		" \002ban add\002 expr           Add a ban (applied to new users only)",
-		" \002ban kadd\002 expr          Add a ban and applies it to current users",
+		" \002ban add\002 expr           Add a ban and applies it to current users",
+		" \002ban nadd\002 expr          Add a ban (applied to new users only)",
 		" \002ban del\002 index          Remove a ban by index in the ban list",
 		'expr consists of one or more of the following:',
 		'  (nick|ident|host|name) item   Matches using standard IRC ban syntax',
@@ -113,10 +113,10 @@ my %timespec = (
 	],
 	acl => 'ban',
 	aclchk => 'globalban',
+	api => '=src =replyto $ @',
 	code => sub {
 		my($src,$dst,$cmd,@args) = @_;
 		$cmd = lc $cmd;
-		return &Janus::jmsg($src, "use 'help ban' to see the syntax") unless $cmd;
 		my $net = $src->homenet;
 		my $gbl_ok = &Account::acl_check($src, 'globalban');
 		if ($cmd eq 'list') {
@@ -151,7 +151,7 @@ my %timespec = (
 			}
 			&Interface::msgtable($dst, \@tbl) if @bans;
 			&Janus::jmsg($dst, 'No bans defined') unless @bans;
-		} elsif ($cmd eq 'add' || $cmd eq 'kadd') {
+		} elsif ($cmd eq 'add' || $cmd eq 'nadd') {
 			my %ban = (
 				setter => $src->netnick,
 				setat => $Janus::time,
@@ -197,16 +197,18 @@ my %timespec = (
 			exists $ban{$_} and $itms++ for qw(nick ident host name perlre);
 			return &Janus::jmsg($dst, 'Ban too wide') unless $itms;
 			push @bans, \%ban;
-			if ($cmd eq 'kadd') {
+			if ($cmd eq 'add') {
+				my @kills;
 				for my $n ($net->all_nicks) {
 					next unless slowmatch(\%ban, $n);
-					&Event::append(+{
+					push @kills, {
 						type => 'KILL',
 						dst => $n,
 						net => $net,
 						msg => 'Banned by '.$ban{setter},
-					});
+					};
 				}
+				Event::append(@kills);
 			}
 			&Janus::jmsg($dst, 'Ban added');
 		} elsif ($cmd eq 'del') {
