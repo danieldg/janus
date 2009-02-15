@@ -284,10 +284,15 @@ mdef 'm_operlevels.so';
 mdef 'm_operlog.so';
 mdef 'm_opermodes.so';
 mdef 'm_opermotd.so';
+mdef 12, 'm_operprefix.so', cmode => { y => 'n_' };
 mdef 'm_override.so';
 mdef 12, 'm_permchannels.so', cmode => { P => 'r_permanent' };
 mdef 'm_randquote.so';
 mdef 'm_redirect.so', cmode => { L => 's_forward' };
+mdef 'm_regex_glob.so';
+mdef 'm_regex_pcre.so';
+mdef 'm_regex_posix.so';
+mdef 'm_regex_tre.so';
 mdef 'm_regonlycreate.so';
 mdef 'm_remove.so', cmds => {
 	FPART => 'KICK',

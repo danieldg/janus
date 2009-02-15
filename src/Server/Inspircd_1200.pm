@@ -485,7 +485,7 @@ $moddef{CORE} = {
 			my $nick = $net->mynick($2) or next;
 			my %mh = map {
 				$_ = $net->cmode2txt($_);
-				/n_(.*)/ ? ($1 => 1) : ();
+				/^n_(.+)/ ? ($1 => 1) : ();
 			} split //, $nmode;
 			push @acts, +{
 				type => 'JOIN',
