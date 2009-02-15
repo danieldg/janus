@@ -111,16 +111,17 @@ my %timespec = (
 				$ban{expire} = 0;
 			}
 			if (!$ban{match}) {
-				for (qw(nick ident host from name)) {
+				$ban{hre} = $ban{host};
+				for (qw(nick ident hre from name)) {
 					$ban{$_} =~ s/(\W)/\\$1/g;
 					$ban{$_} =~ s/\\\*/.*/g;
 					$ban{$_} =~ s/\\\?/./g;
 				}
-				$ban{match} = qr($ban{nick}\!$ban{ident}\@$ban{host}\n$ban{from}\t$ban{name});
+				$ban{match} = qr($ban{nick}\!$ban{ident}\@$ban{hre}\n$ban{from}\t$ban{name});
 			}
 			return &Janus::jmsg($dst, 'Ban too wide') if "\!\@\n\t" =~ /^$ban{match}$/;
 			delete $ban{to} if $ban{to} eq '*';
-			delete $ban{host} if $ban{host} eq '*';
+			delete $ban{host} if $ban{host} =~ /[*?]/;
 			my $ban = Util::Ban->new(%ban);
 			$ban->add();
 			if ($cmd eq 'add') {
