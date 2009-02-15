@@ -1,4 +1,4 @@
-*.conf
-*.pem
-*.dat
-*.log
+/*.conf
+/*.pem
+/*.dat
+/*.log
