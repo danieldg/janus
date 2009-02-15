@@ -124,19 +124,7 @@ my %timespec = (
 			delete $ban{host} if $ban{host} =~ /[*?]/;
 			my $ban = Util::Ban->new(%ban);
 			$ban->add();
-			if ($cmd eq 'add') {
-				my @kills;
-				for my $n ($net->all_nicks) {
-					next unless $ban->matches($n,$ban{to});
-					push @kills, {
-						type => 'KILL',
-						dst => $n,
-						net => $net,
-						msg => 'Banned by '.$ban{setter},
-					};
-				}
-				Event::append(@kills);
-			}
+			$ban->scan($net) if $cmd eq 'add';
 			&Janus::jmsg($dst, 'Ban added');
 		} elsif ($cmd eq 'del') {
 			my(@yes,@no);

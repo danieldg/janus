@@ -13,11 +13,12 @@ our(@mask);
 Persist::register_vars('Nick::mask' => \@mask);
 
 our @all;
-Janus::save_vars(
-	all => sub {
-		[ map Persist::freeze($_), @all ]
-	},
-);
+sub save_all {
+	[ map Persist::freeze($_), @all ]
+}
+
+Janus::save_vars(all => \&save_all);
+
 # "to host" => [ bans ]
 our(%nh_hit, @nh_miss, $nh_ok) = ();
 Janus::static(qw(nh_hit nh_miss nh_ok));
@@ -105,6 +106,22 @@ sub find {
 		return $ban;
 	}
 	return undef;
+}
+
+sub scan {
+	my($ban,$net) = @_;
+	my @kills;
+	for my $nick ($net->all_nicks) {
+		next if $nick->has_mode('oper');
+		next unless $ban->matches($nick,$to[$$ban]);
+		push @kills, {
+			type => 'KILL',
+			dst => $nick,
+			net => $net,
+			msg => 'Banned by '.$setter[$$ban],
+		};
+	}
+	&Event::append(@kills);
 }
 
 &Event::hook_add(
