@@ -313,16 +313,10 @@ mdef 'm_samode.so';
 mdef 1105, 'm_sanick.so', cmds => {
 	SANICK => sub {
 		my $net = shift;
-		my $nick = $net->nick($_[2]);
-		if ($nick->homenet() eq $net) {
-			# accept as normal nick change
-			return +{
-				type => 'NICK',
-				src => $nick,
-				dst => $nick,
-				nick => $_[3],
-				nickts => $Janus::time,
-			};
+		my $nick = $net->nick($_[2]) or return ();
+		if ($nick->homenet() == $net) {
+			# BUG: this is misrouted, the NICK is already sent or will be soon
+			return ();
 		}
 		# reject
 		$net->send($net->cmd2($_[3], NICK => $_[2]));
@@ -332,19 +326,13 @@ mdef 1105, 'm_sanick.so', cmds => {
 mdef 12, 'm_sanick.so', cmds => {
 	SANICK => sub {
 		my $net = shift;
-		my $nick = $net->nick($_[2]);
-		if ($nick->homenet() eq $net) {
-			# accept as normal nick change
-			return +{
-				type => 'NICK',
-				src => $nick,
-				dst => $nick,
-				nick => $_[3],
-				nickts => $Janus::time,
-			};
+		my $nick = $net->nick($_[2]) or return ();
+		if ($nick->homenet() == $net) {
+			# BUG: this is misrouted, the NICK is already sent or will be soon
+			return ();
 		}
-		# reject
-		$net->send($net->cmd2($nick, NICK => $nick->str($net)));
+		# sorry, you did not change my nick
+		$net->send($net->cmd2($nick, NICK => $nick->str($net), $nick->ts));
 		();
 	},
 };
