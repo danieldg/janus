@@ -281,12 +281,15 @@ sub save {
 	while (my($class,$vars) = each %Janus::states) {
 		keys %$vars;
 		while (my($var,$val) = each %$vars) {
+			$val = $val->() if 'CODE' eq ref $val;
 			push @vars, $val;
 			push @refs, '*'.$class.'::'.$var;
 		}
 	}
 	open my $f, '>', $out or return 0;
-	print $f Data::Dumper->Dump(\@vars, \@refs);
+	my $d = Data::Dumper->new(\@vars, \@refs);
+	$d->Purity(1)->Toaster('thaw');
+	print $f $d->Dump;
 	close $f;
 	return 1;
 }

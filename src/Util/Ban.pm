@@ -13,10 +13,23 @@ our(@mask);
 Persist::register_vars('Nick::mask' => \@mask);
 
 our @all;
-Janus::save_vars(all => \@all);
+Janus::save_vars(
+	all => sub {
+		[ map Persist::freeze($_), @all ]
+	},
+);
 # "to host" => [ bans ]
 our(%nh_hit, @nh_miss, $nh_ok) = ();
 Janus::static(qw(nh_hit nh_miss nh_ok));
+
+sub _init {
+	my $ban = shift;
+	my $mt = ''.$match[$$ban];
+	if ($mt =~ /^\(\?-xism:.*\)$/) {
+		1 while $mt =~ s/^\(\?-xism:(.*)\)$/$1/;
+		$match[$$ban] = qr/$mt/;
+	}
+}
 
 sub mask {
 	my $n = shift;

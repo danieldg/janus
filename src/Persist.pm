@@ -176,6 +176,30 @@ sub register_vars {
 	}
 }
 
+sub freeze {
+	my $self = shift;
+	my @pkgs = gid_find ref $self;
+	my %data = (
+		'' => ref $self,
+	);
+	for my $pkg (@pkgs) {
+		next unless $init_args{$pkg};
+		for my $arg (keys %{$init_args{$pkg}}) {
+			$data{$arg} = $init_args{$pkg}{$arg}[$$self];
+		}
+	}
+	bless \%data, 'Persist::Blob';
+}
+
+package Persist::Blob;
+sub thaw {
+	my $data = $_[0];
+	my $type = $data->{''};
+	&Persist::new($type, %$data);
+}
+
+package Persist;
+
 sub poison {
 	my $ref = shift;
 	return if ref $ref eq 'Persist::Poison';
