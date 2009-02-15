@@ -287,7 +287,7 @@ sub _netpart {
 
 sub _netclean {
 	my $nick = shift;
-	return if $nick->info('noquit');
+	return if $nick->info('noquit') || $Janus::lmode eq 'Bridge';
 
 	my $home = $nick->homenet;
 	my %leave = @_ ? map { $$_ => $_ } @_ : %{$nets[$$nick]};
