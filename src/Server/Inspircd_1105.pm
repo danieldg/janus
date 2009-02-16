@@ -6,6 +6,7 @@ use Modes;
 use Server::BaseNick;
 use Server::ModularNetwork;
 use Server::InspMods;
+use Util::Crypto;
 
 use Persist 'Server::BaseNick', 'Server::ModularNetwork';
 use strict;
@@ -185,7 +186,16 @@ sub process_capabs {
 				"expected $expect, got $capabs[$$net]{CHANMODES}"));
 	}
 
-	delete $capabs[$$net]{CHALLENGE}; # TODO
+	my $chall = delete $capabs[$$net]{CHALLENGE};
+	my $sha2 = eval { require Digest::SHA; Digest::SHA->new('sha256') };
+	if ($chall && $sha2) {
+		$capabs[$$net]{' HMAC_SPASS'} = 'HMAC-SHA256:'.Util::Crypto::hmac_ihex($sha2, $net->cparam('sendpass'), $chall);
+
+		$chall = Util::Crypto::salt(20, $net, $chall);
+		$capabs[$$net]{CHALLENGE} = $chall;
+
+		$capabs[$$net]{' HMAC_RPASS'} = 'HMAC-SHA256:'.Util::Crypto::hmac_ihex($sha2, $net->cparam('recvpass'), $chall);
+	}
 }
 
 sub protoctl {
@@ -613,11 +623,13 @@ $moddef{CORE} = {
 			$serverdsc[$$net]{lc $_[2]} = $_[-1];
 			return ();
 		} else {
-			if ($_[3] eq $net->cparam('recvpass')) {
+			my $rpass = delete $capabs[$$net]{' HMAC_RPASS'} || $net->cparam('recvpass');
+			if ($_[3] eq $rpass) {
 				$net->auth_recvd;
 				if ($net->auth_should_send) {
+					my $spass = delete $capabs[$$net]{' HMAC_SPASS'} || $net->cparam('sendpass');
 					$sendq1[$$net] .= $net->cmd2(undef, SERVER => $net->cparam('linkname'),
-						$net->cparam('sendpass'), 0, $net, 'Janus Network Link') . "\r\n";
+						$spass, 0, $net, 'Janus Network Link') . "\r\n";
 				}
 				$sendq1[$$net] .= 'BURST '.$Janus::time."\r\n";
 			} else {
@@ -696,14 +708,15 @@ $moddef{CORE} = {
 			my $mods = join ',', sort grep /so$/, $net->all_modules();
 			my $capabs = join ' ', sort map {
 				$_ . '=' . $capabs[$$net]{$_};
-			} keys %{$capabs[$$net]};
+			} grep !/ /, keys %{$capabs[$$net]};
 
 			my @out;
 			push @out, 'CAPAB MODULES '.$1 while $mods =~ s/(.{1,495})(,|$)//;
 			push @out, 'CAPAB CAPABILITIES :'.$1 while $capabs =~ s/(.{1,450})( |$)//;
 			push @out, 'CAPAB END';
 			if ($net->auth_should_send) {
-				push @out, $net->cmd2(undef, SERVER => $net->cparam('linkname'), $net->cparam('sendpass'), 0, 'Janus Network Link');
+				my $spass = delete $capabs[$$net]{' HMAC_SPASS'} || $net->cparam('sendpass');
+				push @out, $net->cmd2(undef, SERVER => $net->cparam('linkname'), $spass, 0, 'Janus Network Link');
 			}
 			$sendq1[$$net] .= join "\r\n", @out, '';
 		} # ignore START and any others

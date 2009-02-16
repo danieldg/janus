@@ -4,31 +4,10 @@ package Commands::Identify;
 use strict;
 use warnings;
 use Account;
+use Util::Crypto;
 
 our @fails;
 &Persist::register_vars('Nick::fails' => \@fails);
-
-sub gen_salt {
-	my($nick,$acct) = @_;
-	my $h = $Janus::new_sha1->();
-	# perl's rand is initialized with 32 bits of entropy from urandom;
-	# the other items are to reduce correlation between people setting
-	# their passwords during the same run of the server
-	$h->add(rand() . $Janus::time . $nick->gid . '!' . $acct);
-	substr $h->b64digest, 0, 8;
-}
-
-# avoid a dependency on Digest::HMAC_SHA1
-sub hash {
-	my($pass, $salt) = @_;
-	my $h = $Janus::new_sha1->();
-	$salt =~ s/(.)/chr(0x36 ^ ord $1)/eg;
-	$h->add($salt)->add($pass);
-	my $v1 = $h->digest;
-	$salt =~ s/(.)/chr(0x6A ^ ord $1)/eg; # HMAC spec says 5c = 6a^36
-	$h->add($salt)->add($v1);
-	$h->b64digest;
-}
 
 &Event::command_add({
 	cmd => 'identify',
@@ -123,8 +102,8 @@ sub hash {
 		} else {
 			return &Janus::jmsg($dst, 'You can only change your own password');
 		}
-		my $salt = gen_salt($src, $user);
-		my $hash = hash($_[-1], $salt);
+		my $salt = Util::Crypto::salt(8, $src, $src->gid, $user);
+		my $hash = Util::Crypto::hmacsha1($_[-1], $salt);
 		$acct->{salt} = $salt;
 		$acct->{pass} = $hash;
 		&Janus::jmsg($dst, 'Done');
