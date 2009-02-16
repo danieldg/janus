@@ -133,6 +133,12 @@ static struct sockifo* find(int netid) {
 static void writable(struct sockifo* ifo) {
 	if (ifo->state.connpend) {
 		ifo->state.connpend = 0;
+		int err = 0;
+		getsockopt(ifo->fd, SOL_SOCKET, SO_ERROR, &err, sizeof(int));
+		if (err) {
+			esock(ifo, strerror(err));
+			return;
+		}
 		ifo->state.poll = ifo->state.frozen ? POLL_HANG : POLL_NORMAL;
 	}
 #if SSL_ENABLED
