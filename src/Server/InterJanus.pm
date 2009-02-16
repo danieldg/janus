@@ -10,7 +10,7 @@ use Channel;
 use RemoteNetwork;
 use Link; # currently does not work in bridge mode
 
-our $IJ_PROTO = '1.10';
+our $IJ_PROTO = '1.11';
 
 our(@sendq, @auth);
 &Persist::register_vars(qw(sendq auth));
@@ -161,18 +161,36 @@ sub kv_pairs {
 	}
 }
 
+sub mkintro {
+	my $ij = shift;
+	my $key = Util::Crypto::salt(8);
+	my $pass = Conffile::value(sendpass => $ij);
+	$Janus::sha1->add(join "\0", $key, $Janus::time, $pass);
+	$pass = $Janus::sha1->b64digest;
+	+{
+		type => 'InterJanus',
+		version => $IJ_PROTO,
+		id => $RemoteJanus::self->id(),
+		rid => $ij->id,
+		key => $key,
+		ts => $Janus::time,
+		pass => $pass,
+	};
+}
+
+sub checkpass {
+	my($ij,$act) = @_;
+	my $pass = Conffile::value(recvpass => $ij);
+	$Janus::sha1->add(join "\0", $act->{key}, $act->{ts}, $pass);
+	$pass = $Janus::sha1->b64digest;
+	($pass eq $act->{pass});
+}
+
 sub intro {
 	my($ij,$nconf, $peer) = @_;
 	$sendq[$$ij] = '';
 	$auth[$$ij] = $peer ? 0 : 1;
-	$ij->send(+{
-		type => 'InterJanus',
-		version => $IJ_PROTO,
-		id => $RemoteJanus::self->id(),
-		rid => $nconf->{id},
-		pass => $nconf->{sendpass},
-		ts => $Janus::time,
-	}) if $auth[$$ij];
+	$ij->send($ij->mkintro) if $auth[$$ij];
 }
 
 sub jlink {
@@ -242,25 +260,18 @@ sub parse {
 			$err = "Unexpected connection: remote was trying to connect to $act->{rid}";
 		} elsif (!$nconf) {
 			$err = "Unknown InterJanus server $id";
-		} elsif ($act->{pass} ne $nconf->{recvpass}) {
-			$err = "Failed authorization";
 		} elsif ($Janus::ijnets{$id} && $Janus::ijnets{$id} ne $ij) {
 			$err = "Already connected";
 		} elsif ($ts_delta >= 20) {
 			$err = "Clocks are too far off (delta=$ts_delta here=$Janus::time there=$act->{ts})";
+		} elsif (!$ij->checkpass($act)) {
+			$err = "Failed authorization";
 		} else {
 			$act->{net} = $ij;
 			$act->{type} = 'JNETLINK';
-			delete $act->{$_} for qw/pass version ts id rid IJ_RAW/;
+			delete $act->{$_} for qw/pass version key ts id rid IJ_RAW/;
 			unless ($auth[$$ij]) {
-				$ij->send(+{
-					type => 'InterJanus',
-					version => $IJ_PROTO,
-					id => $RemoteJanus::self->id(),
-					rid => $nconf->{id},
-					pass => $nconf->{sendpass},
-					ts => $Janus::time,
-				});
+				$ij->send($ij->mkintro);
 			}
 			$auth[$$ij] = 2;
 			return $act;
