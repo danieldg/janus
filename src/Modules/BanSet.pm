@@ -18,10 +18,9 @@ our @sets;
 sub find {
 	my($new, $netto) = @_;
 	my $to = $netto->name;
-	my $nick = $new->homenick;
 	for my $set (@sets) {
 		next unless grep $_ eq $to, split ',', $set->{to};
-		my $itm = $set->{item} eq 'nick' ? $nick : $new->info($set->{item});
+		my $itm = $set->{item} eq 'nick' ? $new->homenick : $new->info($set->{item});
 		next unless defined $itm;
 		next unless $set->{hash}{$itm};
 		return $set;

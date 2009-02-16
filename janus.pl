@@ -32,8 +32,7 @@ $| = 1;
 $SIG{PIPE} = 'IGNORE';
 $SIG{CHLD} = 'IGNORE';
 
-&Janus::load('Conffile') or die;
-&Event::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
+&Janus::load('Conffile') and &Event::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
 unless (%Conffile::netconf) {
 	print "Could not start:\n";
 	require Log::Debug;
