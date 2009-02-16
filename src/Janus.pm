@@ -347,6 +347,9 @@ Event::hook_add(
 		} else {
 			&Log::info('Network '.$net->name.' split: '.$act->{msg});
 		}
+		if (delete $pending{$id}) {
+			return 1;
+		}
 		undef;
 	}, NETSPLIT => act => sub {
 		my $act = shift;
@@ -354,7 +357,6 @@ Event::hook_add(
 		my $id = $net->name();
 		delete $gnets{$net->gid()};
 		delete $nets{$id};
-		delete $pending{$id};
 	}, JNETLINK => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
