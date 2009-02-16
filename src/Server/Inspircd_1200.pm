@@ -150,7 +150,7 @@ sub _connect_ifo {
 	}
 
 	my $ip = $nick->info('ip') || '0.0.0.0';
-	$ip = '0.0.0.0' if $ip eq '*';
+	$ip = '0.0.0.0' if $ip eq '*' || $net->param('untrusted');
 	if ($nick->has_mode('oper')) {
 		my $type = $nick->info('opertype') || 'IRC Operator';
 		my $visible = Setting::get(oper_visibility => $net);
@@ -166,8 +166,10 @@ sub _connect_ifo {
 		push @out, $net->cmd2($nick, OPERTYPE => $type) if $visible;
 	}
 	push @out, $net->cmd2($nick, AWAY => $nick->info('away')) if $nick->info('away');
-	unshift @out, $net->cmd2($nick->homenet(), UID => $nick, $nick->ts(), $nick->str($net), $nick->info('host'),
-		$nick->info('vhost'), $nick->info('ident'), $ip, ($nick->info('signonts') || 1), $mode, @modearg, $nick->info('name'));
+	my $host = $nick->info($net->param('untrusted') ? 'vhost' : 'host');
+	unshift @out, $net->cmd2($nick->homenet, UID => $nick, $nick->ts, $nick->str($net),
+		$host, $nick->info('vhost'), $nick->info('ident'), $ip, ($nick->info('signonts') || 1),
+		$mode, @modearg, $nick->info('name'));
 
 	@out;
 }
@@ -181,12 +183,7 @@ sub process_capabs {
 	}
 	# CHANMAX=65 - not applicable, we never send channels we have not heard before
 	# MAXMODES=20 - checked when calling to_multi
-	# IDENTMAX=12 - TODO
-	# MAXQUIT=255 - TODO
-	# MAXTOPIC=307 - TODO
-	# MAXKICK=255 - TODO
-	# MAXGECOS=128 -TODO
-	# MAXAWAY=200 - TODO
+	# Other maxima are not required to be enforced
 	# IP6NATIVE=1 IP6SUPPORT=1 - we currently require IPv6 support, and claim to be native because we're cool like that :)
 	# PROTOCOL=1201
 	warn "I don't know how to read protocol $capabs[$$net]{PROTOCOL}"
@@ -200,6 +197,13 @@ sub process_capabs {
 		$net->send($net->ncmd(SNONOTICE => 'l', 'Possible desync - CHANMODES do not match module list: '.
 			"expected $expect, got $capabs[$$net]{CHANMODES}"));
 	}
+	$expect = join '', sort map { $net->txt2cmode($_) } grep /^n_/, $net->all_cmodes;
+	$pfxmodes = join '', sort split //, $pfxmodes;
+	if ($expect ne $pfxmodes) {
+		$net->send($net->ncmd(SNONOTICE => 'l', 'Possible desync - PREFIX does not match module list: '.
+			"expected $expect, got $pfxmodes from PREFIX=$capabs[$$net]{PREFIX}"));
+	}
+
 	$expect = '';
 	for ('0'..'9','A'..'Z','a'..'z') {
 		$expect .= $_ if defined $net->umode2txt($_, 1);
@@ -293,7 +297,7 @@ $moddef{CORE} = {
   }, umode_hook => {
 		'snomask' => sub {
 			my($net,$nick,$dir,$out,$marg) = @_;
-			push @$marg, '+c' if $capabs[$$net]{PROTOCOL} >= 1201;
+			push @$marg, '+c' if $net->protoctl >= 1201;
 			's';
 		},
   },
@@ -698,12 +702,8 @@ $moddef{CORE} = {
 		();
 	},
 	PONG => \&ignore,
-	BURST => sub {
-# 		my $net = shift;
-# 		return () if $auth[$$net] != 1;
-# 		$auth[$$net] = 2;
-		();
-	}, CAPAB => sub {
+	BURST => \&ignore,
+	CAPAB => sub {
 		my $net = shift;
 		if ($_[2] eq 'MODULES') {
 			$capabs[$$net]{' MOD'}{$_}++ for split /,/, $_[-1];
@@ -832,18 +832,17 @@ $moddef{CORE} = {
 			return ();
 		} elsif ($_[2] =~ /([^#]?)(#\S*)/) {
 			# channel message, possibly to a mode prefix
+			my($pfx,$dst) = ($1,$net->chan($2));
 			return {
 				type => 'MSG',
 				src => $src,
-				prefix => $1,
-				dst => $net->chan($2),
+				prefix => $pfx,
+				dst => $dst,
 				msg => $_[3],
 				msgtype => $_[1],
-			};
-		} elsif ($_[2] =~ /^(\S+?)(@\S+)?$/) {
-			# nick message, possibly with a server mask
-			# server mask is ignored as the server is going to be wrong anyway
-			my $dst = $net->nick($1);
+			} if $dst;
+		} else {
+			my $dst = $net->nick($_[2]);
 			return +{
 				type => 'MSG',
 				src => $src,
@@ -852,7 +851,6 @@ $moddef{CORE} = {
 				msgtype => $_[1],
 			} if $dst;
 		}
-		();
 	},
 	NOTICE => 'PRIVMSG',
 	MODENOTICE => \&ignore,

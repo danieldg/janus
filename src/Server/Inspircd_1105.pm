@@ -125,7 +125,7 @@ sub _connect_ifo {
 	$srv = $net->cparam('linkname') if $srv eq 'janus.janus';
 
 	my $ip = $nick->info('ip') || '0.0.0.0';
-	$ip = '0.0.0.0' if $ip eq '*';
+	$ip = '0.0.0.0' if $ip eq '*' || $net->param('untrusted');
 	if ($nick->has_mode('oper')) {
 		my $type = $nick->info('opertype') || 'IRC Operator';
 		my $visible = Setting::get(oper_visibility => $net);
@@ -141,7 +141,8 @@ sub _connect_ifo {
 		push @out, $net->cmd2($nick, OPERTYPE => $type) if $visible;
 	}
 	push @out, $net->cmd2($nick, AWAY => $nick->info('away')) if $nick->info('away');
-	unshift @out, $net->cmd2($srv, NICK => $nick->ts(), $nick, $nick->info('host'), $nick->info('vhost'),
+	my $host = $nick->info($net->param('untrusted') ? 'vhost' : 'host');
+	unshift @out, $net->cmd2($srv, NICK => $nick->ts, $nick, $host, $nick->info('vhost'),
 		$nick->info('ident'), $mode, $ip, $nick->info('name'));
 
 	@out;
