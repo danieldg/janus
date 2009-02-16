@@ -347,7 +347,7 @@ Event::hook_add(
 		} else {
 			&Log::info('Network '.$net->name.' split: '.$act->{msg});
 		}
-		if (delete $pending{$id}) {
+		if (delete $pending{$net->name}) {
 			return 1;
 		}
 		undef;
