@@ -7,9 +7,8 @@ use integer;
 
 sub salt {
 	my $len = $_[0];
-	my $h = $Janus::new_sha1->();
-	$h->add(join '!', rand(), $Janus::time, $h, @_);
-	substr $h->b64digest, 0, $len;
+	$Janus::sha1->add(join '!', rand(), $Janus::time, $Janus::global, @_);
+	substr $Janus::sha1->b64digest, 0, $len;
 }
 
 sub hmac {
@@ -34,7 +33,7 @@ sub hmac_ihex {
 
 sub hmacsha1 {
 	my($pass, $salt) = @_;
-	hmac($Janus::new_sha1->(), $salt, $pass)->b64digest;
+	hmac($Janus::sha1, $salt, $pass)->b64digest;
 }
 
 1;

@@ -169,14 +169,14 @@ if ($RELEASE) {
 	close $rcs;
 }
 
-our $new_sha1;
-$new_sha1 ||= eval {
-	require Digest::SHA1;
-	sub { Digest::SHA1->new(); }
-} || eval {
+our $sha1;
+$sha1 ||= eval {
 	require Digest::SHA;
-	sub { Digest::SHA->new('sha1'); }
-} || die "One of Digest::SHA1 or Digest::SHA is required to run";
+	Digest::SHA->new('sha1');
+} || eval {
+	require Digest::SHA1;
+	Digest::SHA1->new();
+} || die "One of Digest::SHA or Digest::SHA1 is required to run";
 
 sub csum_read {
 	my $mod = $_[0];
@@ -185,7 +185,6 @@ sub csum_read {
 	$fn =~ s#::#/#g;
 	my $ver = '?';
 
-	my $sha1 = $new_sha1->();
 	if ($_[1]) {
 		$sha1->addfile($_[1]);
 		seek $_[1], 0, 0;
@@ -313,7 +312,7 @@ unless ($global) {
 }
 
 Janus::info(desc => 'Core module loader');
-Janus::static(qw(global new_sha1 static modinfo));
+Janus::static(qw(global sha1 static modinfo));
 
 Event::hook_add(
 	MODLOAD => check => sub {
