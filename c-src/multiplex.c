@@ -134,7 +134,8 @@ static void writable(struct sockifo* ifo) {
 	if (ifo->state.connpend) {
 		ifo->state.connpend = 0;
 		int err = 0;
-		getsockopt(ifo->fd, SOL_SOCKET, SO_ERROR, &err, sizeof(int));
+		socklen_t esize = sizeof(int);
+		getsockopt(ifo->fd, SOL_SOCKET, SO_ERROR, &err, &esize);
 		if (err) {
 			esock(ifo, strerror(err));
 			return;
