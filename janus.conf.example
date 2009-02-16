@@ -115,20 +115,30 @@ link u3 {
 	netname Test 1
 	# Unreal-only: numerics used for janus servers. Optional, defaults to 100-600
 	numeric_range 40-45,70,85-190
+	# Untrusted: if set, don't send real IP/host to this network
+	# untrusted 1
 }
 
 # Link block for an InspIRCd 1.1 server
 # (protocol details, module list, etc are autonegotiated on connect)
 link i1 {
 	type Inspircd_1105
-	linkaddr ::1
+	# Fallback links: Any parameter that ends in ".1" is changed depending
+	# on which server we are connecting to. Servers are tried in round-robin
+	# fashion, with server 1 always being tried first.
+	linkaddr.1 4.2.2.2
+	linkaddr.2 4.2.2.3
+	# other paramaters can be specified without the link suffix if they are
+	# the same for all fallback servers
 	linkport 8003
 	linkname hub.janus
 	linktype plain
 	# Name of the server that we are linking to; required for inspircd only
-	server penguin.omega.org.za
+	server.1 penguin.omega.org.za
+	server.2 ice.omega.org.za
 	sendpass pass
-	recvpass password
+	recvpass.1 password
+	recvpass.2 passwurd
 	netname Insp Server
 	autoconnect 1
 }

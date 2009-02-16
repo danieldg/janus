@@ -27,26 +27,26 @@ sub delink {
 sub init_pending {
 	my($self, $addr) = @_;
 
-	my $net;
-	my $nconf;
 	for my $id (keys %Conffile::netconf) {
 		next if $Janus::nets{$id} || $Janus::pending{$id} || $Janus::ijnets{$id};
-		$nconf = $Conffile::netconf{$id};
-		if ($nconf->{linkaddr} && $nconf->{linkaddr} eq $addr) {
+		my $nconf = $Conffile::netconf{$id};
+		Conffile::value(fb_max => $nconf);
+		my $fb_max = $nconf->{fb_max};
+		for my $fb_id (0..$fb_max) {
+			my $laddr = $nconf->{'linkaddr'.($fb_id ? '.'.$fb_id : '')};
+			next unless $laddr && $laddr eq $addr;
+			$nconf->{fb_id} = $fb_id;
 			my $type = 'Server::'.$nconf->{type};
 			&Janus::load($type) or next;
-			$net = Persist::new($type, id => $id);
+			my $net = Persist::new($type, id => $id);
 			$Janus::pending{$id} = $net;
-			&Log::info("Incoming connection from $addr for $type network $id (#$$net)");
+			&Log::info("Incoming connection from $addr for $type network $id (server $fb_id)");
 			$net->intro($nconf, $addr);
-			last;
+			return $net;
 		}
 	}
-	unless ($net) {
-		&Log::info("Rejecting connection from $addr, no matching network definition found");
-		return undef;
-	}
-	return $net;
+	&Log::info("Rejecting connection from $addr, no matching network definition found");
+	return undef;
 }
 
 sub dump_sendq { '' }
