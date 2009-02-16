@@ -166,7 +166,9 @@ link cbot {
 	type ClientBot
 	linkaddr 1.2.3.4
 	linkport 6667
-	linktype plain
+	# ClientBot supports 3 link types: ssl, plain, tls.
+	# tls requires the server to support STARTTLS
+	linktype tls
 	nick jmirror
 	nspass NickServPassWord
 	# the nick must already be registered, and the bot will not ghost anyone camping

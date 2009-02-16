@@ -390,4 +390,25 @@ sub list {
 	map { $_ ? $_->[NET] : () } @queues;
 }
 
+sub starttls {
+	my($net, $sslkey, $sslcert, $sslca) = @_;
+	$net = $$net if ref $net;
+	my $sock = $queues[$net][SOCK];
+	my @sslh = (
+		SSL_startHandshake => 0
+	);
+	push @sslh, (
+		SSL_use_cert => 1,
+		SSL_key_file => $sslkey,
+		SSL_cert_file => $sslcert,
+	) if $sslcert;
+	push @sslh, (
+		SSL_verify_mode => 1,
+		SSL_ca_file => $sslca,
+	) if $sslca;
+	IO::Socket::SSL->start_SSL($sock, @sslh);
+	die 'Cannot STARTTLS' unless $sock->isa('IO::Socket::SSL');
+	$sock->connect_SSL();
+}
+
 1;

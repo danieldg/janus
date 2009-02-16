@@ -51,10 +51,14 @@ sub invisquit {
 sub intro {
 	my($net,$param) = @_;
 	$net->SUPER::intro($param);
-	$net->send(
-		'USER mirror gamma * :Janus IRC Client',
-		"NICK $param->{nick}",
-	);
+	if ($net->cparam('linktype') eq 'tls') {
+		$net->send('STARTTLS');
+	} else {
+		$net->send(
+			'USER mirror gamma * :Janus IRC Client',
+			"NICK $param->{nick}",
+		);
+	}
 	$self[$$net] = $param->{nick};
 	$flood_bkt[$$net] = &Setting::get(tbf_burst => $net);
 	$flood_ts[$$net] = $Janus::time;
@@ -720,6 +724,13 @@ sub kicked {
 	# misc
 	'001' => sub {
 		my $net = shift;
+		if ($net->cparam('linktype') eq 'tls' && !delete $capabs[$$net]{' TLS'}) {
+			return {
+				type => 'NETSPLIT',
+				net => $net,
+				msg => 'STARTTLS failed',
+			};
+		}
 		return +{
 			type => 'NETLINK',
 			net => $net,
@@ -737,7 +748,7 @@ sub kicked {
 	'005' => sub {
 		my $net = shift;
 		for (@_[3..($#_-1)]) {
-			if (/^([^=]+)(?:=(.*))?$/) {
+			if (/^([^ =]+)(?:=(.*))?$/) {
 				$capabs[$$net]{$1} = $2;
 			} else {
 				&Log::warn_in($net, "Invalid 005 line: $_");
@@ -954,7 +965,19 @@ sub kicked {
 			dst => $chan,
 			net => $net,
 		};
-	}
+	},
+	670 => sub {
+		my $net = shift;
+		my($ssl_key, $ssl_cert, $ssl_ca) = find_ssl_keys($net->name);
+		&Connection::starttls($net, $ssl_key, $ssl_cert, $ssl_ca);
+		$self[$$net] = $net->param('nick');
+		$net->send(
+			'USER mirror gamma * :Janus IRC Client',
+			"NICK $self[$$net]",
+		);
+		$capabs[$$net]{' TLS'}++;
+		();
+	},
 );
 
 &Event::hook_add(
