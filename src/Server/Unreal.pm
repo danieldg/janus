@@ -138,6 +138,13 @@ my $textip_table = join '', 'A'..'Z','a'..'z', 0 .. 9, '+/';
 
 sub nicklen { 30 }
 
+sub request_nick {
+	my($net, $nick, $reqnick, $tagged) = @_;
+	$tagged = 1 if $reqnick =~ /^ircd?/i;
+	$net->SUPER::request_nick($nick, $reqnick, $tagged);
+}
+
+
 sub str {
 	my $net = shift;
 	$net->jname();

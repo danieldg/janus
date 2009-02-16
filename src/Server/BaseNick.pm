@@ -102,7 +102,8 @@ sub request_nick {
 }
 
 sub request_newnick {
-	&request_nick;
+	my $n = shift;
+	$n->request_nick(@_);
 }
 
 sub request_cnick {
@@ -111,7 +112,7 @@ sub request_cnick {
 	if ($nicks[$$net]{lc $b4} == $nick) {
 		delete $nicks[$$net]{lc $b4};
 	}
-	my $gv = request_nick(@_);
+	my $gv = $net->request_nick($nick, $reqnick, $tagged);
 	return $gv;
 }
 
