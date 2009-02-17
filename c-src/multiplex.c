@@ -296,6 +296,7 @@ static void freeze_net(char* line) {
 		exit(2);
 	ifo->state.frozen = freeze;
 	writable(ifo);
+	ifo->state.poll = POLL_HANG;
 }
 
 static void start_ssl(char* line) {
@@ -438,6 +439,9 @@ static void readable(struct sockifo* ifo) {
 		ifo->ifo_newfd = fd;
 		ifo->state.poll = POLL_HANG;
 		return;
+	}
+	if (ifo->state.poll == POLL_FORCE_ROK) {
+		ifo->state.poll = POLL_NORMAL;
 	}
 #if SSL_ENABLED
 	if (ifo->state.ssl) {
