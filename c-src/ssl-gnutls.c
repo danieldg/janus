@@ -123,7 +123,16 @@ void ssl_writable(struct sockifo* ifo) {
 
 	int size = ifo->sendq.end - ifo->sendq.start;
 	if (!size) {
-		ifo->state.poll = POLL_NORMAL;
+		if (ifo->state.poll == POLL_FORCE_WOK) {
+			int n = gnutls_record_send(ifo->ssl, NULL, 0);
+			if (n == GNUTLS_E_AGAIN || n == GNUTLS_E_INTERRUPTED) {
+				do_eagain(ifo);
+			} else if (n < 0) {
+				esock(ifo, gnutls_strerror(n));
+			} else {
+				ifo->state.poll = POLL_NORMAL;
+			}
+		}
 		return;
 	}
 	int n = gnutls_record_send(ifo->ssl, ifo->sendq.data + ifo->sendq.start, size);
