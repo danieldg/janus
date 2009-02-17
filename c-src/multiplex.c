@@ -363,7 +363,7 @@ static void line_accept(char* line) {
 	nifo->netid = nnetid;
 	nifo->state.type = TYPE_NETWORK;
 	nifo->state.frozen = freeze;
-	nifo->state.poll = freeze ? POLL_HANG : POLL_FORCE_ROK;
+	nifo->state.poll = freeze ? POLL_HANG : POLL_NORMAL;
 }
 
 
@@ -495,6 +495,8 @@ static void mplex() {
 		case POLL_NORMAL:
 			if (ifo->sendq.start != ifo->sendq.end)
 				writable(ifo);
+			if (ifo->fd < 0)
+				continue;
 			need_read = 1;
 			need_write = (ifo->sendq.start != ifo->sendq.end);
 			break;
