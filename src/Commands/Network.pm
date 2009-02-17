@@ -90,7 +90,7 @@ use integer;
 		if (defined $onoff && $onoff =~ /^\d+$/) {
 			&Log::audit("Autoconnect on $id ".($onoff ? 'enabled' : 'disabled').' by '.$src->netnick);
 			$nconf->{autoconnect} = $onoff ? 1 : 0;
-			$nconf->{backoff} = $onoff * ($onoff - 1) / 2;
+			$nconf->{fb_id} = $onoff;
 			&Janus::jmsg($dst, 'Done');
 		} else {
 			&Janus::jmsg($dst, 'Autoconnect is '.($nconf->{autoconnect} ? 'on' : 'off').
