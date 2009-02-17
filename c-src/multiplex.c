@@ -124,6 +124,8 @@ static struct sockifo* find(int netid) {
 		return NULL;
 	for(i=0; i < sockets->count; i++) {
 		struct sockifo* ifo = sockets->net + i;
+		if (ifo->state.mplex_dropped)
+			continue;
 		if (ifo->netid == netid)
 			return ifo;
 	}
