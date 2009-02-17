@@ -21,7 +21,22 @@ sub hmac {
 	$h;
 }
 
-sub hmac_ihex {
+sub hmac_inspircd11_style {
+	my($h, $p, $m) = @_;
+	$p =~ s/(.)/chr(0x36 ^ ord $1)/eg;
+	$p .= $m;
+	$p =~ s/\x00.*//s;
+	$h->add($p);
+	my $v = $h->hexdigest;
+	$p = $_[1];
+	$p =~ s/(.)/chr(0x5C ^ ord $1)/eg;
+	$p .= $v;
+	$p =~ s/\x00.*//;
+	$h->add($p);
+	$h->hexdigest;
+}
+
+sub hmac_inspircd12_style {
 	my($h, $p, $m) = @_;
 	$p =~ s/(.)/chr(0x36 ^ ord $1)/eg;
 	$h->add($p)->add($m);

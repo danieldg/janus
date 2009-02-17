@@ -189,12 +189,12 @@ sub process_capabs {
 	my $chall = delete $capabs[$$net]{CHALLENGE};
 	my $sha2 = eval { require Digest::SHA; Digest::SHA->new('sha256') };
 	if ($chall && $sha2) {
-		$capabs[$$net]{' HMAC_SPASS'} = 'HMAC-SHA256:'.Util::Crypto::hmac_ihex($sha2, $net->cparam('sendpass'), $chall);
+		$capabs[$$net]{' HMAC_SPASS'} = 'HMAC-SHA256:'.Util::Crypto::hmac_inspircd11_style($sha2, $net->cparam('sendpass'), $chall);
 
 		$chall = Util::Crypto::salt(20, $net, $chall);
 		$capabs[$$net]{CHALLENGE} = $chall;
 
-		$capabs[$$net]{' HMAC_RPASS'} = 'HMAC-SHA256:'.Util::Crypto::hmac_ihex($sha2, $net->cparam('recvpass'), $chall);
+		$capabs[$$net]{' HMAC_RPASS'} = 'HMAC-SHA256:'.Util::Crypto::hmac_inspircd11_style($sha2, $net->cparam('recvpass'), $chall);
 	}
 }
 
