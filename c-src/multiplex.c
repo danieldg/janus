@@ -497,14 +497,12 @@ static void mplex() {
 		int need_read, need_write;
 		switch (ifo->state.poll) {
 		case POLL_NORMAL:
-			if (ifo->sendq.start != ifo->sendq.end)
-				writable(ifo);
-			if (ifo->fd < 0)
-				continue;
+			writable(ifo);
 			need_read = 1;
 			need_write = (ifo->sendq.start != ifo->sendq.end);
 			break;
 		case POLL_FORCE_ROK:
+			writable(ifo);
 			need_read = 1;
 			need_write = 0;
 			break;
@@ -517,6 +515,8 @@ static void mplex() {
 			need_read = 0;
 			need_write = 0;
 		}
+		if (ifo->fd < 0)
+			continue;
 		if (need_read)
 			FD_SET(ifo->fd, &rok);
 		if (need_write)
