@@ -16,7 +16,20 @@ Event::hook_add(
 		if ($t eq 'Q') {
 			my $m = $act->{mask};
 			return if $m =~ /\*/;
-			$qlines[$$net]{$m} = [ $m, $act->{expire} ];
+			$qlines[$$net]{lc $m} = [ $m, $act->{expire} ];
+		}
+	},
+	CONNECT => 'act:-1' => sub {
+		my $act = shift;
+		my $n = $act->{dst};
+		my $nick = $n->homenick;
+		my $net = $act->{net};
+		return if $net->jlink || $net == $n->homenet;
+		my $line = $qlines[$$net]{lc $nick} or return;
+		if ($line->[1] && $line->[1] < $Janus::time) {
+			delete $qlines[$$net]{lc $nick};
+		} else {
+			$act->{tag} = 1;
 		}
 	},
 	NICK => 'act:-1' => sub {
@@ -27,9 +40,9 @@ Event::hook_add(
 		$act->{tag} = $ftag;
 		for my $net ($n->netlist) {
 			next if $net->jlink || $net == $n->homenet;
-			my $line = $qlines[$$net]{$nick} or next;
+			my $line = $qlines[$$net]{lc $nick} or next;
 			if ($line->[1] && $line->[1] < $Janus::time) {
-				delete $qlines[$$net]{$nick};
+				delete $qlines[$$net]{lc $nick};
 			} else {
 				$ftag->{$$net} = 1;
 			}
