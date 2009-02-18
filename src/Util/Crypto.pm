@@ -11,6 +11,7 @@ sub salt {
 	substr $Janus::sha1->b64digest, 0, $len;
 }
 
+# Proper HMAC
 sub hmac {
 	my($h, $p, $m) = @_;
 	$p =~ s/(.)/chr(0x36 ^ ord $1)/eg;
@@ -21,21 +22,23 @@ sub hmac {
 	$h;
 }
 
+# NOTE: this HMAC algorithm is insecure, do not use except with inspircd 1.1. It
+# is still more secure than plaintext passwords in almost all cases.
 sub hmac_inspircd11_style {
 	my($h, $p, $m) = @_;
 	$p =~ s/(.)/chr(0x36 ^ ord $1)/eg;
 	$p .= $m;
 	$p =~ s/\x00.*//s;
 	$h->add($p);
-	my $v = $h->hexdigest;
 	$p = $_[1];
 	$p =~ s/(.)/chr(0x5C ^ ord $1)/eg;
-	$p .= $v;
+	$p .= $h->hexdigest;
 	$p =~ s/\x00.*//;
 	$h->add($p);
 	$h->hexdigest;
 }
 
+# HMAC using hexadecimal output on the intermediate hash
 sub hmac_inspircd12_style {
 	my($h, $p, $m) = @_;
 	$p =~ s/(.)/chr(0x36 ^ ord $1)/eg;
