@@ -22,7 +22,7 @@ sub get_aid {
 }
 
 our %auth_cache;
-&Janus::static(qw(auth_cache)); # is a cache, so not part of state
+Janus::static(qw(auth_cache)); # is a cache, so not part of state
 
 sub find_account {
 	my $id = shift;
@@ -37,7 +37,7 @@ sub find_account {
 	$auth_cache{$id};
 }
 
-&Event::command_add({
+Event::command_add({
 	cmd => 'svsaccount',
 	help => 'Associates a services account with a janus account',
 	section => 'Account',
@@ -50,47 +50,47 @@ sub find_account {
 	acl => 'user',
 	code => sub {
 		my($src,$dst,$cmd,$idx) = @_;
-		my $local_id = &Account::has_local($src);
-		return &Janus::jmsg($dst, 'You need a local account for this command') unless $local_id;
-		my $auth = &Account::get($src, 'svsauth');
+		my $local_id = Account::has_local($src);
+		return Janus::jmsg($dst, 'You need a local account for this command') unless $local_id;
+		my $auth = Account::get($src, 'svsauth');
 		if ($cmd eq 'add') {
 			my $acctid = get_aid($src);
 			if ($acctid) {
-				&Account::set($src, 'svsauth', $auth ? "$auth $acctid" : $acctid);
+				Account::set($src, 'svsauth', $auth ? "$auth $acctid" : $acctid);
 				$auth_cache{$acctid} = $local_id;
-				&Janus::jmsg($dst, "Account $acctid authorized for your account");
+				Janus::jmsg($dst, "Account $acctid authorized for your account");
 			} else {
-				&Janus::jmsg($dst, 'You are not logged into services');
+				Janus::jmsg($dst, 'You are not logged into services');
 			}
 		} elsif ($cmd eq 'list') {
 			if ($auth) {
-				&Janus::jmsg($dst, "Services accounts authorized: $auth");
+				Janus::jmsg($dst, "Services accounts authorized: $auth");
 			} else {
-				&Janus::jmsg($dst, 'No services accounts authorized');
+				Janus::jmsg($dst, 'No services accounts authorized');
 			}
 		} elsif ($cmd eq 'del') {
 			my %ids;
 			$ids{$_}++ for split /\s+/, $auth;
 			if (delete $ids{$idx}) {
-				&Account::set($src, 'svsauth', join ' ', keys %ids);
+				Account::set($src, 'svsauth', join ' ', keys %ids);
 				delete $auth_cache{$idx};
-				&Janus::jmsg($dst, 'Deleted');
+				Janus::jmsg($dst, 'Deleted');
 			} else {
-				&Janus::jmsg($dst, 'Not found');
+				Janus::jmsg($dst, 'Not found');
 			}
 		} else {
-			&Janus::jmsg($dst, 'See "help svsaccount" for usage');
+			Janus::jmsg($dst, 'See "help svsaccount" for usage');
 		}
 	},
 });
 
-&Event::hook_add(
+Event::hook_add(
 	NEWNICK => act => sub {
 		my $act = shift;
 		my $nick = $act->{dst};
 		my $svsacct = get_aid($nick) or return;
 		my $jacct = find_account($svsacct) or return;
-		&Event::append({
+		Event::append({
 			type => 'NICKINFO',
 			dst => $nick,
 			item => 'account:'.$RemoteJanus::self->id,
@@ -102,7 +102,7 @@ sub find_account {
 		my $nick = $act->{dst};
 		my $svsacct = get_aid($nick) or return;
 		my $jacct = find_account($svsacct) or return;
-		&Event::append({
+		Event::append({
 			type => 'NICKINFO',
 			dst => $nick,
 			item => 'account:'.$RemoteJanus::self->id,
@@ -114,7 +114,7 @@ sub find_account {
 		my $nick = $act->{dst};
 		my $svsacct = get_aid($nick) or return;
 		my $jacct = find_account($svsacct) or return;
-		&Event::append({
+		Event::append({
 			type => 'NICKINFO',
 			dst => $nick,
 			item => 'account:'.$RemoteJanus::self->id,

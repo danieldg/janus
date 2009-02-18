@@ -26,7 +26,7 @@ $mtype{$_} = 'r' for qw/
 
 our @nmode_txt = qw{owner admin op halfop voice};
 our @nmode_sym = qw{~ & @ % +};
-&Janus::static(qw(nmode_txt nmode_sym mtype));
+Janus::static(qw(nmode_txt nmode_sym mtype));
 
 =head1 IRC Mode utilities
 
@@ -90,13 +90,13 @@ sub from_irc {
 			if ($txt =~ s/^t(\d+)/r/) {
 				$arg = $1;
 			} else {
-				&Log::warn_in($net, "Invalid mode text $txt for mode $_ in network $net");
+				Log::warn_in($net, "Invalid mode text $txt for mode $_ in network $net");
 				next;
 			}
 		} elsif ($type eq 'r') {
 			$arg = 1;
 		} else {
-			&Log::warn_in($net, "Invalid mode text $txt for mode $_ in network $net");
+			Log::warn_in($net, "Invalid mode text $txt for mode $_ in network $net");
 			next;
 		}
 		next if 3 > length $txt;
@@ -145,7 +145,7 @@ sub to_multi {
 			$char = $net->txt2cmode('s_'.$txt);
 			$out = 0 if $dir eq '-' && defined $char;
 		}
-		
+
 		if (!defined $char && $type eq 'r') {
 			# maybe a tristate mode?
 			my $ar1 = $net->txt2cmode('t1_'.$txt);

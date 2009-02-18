@@ -16,12 +16,12 @@ my %help_section = (
 	Other => 'Other',
 );
 
-&Event::command_add({
+Event::command_add({
 	cmd => 'about',
 	help => 'Provides information about janus',
 	section => 'Info',
 	code => sub {
-		&Janus::jmsg($_[1], 
+		Janus::jmsg($_[1],
 			'Janus is a server that allows IRC networks to share certain channels to other',
 			'linked networks without needing to share all channels and make all users visible',
 			'across both networks. If configured to allow it, users can also share their own',
@@ -65,7 +65,7 @@ my %help_section = (
 			next unless $v;
 			push @mvs, [ $_, $v ];
 		}
-		&Interface::msgtable($dst, \@mvs, cols => $w, fmtfmt => [ '%%-%ds', '%%%ds' ]);
+		Interface::msgtable($dst, \@mvs, cols => $w, fmtfmt => [ '%%-%ds', '%%%ds' ]);
 	}
 }, {
 	cmd => 'modinfo',
@@ -76,12 +76,12 @@ my %help_section = (
 	],
 	code => sub {
 		my($src,$dst,$mod) = @_;
-		return &Janus::jmsg($dst, 'Module not loaded') unless $Janus::modinfo{$mod};
+		return Janus::jmsg($dst, 'Module not loaded') unless $Janus::modinfo{$mod};
 		my $ifo = $Janus::modinfo{$mod};
 		my $active = $ifo->{active} ? 'active' : 'inactive';
-		&Janus::jmsg($dst, "Module $mod is at version $ifo->{version}; hooks are $active",
+		Janus::jmsg($dst, "Module $mod is at version $ifo->{version}; hooks are $active",
 			"Source checksum is $ifo->{sha}");
-		&Janus::jmsg($dst, ' '.$ifo->{desc}) if $ifo->{desc};
+		Janus::jmsg($dst, ' '.$ifo->{desc}) if $ifo->{desc};
 		my(@hooks, @cmds, @sets);
 		for my $cmd (sort keys %Event::commands) {
 			next unless $Event::commands{$cmd}{class} eq $mod;
@@ -95,9 +95,9 @@ my %help_section = (
 			next unless $Event::hook_mod{$lvl}{$mod};
 			push @hooks, $lvl;
 		}
-		&Janus::jmsg($dst, 'Provides commands: '. join ' ', @cmds) if @cmds;
-		&Janus::jmsg($dst, 'Provides settings: '. join ' ', @sets) if @sets;
-		&Janus::jmsg($dst, 'Hooks: '. join ' ', @hooks) if @hooks;
+		Janus::jmsg($dst, 'Provides commands: '. join ' ', @cmds) if @cmds;
+		Janus::jmsg($dst, 'Provides settings: '. join ' ', @sets) if @sets;
+		Janus::jmsg($dst, 'Hooks: '. join ' ', @hooks) if @hooks;
 	},
 }, {
 	cmd => 'reload',
@@ -111,16 +111,16 @@ my %help_section = (
 	acl => 'reload',
 	code => sub {
 		my($src,$dst,$name) = @_;
-		return &Janus::jmsg($dst, "Invalid module name") unless $name =~ /^([0-9_A-Za-z:]+)$/;
+		return Janus::jmsg($dst, "Invalid module name") unless $name =~ /^([0-9_A-Za-z:]+)$/;
 		my $n = $1;
 		my $over = $Janus::modinfo{$n}{version} || 'none';
-		if (&Janus::reload($n)) {
+		if (Janus::reload($n)) {
 			my $ver = $Janus::modinfo{$n}{version} || 'unknown';
-			&Log::audit("Module $n reloaded ($over => $ver) by " . $src->netnick);
-			&Janus::jmsg($dst, "Module $n reloaded ($over => $ver)");
+			Log::audit("Module $n reloaded ($over => $ver) by " . $src->netnick);
+			Janus::jmsg($dst, "Module $n reloaded ($over => $ver)");
 		} else {
-			&Log::audit("Reload of module $n by ".$src->netnick.' failed');
-			&Janus::jmsg($dst, "Module load failed");
+			Log::audit("Reload of module $n by ".$src->netnick.' failed');
+			Janus::jmsg($dst, "Module load failed");
 		}
 	},
 }, {
@@ -131,12 +131,12 @@ my %help_section = (
 	code => sub {
 		my($src,$dst,$name) = @_;
 		if ($name !~ /::/ || $name eq __PACKAGE__) {
-			&Janus::jmsg($dst, "You cannot unload the core module $name");
+			Janus::jmsg($dst, "You cannot unload the core module $name");
 			return;
 		}
-		&Janus::unload($name);
-		&Log::audit("Module $name unloaded by ".$src->netnick);
-		&Janus::jmsg($dst, "Module $name unloaded");
+		Janus::unload($name);
+		Log::audit("Module $name unloaded by ".$src->netnick);
+		Janus::jmsg($dst, "Module $name unloaded");
 	}
 }, {
 	cmd => 'help',
@@ -151,22 +151,22 @@ my %help_section = (
 		if (exists $Event::commands{lc $item}) {
 			my $det = $Event::commands{$item}{details};
 			if (ref $det) {
-				&Janus::jmsg($dst, @$det);
+				Janus::jmsg($dst, @$det);
 			} elsif ($Event::commands{$item}{help}) {
-				&Janus::jmsg($dst, "$item - $Event::commands{$item}{help}");
+				Janus::jmsg($dst, "$item - $Event::commands{$item}{help}");
 			} else {
-				&Janus::jmsg($dst, 'No help exists for that command');
+				Janus::jmsg($dst, 'No help exists for that command');
 			}
 			my $acl = $Event::commands{$item}{acl};
 			if ($acl) {
 				$acl = 'oper' if $acl eq '1';
-				my $allow = &Account::acl_check($src, $acl) ? 'you' : 'you do not';
-				&Janus::jmsg($dst, "Requires access to '$acl' ($allow currently have access)");
+				my $allow = Account::acl_check($src, $acl) ? 'you' : 'you do not';
+				Janus::jmsg($dst, "Requires access to '$acl' ($allow currently have access)");
 			}
 			my $aclchk = $Event::commands{$item}{aclchk};
 			if ($aclchk) {
-				my $allow = &Account::acl_check($src, $aclchk) ? 'you' : 'you do not';
-				&Janus::jmsg($dst, "Some options may require access to '$aclchk' ($allow currently have access)");
+				my $allow = Account::acl_check($src, $aclchk) ? 'you' : 'you do not';
+				Janus::jmsg($dst, "Some options may require access to '$aclchk' ($allow currently have access)");
 			}
 		} else {
 			my %cmds;
@@ -177,17 +177,17 @@ my %help_section = (
 				next unless $h;
 				if ($acl && $item ne 'all') {
 					$acl = 'oper' if $acl eq '1';
-					next unless &Account::acl_check($src, $acl);
+					next unless Account::acl_check($src, $acl);
 				}
 				my $section = $Event::commands{$cmd}{section} || 'Other';
 				$cmds{$section} ||= [];
 				push @{$cmds{$section}}, $cmd;
 				$synlen = length $cmd if length $cmd > $synlen;
 			}
-			&Janus::jmsg($dst, "Use '\002HELP\002 command' for details");
+			Janus::jmsg($dst, "Use '\002HELP\002 command' for details");
 			for my $section (sort keys %cmds) {
 				my $sname = $help_section{$section} || $section;
-				&Janus::jmsg($dst, $sname.':', map {
+				Janus::jmsg($dst, $sname.':', map {
 					sprintf " \002\%-${synlen}s\002  \%s", uc $_, $Event::commands{$_}{help};
 				} @{$cmds{$section}});
 			}

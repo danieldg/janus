@@ -7,7 +7,7 @@ use strict;
 use warnings;
 use Carp;
 
-sub all_nicks { 
+sub all_nicks {
 	my $net = shift;
 	grep { $_->is_on($net) } values %Janus::gnicks;
 }

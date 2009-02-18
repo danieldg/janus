@@ -23,7 +23,7 @@ our %request;
 #  mode 2: deny default
 #   ack{net} => =1 allows
 
-&Janus::save_vars(request => \%request);
+Janus::save_vars(request => \%request);
 
 sub link_to_janus {
 	my $chan = shift;
@@ -69,7 +69,7 @@ sub autolink_from {
 			linkfile => 1,
 		};
 	}
-	&Event::append(@acts);
+	Event::append(@acts);
 }
 
 sub autolink_to {
@@ -96,7 +96,7 @@ sub autolink_to {
 			};
 		}
 	}
-	&Event::append(@acts);
+	Event::append(@acts);
 }
 
 sub send_avail {
@@ -120,7 +120,7 @@ sub send_avail {
 	$ij->send(@acts);
 }
 
-&Event::hook_add(
+Event::hook_add(
 	NETLINK => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
@@ -196,7 +196,7 @@ sub send_avail {
 				Log::info($logpfx, 'destination already on requested network');
 				return;
 			}
-			&Event::append({
+			Event::append({
 				type => 'CHANLINK',
 				dst => $dchan,
 				in => $schan,
@@ -243,12 +243,12 @@ sub send_avail {
 			# standard delink
 			delete $request{$nname}{$cname};
 		} elsif ($cause !~ /split2?|destroy2/) {
-			&Log::warn("Unknown cause in DELINK: $cause");
+			Log::warn("Unknown cause in DELINK: $cause");
 		}
 	},
 );
 
-&Event::setting_add({
+Event::setting_add({
 	name => 'link_requires',
 	type => 'LocalNetwork',
 	help => [

@@ -4,17 +4,17 @@ package Commands::Save;
 use strict;
 use warnings;
 
-&Event::command_add({
+Event::command_add({
 	cmd => 'save',
 	help => 'Save janus state to filesystem',
 	section => 'Admin',
 	acl => 1,
 	code => sub {
 		my($src,$dst,$args) = @_;
-		if (&Conffile::save()) {
-			&Janus::jmsg($dst, 'Saved');
+		if (Conffile::save()) {
+			Janus::jmsg($dst, 'Saved');
 		} else {
-			&Janus::jmsg($dst, "Could not save: $!");
+			Janus::jmsg($dst, "Could not save: $!");
 		}
 	}
 });

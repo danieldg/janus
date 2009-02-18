@@ -13,7 +13,7 @@ use integer;
 use Link;
 
 our(@sendq, @self, @kicks, @lchan, @cmode2txt, @txt2cmode, @capabs, @flood_bkt, @flood_ts, @half_cmd);
-&Persist::register_vars(qw(sendq self kicks lchan cmode2txt txt2cmode capabs flood_bkt flood_ts half_cmd));
+Persist::register_vars(qw(sendq self kicks lchan cmode2txt txt2cmode capabs flood_bkt flood_ts half_cmd));
 # $kicks[$$net]{$lid$channel} = 1 for a rejoin enabled
 # lchan = last channel we tried to join
 # half_cmd = Part of a multi-line response that will be processed later
@@ -30,7 +30,7 @@ sub unkick {
 	my $e = shift;
 	my($net, $nick, $chan) = @$e{qw(net nick chan)};
 	return unless $net && $nick && $chan && $kicks[$$net]{$$nick.$chan->str($net)};
-	&Event::insert_full(+{
+	Event::insert_full(+{
 		type => 'JOIN',
 		src => $nick,
 		dst => $chan,
@@ -41,7 +41,7 @@ sub invisquit {
 	my $e = shift;
 	my $nick = $e->{nick} or return;
 	return if $nick->all_chans;
-	&Event::insert_full(+{
+	Event::insert_full(+{
 		type => 'QUIT',
 		dst => $nick,
 		msg => 'Janus relay bot cannot see this nick',
@@ -60,7 +60,7 @@ sub intro {
 		);
 	}
 	$self[$$net] = $param->{nick};
-	$flood_bkt[$$net] = &Setting::get(tbf_burst => $net);
+	$flood_bkt[$$net] = Setting::get(tbf_burst => $net);
 	$flood_ts[$$net] = $Janus::time;
 }
 
@@ -138,7 +138,7 @@ sub cli_hostintro {
 		};
 		weaken($evt->{net});
 		weaken($evt->{nick});
-		&Event::schedule($evt);
+		Event::schedule($evt);
 
 		my($ok, @acts) = $net->nick_collide($nname, $nick);
 		warn 'Invalid clientbot collision' unless $ok;
@@ -181,7 +181,7 @@ sub cli_hostintro {
 sub parse {
 	my ($net, $line) = @_;
 	my @out;
-	&Log::netin(@_);
+	Log::netin(@_);
 	my ($txt, $msg) = split /\s+:/, $line, 2;
 	my @args = split /\s+/, $txt;
 	push @args, $msg if defined $msg;
@@ -196,7 +196,7 @@ sub parse {
 	my $cmd = $args[1];
 	$cmd = $fromirc{$cmd} || $cmd;
 	unless (ref $cmd) {
-		&Log::warn_in($net, "Unknown command in line $line");
+		Log::warn_in($net, "Unknown command in line $line");
 		return ();
 	}
 	push @out, $cmd->($net,@args);
@@ -229,7 +229,7 @@ sub _out {
 		return $net->cparam('linkname') if $itm eq $net;
 		return $itm->jname();
 	} else {
-		&Log::warn_in($net,"Unknown item $itm");
+		Log::warn_in($net,"Unknown item $itm");
 		return '';
 	}
 }
@@ -245,7 +245,7 @@ sub cmd1 {
 	$out;
 }
 
-&Event::setting_add({
+Event::setting_add({
 	name => 'tbf_rate',
 	type => __PACKAGE__,
 	help => 'Flood rate (lines/second)',
@@ -261,15 +261,15 @@ sub dump_sendq {
 	my $net = shift;
 	local $_;
 	my $tokens = $flood_bkt[$$net];
-	my $rate = &Setting::get(tbf_rate => $net);
-	my $max = &Setting::get(tbf_burst => $net);
+	my $rate = Setting::get(tbf_rate => $net);
+	my $max = Setting::get(tbf_burst => $net);
 	$tokens += ($Janus::time - $flood_ts[$$net])*$rate;
 	$tokens = $max if $tokens > $max;
 	my $q = '';
 	while ($tokens && @{$sendq[$$net]}) {
 		my $line = shift @{$sendq[$$net]};
 		$q .= $line . "\r\n";
-		&Log::netout($net, $line);
+		Log::netout($net, $line);
 		$tokens--;
 	}
 	$flood_ts[$$net] = $Janus::time;
@@ -279,7 +279,7 @@ sub dump_sendq {
 			delay => 1,
 			code => sub { $awaken = undef; },
 		};
-		&Event::schedule($awaken);
+		Event::schedule($awaken);
 	}
 	$q;
 }
@@ -287,13 +287,13 @@ sub dump_sendq {
 sub request_newnick {
 	my($net, $nick, $reqnick, $tag) = @_;
 	$reqnick = $self[$$net] if $nick == $Interface::janus;
-	&Server::BaseNick::request_nick($net, $nick, $reqnick, $tag);
+	Server::BaseNick::request_nick($net, $nick, $reqnick, $tag);
 }
 
 sub request_cnick {
 	my($net, $nick, $reqnick, $tag) = @_;
 	$reqnick = $self[$$net] if $nick == $Interface::janus;
-	&Server::BaseNick::request_cnick($net, $nick, $reqnick, $tag);
+	Server::BaseNick::request_cnick($net, $nick, $reqnick, $tag);
 }
 
 sub nicklen { 40 }
@@ -387,7 +387,7 @@ sub nicklen { 40 }
 		weaken($evt->{net});
 		weaken($evt->{nick});
 		weaken($evt->{chan});
-		&Event::schedule($evt);
+		Event::schedule($evt);
 		$kicks[$$net]{$$nick.$cn} = 1;
 		"KICK $cn $nn :$src $act->{msg}";
 	},
@@ -404,7 +404,7 @@ sub nicklen { 40 }
 				splice @ma, $i, 1;
 				splice @md, $i, 1;
 			} elsif ($mm[$i] eq 'cb_modesync' && $md[$i] eq '+') {
-				my @modes = &Modes::to_multi($net, &Modes::delta(undef, $chan), $capabs[$$net]{MODES});
+				my @modes = Modes::to_multi($net, Modes::delta(undef, $chan), $capabs[$$net]{MODES});
 				return map $net->cmd1(MODE => $chan, @$_), @modes;
 			} else {
 				$i++;
@@ -412,7 +412,7 @@ sub nicklen { 40 }
 		}
 		return () unless $chan->get_mode('cb_modesync');
 
-		my @modes = &Modes::to_multi($net, \@mm, \@ma, \@md, $capabs[$$net]{MODES});
+		my @modes = Modes::to_multi($net, \@mm, \@ma, \@md, $capabs[$$net]{MODES});
 		map $net->cmd1(MODE => $chan, @$_), @modes;
 	},
 	TOPIC => sub {
@@ -435,24 +435,24 @@ sub nicklen { 40 }
 		}
 		if ($m eq 'Q') {
 			my $qpass = $net->param('qauth') || '';
-			&Log::err_in($net, "Bad qauth syntax $qpass") unless $qpass && $qpass =~ /^\s*\S+\s+\S+\s*$/;
+			Log::err_in($net, "Bad qauth syntax $qpass") unless $qpass && $qpass =~ /^\s*\S+\s+\S+\s*$/;
 			'PRIVMSG Q@CServe.quakenet.org :AUTH '.$qpass;
 		} elsif ($m eq 'ns') {
 			my $pass = $net->param('nspass') || '';
-			&Log::err_in($net, "Bad nickserv password $pass") unless $pass;
+			Log::err_in($net, "Bad nickserv password $pass") unless $pass;
 			"PRIVMSG NickServ :IDENTIFY $pass";
 		} elsif ($m eq 'nsalias') {
 			my $pass = $net->param('nspass') || '';
-			&Log::err_in($net, "Bad nickserv password $pass") unless $pass;
+			Log::err_in($net, "Bad nickserv password $pass") unless $pass;
 			"NICKSERV :IDENTIFY $pass";
 		} elsif ($m ne '') {
-			&Log::warn_in($net, "Unknown identify method $m");
+			Log::warn_in($net, "Unknown identify method $m");
 			();
 		}
 	},
 	WHOIS => sub {
 		my($net,$act) = @_;
-		&Event::append(&Interface::whois_reply($act->{src}, $act->{dst}, 0, 0));
+		Event::append(&Interface::whois_reply($act->{src}, $act->{dst}, 0, 0));
 		();
 	},
 );
@@ -464,13 +464,13 @@ sub cb_cmd {
 		my $chan = $net->chan($1);
 		if ($chan) {
 			my @nicks = grep { $_->homenet != $net } $chan->all_nicks;
-			my @table = map [ &Modes::chan_pfx($chan, $_) . $_->str($net) ], @nicks;
-			&Interface::msgtable($src, \@table, cols => 6, pfx => $1.' ');
+			my @table = map [ Modes::chan_pfx($chan, $_) . $_->str($net) ], @nicks;
+			Interface::msgtable($src, \@table, cols => 6, pfx => $1.' ');
 		} else {
-			&Janus::jmsg($src, 'Not on that channel');
+			Janus::jmsg($src, 'Not on that channel');
 		}
 	} else {
-		&Janus::jmsg($src, 'Unknown command');
+		Janus::jmsg($src, 'Unknown command');
 	}
 	return ();
 }
@@ -508,7 +508,7 @@ sub pm_not {
 						method => 'ns',
 					};
 				} elsif ($_[3] =~ /wrong\spassword/ ) {
-					&Log::err_in($net, "Wrong password mentioned in the config file.");
+					Log::err_in($net, "Wrong password mentioned in the config file.");
 				}
 			} elsif (uc $_[0] eq 'Q' && $_[3] =~ /registered/i ) {
 				return +{
@@ -689,7 +689,7 @@ sub kicked {
 			my $nick = $net->item($_[0]) or return ();
 			my $chan = $net->chan($_[2]) or return ();
 			return () unless $chan->get_mode('cb_modesync');
-			my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, @_[3 .. $#_]);
+			my($modes,$args,$dirs) = Modes::from_irc($net, $chan, @_[3 .. $#_]);
 			my $i = 0;
 			while ($i < @$modes) {
 				if (Modes::mtype($modes->[$i]) eq 'n' && $args->[$i]->homenet != $net) {
@@ -751,7 +751,7 @@ sub kicked {
 			if (/^([^ =]+)(?:=(.*))?$/) {
 				$capabs[$$net]{$1} = $2;
 			} else {
-				&Log::warn_in($net, "Invalid 005 line: $_");
+				Log::warn_in($net, "Invalid 005 line: $_");
 			}
 		}
 		my(@g,@ltype,@ttype);
@@ -969,7 +969,7 @@ sub kicked {
 	670 => sub {
 		my $net = shift;
 		my($ssl_key, $ssl_cert, $ssl_ca) = find_ssl_keys($net->name);
-		&Connection::starttls($net, $ssl_key, $ssl_cert, $ssl_ca);
+		Connection::starttls($net, $ssl_key, $ssl_cert, $ssl_ca);
 		$self[$$net] = $net->param('nick');
 		$net->send(
 			'USER mirror gamma * :Janus IRC Client',
@@ -980,11 +980,11 @@ sub kicked {
 	},
 );
 
-&Event::hook_add(
+Event::hook_add(
 	INFO => 'Network:1' => sub {
 		my($dst, $net, $asker) = @_;
 		return unless $net->isa(__PACKAGE__);
-		&Janus::jmsg($dst, 'Server 005 line: '.join ' ', sort map {
+		Janus::jmsg($dst, 'Server 005 line: '.join ' ', sort map {
 			defined $capabs[$$net]{$_} ? "$_=$capabs[$$net]{$_}" : $_
 		} keys %{$capabs[$$net]});
 	},

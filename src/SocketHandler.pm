@@ -8,11 +8,11 @@ use Persist;
 
 our $ping;
 our @pingt;
-&Persist::register_vars(qw(pingt));
+Persist::register_vars(qw(pingt));
 
 sub pingall {
 	my $timeout = $Janus::time - 100;
-	my @all = &Connection::list();
+	my @all = Connection::list();
 	for my $net (@all) {
 		next if ref $net eq 'Listener';
 		$pingt[$$net] ||= $Janus::time; # first-time ping
@@ -40,11 +40,11 @@ sub in_socket {
 		@act = $src->parse($line);
 		1;
 	} or do {
-		&Event::named_hook('die', $@, @_);
-		&Log::err_in($src, "Unchecked exception in parsing");
+		Event::named_hook('die', $@, @_);
+		Log::err_in($src, "Unchecked exception in parsing");
 	};
 	$_->{except} = $src for @act;
-	&Event::insert_full(@act);
+	Event::insert_full(@act);
 }
 
 if ($ping) {
@@ -57,17 +57,17 @@ if ($ping) {
 	Event::schedule($ping);
 }
 
-&Event::hook_add(
+Event::hook_add(
 	NETSPLIT => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
 
-		&Connection::drop_socket($net);
+		Connection::drop_socket($net);
 	}, JNETSPLIT => check => sub {
 		my $act = shift;
 		my $net = $act->{net};
 
-		&Connection::drop_socket($net);
+		Connection::drop_socket($net);
 		if ($Janus::pending{$net->id} == $net) {
 			delete $Janus::pending{$net->id};
 		}

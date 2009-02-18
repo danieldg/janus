@@ -4,14 +4,14 @@ package Commands::List;
 use strict;
 use warnings;
 
-&Event::command_add({
+Event::command_add({
 	cmd => 'list',
 	help => 'List channels available for linking',
 	section => 'Channel',
 	api => '=src =replyto',
 	code => sub {
 		my($src,$dst) = @_;
-		my $detail = &Account::acl_check($src, 'oper');
+		my $detail = Account::acl_check($src, 'oper');
 
 		my @lines;
 
@@ -28,7 +28,7 @@ use warnings;
 		}
 		@lines = sort { $a->[0] cmp $b->[0] } @lines;
 		unshift @lines, [ 'Channel', 'Net', ($detail ? ('Created by', 'Created on') : ()) ];
-		&Interface::msgtable($dst, \@lines);
+		Interface::msgtable($dst, \@lines);
 	},
 });
 

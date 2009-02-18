@@ -38,7 +38,7 @@ sub intro {
 
 sub next_nickgid {
 	my $net = shift;
-	$net->gid() . ':' . &EventDump::seq2gid(++$nickseq[$$net]);
+	$net->gid() . ':' . EventDump::seq2gid(++$nickseq[$$net]);
 }
 
 sub auth_recvd {
@@ -64,7 +64,7 @@ sub auth_should_send {
 	1;
 }
 
-&Event::setting_add({
+Event::setting_add({
 	name => 'force_tag',
 	type => 'LocalNetwork',
 	help => 'Regular expression for nicks that will be forcibly tagged',
@@ -93,7 +93,7 @@ sub chan {
 	unless (exists $Janus::chans{lc $name}) {
 		return undef unless $new;
 		my $chan = Channel->new(
-			net => $net, 
+			net => $net,
 			name => $name,
 			ts => $new,
 		);
@@ -121,7 +121,7 @@ sub all_chans {
 1 ] : '#line '.__LINE__.' "'.__FILE__.'"'.q[#[[]]
 ### LINK MODE ###
 our @chans;
-&Persist::register_vars(qw(chans));
+Persist::register_vars(qw(chans));
 
 sub _init {
 	my $net = shift;
@@ -133,7 +133,7 @@ sub chan {
 	unless (exists $chans[$$net]{lc $name}) {
 		return undef unless $new;
 		my $chan = Channel->new(
-			net => $net, 
+			net => $net,
 			name => $name,
 			ts => $new,
 		);
@@ -159,7 +159,7 @@ sub all_chans {
 	values %{$chans[$$net]};
 }
 
-&Event::hook_add(
+Event::hook_add(
 	NETSPLIT => cleanup => sub {
 		my $act = shift;
 		my $net = $act->{net};
@@ -170,7 +170,7 @@ sub all_chans {
 			for my $cn (keys %{$chans[$$net]}) {
 				my $chan = $chans[$$net]{$cn};
 				unless ($chan->is_on($net)) {
-					&Log::err("Channel $cn=$$chan not on network $$net as it claims");
+					Log::err("Channel $cn=$$chan not on network $$net as it claims");
 					delete $chans[$$net]{$cn};
 					next;
 				}
@@ -182,7 +182,7 @@ sub all_chans {
 					nojlink => 1,
 				};
 			}
-			&Event::insert_full(@clean);
+			Event::insert_full(@clean);
 			for my $chan ($net->all_chans()) {
 				$chan->unhook_destroyed();
 			}
@@ -195,8 +195,8 @@ sub all_chans {
 		return unless $net->isa('LocalNetwork');
 		my $nickc = scalar $net->all_nicks;
 		my $chanc = scalar keys %{$chans[$$net]};
-		my $ngid = $net->gid . ':' . &EventDump::seq2gid($nickseq[$$net]);
-		&Janus::jmsg($dst, "$nickc nicks, $chanc channels; nick GID $ngid");
+		my $ngid = $net->gid . ':' . EventDump::seq2gid($nickseq[$$net]);
+		Janus::jmsg($dst, "$nickc nicks, $chanc channels; nick GID $ngid");
 	},
 );
 

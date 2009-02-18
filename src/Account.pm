@@ -7,7 +7,7 @@ use Persist;
 
 our %accounts;
 our %roles;
-&Janus::save_vars(accounts => \%accounts, roles => \%roles);
+Janus::save_vars(accounts => \%accounts, roles => \%roles);
 
 unless (%roles) {
 	%roles = (
@@ -68,7 +68,7 @@ sub chan_access_chk {
 		return 1;
 	}
 	if (($acl eq 'create' || $acl eq 'link') && $chan->homenet != $net) {
-		&Janus::jmsg($errs, "This command must be run from the channel's home network");
+		Janus::jmsg($errs, "This command must be run from the channel's home network");
 		return 0;
 	}
 	if (acl_check($nick, 'link')) {
@@ -78,9 +78,9 @@ sub chan_access_chk {
 	$chanacl = 'op' if $acl eq 'info';
 	if ('n' eq Modes::mtype($chanacl)) {
 		return 1 if $chan->has_nmode($chanacl, $nick);
-		&Janus::jmsg($errs, "You must be a channel $chanacl to use this command");
+		Janus::jmsg($errs, "You must be a channel $chanacl to use this command");
 	} else {
-		&Janus::jmsg($errs, "You must have access to 'link' to use this command");
+		Janus::jmsg($errs, "You must have access to 'link' to use this command");
 	}
 	return 0;
 }
@@ -107,7 +107,7 @@ sub set {
 	1;
 }
 
-&Event::hook_add(
+Event::hook_add(
 	ACCOUNT => add => sub {
 		my $acctid = shift;
 		$Account::accounts{$acctid} = {};

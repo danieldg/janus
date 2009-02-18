@@ -61,9 +61,9 @@ our(@ts, @keyname, @topic, @topicts, @topicset, @mode);
 our @nicks;  # all nicks on this channel
 our @nmode;  # modes of those nicks
 
-&Persist::register_vars(qw(ts keyname topic topicts topicset mode nicks nmode));
-&Persist::autoget(qw(ts keyname topic topicts topicset), all_modes => \@mode);
-&Persist::autoinit(qw(ts topic topicts topicset));
+Persist::register_vars(qw(ts keyname topic topicts topicset mode nicks nmode));
+Persist::autoget(qw(ts keyname topic topicts topicset), all_modes => \@mode);
+Persist::autoinit(qw(ts topic topicts topicset));
 
 my %nmodebit = (
 	voice => 1,
@@ -132,10 +132,10 @@ sub part {
 	delete $nmode[$$chan]{$$nick};
 	return if $fast || @{$nicks[$$chan]};
 	$chan->unhook_destroyed();
-	&Event::append({ type => 'POISON', item => $chan, reason => 'Final part' });
+	Event::append({ type => 'POISON', item => $chan, reason => 'Final part' });
 }
 
-&Event::hook_add(
+Event::hook_add(
 	JOIN => act => sub {
 		my $act = $_[0];
 		my $nick = $act->{src};
@@ -286,7 +286,7 @@ sub sendto {
 
 sub unhook_destroyed {
 	my $chan = shift;
-	&LocalNetwork::replace_chan(undef, $keyname[$$chan], undef);
+	LocalNetwork::replace_chan(undef, $keyname[$$chan], undef);
 }
 
 1 ] : '#line '.__LINE__.' "'.__FILE__.qq{"\n}.q[#[[]]
@@ -295,9 +295,9 @@ our @homenet; # controlling network of this channel
 our @names;   # channel's name on the various networks
 our @nets;    # networks this channel is shared to
 
-&Persist::register_vars(qw(homenet names nets));
-&Persist::autoinit(qw(homenet));
-&Persist::autoget(qw(homenet));
+Persist::register_vars(qw(homenet names nets));
+Persist::autoinit(qw(homenet));
+Persist::autoget(qw(homenet));
 
 sub nets {
 	values %{$nets[${$_[0]}]};
@@ -392,13 +392,13 @@ sub add_net {
 	$names[$$chan]{$$net} = $sname;
 
 	my $dstname = $chan->homenet->name;
-	&Log::info("Link ".$net->name."$sname into $dstname $keyname[$$chan] ($$net:$$src -> $$chan)");
+	Log::info("Link ".$net->name."$sname into $dstname $keyname[$$chan] ($$net:$$src -> $$chan)");
 
 	my $tsctl = ($ts[$$src] <=> $ts[$$chan]);
 
 	if ($tsctl < 0) {
-		&Log::info("Resetting timestamp from $ts[$$chan] to $ts[$$src]");
-		&Event::insert_full(+{
+		Log::info("Resetting timestamp from $ts[$$chan] to $ts[$$src]");
+		Event::insert_full(+{
 			type => 'CHANTSSYNC',
 			dst => $chan,
 			newts => $ts[$$src],
@@ -421,7 +421,7 @@ sub add_net {
 
 	my $jto = [ $net, @$joinnets ];
 
-	&Event::append({
+	Event::append({
 		type => 'JOIN',
 		src => $Interface::janus,
 		dst => $chan,
@@ -439,7 +439,7 @@ sub add_net {
 		}
 		# Every network must send JOINs for its own nicks
 		# to all networks
-		&Event::append(+{
+		Event::append(+{
 			type => 'JOIN',
 			src => $nick,
 			dst => $chan,
@@ -447,7 +447,7 @@ sub add_net {
 			sendto => $burstnets,
 		});
 	}
-	
+
 	my %nicks_by_id;
 	$nicks_by_id{$$_} = $_ for @{$nicks[$$chan]};
 	for my $nick (@{$nicks[$$src]}) {
@@ -459,7 +459,7 @@ sub add_net {
 		$nmode[$$chan]{$$nick} = $nmode[$$src]{$$nick} if $nmode[$$src]{$$nick};
 		next if $nick->jlink;
 		# source network must also send JOINs to everyone
-		&Event::append(+{
+		Event::append(+{
 			type => 'JOIN',
 			src => $nick,
 			dst => $chan,
@@ -468,12 +468,12 @@ sub add_net {
 		});
 	}
 	$nicks[$$chan] = [ values %nicks_by_id ];
-	&Event::append({ type => 'POISON', item => $src, reason => 'migrated away' });
+	Event::append({ type => 'POISON', item => $src, reason => 'migrated away' });
 }
 
 sub migrate_from {
 	my $chan = shift;
-	&Log::info("Migrating nicks to $$chan from", map $$_, @_);
+	Log::info("Migrating nicks to $$chan from", map $$_, @_);
 	my %burstmap;
 	for my $n ($chan->nets) {
 		$burstmap{$$n} = $n;
@@ -499,7 +499,7 @@ sub migrate_from {
 			$nicks_by_id{$$nick} = $nick;
 			$nmode[$$chan]{$$nick} = $nmode[$$src]{$$nick} if $nmode[$$src]{$$nick};
 			next if $$nick == 1 || $nick->jlink;
-			&Event::append(+{
+			Event::append(+{
 				type => 'JOIN',
 				src => $nick,
 				dst => $chan,
@@ -507,7 +507,7 @@ sub migrate_from {
 				sendto => $burstto,
 			});
 		}
-		&Event::append({ type => 'POISON', item => $src, reason => 'migrated away' });
+		Event::append({ type => 'POISON', item => $src, reason => 'migrated away' });
 	}
 	$nicks[$$chan] = [ values %nicks_by_id ];
 }
@@ -543,7 +543,7 @@ sub unhook_destroyed {
 		my $name = $names[$$chan]{$id};
 		my $c = delete $Janus::gchans{$net->gid().lc $name};
 		if ($c && $c ne $chan) {
-			&Log::err("Corrupted unhook! $$c found where $$chan expected");
+			Log::err("Corrupted unhook! $$c found where $$chan expected");
 			$Janus::gchans{$net->gid().lc $name} = $c;
 			next;
 		}
@@ -565,7 +565,7 @@ sub del_remoteonly {
 			return if $cij && $cij ne $ij;
 			$cij = $ij;
 		}
-		&Event::insert_full({
+		Event::insert_full({
 			type => 'DELINK',
 			net => $Interface::network,
 			dst => $chan,
@@ -574,7 +574,7 @@ sub del_remoteonly {
 		}) if $chan->is_on($Interface::network) && $chan->homenet != $Interface::network;
 		# all networks are on the same ij network. We can't see you anymore
 		for my $nick (@{$nicks[$$chan]}) {
-			&Event::append({
+			Event::append({
 				type => 'PART',
 				src => $nick,
 				dst => $chan,
@@ -585,10 +585,10 @@ sub del_remoteonly {
 		}
 	}
 	$chan->unhook_destroyed();
-	&Event::append({ type => 'POISON', item => $chan, reason => 'delink gone' });
+	Event::append({ type => 'POISON', item => $chan, reason => 'delink gone' });
 }
 
-&Event::hook_add(
+Event::hook_add(
 	CHANLINK => check => sub {
 		my $act = shift;
 		my $schan = $act->{in};
@@ -603,11 +603,11 @@ sub del_remoteonly {
 			}
 		}
 		if ($dchan == $schan) {
-			&Log::err("Not linking a channel to itself ($$schan)");
+			Log::err("Not linking a channel to itself ($$schan)");
 			return 1;
 		}
 		if (1 < scalar $schan->nets) {
-			&Log::err("Channel already linked ($$schan)");
+			Log::err("Channel already linked ($$schan)");
 			return 1;
 		}
 
@@ -637,7 +637,7 @@ sub del_remoteonly {
 			my $cause = $act->{cause} . '2';
 			for my $on (values %{$nets[$$chan]}) {
 				next if $on == $net;
-				&Event::append(+{
+				Event::append(+{
 					type => 'DELINK',
 					net => $on,
 					dst => $chan,
@@ -647,7 +647,7 @@ sub del_remoteonly {
 			}
 		}
 		unless (exists $nets[$$chan]{$$net}) {
-			&Log::warn("Cannot delink: channel $$chan is not on network #$$net");
+			Log::warn("Cannot delink: channel $$chan is not on network #$$net");
 			return 1;
 		}
 		undef;
@@ -716,7 +716,7 @@ sub del_remoteonly {
 			}
 			push @parts, \%part;
 		}
-		&Event::insert_full(@parts);
+		Event::insert_full(@parts);
 	}, DELINK => cleanup => sub {
 		my $act = shift;
 		del_remoteonly($act->{dst});
@@ -737,11 +737,11 @@ sub del_remoteonly {
 				nojlink => 1,
 			};
 		}
-		&Event::insert_full(@clean);
+		Event::insert_full(@clean);
 	}, NETSPLIT => cleanup => sub {
 		my $act = shift;
 		my $net = $act->{net};
-		&Persist::poison($_) for $net->all_chans();
+		Persist::poison($_) for $net->all_chans();
 	},
 );
 

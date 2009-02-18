@@ -10,9 +10,9 @@ use POSIX 'strftime';
 use Persist 'Log::Base';
 
 our(@filename, @fh, @rotate, @closeact, @dump);
-&Persist::register_vars(qw(filename fh rotate closeact dump));
-&Persist::autoinit(qw(rotate closeact dump));
-&Janus::static(qw(fh));
+Persist::register_vars(qw(filename fh rotate closeact dump));
+Persist::autoinit(qw(rotate closeact dump));
+Janus::static(qw(fh));
 
 for my $rot (@rotate) {
 	next unless $rot;
@@ -39,7 +39,7 @@ sub _init {
 			'log' => $log,
 		};
 		weaken($rotate->{log});
-		&Event::schedule($rotate);
+		Event::schedule($rotate);
 		$rotate[$$log] = $rotate;
 	}
 	$log->openlog();
@@ -58,11 +58,11 @@ sub openlog {
 	open my $fh, '>', $fn or die $!;
 	my $ofh = select $fh; $| = 1; select $ofh;
 	$fh[$$log] = $fh;
-	if ($dump[$$log] && &Janus::load('Snapshot')) {
+	if ($dump[$$log] && Janus::load('Snapshot')) {
 		for (1..10) {
 			open my $dumpto, '>', $fn . '.dump';
 			eval {
-				&Snapshot::dump_to($dumpto);
+				Snapshot::dump_to($dumpto);
 				1;
 			} and last;
 		}

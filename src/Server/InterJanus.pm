@@ -13,7 +13,7 @@ use Link; # currently does not work in bridge mode
 our $IJ_PROTO = '1.11';
 
 our(@sendq, @auth);
-&Persist::register_vars(qw(sendq auth));
+Persist::register_vars(qw(sendq auth));
 
 sub str {
 	warn;
@@ -84,7 +84,7 @@ my %v_type; %v_type = (
 			# this is a NETLINK of a network we already know about.
 			# We either have a loop or a name collision. Either way, the IJ link
 			# cannot continue
-			&Event::insert_full(+{
+			Event::insert_full(+{
 				type => 'JNETSPLIT',
 				net => $ij,
 				msg => "InterJanus network name collision: network $h->{id} already exists"
@@ -92,7 +92,7 @@ my %v_type; %v_type = (
 			return undef;
 		}
 		unless ($ij->jparent($h->{jlink})) {
-			&Event::insert_full(+{
+			Event::insert_full(+{
 				type => 'JNETSPLIT',
 				net => $ij,
 				msg => "Network misintroduction: $h->{jlink} invalid"
@@ -109,7 +109,7 @@ my %v_type; %v_type = (
 		my $id = $h->{id};
 		my $parent = $h->{parent};
 		if ($Janus::ijnets{$id} || $id eq $RemoteJanus::self->id) {
-			&Event::insert_full(+{
+			Event::insert_full(+{
 				type => 'JNETSPLIT',
 				net => $ij,
 				msg => "InterJanus network name collision: IJ network $h->{id} already exists"
@@ -117,7 +117,7 @@ my %v_type; %v_type = (
 			return undef;
 		}
 		unless ($ij->jparent($parent)) {
-			&Event::insert_full(+{
+			Event::insert_full(+{
 				type => 'JNETSPLIT',
 				net => $ij,
 				msg => "IJ Network misintroduction: $h->{jlink} invalid"
@@ -199,9 +199,9 @@ sub jlink {
 
 sub send {
 	my $ij = shift;
-	my @out = &EventDump::dump_act(@_);
+	my @out = EventDump::dump_act(@_);
 	for (@out) {
-		&Log::netout($ij, $_) unless /^<MSG /;
+		Log::netout($ij, $_) unless /^<MSG /;
 	}
 	$sendq[$$ij] .= join '', map "$_\n", @out;
 }
@@ -209,7 +209,7 @@ sub send {
 sub delink {
 	my($net,$msg) = @_;
 	delete $Janus::pending{$net->id};
-	&Event::insert_full(+{
+	Event::insert_full(+{
 		type => 'JNETSPLIT',
 		net => $net,
 		msg => $msg,
@@ -228,10 +228,10 @@ sub parse {
 	local $_ = shift;
 	my $err;
 
-	&Log::netin($ij, $_) unless /^<MSG /;
+	Log::netin($ij, $_) unless /^<MSG /;
 
 	s/^\s*<([^ >]+)// or do {
-		&Log::err_in($ij, "Invalid IJ line\n");
+		Log::err_in($ij, "Invalid IJ line\n");
 		return ();
 	};
 	my $act = { type => $1, IJ_RAW => $_[0] };
@@ -248,7 +248,7 @@ sub parse {
 	} elsif (!$err && $act->{type} eq 'InterJanus') {
 		my $id = $RemoteJanus::id[$$ij];
 		if ($id && $act->{id} ne $id) {
-			&Log::err_in($ij, "Unexpected ID reply $act->{id} from IJ $id");
+			Log::err_in($ij, "Unexpected ID reply $act->{id} from IJ $id");
 		} else {
 			$id = $RemoteJanus::id[$$ij] = $act->{id};
 		}
@@ -279,7 +279,7 @@ sub parse {
 	} else {
 		$err = "Invalid command in pre-introduction: $act->{type}";
 	}
-	&Log::err_in($ij, $err);
+	Log::err_in($ij, $err);
 	return {
 		type => 'JNETSPLIT',
 		net => $ij,
@@ -287,7 +287,7 @@ sub parse {
 	};
 }
 
-&Event::hook_add(
+Event::hook_add(
 	JNETLINK => act => sub {
 		my $act = shift;
 		my $ij = $act->{net};

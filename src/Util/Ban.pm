@@ -121,10 +121,10 @@ sub scan {
 			msg => 'Banned by '.$setter[$$ban],
 		};
 	}
-	&Event::append(@kills);
+	Event::append(@kills);
 }
 
-&Event::hook_add(
+Event::hook_add(
 	CONNECT => check => sub {
 		my $act = shift;
 		my $nick = $act->{dst};
@@ -136,7 +136,7 @@ sub scan {
 		return undef unless $ban;
 
 		if ($act->{for}) {
-			&Event::append({
+			Event::append({
 				type => 'MODE',
 				src => $net,
 				dst => $act->{for},
@@ -145,7 +145,7 @@ sub scan {
 				args => [ $nick->vhostmask ],
 			});
 		}
-		&Event::append(+{
+		Event::append(+{
 			type => 'KILL',
 			dst => $nick,
 			net => $net,

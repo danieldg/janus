@@ -6,7 +6,7 @@ use warnings;
 use integer;
 use Modes;
 
-&Event::command_add({
+Event::command_add({
 	cmd => 'showmode',
 	help => 'Shows the current intended modes of a channel',
 	section => 'Channel',
@@ -16,16 +16,16 @@ use Modes;
 	api => '=src =replyto chan defnet',
 	code => sub {
 		my($src,$dst,$chan,$net) = @_;
-		return &Janus::jmsg($dst, 'That channel does not exist') unless $chan;
-		return unless &Account::chan_access_chk($src, $chan, 'info', $dst);
+		return Janus::jmsg($dst, 'That channel does not exist') unless $chan;
+		return unless Account::chan_access_chk($src, $chan, 'info', $dst);
 		if ($net->isa('LocalNetwork')) {
-			my @modes = &Modes::to_multi($net, &Modes::delta(undef, $chan), 0, 400);
-			&Janus::jmsg($dst, join ' ', @$_) for @modes;
+			my @modes = Modes::to_multi($net, Modes::delta(undef, $chan), 0, 400);
+			Janus::jmsg($dst, join ' ', @$_) for @modes;
 		}
-		
+
 		my $modeh = $chan->all_modes();
 		unless ($modeh && scalar %$modeh) {
-			&Janus::jmsg($dst, "No modes set");
+			Janus::jmsg($dst, "No modes set");
 			return;
 		}
 		my $out = 'Modes:';
@@ -39,10 +39,10 @@ use Modes;
 			} elsif ($t eq 'l') {
 				$out .= join ' ', '', $mk.'={', @$mv, '}';
 			} else {
-				&Log::err("bad mode $mk:$mv - $t?\n");
+				Log::err("bad mode $mk:$mv - $t?\n");
 			}
 		}
-		&Janus::jmsg($dst, $out);
+		Janus::jmsg($dst, $out);
 	},
 }, {
 	cmd => 'setmode',
@@ -56,17 +56,17 @@ use Modes;
 	api => '=src =replyto homenet chan @',
 	code => sub {
 		my($src,$dst,$hn,$chan,@argin) = @_;
-		return &Janus::jmsg($dst, 'That channel does not exist') unless $chan;
-		return unless &Account::chan_access_chk($src, $chan, 'mode', $dst);
+		return Janus::jmsg($dst, 'That channel does not exist') unless $chan;
+		return unless Account::chan_access_chk($src, $chan, 'mode', $dst);
 		my(@modes,@args,@dirs);
 		for (@argin) {
 			/^([-+]+)([^=]+)(?:=(.+))?$/ or do {
-				&Janus::jmsg($dst, "Invalid mode $_");
+				Janus::jmsg($dst, "Invalid mode $_");
 				return;
 			};
 			my($d,$txt,$v) = ($1,$2,$3);
 			my $type = Modes::mtype($txt) or do {
-				&Janus::jmsg($dst, "Unknown mode $txt");
+				Janus::jmsg($dst, "Unknown mode $txt");
 				return;
 			};
 			if ($type eq 'r') {
@@ -79,7 +79,7 @@ use Modes;
 				}
 			} elsif ($type eq 'n') {
 				$v = $hn->nick($v, 1) or do {
-					&Janus::jmsg($dst, "Cannot find nick '$v'");
+					Janus::jmsg($dst, "Cannot find nick '$v'");
 					return;
 				};
 			}
@@ -87,7 +87,7 @@ use Modes;
 				$v = $chan->get_mode($txt);
 			}
 			if (length $d > 1 || !defined $v) {
-				&Janus::jmsg($dst, "Invalid mode $_");
+				Janus::jmsg($dst, "Invalid mode $_");
 				return;
 			}
 			unshift @dirs, $d;
@@ -95,7 +95,7 @@ use Modes;
 			unshift @args, $v;
 		}
 		if (@dirs) {
-			&Event::append(+{
+			Event::append(+{
 				type => 'MODE',
 				src => $Interface::janus,
 				dst => $chan,
@@ -103,9 +103,9 @@ use Modes;
 				args => \@args,
 				dirs => \@dirs,
 			});
-			&Janus::jmsg($dst, 'Done');
+			Janus::jmsg($dst, 'Done');
 		} else {
-			&Janus::jmsg($dst, 'Nothing to do');
+			Janus::jmsg($dst, 'Nothing to do');
 		}
 	},
 }, {
@@ -123,15 +123,15 @@ use Modes;
 		my @cmodes = sort keys %Modes::mtype;
 		my $l = 0;
 		$l < length $_ and $l = length $_ for @cmodes, @nmodes;
-		&Interface::jmsg($dst, 'Nick modes:');
-		&Interface::msgtable($dst, [
+		Interface::jmsg($dst, 'Nick modes:');
+		Interface::msgtable($dst, [
 			map {
 				my $netv = $net->can('txt2umode') ? $net->txt2umode($_) : '';
 				$netv = '' if ref $netv || !defined $netv;
 				[ $_, $netv ]
 			} @nmodes ], cols => $w, fmtfmt => [ '%%-'.$l.'s', '%%2s' ], pfx => ' ');
-		&Interface::jmsg($dst, 'Channel modes:');
-		&Interface::msgtable($dst, [
+		Interface::jmsg($dst, 'Channel modes:');
+		Interface::msgtable($dst, [
 			map {
 				my $m = $_;
 				my $type = Modes::mtype($m);

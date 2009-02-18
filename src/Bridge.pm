@@ -12,14 +12,14 @@ if ($Janus::lmode) {
 	$Janus::lmode = 'Bridge';
 }
 
-&Event::hook_add(
+Event::hook_add(
 	NEWNICK => act => sub {
 		my $act = shift;
 		my $nick = $act->{dst};
 		for my $net (values %Janus::nets) {
 			next if $nick->homenet() eq $net;
 			next if $nick->is_on($net);
-			&Event::append({
+			Event::append({
 				type => 'CONNECT',
 				dst => $nick,
 				net => $net,
@@ -38,7 +38,7 @@ if ($Janus::lmode) {
 			net => $hnet,
 			msg => $kact->{msg},
 		});
-		&Event::append({
+		Event::append({
 			type => 'QUIT',
 			dst => $nick,
 			killer => $kact->{src},
@@ -63,7 +63,7 @@ if ($Janus::lmode) {
 				net => $net,
 			};
 		}
-		&Event::insert_full(@conns);
+		Event::insert_full(@conns);
 		@conns = ();
 
 		for my $chan (values %Janus::chans) {

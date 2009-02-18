@@ -7,8 +7,8 @@ use SocketHandler;
 use Persist 'SocketHandler';
 
 our @id;
-&Persist::register_vars('id');
-&Persist::autoget('id');
+Persist::register_vars('id');
+Persist::autoget('id');
 
 our %open;
 
@@ -21,7 +21,7 @@ sub _init {
 sub delink {
 	my $net = shift;
 	delete $open{$id[$$net]};
-	&Connection::drop_socket($net);
+	Connection::drop_socket($net);
 }
 
 sub init_pending {
@@ -37,15 +37,15 @@ sub init_pending {
 			next unless $laddr && $laddr eq $addr;
 			$nconf->{fb_id} = $fb_id;
 			my $type = 'Server::'.$nconf->{type};
-			&Janus::load($type) or next;
+			Janus::load($type) or next;
 			my $net = Persist::new($type, id => $id);
 			$Janus::pending{$id} = $net;
-			&Log::info("Incoming connection from $addr for $type network $id (server $fb_id)");
+			Log::info("Incoming connection from $addr for $type network $id (server $fb_id)");
 			$net->intro($nconf, $addr);
 			return $net;
 		}
 	}
-	&Log::info("Rejecting connection from $addr, no matching network definition found");
+	Log::info("Rejecting connection from $addr, no matching network definition found");
 	return undef;
 }
 

@@ -349,9 +349,9 @@ sub do_accept {
 
 # This sub is allowed to use Janus API as it is not called from multiplex
 sub ts_simple {
-	my $next = &Event::next_event($Janus::time + 60);
+	my $next = Event::next_event($Janus::time + 60);
 	iowait($next);
-	&Event::timer(time);
+	Event::timer(time);
 	for my $q (@queues) {
 		next unless $q;
 		my $net = $q->[NET];
@@ -365,7 +365,7 @@ sub ts_simple {
 			do_accept($q, sub {
 				my $cnet = $net->init_pending($_[0]);
 				return 0 unless $cnet;
-				my($sslkey, $sslcert, $sslca) = &Conffile::find_ssl_keys($cnet, $net);
+				my($sslkey, $sslcert, $sslca) = Conffile::find_ssl_keys($cnet, $net);
 				if ($sslcert) {
 					return ($cnet,$sslkey,$sslcert,$sslca);
 				} else {
@@ -382,7 +382,7 @@ sub ts_simple {
 			my $sendq = $net->dump_sendq();
 			$queues[$$net][SENDQ] .= $sendq;
 			1;
-		} or &Log::err_in($net, "dump_sendq died: $@");
+		} or Log::err_in($net, "dump_sendq died: $@");
 	}
 }
 

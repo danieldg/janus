@@ -11,15 +11,15 @@ our @fromirc;   # command => sub{} for IRC commands
 our @act_hooks; # type => module => sub{} for Janus Action => output
 
 our(@txt2cmode, @cmode2txt, @txt2umode, @umode2txt); # quick lookup hashes for translation in/out of janus
-&Persist::register_vars(qw(modules meta fromirc act_hooks txt2cmode cmode2txt txt2umode umode2txt));
+Persist::register_vars(qw(modules meta fromirc act_hooks txt2cmode cmode2txt txt2umode umode2txt));
 
 sub module_add {
 	my($net,$name,$opt) = @_;
 	return if $modules[$$net]{$name};
 	my $mod;
-	&Event::named_hook('Server/find_module', $net, $name, \$mod);
+	Event::named_hook('Server/find_module', $net, $name, \$mod);
 	unless ($mod) {
-		&Log::err_in($net, "Unknown module $name, janus may become desynced if it is used") unless $opt;
+		Log::err_in($net, "Unknown module $name, janus may become desynced if it is used") unless $opt;
 		$mod = {};
 	};
 	$modules[$$net]{$name} = $mod;
@@ -67,7 +67,7 @@ sub module_add {
 sub module_remove {
 	my($net,$name) = @_;
 	my $mod = delete $modules[$$net]{$name} or do {
-		&Log::err_in($net, "Could not unload moule $name: not loaded");
+		Log::err_in($net, "Could not unload moule $name: not loaded");
 		return;
 	};
 	if ($mod->{cmode}) {
@@ -135,7 +135,7 @@ sub umode2txt {
 	my($net,$um,$ok) = @_;
 	my $t = $umode2txt[$$net]{$um};
 	if (!defined $t && !$ok) {
-		&Log::warn_in($net, "Unknown umode '$um'");
+		Log::warn_in($net, "Unknown umode '$um'");
 		$t = '';
 	}
 	$t;
@@ -165,7 +165,7 @@ sub from_irc {
 	$cmd = $fromirc[$$net]{$cmd} || $cmd;
 	$cmd = $fromirc[$$net]{$cmd} || $cmd if $cmd && !ref $cmd; # allow one layer of indirection
 	unless ($cmd && ref $cmd) {
-		&Log::err_in($net, "Unknown command '$cmd'");
+		Log::err_in($net, "Unknown command '$cmd'");
 		return ();
 	}
 	$cmd->(@_);
@@ -215,14 +215,14 @@ sub reload_moddef {
 	my $net = shift;
 	return unless $net->isa(__PACKAGE__);
 	my @mods = keys %{$modules[$$net]};
-	&Log::info('Reloading module definitions for',$net->name,$net->gid);
+	Log::info('Reloading module definitions for',$net->name,$net->gid);
 	for my $mod (@mods) {
 		$net->module_remove($mod);
 		$net->module_add($mod, 1);
 	}
 }
 
-&Event::hook_add(
+Event::hook_add(
 	MODRELOAD => 'act:1' => sub {
 		my $act = shift;
 		return unless $act->{module} =~ /^Server::/;

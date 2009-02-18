@@ -32,7 +32,7 @@ if ($^P) {
 	require Log::Debug;
 	no warnings 'once';
 	@Log::listeners = $Log::Debug::INST;
-	&Log::dump_queue();
+	Log::dump_queue();
 }
 
 my $line = <$Multiplex::sock>;
@@ -40,16 +40,16 @@ chomp $line;
 if ($line =~ /^BOOT (\d+)/) {
 	no warnings 'once';
 	$Multiplex::master_api = $1;
-	&Janus::load('Conffile') or die;
-	&Event::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
-	&Log::timestamp($Janus::time);
-	&Janus::load('Multiplex') or die;
-	&Event::insert_full(+{ type => 'INIT', args => \@ARGV });
-	&Event::insert_full(+{ type => 'RUN' });
+	Janus::load('Conffile') or die;
+	Event::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
+	Log::timestamp($Janus::time);
+	Janus::load('Multiplex') or die;
+	Event::insert_full(+{ type => 'INIT', args => \@ARGV });
+	Event::insert_full(+{ type => 'RUN' });
 } elsif ($line =~ /^R\S* (\S+)$/) {
 	my $file = $1;
-	&Janus::load('Snapshot') or die;
-	&Snapshot::restore_from($file);
+	Janus::load('Snapshot') or die;
+	Snapshot::restore_from($file);
 } else {
 	die "Bad line from control socket: $line";
 }

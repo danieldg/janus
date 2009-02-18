@@ -127,7 +127,7 @@ sub _load_run {
 	my $fn = $module.'.pm';
 	$fn =~ s#::#/#g;
 	unless (-f "src/$fn") {
-		&Log::err("Cannot find module $module: $!");
+		Log::err("Cannot find module $module: $!");
 		delete $modinfo{$module}{load};
 	}
 	delete $INC{$fn};
@@ -135,7 +135,7 @@ sub _load_run {
 		delete $modinfo{$module}{load};
 		$modinfo{$module}{active} = 1;
 	} else {
-		&Log::err("Cannot load module $module: $! $@");
+		Log::err("Cannot load module $module: $! $@");
 		delete $modinfo{$module}{load};
 	}
 }
@@ -345,7 +345,7 @@ Event::hook_add(
 			delete $act->{netsplit_quit};
 			return 1 unless $net && $act->{except}->jparent($net->jlink());
 		} else {
-			&Log::info('Network '.$net->name.' split: '.$act->{msg});
+			Log::info('Network '.$net->name.' split: '.$act->{msg});
 		}
 		if (delete $pending{$net->name}) {
 			return 1;
@@ -371,7 +371,7 @@ Event::hook_add(
 		my @alljnets = values %ijnets;
 		for my $snet (@alljnets) {
 			next unless $snet->parent() && $net eq $snet->parent();
-			&Event::insert_full(+{
+			Event::insert_full(+{
 				type => 'JNETSPLIT',
 				net => $snet,
 				msg => $act->{msg},
@@ -382,7 +382,7 @@ Event::hook_add(
 		my @allnets = values %nets;
 		for my $snet (@allnets) {
 			next unless $snet->jlink() && $net eq $snet->jlink();
-			&Event::insert_full(+{
+			Event::insert_full(+{
 				type => 'NETSPLIT',
 				net => $snet,
 				msg => $act->{msg},
@@ -401,7 +401,7 @@ Event::hook_add(
 	}, POISON => cleanup => sub {
 		my $act = shift;
 		if ($act->{item}) {
-			&Persist::poison($act->{item});
+			Persist::poison($act->{item});
 		}
 	},
 );

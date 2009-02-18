@@ -5,9 +5,9 @@ use strict;
 use warnings;
 
 $SIG{HUP} = sub {
-	&Event::schedule({
+	Event::schedule({
 		code => sub {
-			&Event::insert_full({
+			Event::insert_full({
 				type => 'REHASH',
 			});
 		},

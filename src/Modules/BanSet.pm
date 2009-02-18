@@ -6,7 +6,7 @@ use strict;
 use warnings;
 
 our @sets;
-&Janus::save_vars(sets => \@sets);
+Janus::save_vars(sets => \@sets);
 
 # set => {
 #	name   banset name
@@ -28,7 +28,7 @@ sub find {
 	undef;
 }
 
-&Event::command_add({
+Event::command_add({
 	cmd => 'banset',
 	help => 'Manages Janus ban sets (bans many remote users)',
 	section => 'Network',
@@ -47,7 +47,7 @@ sub find {
 	acl => 'ban',
 	code => sub {
 		my($src, $dst, $cmd, $name, @args) = @_;
-		return &Janus::jmsg($dst, "use 'help banset' to see the syntax") unless $cmd;
+		return Janus::jmsg($dst, "use 'help banset' to see the syntax") unless $cmd;
 		my $net = $src->homenet;
 		$cmd = lc $cmd;
 		my %byname = map { $_->{name}, $_ } @sets;
@@ -55,54 +55,54 @@ sub find {
 			for my $sname (sort keys %byname) {
 				my $set = $byname{$sname};
 				my $size = scalar keys %{$set->{hash}};
-				&Janus::jmsg($dst, "$sname matches $set->{item} to $set->{to} with $size entries");
+				Janus::jmsg($dst, "$sname matches $set->{item} to $set->{to} with $size entries");
 			}
-			&Janus::jmsg($dst, 'No bansets defined') unless @sets;
+			Janus::jmsg($dst, 'No bansets defined') unless @sets;
 		} elsif ($cmd eq 'create' && @args) {
-			return &Janus::jmsg($dst, 'Banset already exists') if $byname{$name};
+			return Janus::jmsg($dst, 'Banset already exists') if $byname{$name};
 			push @sets, {
 				name => $name,
 				to => $net->name,
 				item => $args[0],
 				hash => {},
 			};
-			&Janus::jmsg($dst, 'Created');
+			Janus::jmsg($dst, 'Created');
 		} elsif ($cmd eq 'destroy') {
-			return &Janus::jmsg($dst, 'Banset not found') unless $byname{$name};
+			return Janus::jmsg($dst, 'Banset not found') unless $byname{$name};
 			my $set = $byname{$name};
 			@sets = grep { $_->{name} ne $name } @sets;
-			&Janus::jmsg($dst, 'Banset destroyed');
+			Janus::jmsg($dst, 'Banset destroyed');
 		} elsif ($cmd eq 'addnet') {
-			return &Janus::jmsg($dst, 'Banset not found') unless $byname{$name};
+			return Janus::jmsg($dst, 'Banset not found') unless $byname{$name};
 			my $set = $byname{$name};
 			my $netn = $net->name;
-			return &Janus::jmsg($dst, 'Already in banset') if grep $_ eq $netn, split ',', $set->{to};
+			return Janus::jmsg($dst, 'Already in banset') if grep $_ eq $netn, split ',', $set->{to};
 			$set->{to} .= ','.$netn;
-			&Janus::jmsg($dst, 'Added');
+			Janus::jmsg($dst, 'Added');
 		} elsif ($cmd eq 'delnet') {
-			return &Janus::jmsg($dst, 'Banset not found') unless $byname{$name};
+			return Janus::jmsg($dst, 'Banset not found') unless $byname{$name};
 			my $set = $byname{$name};
 			my %to; $to{$_}++ for split ',', $set->{to};
-			return &Janus::jmsg($dst, 'Not in banset') unless delete $to{$net->name};
+			return Janus::jmsg($dst, 'Not in banset') unless delete $to{$net->name};
 			$set->{to} = join ',', keys %to;
-			&Janus::jmsg($dst, 'Removed');
+			Janus::jmsg($dst, 'Removed');
 		} elsif ($cmd eq 'show') {
-			return &Janus::jmsg($dst, 'Banset not found') unless $byname{$name};
+			return Janus::jmsg($dst, 'Banset not found') unless $byname{$name};
 			my $hash = $byname{$name}{hash};
-			&Janus::jmsg($dst, map { ' '.$_ } sort keys %$hash);
+			Janus::jmsg($dst, map { ' '.$_ } sort keys %$hash);
 		} elsif ($cmd eq 'add' && @args) {
-			return &Janus::jmsg($dst, 'Banset not found') unless $byname{$name};
+			return Janus::jmsg($dst, 'Banset not found') unless $byname{$name};
 			$byname{$name}{hash}{$args[0]} = 1;
 		} elsif ($cmd eq 'del' && @args) {
-			return &Janus::jmsg($dst, 'Banset not found') unless $byname{$name};
+			return Janus::jmsg($dst, 'Banset not found') unless $byname{$name};
 			my $itm = delete $byname{$name}{hash}{$args[0]};
-			&Janus::jmsg($dst, defined $itm ? 'Deleted' : 'Not found');
+			Janus::jmsg($dst, defined $itm ? 'Deleted' : 'Not found');
 		} else {
-			&Janus::jmsg($dst, "use 'help banset' to see the syntax");
+			Janus::jmsg($dst, "use 'help banset' to see the syntax");
 		}
 	}
 });
-&Event::hook_add(
+Event::hook_add(
 	CONNECT => check => sub {
 		my $act = shift;
 		my $nick = $act->{dst};
@@ -113,7 +113,7 @@ sub find {
 		my $ban = find($nick, $net);
 		if ($ban) {
 			if ($act->{for}) {
-				&Event::append({
+				Event::append({
 					type => 'MODE',
 					src => $net,
 					dst => $act->{for},
@@ -123,7 +123,7 @@ sub find {
 				});
 			}
 			my $msg = "Banned from ".$net->netname." by list '$ban->{name}'";
-			&Event::append(+{
+			Event::append(+{
 				type => 'KILL',
 				dst => $nick,
 				net => $net,

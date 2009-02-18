@@ -6,7 +6,7 @@ use warnings;
 use Persist;
 
 our %claim;
-&Janus::save_vars(claim => \%claim);
+Janus::save_vars(claim => \%claim);
 
 for my $n (sort keys %claim) {
 	if ($n !~ /#/ && ref $claim{$n}) {
@@ -17,7 +17,7 @@ for my $n (sort keys %claim) {
 	}
 }
 
-&Event::command_add({
+Event::command_add({
 	cmd => 'claim',
 	help => 'Claim network ownership of a channel',
 	section => 'Channel',
@@ -34,23 +34,23 @@ for my $n (sort keys %claim) {
 		my $nhome = $src->homenet;
 		my $chome = $chan->homenet;
 		if ($claims) {
-			return unless &Account::chan_access_chk($src, $chan, 'create', $dst);
+			return unless Account::chan_access_chk($src, $chan, 'create', $dst);
 			if ($claims =~ s/^-//) {
 				delete $claim{$chan->netname};
-				&Janus::jmsg($dst, 'Deleted');
+				Janus::jmsg($dst, 'Deleted');
 			} else {
 				my %n;
 				$n{$_}++ for split /,/, $claims;
 				$n{$nhome->name}++;
 				$claim{$chan->netname} = join ',', sort keys %n;
-				&Janus::jmsg($dst, 'Set to '.$claim{$chan->netname});
+				Janus::jmsg($dst, 'Set to '.$claim{$chan->netname});
 			}
 		} else {
 			my $nets = $claim{$chan->netname};
 			if ($nets) {
-				&Janus::jmsg($dst, "Channel is claimed by: $nets");
+				Janus::jmsg($dst, "Channel is claimed by: $nets");
 			} else {
-				&Janus::jmsg($dst, "Channel is not claimed");
+				Janus::jmsg($dst, "Channel is not claimed");
 			}
 		}
 	},
@@ -77,12 +77,12 @@ sub acl_ok {
 	0;
 }
 
-&Event::hook_add(
+Event::hook_add(
 	INFO => 'Channel:1' => sub {
 		my($dst, $chan, $asker) = @_;
 		my $hnet = $chan->homenet;
 		my $claim = $claim{$chan->netname} or return;
-		&Janus::jmsg($dst, "\002Claim:\002 $claim");
+		Janus::jmsg($dst, "\002Claim:\002 $claim");
 	},
 	MODE => check => sub {
 		my $act = shift;
@@ -93,9 +93,9 @@ sub acl_ok {
 		my $net = delete $nact{except} or return undef;
 		my $chan = $act->{dst};
 		if ($src->isa('Nick')) {
-			&Log::info('Bouncing mode change by '.$src->netnick.' on '.$chan->str($src->homenet));
+			Log::info('Bouncing mode change by '.$src->netnick.' on '.$chan->str($src->homenet));
 		} else {
-			&Log::info('Bouncing mode change by '.$src->name.' on '.$chan->str($src));
+			Log::info('Bouncing mode change by '.$src->name.' on '.$chan->str($src));
 		}
 		my($m,$a,$d) = @nact{qw/mode args dirs/};
 		for my $i (0 .. $#$d) {
@@ -122,9 +122,9 @@ sub acl_ok {
 		my $chan = $act->{dst};
 		my $src = $act->{src};
 		return unless $src->isa('Nick');
-		&Log::info('Bouncing kick by '.$src->netnick.' on '.$chan->str($src->homenet));
+		Log::info('Bouncing kick by '.$src->netnick.' on '.$chan->str($src->homenet));
 
-		&Event::append({
+		Event::append({
 			type => 'KICK',
 			src => $Interface::janus,
 			dst => $chan,
@@ -139,9 +139,9 @@ sub acl_ok {
 		my $src = $act->{src};
 		return undef unless $chan->get_mode('topic'); # allow if not +t
 		if ($src->isa('Nick')) {
-			&Log::info('Bouncing mode change by '.$src->netnick.' on '.$chan->str($src->homenet));
+			Log::info('Bouncing mode change by '.$src->netnick.' on '.$chan->str($src->homenet));
 		} else {
-			&Log::info('Bouncing mode change by '.$src->name.' on '.$chan->str($src));
+			Log::info('Bouncing mode change by '.$src->name.' on '.$chan->str($src));
 		}
 		$net->send(+{
 			type => 'TOPIC',

@@ -21,7 +21,7 @@ our %hook_run;
 our %commands;
 our %settings;
 
-&Janus::static(qw(qstack hook_mod hook_chk hook_run commands settings));
+Janus::static(qw(qstack hook_mod hook_chk hook_run commands settings));
 
 =head1 Event
 
@@ -109,7 +109,7 @@ sub setting_add {
 
 sub _send {
 	my $act = $_[0];
-	&EventDump::debug_send($act);
+	EventDump::debug_send($act);
 	my @to;
 	if (exists $act->{sendto}) {
 		if ('ARRAY' eq ref $act->{sendto}) {
@@ -228,7 +228,7 @@ sub _run {
 		if ($@) {
 			named_hook('die', $@, find_hook($h), $act);
 		} elsif ($rv) {
-			&Log::hook_info($act, "Check hook stole");
+			Log::hook_info($act, "Check hook stole");
 			return;
 		}
 	}
@@ -307,7 +307,7 @@ sub named_hook {
 		} or do {
 			my @hifo = find_hook($hook);
 			if ($name eq 'ALL/die') {
-				&Log::err("Unchecked exception in die hook, from module $hifo[0]: $@");
+				Log::err("Unchecked exception in die hook, from module $hifo[0]: $@");
 			} else {
 				named_hook('die', $@, @hifo, @args);
 			}
@@ -359,12 +359,12 @@ sub timer {
 	my @q;
 	if ($last_check > $time) {
 		my $off = $last_check-$time;
-		&Log::err("Time runs backwards! From $last_check to $time; offsetting all events by $off");
+		Log::err("Time runs backwards! From $last_check to $time; offsetting all events by $off");
 		my %oq = %tqueue;
 		%tqueue = ();
 		$tqueue{$_ - $off} = $oq{$_} for keys %oq;
 	} elsif ($last_check < $time) {
-		&Log::timestamp($time);
+		Log::timestamp($time);
 		for ($last_check .. $time) {
 			# yes it will hit some times twice... that is needed if events with delay=0 are
 			# added to the queue in the same second, but after the queue has already run
@@ -431,15 +431,15 @@ sub reroute_cmd {
 	$nact->{dst} = $dst;
 	delete $nact->{IJ_RAW};
 	if (1 < ++$nact->{loop}) {
-		&Log::warn('Loop in finding local server for command');
+		Log::warn('Loop in finding local server for command');
 	} else {
-		&Event::append($nact);
+		Event::append($nact);
 	}
 }
 
 Event::hook_add(
 	ALL => 'die' => sub {
-		&Log::err(@_);
+		Log::err(@_);
 	}, MODUNLOAD => act => sub {
 		wipe_hooks($_[0]->{module});
 	}, MODRELOAD => 'act:-1' => sub {
@@ -459,7 +459,7 @@ Event::hook_add(
 		$logpfx = '-cmd' unless $cmd->{code};
 		$logpfx = '@'.$dst->id unless $run;
 		$logpfx = '>'.$bncto->id if $bncto;
-		$logpfx = '-syntax' if $fail;
+		$logpfx = '-err' if $fail;
 
 		if ($bncto && $bncto != $dst) {
 			reroute_cmd($act, $bncto);
@@ -468,15 +468,15 @@ Event::hook_add(
 
 		my $acl = $cmd->{acl};
 		$acl = 'oper' if $acl && $acl eq '1';
-		if ($acl && !&Account::acl_check($src, $acl)) {
+		if ($acl && !Account::acl_check($src, $acl)) {
 			$logpfx ||= '-@'.$acl;
 			$fail = "You must have access to '$acl' to use this command";
 		}
 		$fail = 'Unknown command. Use "help" to see available commands' unless $cmd->{code};
-		&Log::command($logpfx, $act->{src}, $act->{raw}) unless $cmd->{secret};
+		Log::command($logpfx, $act->{src}, $act->{raw}) unless $cmd->{secret};
 		return unless $run;
 		if ($fail) {
-			&Janus::jmsg($reply, $fail);
+			Janus::jmsg($reply, $fail);
 			return;
 		}
 
@@ -485,7 +485,7 @@ Event::hook_add(
 			$csub->(@$args);
 			1;
 		} or do {
-			&Event::named_hook('die', $@, 'command', $cmd, $args, $act);
+			Event::named_hook('die', $@, 'command', $cmd, $args, $act);
 		};
 	}
 );

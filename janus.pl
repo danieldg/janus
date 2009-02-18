@@ -25,20 +25,20 @@ if ($^P) {
 	require Log::Debug;
 	no warnings 'once';
 	@Log::listeners = $Log::Debug::INST;
-	&Log::dump_queue();
+	Log::dump_queue();
 }
 
 $| = 1;
 $SIG{PIPE} = 'IGNORE';
 $SIG{CHLD} = 'IGNORE';
 
-&Janus::load('Conffile') and &Event::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
+Janus::load('Conffile') and Event::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
 unless (%Conffile::netconf) {
 	print "Could not start:\n";
 	require Log::Debug;
 	no warnings 'once';
 	@Log::listeners = $Log::Debug::INST;
-	&Log::dump_queue();
+	Log::dump_queue();
 	exit 1;
 }
 
@@ -79,15 +79,15 @@ if ($runmode eq 'mplex') {
 }
 
 if ($runmode ne 'uproc' && $runmode ne 'debug') {
-	&Log::warn('Invalid value for runmode in configuration');
+	Log::warn('Invalid value for runmode in configuration');
 }
 
-&Log::timestamp($Janus::time);
-&Janus::load('Connection') or die;
-&Event::insert_full(+{ type => 'INIT', args => \@ARGV });
-&Event::insert_full(+{ type => 'RUN' });
+Log::timestamp($Janus::time);
+Janus::load('Connection') or die;
+Event::insert_full(+{ type => 'INIT', args => \@ARGV });
+Event::insert_full(+{ type => 'RUN' });
 
 eval { 
 	&Connection::ts_simple while 1;
 };
-&Log::err("Aborting, error=$@");
+Log::err("Aborting, error=$@");

@@ -160,15 +160,15 @@ sub verify {
 		close $dump;
 		my $c = scalar @err;
 		my $max = $c > 10 ? 10 : ($c - 1);
-		&Janus::jmsg($dst, @err[0..$max]);
-		&Janus::jmsg($dst, "$c problems found - full report is in log/verify-$ts");
+		Janus::jmsg($dst, @err[0..$max]);
+		Janus::jmsg($dst, "$c problems found - full report is in log/verify-$ts");
 	} else {
-		&Janus::jmsg($dst, 'No problems found');
+		Janus::jmsg($dst, 'No problems found');
 	}
 	(@err, %cseen, %nseen, %sseen, %n_c) = ();
 }
 
-&Event::command_add({
+Event::command_add({
 	cmd => 'verify',
 	acl => 'verify',
 	help => 'Verifies janus internal state',

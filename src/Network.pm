@@ -32,9 +32,9 @@ The human-readable name for this network (long form)
 =cut
 
 our(@jlink, @gid, @name, @netname, @synced);
-&Persist::register_vars(qw(jlink gid name netname synced));
-&Persist::autoget(qw(jlink gid name netname), is_synced => \@synced);
-&Persist::autoinit(qw(jlink gid netname), id => \@name);
+Persist::register_vars(qw(jlink gid name netname synced));
+Persist::autoget(qw(jlink gid name netname), is_synced => \@synced);
+Persist::autoinit(qw(jlink gid netname), id => \@name);
 
 our $net_gid;
 
@@ -46,7 +46,7 @@ sub jname {
 sub _init {
 	my $net = $_[0];
 	unless ($gid[$$net]) {
-		$gid[$$net] = $RemoteJanus::self->id().':'.&EventDump::seq2gid(++$net_gid);
+		$gid[$$net] = $RemoteJanus::self->id().':'.EventDump::seq2gid(++$net_gid);
 	}
 }
 
@@ -89,7 +89,7 @@ sub netnick {
 sub delink {
 	my($net,$msg) = @_;
 	delete $Janus::pending{$net->name};
-	&Event::insert_full(+{
+	Event::insert_full(+{
 		type => 'NETSPLIT',
 		net => $net,
 		msg => $msg,
@@ -101,7 +101,7 @@ sub delink {
 
 =cut
 
-&Event::hook_add(
+Event::hook_add(
 	LINKED => check => sub {
 		my $act = shift;
 		my $net = $act->{net};
@@ -110,7 +110,7 @@ sub delink {
 		undef;
 	}, NETSPLIT => act => sub {
 		my $act = shift;
-		&Event::append({ type => 'POISON', item => $act->{net} });
+		Event::append({ type => 'POISON', item => $act->{net} });
 	},
 );
 

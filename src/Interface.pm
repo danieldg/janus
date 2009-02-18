@@ -30,7 +30,7 @@ sub pmsg {
 		my $nick = $act->{msg}->[0];
 		if ($src->isa('Network') && ref $nick && $nick->isa('Nick')) {
 			return undef if $src->jlink();
-			&Event::append(+{
+			Event::append(+{
 				type => 'MSG',
 				msgtype => 640,
 				src => $src,
@@ -62,20 +62,20 @@ sub pmsg {
 	return undef unless $src->isa('Nick') && $dst->isa('Nick');
 
 	unless ($$src == 1 || $$dst == 1 || $src->is_on($dst->homenet())) {
-		&Interface::jmsg($src, 'You must join a shared channel to speak with remote users') if $act->{msgtype} eq 'PRIVMSG';
+		Interface::jmsg($src, 'You must join a shared channel to speak with remote users') if $act->{msgtype} eq 'PRIVMSG';
 		return 1;
 	}
 	undef;
 }
 
-&Event::hook_add(
+Event::hook_add(
 	'INIT' => act => sub {
 		$network = Interface->new(
 			id => 'janus',
 			gid => 'janus',
 		);
 		$network->_set_netname('Janus');
-		&Event::append(+{
+		Event::append(+{
 			type => 'NETLINK',
 			net => $network,
 		});
@@ -98,7 +98,7 @@ sub pmsg {
 			mode => { oper => 1, service => 1, bot => 1 },
 		);
 		warn if $$janus != 1;
-		&Event::append(+{
+		Event::append(+{
 			type => 'NEWNICK',
 			dst => $janus,
 		});
@@ -107,7 +107,7 @@ sub pmsg {
 		return unless $act->{dst} == $janus;
 		my $net = $act->{net};
 		$janus->_netpart($net);
-		&Event::insert_full(+{
+		Event::insert_full(+{
 			type => 'CONNECT',
 			dst => $janus,
 			net => $net,
@@ -128,7 +128,7 @@ sub pmsg {
 		return unless $act->{kickee} eq $janus;
 		my $chan = $act->{dst};
 		return unless grep { $_ == $janus } $chan->all_nicks;
-		&Event::append({
+		Event::append({
 			type => 'JOIN',
 			dst => $chan,
 			src => $janus,
@@ -141,11 +141,11 @@ sub pmsg {
 		my $dst = $act->{dst};
 		my $chan = $act->{to};
 		unless ($src->is_on($dst->homenet)) {
-			&Interface::jmsg($src, 'You cannot /invite a user unless you are on a channel on their network');
+			Interface::jmsg($src, 'You cannot /invite a user unless you are on a channel on their network');
 			return 1;
 		}
 		unless ($chan->is_on($dst->homenet)) {
-			&Interface::jmsg($src, 'You cannot /invite a user to a channel not on their network');
+			Interface::jmsg($src, 'You cannot /invite a user to a channel not on their network');
 			return 1;
 		}
 		undef;
@@ -155,14 +155,14 @@ sub pmsg {
 		my $src = $act->{src};
 		my $dst = $act->{dst};
 		return undef if $src->is_on($dst->homenet()) || $$dst == 1;
-		&Interface::jmsg($src, 'You cannot use this /whois syntax unless you are on a shared channel with the user');
+		Interface::jmsg($src, 'You cannot use this /whois syntax unless you are on a shared channel with the user');
 		return 1;
 	}, NETLINK => act => sub {
 		my $act = shift;
 		my $net = $act->{net};
 		return if $net->jlink();
 		return if $janus->is_on($net);
-		&Event::append(+{
+		Event::append(+{
 			type => 'CONNECT',
 			dst => $janus,
 			net => $net,
@@ -198,12 +198,12 @@ sub send {
 			} elsif (s/^\@(\S+)\s+//) {
 				$rjto = $Janus::ijnets{$1};
 				$rjto = $RemoteJanus::self if $1 eq $RemoteJanus::self->id;
-				&Janus::jmsg($dst, 'Cannot find that network') unless $rjto;
+				Janus::jmsg($dst, 'Cannot find that network') unless $rjto;
 			}
 			next unless $rjto;
 			my @args = split /\s+/, $_;
 			my $cmd = shift @args;
-			&Event::append({
+			Event::append({
 				type => 'REMOTECALL',
 				src => $src,
 				dst => $rjto,
@@ -215,7 +215,7 @@ sub send {
 		} elsif ($act->{type} eq 'WHOIS' && $act->{dst} == $janus) {
 			my $src = $act->{src} or next;
 			my $snet = $src->homenet;
-			&Event::append(whois_reply($src, $janus, 0, $^T,
+			Event::append(whois_reply($src, $janus, 0, $^T,
 				312 => [ 'janus.janus', "Janus Interface" ],
 			));
 		} elsif ($act->{type} eq 'TSREPORT') {
@@ -243,7 +243,7 @@ sub chan {
 
 sub replace_chan {
 	my $new = $_[2];
-	&Log::debug("Replace channel $_[1]");
+	Log::debug("Replace channel $_[1]");
 	if ($_[2] && 2 > scalar $_[2]->nets) {
 		Event::append({
 			type => 'PART',
@@ -330,7 +330,7 @@ sub api_parse {
 		} elsif ($_ eq 'act') {
 			push @args, $act;
 		} else {
-			&Log::err("Skipping unknown command API $_");
+			Log::err("Skipping unknown command API $_");
 		}
 		if ($forceloc && $args[-1]) {
 			my $itm = $args[-1];
@@ -350,10 +350,10 @@ sub api_parse {
 	if (wantarray) {
 		return (\@args, $fail, $bncto);
 	} elsif ($fail) {
-		&Janus::jmsg($act->{replyto}, $fail);
+		Janus::jmsg($act->{replyto}, $fail);
 		return undef;
 	} elsif ($bncto) {
-		&Janus::jmsg($act->{replyto}, 'You must refer to local networks with this command');
+		Janus::jmsg($act->{replyto}, 'You must refer to local networks with this command');
 		return undef;
 	} else {
 		return $args[0];
@@ -380,7 +380,7 @@ sub jmsg {
 		push @o, $1 while s/^(.{400,450})\s+/ / or s/^(.{450})/ /;
 		push @o, $_;
 	}
-	&Event::insert_full(map +{
+	Event::insert_full(map +{
 		type => 'MSG',
 		src => $Interface::janus,
 		dst => $dst,

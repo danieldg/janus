@@ -4,12 +4,12 @@ package Commands::Account;
 use strict;
 use warnings;
 
-&Event::hook_add(
+Event::hook_add(
 	INFO => Account => sub {
 		my($dst, $acctid, $src) = @_;
-		my $all = &Account::acl_check($src, 'account') || $acctid eq &Account::has_local($src);
+		my $all = Account::acl_check($src, 'account') || $acctid eq Account::has_local($src);
 		if ($all) {
-			&Janus::jmsg($dst, 'Roles: '.$Account::accounts{$acctid}{acl});
+			Janus::jmsg($dst, 'Roles: '.$Account::accounts{$acctid}{acl});
 		}
 	},
 );
@@ -17,16 +17,16 @@ use warnings;
 sub role_acl_super {
 	my($src, $role) = @_;
 	local $_;
-	return 0 if $role eq '*' && !&Account::acl_check($src, '*');
+	return 0 if $role eq '*' && !Account::acl_check($src, '*');
 	my %acl;
 	$acl{$_}++ for split / /, ($Account::roles{$role} || '');
 	for (keys %acl) {
-		return 0 unless &Account::acl_check($src, $_);
+		return 0 unless Account::acl_check($src, $_);
 	}
 	1;
 }
 
-&Event::command_add({
+Event::command_add({
 	cmd => 'account',
 	help => 'Manages janus accounts',
 	acl => 'account',
@@ -44,51 +44,51 @@ sub role_acl_super {
 		$cmd = lc $cmd;
 		$acctid = lc $acctid;
 		if ($cmd eq 'create') {
-			return &Janus::jmsg($dst, 'Account already exists') if $Account::accounts{$acctid};
-			&Event::named_hook('ACCOUNT/add', $acctid);
-			return &Janus::jmsg($dst, 'Done');
+			return Janus::jmsg($dst, 'Account already exists') if $Account::accounts{$acctid};
+			Event::named_hook('ACCOUNT/add', $acctid);
+			return Janus::jmsg($dst, 'Done');
 		} elsif ($cmd eq 'list') {
-			&Janus::jmsg($dst, join ' ', sort keys %Account::accounts);
+			Janus::jmsg($dst, join ' ', sort keys %Account::accounts);
 			return;
 		}
 
-		return &Janus::jmsg($dst, 'No such account') unless $Account::accounts{$acctid};
+		return Janus::jmsg($dst, 'No such account') unless $Account::accounts{$acctid};
 		if ($cmd eq 'show') {
-			&Event::named_hook('INFO/Account', $dst, $acctid, $src);
+			Event::named_hook('INFO/Account', $dst, $acctid, $src);
 		} elsif ($cmd eq 'delete') {
 			my %acl;
-			$acl{$_}++ for split / /, (&Account::get($acctid, 'acl') || '');
+			$acl{$_}++ for split / /, (Account::get($acctid, 'acl') || '');
 			for (keys %acl) {
 				unless (role_acl_super($src, $_)) {
-					return &Janus::jmsg($dst, "You cannot delete accounts with access to permissions you don't have");
+					return Janus::jmsg($dst, "You cannot delete accounts with access to permissions you don't have");
 				}
 			}
-			&Event::named_hook('ACCOUNT/del', $acctid);
-			&Janus::jmsg($dst, 'Done');
+			Event::named_hook('ACCOUNT/del', $acctid);
+			Janus::jmsg($dst, 'Done');
 		} elsif ($cmd eq 'grant' && @acls) {
 			my %acl;
-			$acl{$_}++ for split / /, (&Account::get($acctid, 'acl') || '');
+			$acl{$_}++ for split / /, (Account::get($acctid, 'acl') || '');
 			for (@acls) {
 				$acl{$_}++;
 				unless (role_acl_super($src, $_)) {
-					return &Janus::jmsg($dst, "You cannot grant access to permissions you don't have");
+					return Janus::jmsg($dst, "You cannot grant access to permissions you don't have");
 				}
 			}
-			&Account::set($acctid, 'acl', join ' ', sort keys %acl);
-			&Janus::jmsg($dst, 'Done');
+			Account::set($acctid, 'acl', join ' ', sort keys %acl);
+			Janus::jmsg($dst, 'Done');
 		} elsif ($cmd eq 'revoke' && @acls) {
 			my %acl;
-			$acl{$_}++ for split / /, (&Account::get($acctid, 'acl') || '');
+			$acl{$_}++ for split / /, (Account::get($acctid, 'acl') || '');
 			for (@acls) {
 				delete $acl{$_};
 				unless (role_acl_super($src, $_)) {
-					return &Janus::jmsg($dst, "You cannot revoke access to permissions you don't have");
+					return Janus::jmsg($dst, "You cannot revoke access to permissions you don't have");
 				}
 			}
-			&Account::set($acctid, 'acl', join ' ', sort keys %acl);
-			&Janus::jmsg($dst, 'Done');
+			Account::set($acctid, 'acl', join ' ', sort keys %acl);
+			Janus::jmsg($dst, 'Done');
 		} else {
-			&Janus::jmsg($dst, 'See "help account" for the correct syntax');
+			Janus::jmsg($dst, 'See "help account" for the correct syntax');
 		}
 	}
 }, {
@@ -110,31 +110,31 @@ sub role_acl_super {
 		if ($cmd eq 'add') {
 			for (@acls) {
 				$acl{$_}++;
-				unless (&Account::acl_check($src, $_)) {
-					return &Janus::jmsg($dst, "You cannot grant access to permissions you don't have");
+				unless (Account::acl_check($src, $_)) {
+					return Janus::jmsg($dst, "You cannot grant access to permissions you don't have");
 				}
 			}
 			$Account::roles{$role} = join ' ', sort keys %acl;
 		} elsif ($cmd eq 'del') {
 			for (@acls) {
 				delete $acl{$_};
-				unless (&Account::acl_check($src, $_)) {
-					return &Janus::jmsg($dst, "You cannot revoke access to permissions you don't have");
+				unless (Account::acl_check($src, $_)) {
+					return Janus::jmsg($dst, "You cannot revoke access to permissions you don't have");
 				}
 			}
 			$Account::roles{$role} = join ' ', sort keys %acl;
 			delete $Account::roles{$role} unless %acl;
 		} elsif ($cmd eq 'destroy') {
 			for (keys %acl) {
-				unless (&Account::acl_check($src, $_)) {
-					return &Janus::jmsg($dst, "You cannot revoke access to permissions you don't have");
+				unless (Account::acl_check($src, $_)) {
+					return Janus::jmsg($dst, "You cannot revoke access to permissions you don't have");
 				}
 			}
 			delete $Account::roles{$role};
 		} else {
-			return &Janus::jmsg($dst, 'See "help role" for correct syntax');
+			return Janus::jmsg($dst, 'See "help role" for correct syntax');
 		}
-		&Janus::jmsg($dst, 'Done');
+		Janus::jmsg($dst, 'Done');
 	},
 }, {
 	cmd => 'listroles',
@@ -149,8 +149,8 @@ sub role_acl_super {
 			my $s = $all{$role} eq '7' ? '*' : ' ';
 			push @tbl, [ "$s\002$role\002", $Account::roles{$role} ];
 		}
-		&Interface::msgtable($dst, \@tbl, minw => [ 10, 0 ]);
-		&Interface::jmsg($dst, '* = builtin role');
+		Interface::msgtable($dst, \@tbl, minw => [ 10, 0 ]);
+		Interface::jmsg($dst, '* = builtin role');
 	},
 });
 

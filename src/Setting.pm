@@ -11,7 +11,7 @@ for my $nk (keys %Janus::setting) {
 	}
 }
 
-&Janus::save_vars(value => \%value);
+Janus::save_vars(value => \%value);
 
 sub get {
 	my($name, $key) = @_;

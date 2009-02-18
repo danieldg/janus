@@ -8,7 +8,7 @@ use warnings;
 sub ignore { () }
 
 our %modules = ();
-&Janus::static('modules');
+Janus::static('modules');
 
 sub mdef {
 	my $name = shift;
@@ -40,7 +40,7 @@ sub mdef {
 	}
 }
 
-&Event::hook_add(
+Event::hook_add(
 	Server => find_module => sub {
 		my($net, $name, $d) = @_;
 		return if ref($net) !~ /Server::Inspircd/;
@@ -100,7 +100,7 @@ mdef 'm_chanlog.so';
 mdef 'm_chanfilter.so', cmode => { g => 'l_badwords' };
 mdef 'm_chanprotect.so', cmode => { a => 'n_admin', 'q' => 'n_owner' };
 mdef 'm_check.so';
-	
+
 mdef 'm_chghost.so', cmds => {
 	CHGHOST => sub {
 		my $net = shift;
@@ -215,7 +215,7 @@ mdef 'm_janus.so', acts => {
 mdef 'm_joinflood.so', cmode => { j => 's_joinlimit' };
 mdef 'm_jumpserver.so';
 mdef 'm_kicknorejoin.so', cmode => { J => 's_kicknorejoin' };
-# TODO translate INVITE and KNOCK across janus 
+# TODO translate INVITE and KNOCK across janus
 mdef 'm_knock.so', cmode => { K => 'r_noknock' };
 mdef 'm_lockserv.so';
 mdef 'm_md5.so';
@@ -296,7 +296,7 @@ mdef 'm_regex_tre.so';
 mdef 'm_regonlycreate.so';
 mdef 'm_remove.so', cmds => {
 	FPART => 'KICK',
-	REMOVE => sub { 
+	REMOVE => sub {
 		# this is stupid. Three commands that do the SAME EXACT THING...
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
@@ -459,7 +459,7 @@ mdef 'm_ssl_dummy.so', metadata => {
 	ssl => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[2]) or return ();
-		&Log::warn_in($net, "Unknown SSL value $_[4]") unless $_[4] eq 'ON';
+		Log::warn_in($net, "Unknown SSL value $_[4]") unless $_[4] eq 'ON';
 		return +{
 			type => 'UMODE',
 			dst => $nick,
@@ -472,7 +472,7 @@ mdef 'm_ssl_dummy.so', metadata => {
 		if ($pm eq '+ssl') {
 			push @$out, $net->ncmd(METADATA => $nick, ssl => 'ON');
 		} else {
-			&Log::warn('Inspircd is incapable of unsetting SSL');
+			Log::warn('Inspircd is incapable of unsetting SSL');
 		}
 		'';
 	},

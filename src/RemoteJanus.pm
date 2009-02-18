@@ -11,9 +11,9 @@ use integer;
 our $self;
 
 our(@id, @parent);
-&Persist::register_vars(qw(id parent));
-&Persist::autoget(qw(id parent));
-&Persist::autoinit(qw(id parent));
+Persist::register_vars(qw(id parent));
+Persist::autoget(qw(id parent));
+Persist::autoinit(qw(id parent));
 
 # for sending out some other IJ
 sub to_ij {
@@ -49,7 +49,7 @@ sub jparent {
 	$net ? 1 : 0;
 }
 
-&Event::hook_add(
+Event::hook_add(
 	'INIT' => act => sub {
 		$self = RemoteJanus->new(id => $Conffile::netconf{set}{name});
 	}, JNETLINK => check => sub {

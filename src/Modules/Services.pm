@@ -21,7 +21,7 @@ use constant \%bits;
 # clear the cache on each module load, to force new values
 our @cache = ();
 our @loop;
-&Persist::register_vars('Nick::cache' => \@cache, 'Nick::kloop' => \@loop);
+Persist::register_vars('Nick::cache' => \@cache, 'Nick::kloop' => \@loop);
 
 sub svs_type {
 	my $n = shift;
@@ -33,7 +33,7 @@ sub svs_type {
 	if ($net->jlink() || !$srv) {
 		return ($cache[$$n] = CACHED);
 	}
-	
+
 	# Is this nick on a services server?
 	my $svs_srv = Setting::get(services_servers => $net);
 	if ($svs_srv) {
@@ -70,7 +70,7 @@ sub svs_type {
 	$cache[$$n] = $r;
 }
 
-&Event::setting_add({
+Event::setting_add({
 	name => 'services_servers',
 	type => 'LocalNetwork',
 	help => 'comma-separated list of services/stats servers on this network',
@@ -85,7 +85,7 @@ sub svs_type {
 	default => '',
 });
 
-&Event::hook_add(
+Event::hook_add(
 	MSG => check => sub {
 		my $act = shift;
 		my $src = $act->{src};
@@ -112,7 +112,7 @@ sub svs_type {
 		} else {
 			return undef;
 		}
-		&Event::append(+{
+		Event::append(+{
 			type => 'RECONNECT',
 			src => $src,
 			dst => $nick,
@@ -159,7 +159,7 @@ sub svs_type {
 				tag => 1,
 			};
 		}
-		&Event::insert_full(@out) if @out;
+		Event::insert_full(@out) if @out;
 	},
 	INFO => 'Nick:1' => sub {
 		my($dst, $n, $asker) = @_;
@@ -169,7 +169,7 @@ sub svs_type {
 			next if $_ eq 'CACHED';
 			$v .= ' '.$_ if $bits{$_} & $type;
 		}
-		&Janus::jmsg($dst, "\002Modules::Services mask\002:$v") if $v;
+		Janus::jmsg($dst, "\002Modules::Services mask\002:$v") if $v;
 	},
 );
 

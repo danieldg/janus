@@ -10,7 +10,7 @@ use Data::Dumper;
 
 our $conffile;
 our %netconf;
-&Janus::static(qw(netconf));
+Janus::static(qw(netconf));
 
 sub read_conf {
 	local $_;
@@ -18,7 +18,7 @@ sub read_conf {
 	my $current;
 	$conffile ||= 'janus.conf';
 	open my $conf, '<', $conffile or do {
-		&Log::err("Could not open configuration file: $!");
+		Log::err("Could not open configuration file: $!");
 		return;
 	};
 	while (<$conf>) {
@@ -31,26 +31,26 @@ sub read_conf {
 
 		if ($type eq 'link') {
 			if (defined $current) {
-				&Log::err("Missing closing brace at line $. of config file, aborting");
+				Log::err("Missing closing brace at line $. of config file, aborting");
 				return;
 			}
 			/^(\S+)/ or do {
-				&Log::err("Error in line $. of config file: expected network ID");
+				Log::err("Error in line $. of config file: expected network ID");
 				return;
 			};
 			/^([a-zA-Z][-0-9a-zA-Z_]{0,7})( |$)/ or do {
-				&Log::err("Invalid network ID '$1' in line $. of config file");
+				Log::err("Invalid network ID '$1' in line $. of config file");
 				return;
 			};
 			$current = { id => $1 };
 			$newconf{$1} = $current;
 		} elsif ($type eq 'listen') {
 			if (defined $current) {
-				&Log::err("Missing closing brace at line $. of config file, aborting");
+				Log::err("Missing closing brace at line $. of config file, aborting");
 				return;
 			}
 			/^((?:\S+:)?\d+)( |$)/ or do {
-				&Log::err("Error in line $. of config file: expected port or IP:port");
+				Log::err("Error in line $. of config file: expected port or IP:port");
 				return;
 			};
 			$current = { addr => $1 };
@@ -58,31 +58,31 @@ sub read_conf {
 			$current = undef unless /{/;
 		} elsif ($type eq 'log') {
 			if (defined $current) {
-				&Log::err("Missing closing brace at line $. of config file, aborting");
+				Log::err("Missing closing brace at line $. of config file, aborting");
 				return;
 			}
 			/^(\S+)(?: |$)/ or do {
-				&Log::err("Error in line $. of config file: expected log name");
+				Log::err("Error in line $. of config file: expected log name");
 				return;
 			};
 			$newconf{'LOG:'.$1} = $current = { name => $1 };
 		} elsif ($type eq 'set' || $type eq 'modules') {
 			if (defined $current) {
-				&Log::err("Missing closing brace at line $. of config file, aborting");
+				Log::err("Missing closing brace at line $. of config file, aborting");
 				return;
 			}
 			$current = {};
 			$newconf{$type} = $current;
 		} elsif ($type eq '}') {
 			unless (defined $current) {
-				&Log::err("Extra closing brace at line $. of config file");
+				Log::err("Extra closing brace at line $. of config file");
 				return;
 			}
 			$current = undef;
 		} elsif ($type eq '{') {
 		} else {
 			unless (defined $current) {
-				&Log::err("Error in line $. of config file: not in a network definition");
+				Log::err("Error in line $. of config file: not in a network definition");
 				return;
 			}
 			$current->{$type} = $_;
@@ -91,25 +91,25 @@ sub read_conf {
 	close $conf;
 	if ($newconf{set}{name}) {
 		if ($RemoteJanus::self) {
-			&Log::err("You must restart the server to change the name")
+			Log::err("You must restart the server to change the name")
 				if $RemoteJanus::self->id() ne $newconf{set}{name};
 			$newconf{set}{name} = $RemoteJanus::self->id();
 		} elsif ($newconf{set}{name} !~ /^[a-zA-Z][-0-9a-zA-Z_]{0,7}$/) {
-			&Log::err("Invalid server name $newconf{set}{name}");
+			Log::err("Invalid server name $newconf{set}{name}");
 			return;
 		}
 	} else {
-		&Log::err("Server name not set! You need set block with a 'name' entry");
+		Log::err("Server name not set! You need set block with a 'name' entry");
 		return;
 	}
 	unless ($Janus::lmode) {
 		my $mode = lc $newconf{set}{lmode} || 'link';
 		if ($mode eq 'link') {
-			&Janus::load('Link');
+			Janus::load('Link');
 		} elsif ($mode eq 'bridge') {
-			&Janus::load('Bridge');
+			Janus::load('Bridge');
 		} else {
-			&Log::err("Bad value $mode for set::lmode");
+			Log::err("Bad value $mode for set::lmode");
 			return;
 		}
 	}
@@ -121,8 +121,8 @@ sub read_conf {
 		next unless $id =~ /LOG:(.*)/;
 		my $log = $newconf{$id};
 		my $type = 'Log::'.$log->{type};
-		&Janus::load($type) or do {
-			&Log::err("Could not load module $type: $@");
+		Janus::load($type) or do {
+			Log::err("Could not load module $type: $@");
 			next;
 		};
 		my $name = $log->{name};
@@ -139,14 +139,14 @@ sub read_conf {
 	for my $moddir (@stars) {
 		delete $newconf{modules}{$moddir};
 		if ($moddir !~ s/::\*(?:\.pm)?$//) {
-			&Log::err("Invalid module name (* must refer to an entire directory)");
+			Log::err("Invalid module name (* must refer to an entire directory)");
 			next;
 		}
 		my $sysdir = 'src/'.$moddir;
 		$sysdir =~ s#::#/#g;
 		my $dir;
 		unless (opendir $dir, $sysdir) {
-			&Log::err("Could not search directory $moddir: $!");
+			Log::err("Could not search directory $moddir: $!");
 			next;
 		}
 		while ($_ = readdir $dir) {
@@ -160,8 +160,8 @@ sub read_conf {
 	%netconf = %newconf;
 
 	for my $mod (sort keys %{$newconf{modules}}) {
-		unless (&Janus::load($mod)) {
-			&Log::err("Could not load module $mod: $@");
+		unless (Janus::load($mod)) {
+			Log::err("Could not load module $mod: $@");
 		}
 	}
 
@@ -171,7 +171,7 @@ sub read_conf {
 	}
 	if (!$^P || $RemoteJanus::self) { # first load on a debug run skips this
 		@Log::listeners = @loggers;
-		&Log::dump_queue();
+		Log::dump_queue();
 	}
 }
 
@@ -204,7 +204,7 @@ sub find_ssl_keys {
 	return (value(ssl_keyfile => $net), value(ssl_certfile => $net), value(ssl_cafile => $net)) if value(ssl_certfile => $net);
 	return (value(keyfile => $lnet), value(certfile => $lnet), value(cafile => $lnet)) if $lnet && value(certfile => $lnet);
 	return (value(ssl_keyfile => 'set'), value(ssl_certfile => 'set'), value(ssl_cafile => 'set')) if value(ssl_certfile => 'set');
-	&Log::warn_in($net, 'Could not find SSL certificates') if $lnet;
+	Log::warn_in($net, 'Could not find SSL certificates') if $lnet;
 	return ('client', '', '');
 }
 
@@ -216,29 +216,29 @@ sub connect_net {
 		my $list = Listener->new(id => $id, conf => $netconf{$id});
 		my $addr;
 		my $port = value(addr => $id);
-		&Log::info("Accepting incoming connections on $port");
+		Log::info("Accepting incoming connections on $port");
 		if ($port =~ /^(.*):(\d+)/) {
 			($addr,$port) = ($1,$2);
 		}
-		&Connection::init_listen($list,$addr,$port);
+		Connection::init_listen($list,$addr,$port);
 	} elsif ($netconf{$id}{autoconnect}) {
-		&Log::info("Autoconnecting $id");
+		Log::info("Autoconnecting $id");
 		my $type = 'Server::'.value(type => $id);
-		unless (&Janus::load($type)) {
-			&Log::err("Error creating $type network $id: $@");
+		unless (Janus::load($type)) {
+			Log::err("Error creating $type network $id: $@");
 		} else {
 			my $name = value(netname => $id);
 			my $addr = value(linkaddr => $id);
 			my $port = value(linkport => $id);
 			my $bind = value(linkbind => $id);
-			&Log::info("Setting up nonblocking connection to $name at $addr:$port");
+			Log::info("Setting up nonblocking connection to $name at $addr:$port");
 
 			my($ssl_key, $ssl_cert, $ssl_ca) = find_ssl_keys($id);
 
-			my $net = &Persist::new($type, id => $id);
+			my $net = Persist::new($type, id => $id);
 			# this is equivalent to $type->new(id => \$id) but without using eval
 
-			&Connection::init_connection($net, $addr, $port, $bind, $ssl_key, $ssl_cert, $ssl_ca);
+			Connection::init_connection($net, $addr, $port, $bind, $ssl_key, $ssl_cert, $ssl_ca);
 			$Janus::pending{$id} = $net;
 			$net->intro($Conffile::netconf{$id});
 		}
@@ -298,10 +298,10 @@ our($saveevent, $autoevent);
 $saveevent->{code} = \&Conffile::save if $saveevent;
 $autoevent->{code} = \&Conffile::autoconnect if $autoevent;
 
-&Event::hook_add(
+Event::hook_add(
 	REHASH => act => sub {
 		my $act = shift;
-		&Conffile::rehash();
+		Conffile::rehash();
 	},
 	'INITCONF' => act => sub {
 		my $act = shift;
@@ -310,7 +310,7 @@ $autoevent->{code} = \&Conffile::autoconnect if $autoevent;
 	},
 	RESTORE => act => sub {
 		@Log::listeners = ();
-		&Conffile::rehash();
+		Conffile::rehash();
 	},
 	RUN => act => sub {
 		my $save = $netconf{set}{save};
@@ -329,7 +329,7 @@ $autoevent->{code} = \&Conffile::autoconnect if $autoevent;
 			code => \&Conffile::save,
 			desc => 'autosave',
 		};
-		&Event::schedule($autoevent, $saveevent);
+		Event::schedule($autoevent, $saveevent);
 	},
 );
 

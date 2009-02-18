@@ -4,11 +4,11 @@ package Commands::Link;
 use strict;
 use warnings;
 
-&Event::command_add({
+Event::command_add({
 	cmd => 'link',
 	help => 'Link to a remote network\'s shared channel',
 	section => 'Channel',
-	details => [ 
+	details => [
 		"Syntax: \002LINK\002 channel network [remotechan]",
 		"The remote network must use the \002CREATE\002 command to",
 		"share a channel before links to that channel will be accepted",
@@ -17,21 +17,21 @@ use warnings;
 	code => sub {
 		my($src,$dst,$chan1,$net2,$cname2) = @_;
 
-		return unless &Account::chan_access_chk($src, $chan1, 'link', $dst);
+		return unless Account::chan_access_chk($src, $chan1, 'link', $dst);
 
 		my $net1 = $chan1->homenet;
 		my $cname1 = $chan1->homename;
 		$cname2 ||= $cname1;
 
 		if ($Link::request{$net1->name()}{lc $cname1}{mode}) {
-			&Janus::jmsg($dst, 'This network is the owner for that channel. Other networks must link to it.');
+			Janus::jmsg($dst, 'This network is the owner for that channel. Other networks must link to it.');
 			return;
 		}
 		if (1 < scalar $chan1->nets()) {
-			&Janus::jmsg($dst, 'That channel is already linked');
+			Janus::jmsg($dst, 'That channel is already linked');
 			return;
 		}
-		&Event::append(+{
+		Event::append(+{
 			type => 'LINKREQ',
 			src => $src,
 			chan => $chan1,
@@ -40,7 +40,7 @@ use warnings;
 			reqby => $src->realhostmask,
 			reqtime => $Janus::time,
 		});
-		&Janus::jmsg($dst, 'Done');
+		Janus::jmsg($dst, 'Done');
 	}
 }, {
 	cmd => 'create',
@@ -55,20 +55,20 @@ use warnings;
 		my $net = $chan->homenet;
 
 		if (1 < scalar $chan->nets) {
-			&Janus::jmsg($dst, 'That channel is already linked');
+			Janus::jmsg($dst, 'That channel is already linked');
 			return;
 		}
-		return unless &Account::chan_access_chk($src, $chan, 'create', $dst);
+		return unless Account::chan_access_chk($src, $chan, 'create', $dst);
 		my $cname = $chan->str($net);
-		&Log::audit("New channel $cname shared by ".$src->netnick);
-		&Event::append(+{
+		Log::audit("New channel $cname shared by ".$src->netnick);
+		Event::append(+{
 			type => 'LINKOFFER',
 			src => $net,
 			name => lc $cname,
 			reqby => $src->realhostmask(),
 			reqtime => $Janus::time,
 		});
-		&Janus::jmsg($dst, 'Done');
+		Janus::jmsg($dst, 'Done');
 	},
 }, {
 	cmd => 'delink',
@@ -82,10 +82,10 @@ use warnings;
 	api => '=src =replyto localchan ?net ?$',
 	code => sub {
 		my($src, $dst, $chan, $net, $cause) = @_;
-		return unless &Account::chan_access_chk($src, $chan, 'delink', $dst);
+		return unless Account::chan_access_chk($src, $chan, 'delink', $dst);
 		$net ||= $src->homenet;
 		if ($net == $chan->homenet) {
-			&Janus::jmsg($dst, 'Please specify the network to delink, or use DESTROY');
+			Janus::jmsg($dst, 'Please specify the network to delink, or use DESTROY');
 			return;
 		}
 		if ($src->homenet == $chan->homenet) {
@@ -93,19 +93,19 @@ use warnings;
 		} elsif ($src->homenet == $net) {
 			$cause = 'unlink';
 		} else {
-			return unless &Account::chan_access_chk($src, $chan, 'create', $dst);
+			return unless Account::chan_access_chk($src, $chan, 'create', $dst);
 			$cause = 'split' unless $cause eq 'reject' || $cause eq 'unlink';
 		}
 
-		&Log::audit('Channel '.$chan->netname.' delinked from '.$net->name.' by '.$src->netnick);
-		&Event::append(+{
+		Log::audit('Channel '.$chan->netname.' delinked from '.$net->name.' by '.$src->netnick);
+		Event::append(+{
 			type => 'DELINK',
 			cause => $cause,
 			src => $src,
 			dst => $chan,
 			net => $net,
 		});
-		&Janus::jmsg($dst, 'Done');
+		Janus::jmsg($dst, 'Done');
 	},
 }, {
 	cmd => 'destroy',
@@ -118,9 +118,9 @@ use warnings;
 	code => sub {
 		my($src,$dst,$chan) = @_;
 		my $net = $chan->homenet;
-		return unless &Account::chan_access_chk($src, $chan, 'create', $dst);
-		&Log::audit('Channel '.$chan->netname.' destroyed by '.$src->netnick);
-		&Event::append(+{
+		return unless Account::chan_access_chk($src, $chan, 'create', $dst);
+		Log::audit('Channel '.$chan->netname.' destroyed by '.$src->netnick);
+		Event::append(+{
 			type => 'DELINK',
 			cause => 'destroy',
 			src => $src,
@@ -134,7 +134,7 @@ use warnings;
 			reqby => $src->realhostmask(),
 			reqtime => $Janus::time,
 		});
-		&Janus::jmsg($dst, 'Done');
+		Janus::jmsg($dst, 'Done');
 	},
 }, {
 	cmd => 'linkacl',
@@ -152,34 +152,34 @@ use warnings;
 		my($src,$dst, $m, $chan, $arg) = @_;
 		$m = lc $m;
 		my $acl = $m eq 'list' ? 'info' : 'create';
-		return unless &Account::chan_access_chk($src, $chan, $acl, $dst);
+		return unless Account::chan_access_chk($src, $chan, $acl, $dst);
 		my $hn = $chan->homenet;
 		my $cname = lc $chan->str($hn);
 		my $ifo = $Link::request{$hn->name}{$cname};
 		unless ($ifo && $ifo->{mode}) {
-			&Interface::jmsg($dst, 'That channel is not shared');
+			Interface::jmsg($dst, 'That channel is not shared');
 			return;
 		}
 		if ($m eq 'list') {
-			&Interface::jmsg($dst, 'Default: '.($ifo->{mode} == 1 ? 'allow' : 'deny'));
+			Interface::jmsg($dst, 'Default: '.($ifo->{mode} == 1 ? 'allow' : 'deny'));
 			return unless $ifo->{ack};
 			for my $nn (keys %{$ifo->{ack}}) {
-				&Interface::jmsg($dst, sprintf '%8s %s', $nn,
+				Interface::jmsg($dst, sprintf '%8s %s', $nn,
 					($ifo->{ack}{$nn} == 1 ? 'allow' : 'deny'));
 			}
 		} elsif ($m eq 'allow') {
-			return &Interface::jmsg($dst, 'Cannot find that network') unless $Janus::nets{$arg};
+			return Interface::jmsg($dst, 'Cannot find that network') unless $Janus::nets{$arg};
 			$ifo->{ack}{$arg} = 1;
-			&Interface::jmsg($dst, 'Done');
+			Interface::jmsg($dst, 'Done');
 		} elsif ($m eq 'deny') {
-			return &Interface::jmsg($dst, 'Cannot find that network') unless $Janus::nets{$arg};
+			return Interface::jmsg($dst, 'Cannot find that network') unless $Janus::nets{$arg};
 			$ifo->{ack}{$arg} = 2;
-			&Interface::jmsg($dst, 'Done');
+			Interface::jmsg($dst, 'Done');
 		} elsif ($m eq 'del' && $arg) {
 			if (delete $ifo->{ack}{$arg}) {
-				&Interface::jmsg($dst, 'Deleted');
+				Interface::jmsg($dst, 'Deleted');
 			} else {
-				&Interface::jmsg($dst, 'Cannot find that network');
+				Interface::jmsg($dst, 'Cannot find that network');
 			}
 		} elsif ($m eq 'default' && $arg) {
 			if ($arg eq 'allow') {
@@ -209,14 +209,14 @@ use warnings;
 		my($genact, $src, $dst, $tochan, $snet, $chan, $dnet) = @_;
 		my $dnname = $dnet->name;
 		unless ($tochan) {
-			&Janus::jmsg('Run this command on your own server') if $snet->jlink;
+			Janus::jmsg('Run this command on your own server') if $snet->jlink;
 
-			return unless &Account::chan_access_chk($src, $chan, 'create', $dst);
+			return unless Account::chan_access_chk($src, $chan, 'create', $dst);
 			$tochan = lc $chan->homename;
 
 			my $difo = $Link::request{$snet->name}{$tochan};
 			unless ($difo && $difo->{mode}) {
-				&Janus::jmsg($dst, 'That channel is not shared');
+				Janus::jmsg($dst, 'That channel is not shared');
 				return;
 			}
 			if ($difo->{mode} == 2) {
@@ -225,7 +225,7 @@ use warnings;
 				delete $difo->{ack}{$dnname};
 			}
 
-			&Event::reroute_cmd($genact, $dnet->jlink);
+			Event::reroute_cmd($genact, $dnet->jlink);
 		}
 		return if $dnet->jlink;
 		my $hname = $snet->name;
@@ -234,7 +234,7 @@ use warnings;
 			next if $ifo->{mode};
 			next unless $ifo->{net} eq $hname && lc $ifo->{chan} eq $tochan;
 			my $chan = $dnet->chan($dcname, 1);
-			&Event::append(+{
+			Event::append(+{
 				type => 'LINKREQ',
 				chan => $chan,
 				dst => $snet,

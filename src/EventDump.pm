@@ -56,7 +56,7 @@ sub ijstr {
 	} elsif ($itm->isa('Pending')) {
 		return 'pend:'.$$itm;
 	}
-	&Log::err("Unknown object $itm of type $ref");
+	Log::err("Unknown object $itm of type $ref");
 	return '""';
 }
 
@@ -117,10 +117,10 @@ sub debug_send {
 		next if $act->{type} eq 'MSG';
 		my $thnd = $to_ij{$act->{type}};
 		if ($thnd) {
-			&Log::action($INST->ssend($act));
+			Log::action($INST->ssend($act));
 		} else {
 			$act->{IJ_RAW} ||= $INST->ssend($act);
-			&Log::action($act->{IJ_RAW});
+			Log::action($act->{IJ_RAW});
 		}
 	}
 }

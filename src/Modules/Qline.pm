@@ -6,9 +6,9 @@ use strict;
 use warnings;
 
 our(@qlines);
-&Persist::register_vars('Network::qlines' => \@qlines);
+Persist::register_vars('Network::qlines' => \@qlines);
 
-&Event::hook_add(
+Event::hook_add(
 	XLINE => act => sub {
 		my $act = shift;
 		my $net = $act->{dst};

@@ -6,17 +6,17 @@ use warnings;
 use Persist;
 
 our %saved;
-&Janus::save_vars(saved => \%saved);
+Janus::save_vars(saved => \%saved);
 
-&Event::hook_add(
+Event::hook_add(
 	CHANLINK => act => sub {
 		my $act = shift;
 		return unless $act->{net} == $Interface::network;
 		my $chan = $act->{dst};
 		return if $chan->homenet->jlink;
 		my $modes = $saved{$chan->netname} or return;
-		my($m,$a,$d) = &Modes::delta(undef, $modes);
-		&Event::append({
+		my($m,$a,$d) = Modes::delta(undef, $modes);
+		Event::append({
 			type => 'MODE',
 			src => $Interface::janus,
 			dst => $chan,

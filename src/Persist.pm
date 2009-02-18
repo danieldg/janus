@@ -11,7 +11,7 @@ our %reuse;
 our %max_gid;
 our %gid_shrink;
 
-&Janus::static(qw(vars init_args));
+Janus::static(qw(vars init_args));
 
 sub dump_all_refs {
 	my %out;
@@ -105,7 +105,7 @@ sub new {
 		my $init = *{$pkg.'::_init'}{CODE};
 		push @objid, $init->($s, \%args) if $init;
 	}
-	&Log::alloc($s, 'allocated', grep defined && !ref, @objid);
+	Log::alloc($s, 'allocated', grep defined && !ref, @objid);
 	$s;
 }
 
@@ -119,7 +119,7 @@ sub DESTROY {
 		my $dest = *{$pkg.'::_destroy'}{CODE};
 		push @objid, $dest->($self) if $dest;
 	}
-	&Log::alloc($self, 'deallocated', grep defined && !ref, @objid);
+	Log::alloc($self, 'deallocated', grep defined && !ref, @objid);
 	for my $pkg (@pkgs) {
 		for my $aref (values %{$vars{$pkg}}) {
 			delete $aref->[$$self];
@@ -195,7 +195,7 @@ package Persist::Blob;
 sub thaw {
 	my $data = $_[0];
 	my $type = $data->{''};
-	&Persist::new($type, %$data);
+	Persist::new($type, %$data);
 }
 
 package Persist;
@@ -203,7 +203,7 @@ package Persist;
 sub poison {
 	my $ref = shift;
 	return if ref $ref eq 'Persist::Poison';
-	&Log::alloc($ref, 'poisoned');
+	Log::alloc($ref, 'poisoned');
 	my $cls = ref $ref;
 	my $oid = $$ref;
 	my $pdata = bless {
@@ -222,7 +222,7 @@ sub unpoison {
 	my $pdata = $$ref;
 	$$ref = $pdata->{id};
 	bless $ref, $pdata->{class};
-	&Log::alloc($ref, 'unpoisoned', $pdata->{ts}, $pdata->{refs});
+	Log::alloc($ref, 'unpoisoned', $pdata->{ts}, $pdata->{refs});
 }
 
 package Persist::Poison;
@@ -240,16 +240,16 @@ sub AUTOLOAD {
 	my $ref = $_[0];
 	my($method) = $AUTOLOAD =~ /.*::([^:]+)/;
 	$$ref->{refs}++;
-	&Log::poison(caller, $method, $$ref, @_);
-	my $sub = &UNIVERSAL::can($$ref->{class}, $method);
+	Log::poison(caller, $method, $$ref, @_);
+	my $sub = UNIVERSAL::can($$ref->{class}, $method);
 	goto &$sub;
 }
 
 sub isa {
 	my $ref = $_[0];
 	$$ref->{refs}++;
-	&Log::poison(caller, 'isa', $$ref, @_);
-	&UNIVERSAL::isa($$ref->{class}, $_[1]);
+	Log::poison(caller, 'isa', $$ref, @_);
+	UNIVERSAL::isa($$ref->{class}, $_[1]);
 }
 
 package Persist::Poison::Int;
@@ -258,14 +258,14 @@ use overload '0+' => sub {
 	local $_;
 	my $pdat = $_[0];
 	$pdat->{refs}++;
-	&Log::poison(caller, '+', $pdat);
+	Log::poison(caller, '+', $pdat);
 	$pdat->{id};
 }, '<=>' => sub {
 	local $_;
 	my $side = ref $_[0];
 	my $pdat = $side ? $_[0] : $_[1];
 	$pdat->{refs}++;
-	&Log::poison(caller, '=', $pdat);
+	Log::poison(caller, '=', $pdat);
 	$side ? ($pdat->{id} <=> $_[1]) : ($_[0] <=> $pdat->{id});
 };
 

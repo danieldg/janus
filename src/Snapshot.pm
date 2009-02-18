@@ -7,7 +7,7 @@ use Data::Dumper;
 use POSIX qw(strftime);
 
 eval {
-	&Data::Dumper::init_refaddr_format();
+	Data::Dumper::init_refaddr_format();
 	# BUG in Data::Dumper, running this is needed before using Seen
 };
 
@@ -41,7 +41,7 @@ sub dump_to {
 	my @modlist = keys %Janus::modinfo;
 	my $gbls = dump_all_globals(@modlist);
 	my $stat = {};
-	my $objs = &Persist::dump_all_refs();
+	my $objs = Persist::dump_all_refs();
 	my %seen;
 	my @tmp = keys %$gbls;
 	for my $var (@tmp) {
@@ -60,9 +60,9 @@ sub dump_to {
 		}
 	}
 	for my $q (@Connection::queues) {
-		my $sock = $q->[&Connection::SOCK()];
+		my $sock = $q->[Connection::SOCK()];
 		next unless ref $sock;
-		$seen{'$thaw_fd->('.$q->[&Connection::FD()].", '".ref($sock)."')"} = $sock;
+		$seen{'$thaw_fd->('.$q->[Connection::FD()].", '".ref($sock)."')"} = $sock;
 	}
 
 	my $dd = Data::Dumper->new([]);
@@ -120,7 +120,7 @@ sub dump_now {
 	}
 
 	open my $dump, '>', $fn or return undef;
-	&Snapshot::dump_to($dump, $pure, \@_);
+	Snapshot::dump_to($dump, $pure, \@_);
 	close $dump;
 	$fn;
 }
@@ -131,9 +131,9 @@ sub restore_from {
 	$preread = 1;
 	require Conffile;
 	$Conffile::conffile = $main::ARGV[0] if @main::ARGV;
-	&Conffile::read_conf();
+	Conffile::read_conf();
 	$preread = 0;
-	&Restore::Var::run($file);
+	Restore::Var::run($file);
 	my @logq = @Log::queue;
 	for my $var (keys %$Restore::Var::global) {
 		my $val = $Restore::Var::global->{$var};
@@ -158,13 +158,13 @@ sub restore_from {
 		}
 	}
 
-	&Log::debug('Pre-restore events:');
+	Log::debug('Pre-restore events:');
 	push @Log::queue, @logq;
-	&Log::debug("Beginning debug deallocations");
-	&Restore::Var::clear();
+	Log::debug("Beginning debug deallocations");
+	Restore::Var::clear();
 
-	&Log::debug("State restored.");
-	&Event::insert_full({
+	Log::debug("State restored.");
+	Event::insert_full({
 		type => 'RESTORE',
 	});
 }
@@ -178,8 +178,8 @@ our(%obj_db, $thaw_var, $thaw_fd);
 
 sub clear {
 	($gnicks, $chanlist, $nets, $ijnets, $pending, $listen,
-	 $modules, $states, $static, $global, $object, $args) = 
-	(undef, undef, undef, undef, undef, undef, 
+	 $modules, $states, $static, $global, $object, $args) =
+	(undef, undef, undef, undef, undef, undef,
 	 undef, undef, undef, undef, undef,	undef);
 	%obj_db = ();
 }
@@ -207,10 +207,10 @@ sub findobj {
 
 sub load_all {
 	for my $mod (@$modules) {
-		&Janus::load($mod);
+		Janus::load($mod);
 	}
 	regobj %Janus::gnicks, %Janus::gnets, $Janus::global, $RemoteJanus::self;
-	$static = &Snapshot::dump_all_globals(@$modules);
+	$static = Snapshot::dump_all_globals(@$modules);
 }
 
 $thaw_var = sub {

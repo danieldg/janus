@@ -19,7 +19,7 @@ sub bgexec {
 	waitpid $p, 0;
 }
 
-&Event::command_add({
+Event::command_add({
 	cmd => 'upgrade',
 	help => 'Upgrades all modules loaded by janus',
 	details => [ 'Syntax: upgrade [force]' ],
@@ -29,17 +29,17 @@ sub bgexec {
 		my($src,$dst,$arg) = @_;
 		my @mods = sort keys %Janus::modinfo;
 		my $force = ($arg && $arg eq 'force');
-		&Log::audit(($force ? 'Full module reload' : 'Upgrade') .
+		Log::audit(($force ? 'Full module reload' : 'Upgrade') .
 			' started by '.$src->netnick);
 		my @done;
 		for my $mod (@mods) {
 			next unless $Janus::modinfo{$mod}{active} || $Janus::modinfo{$mod}{retry};
 			unless ($force) {
 				my $old_sha = $Janus::modinfo{$mod}{sha};
-				&Janus::csum_read($mod);
+				Janus::csum_read($mod);
 				next if $old_sha eq $Janus::modinfo{$mod}{sha};
 			}
-			if (&Janus::reload($mod)) {
+			if (Janus::reload($mod)) {
 				delete $Janus::modinfo{$mod}{retry};
 				push @done, $mod;
 			} else {
@@ -47,8 +47,8 @@ sub bgexec {
 				push @done, "\00304$mod\017";
 			}
 		}
-		&Log::info('Upgrade finished');
-		&Janus::jmsg($dst, join ' ', 'Modules reloaded:', sort @done);
+		Log::info('Upgrade finished');
+		Janus::jmsg($dst, join ' ', 'Modules reloaded:', sort @done);
 	}
 }, {
 	cmd => 'up-tar',
@@ -57,9 +57,9 @@ sub bgexec {
 	acl => 'up-tar',
 	code => sub {
 		my($src,$dst) = @_;
-		&Log::audit('Up-tar started by '.$src->netnick);
+		Log::audit('Up-tar started by '.$src->netnick);
 		my $p = fork;
-		return &Janus::jmsg($dst, 'Failed') unless defined $p && $p >= 0;
+		return Janus::jmsg($dst, 'Failed') unless defined $p && $p >= 0;
 		return if $p;
 
 		bgexec 'wget', '--output-document', 'janus.tgz', 'http://dd.qc.to/gitweb?p=janus.git;a=snapshot;h=refs/heads/master;sf=tgz';
@@ -72,9 +72,9 @@ sub bgexec {
 	acl => 'up-git',
 	code => sub {
 		my($src,$dst) = shift;
-		&Log::audit('Up-git started by '.$src->netnick);
+		Log::audit('Up-git started by '.$src->netnick);
 		my $p = fork;
-		return &Janus::jmsg($dst, 'Failed') unless defined $p && $p >= 0;
+		return Janus::jmsg($dst, 'Failed') unless defined $p && $p >= 0;
 		return if $p;
 		bgexec qw/git stash/;
 		bgexec qw/git pull/;

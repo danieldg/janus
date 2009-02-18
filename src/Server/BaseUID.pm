@@ -8,7 +8,7 @@ use warnings;
 use integer;
 
 our(@nick2uid, @uids, @gid2uid);
-&Persist::register_vars(qw(nick2uid uids gid2uid));
+Persist::register_vars(qw(nick2uid uids gid2uid));
 
 sub _init {
 	my $net = shift;
@@ -24,16 +24,16 @@ sub nick2uid {
 sub mynick {
 	my($net, $name) = @_;
 	if ($name !~ /^\d/) {
-		&Log::warn_in($net, "Nick used where UID expected; converting");
+		Log::warn_in($net, "Nick used where UID expected; converting");
 		$name = $nick2uid[$$net]{lc $name} || $name;
 	}
 	my $nick = $uids[$$net]{uc $name};
 	unless ($nick) {
-		&Log::warn_in($net, "UID '$name' does not exist; ignoring");
+		Log::warn_in($net, "UID '$name' does not exist; ignoring");
 		return undef;
 	}
 	if ($nick->homenet() ne $net) {
-		&Log::err_in($net, "UID '$name' is from network '".$nick->homenet()->name().
+		Log::err_in($net, "UID '$name' is from network '".$nick->homenet()->name().
 			"' but was sourced locally");
 		return undef;
 	}
@@ -43,11 +43,11 @@ sub mynick {
 sub nick {
 	my($net, $name) = @_;
 	if ($name !~ /^\d/) {
-		&Log::warn_in($net, "Nick used where UID expected: converting") unless $_[2];
+		Log::warn_in($net, "Nick used where UID expected: converting") unless $_[2];
 		$name = $nick2uid[$$net]{lc $name} || $name;
 	}
 	return $uids[$$net]{uc $name} if $uids[$$net]{uc $name};
-	&Log::warn_in($net, "UID '$name' does not exist; ignoring") unless $_[2];
+	Log::warn_in($net, "UID '$name' does not exist; ignoring") unless $_[2];
 	undef;
 }
 
@@ -57,7 +57,7 @@ sub register_nick {
 	$uids[$$net]{uc $new_uid} = $new;
 	$gid2uid[$$net]{$new->gid()} = $new_uid;
 	my $name = $new->str($net);
-	&Log::debug_in($net, "Registering $new_uid for local nick $name #$$new");
+	Log::debug_in($net, "Registering $new_uid for local nick $name #$$new");
 	my $old_uid = delete $nick2uid[$$net]{lc $name};
 	unless ($old_uid) {
 		$nick2uid[$$net]{lc $name} = $new_uid;
@@ -76,7 +76,7 @@ sub register_nick {
 		$tsctl = -$tsctl;
 	}
 
-	&Log::debug("Nick collision over $name, old=".$old->ts." new=".$new->ts." tsctl=$tsctl");
+	Log::debug("Nick collision over $name, old=".$old->ts." new=".$new->ts." tsctl=$tsctl");
 
 	my @rv;
 
@@ -154,7 +154,7 @@ sub request_newnick {
 	my($net, $nick, $reqnick, $tagged) = @_;
 	my $given = _request_nick(@_);
 	my $uid = $net->next_uid($nick->homenet());
-	&Log::debug_in($net, "Registering nick #$$nick as uid $uid with nick $given");
+	Log::debug_in($net, "Registering nick #$$nick as uid $uid with nick $given");
 	$uids[$$net]{uc $uid} = $nick;
 	$nick2uid[$$net]{lc $given} = $uid;
 	$gid2uid[$$net]{$nick->gid()} = $uid;
@@ -192,7 +192,7 @@ sub item {
 	return undef;
 }
 
-&Event::hook_add(
+Event::hook_add(
 	INFO => 'Nick:1' => sub {
 		my($dst, $nick) = @_;
 		my $out;
@@ -201,7 +201,7 @@ sub item {
 			$out .= ' @'.$net->name.'='.$net->nick2uid($nick);
 		}
 		return unless $out;
-		&Janus::jmsg($dst, "\002Protocol UIDs\002:".$out);
+		Janus::jmsg($dst, "\002Protocol UIDs\002:".$out);
 	},
 );
 

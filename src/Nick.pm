@@ -32,8 +32,8 @@ Last nick-change timestamp of this user (to help determine collision resolution)
 =cut
 
 our(@gid, @homenet, @homenick, @nets, @nicks, @chans, @mode, @info, @ts);
-&Persist::register_vars(qw(gid homenet homenick nets nicks chans mode info ts));
-&Persist::autoget(qw(gid homenet homenick ts));
+Persist::register_vars(qw(gid homenet homenick nets nicks chans mode info ts));
+Persist::autoget(qw(gid homenet homenick ts));
 
 our %umodebit;
 do {
@@ -131,7 +131,7 @@ sub is_on {
 	return exists $nets[$$nick]{$$net};
 }
 
-=item $nick->netlist() 
+=item $nick->netlist()
 
 return the list of all networks this nick is currently on
 
@@ -197,7 +197,7 @@ sub jlink {
 
 =item $nick->info($item)
 
-information about this nick. Defined global info fields: 
+information about this nick. Defined global info fields:
 	host ident ip name vhost away swhois
 
 Locally, more info may be defined by the home Network; this should
@@ -252,7 +252,7 @@ sub rejoin {
 
 	for my $net ($chan->nets()) {
 		next if $nets[$$nick]{$$net};
-		&Event::insert_partial(+{
+		Event::insert_partial(+{
 			type => 'CONNECT',
 			dst => $nick,
 			net => $net,
@@ -277,7 +277,7 @@ sub _netpart {
 		next if $net == $Interface::network;
 		return unless $jl->jparent($net);
 	}
-	&Event::append({
+	Event::append({
 		type => 'POISON',
 		item => $nick,
 		reason => 'final netpart',
@@ -294,7 +294,7 @@ sub _netclean {
 	delete $leave{${$homenet[$$nick]}};
 	for my $chan (@{$chans[$$nick]}) {
 		unless ($chan->is_on($home)) {
-			&Log::err("Found nick $$nick on delinked channel $$chan");
+			Log::err("Found nick $$nick on delinked channel $$chan");
 			$chans[$$nick] = [ grep { $_ ne $chan } @{$chans[$$nick]} ];
 			next;
 		}
@@ -331,7 +331,7 @@ sub str {
 
 =cut
 
-&Event::hook_add(
+Event::hook_add(
 	NEWNICK => act => sub {
 		my $act = shift;
 		my $nick = $act->{dst};
@@ -423,7 +423,7 @@ sub str {
 		delete $nets[$$nick];
 		delete $homenet[$$nick];
 		delete $Janus::gnicks{$nick->gid()};
-		&Persist::poison($nick);
+		Persist::poison($nick);
 	}, JOIN => act => sub {
 		my $act = shift;
 		my $nick = $act->{src};
@@ -464,18 +464,18 @@ sub str {
 				$n->_netpart($net);
 			}
 		}
-		&Event::insert_full(@clean); @clean = ();
+		Event::insert_full(@clean); @clean = ();
 
-		&Log::debug("Nick deallocation start");
+		Log::debug("Nick deallocation start");
 		for (0..$#nicks) {
 			weaken($nicks[$_]);
 			my $n = $nicks[$_] or next;
 			next if 'Persist::Poison' eq ref $n;
 			next unless $n->homenet() eq $net;
-			&Persist::poison($nicks[$_]);
+			Persist::poison($nicks[$_]);
 		}
 		@nicks = ();
-		&Log::debug("Nick deallocation end");
+		Log::debug("Nick deallocation end");
 	}, KILL => act => sub {
 		# TODO this is very specific to Link-mode kills
 		my $act = shift;
@@ -500,7 +500,7 @@ sub str {
 				except => $net,
 				nojlink => 1,
 			};
-			&Event::append($act);
+			Event::append($act);
 		}
 	}, KILL => cleanup => sub {
 		my $act = shift;

@@ -14,7 +14,7 @@ my %timespec = (
 	y => 365*86400,
 );
 
-&Event::command_add({
+Event::command_add({
 	cmd => 'ban',
 	help => 'Manages Janus bans (bans remote users)',
 	section => 'Network',
@@ -44,7 +44,7 @@ my %timespec = (
 		my($src,$dst,$cmd,@args) = @_;
 		$cmd = lc $cmd;
 		my $net = $src->homenet;
-		my $gbl_ok = &Account::acl_check($src, 'globalban');
+		my $gbl_ok = Account::acl_check($src, 'globalban');
 		if ($cmd eq 'list') {
 			my $c = 0;
 			my @tbl = [ '', qw(expr setter to reason expire) ];
@@ -62,8 +62,8 @@ my %timespec = (
 				}
 				push @tbl, \@row;
 			}
-			&Interface::msgtable($dst, \@tbl) if @tbl > 1;
-			&Janus::jmsg($dst, 'No bans defined') if @tbl == 1;
+			Interface::msgtable($dst, \@tbl) if @tbl > 1;
+			Janus::jmsg($dst, 'No bans defined') if @tbl == 1;
 		} elsif ($cmd eq 'add' || $cmd eq 'nadd') {
 			my %ban = (
 				setter => $src->netnick,
@@ -84,18 +84,18 @@ my %timespec = (
 					$v =~ s/^"(.*)"$/$1/ and $v =~ s/\\(.)/$1/g;
 					$ban{$k} = $v;
 					delete $ban{$k} if $v eq '*';
-					return &Janus::jmsg($dst, 'You cannot specify "to"') if
+					return Janus::jmsg($dst, 'You cannot specify "to"') if
 						$k eq 'to' && $v ne $net->name && !$gbl_ok;
 				} elsif (s#^(x?)/((?:[^\\/]|\\.)*)/\s*##) {
 					eval {
 						$ban{match} = $1 ? qr($2)s : qr($2\n.*\t.*)s;
 						1;
 					} or do {
-						&Janus::jmsg($dst, "Could not parse: $@");
+						Janus::jmsg($dst, "Could not parse: $@");
 						return;
 					};
 				} else {
-					return &Janus::jmsg($dst, 'Invalid syntax for ban');
+					return Janus::jmsg($dst, 'Invalid syntax for ban');
 				}
 			}
 			if ($ban{for}) {
@@ -104,7 +104,7 @@ my %timespec = (
 				$t += $1*($timespec{lc $2} || 1) while s/^(\d+)(\D?)//;
 				$ban{expire} = $t;
 				if ($_) {
-					&Janus::jmsg($dst, 'Invalid characters in ban length');
+					Janus::jmsg($dst, 'Invalid characters in ban length');
 					return;
 				}
 			} else {
@@ -119,13 +119,13 @@ my %timespec = (
 				}
 				$ban{match} = qr($ban{nick}\!$ban{ident}\@$ban{hre}\n$ban{from}\t$ban{name});
 			}
-			return &Janus::jmsg($dst, 'Ban too wide') if "\!\@\n\t" =~ /^$ban{match}$/;
+			return Janus::jmsg($dst, 'Ban too wide') if "\!\@\n\t" =~ /^$ban{match}$/;
 			delete $ban{to} if $ban{to} eq '*';
 			delete $ban{host} if $ban{host} =~ /[*?]/;
 			my $ban = Util::Ban->new(%ban);
 			$ban->add();
 			$ban->scan($net) if $cmd eq 'add';
-			&Janus::jmsg($dst, 'Ban added');
+			Janus::jmsg($dst, 'Ban added');
 		} elsif ($cmd eq 'del') {
 			my(@yes,@no);
 			for (@args) {
@@ -137,10 +137,10 @@ my %timespec = (
 					push @no, $_;
 				}
 			}
-			&Janus::jmsg($dst, "Removed @yes") if @yes;
-			&Janus::jmsg($dst, "Could not remove @no") if @no;
+			Janus::jmsg($dst, "Removed @yes") if @yes;
+			Janus::jmsg($dst, "Could not remove @no") if @no;
 		} else {
-			&Janus::jmsg($dst, 'Invalid syntax. See "help ban" for the syntax');
+			Janus::jmsg($dst, 'Invalid syntax. See "help ban" for the syntax');
 		}
 	}
 });

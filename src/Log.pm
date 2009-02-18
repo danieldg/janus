@@ -98,7 +98,7 @@ our %action = (
 		my($pkg, $file, $line, $called, $ifo, @etc) = @_;
 		my $msg = "Reference to $ifo->{class}->$called at $file line $line for #$ifo->{id} (count=$ifo->{refs})";
 		if ($ifo->{refs} == 1 && $Conffile::netconf{set}{poison_dump}) {
-			&Snapshot::dump_now('poison', $msg, $ifo, @etc, &Log::call_dump());
+			Snapshot::dump_now('poison', $msg, $ifo, @etc, Log::call_dump());
 		}
 		(14, 'poison', $msg);
 	},
@@ -112,7 +112,7 @@ our @ANSI = ('',qw(30 34 32 1;31 31 35 33 1;33 1;32 36 1;35 1;34 1;35 1;30 37 1;
 our($AUTOLOAD,$ftime,$fcount);
 $ftime ||= 0;
 
-&Janus::static(qw(action ANSI ftime fcount listeners));
+Janus::static(qw(action ANSI ftime fcount listeners));
 
 sub AUTOLOAD {
 	local $_;
@@ -167,7 +167,7 @@ sub call_dump {
 
 $SIG{'__WARN__'} = sub {
 	return if $_[0] =~ /^Subroutine \S+ redefined at (?:\S+\.pm|\(eval \d+\)) line \d+\.$/;
-	&Log::warn(@_);
+	Log::warn(@_);
 };
 
 1;

@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use Data::Dumper;
 
-&Event::command_add({
+Event::command_add({
 	cmd => 'eval',
 	help => "Evaluates a perl expression. \002DANGEROUS\002",
 	section => 'Admin',
@@ -14,7 +14,7 @@ use Data::Dumper;
 	code => sub {
 		my($src, $dst, $expr) = @_;
 		print "EVAL: $expr\n";
-		&Log::audit('EVAL by '.$src->netnick.': '.$expr);
+		Log::audit('EVAL by '.$src->netnick.': '.$expr);
 		$expr =~ /^eval (.*)/i; # go around taint mode
 		$expr = $1;
 		my $r = eval $expr;
@@ -25,7 +25,7 @@ use Data::Dumper;
 				$d->Indent(0)->Terse(1)->Dump;
 			};
 			s/\n/ /g;
-			&Janus::jmsg($dst, $_);
+			Janus::jmsg($dst, $_);
 		}
 	},
 });

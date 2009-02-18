@@ -14,7 +14,7 @@ use warnings;
 use integer;
 
 our(@sendq1, @sendq2, @servers, @serverdsc, @servernum, @next_uid, @capabs);
-&Persist::register_vars(qw(sendq1 sendq2 servers serverdsc servernum next_uid capabs));
+Persist::register_vars(qw(sendq1 sendq2 servers serverdsc servernum next_uid capabs));
 
 sub _init {
 	my $net = shift;
@@ -56,7 +56,7 @@ sub parse {
 		unshift @args, undef;
 	}
 	my $cmd = $args[1];
-	&Log::netin(@_) unless $cmd eq 'PRIVMSG' || $cmd eq 'NOTICE';
+	Log::netin(@_) unless $cmd eq 'PRIVMSG' || $cmd eq 'NOTICE';
 	unless ($net->auth_ok || $cmd eq 'CAPAB' || $cmd eq 'SERVER' || $cmd eq 'ERROR') {
 		$sendq1[$$net] .= "ERROR :Not authorized yet\r\n";
 		return ();
@@ -75,7 +75,7 @@ sub dump_sendq {
 	local $_;
 	my $q = $sendq1[$$net];
 	$sendq1[$$net] = '';
-	&Log::netout($net, $_) for split /\r\n/, $q;
+	Log::netout($net, $_) for split /\r\n/, $q;
 	if ($net->auth_ok) {
 		my $fj_pfx;
 		my $fj_line = '';
@@ -87,22 +87,22 @@ sub dump_sendq {
 					$fj_line .= ' '.$2;
 				} else {
 					$q .= $fj_line."\r\n" if $fj_line;
-					&Log::netout($net, $fj_line) if $fj_line;
+					Log::netout($net, $fj_line) if $fj_line;
 					$fj_pfx = $1;
 					$fj_line = $_;
 				}
 			} else {
 				if ($fj_line && !/^:\S+ (?:UID|PRIVMSG) /) {
 					$q .= $fj_line."\r\n";
-					&Log::netout($net, $fj_line);
+					Log::netout($net, $fj_line);
 					$fj_line = '';
 				}
 				$q .= $_ . "\r\n";
-				&Log::netout($net, $_) unless /^:\S+ (?:PRIVMSG|NOTICE) /;
+				Log::netout($net, $_) unless /^:\S+ (?:PRIVMSG|NOTICE) /;
 			}
 		}
 		$q .= $fj_line."\r\n" if $fj_line;
-		&Log::netout($net, $fj_line) if $fj_line;
+		Log::netout($net, $fj_line) if $fj_line;
 	}
 	$q;
 }
@@ -193,7 +193,7 @@ sub process_capabs {
 	# PREFIX=(qaohv)~&@%+ - We don't care (anymore)
 	$capabs[$$net]{PREFIX} =~ /\((\S+)\)\S+/ or warn;
 	my $pfxmodes = $1;
-	my $expect = &Modes::modelist($net, $pfxmodes);
+	my $expect = Modes::modelist($net, $pfxmodes);
 	unless ($expect eq $capabs[$$net]{CHANMODES}) {
 		$net->send($net->ncmd(SNONOTICE => 'l', 'Possible desync - CHANMODES do not match module list: '.
 			"expected $expect, got $capabs[$$net]{CHANMODES}"));
@@ -256,7 +256,7 @@ sub _out {
 	} elsif ($itm->isa('Network') || $itm->isa('RemoteJanus')) {
 		return $net->net2uid($itm);
 	} else {
-		&Log::err_in($net, "Unknown item $itm");
+		Log::err_in($net, "Unknown item $itm");
 		return $net->net2uid($net);
 	}
 }
@@ -279,7 +279,7 @@ sub cmd2 {
 }
 
 our %moddef = ();
-&Janus::static('moddef');
+Janus::static('moddef');
 $moddef{CAPAB_HALFOP} = {
 	cmode => {
 		h => 'n_halfop',
@@ -318,7 +318,7 @@ $moddef{CORE} = {
 		my $stomp = $net->nick($_[2], 1);
 		my $ts = $_[3];
 		unless ($ts) {
-			&Log::warn_in($net, 'Nick change without timestamp');
+			Log::warn_in($net, 'Nick change without timestamp');
 			$ts = $Janus::time;
 		}
 		my @out;
@@ -460,7 +460,7 @@ $moddef{CORE} = {
 				newts => $ts,
 				oldts => $chan->ts(),
 			};
-			my($modes,$args,$dirs) = &Modes::dump($chan);
+			my($modes,$args,$dirs) = Modes::dump($chan);
 			if ($chan->homenet == $net) {
 				# this is a TS wipe, justified. Wipe janus's side.
 				$_ = '-' for @$dirs;
@@ -476,11 +476,11 @@ $moddef{CORE} = {
 				# someone else owns the channel. Fix.
 				$net->send(map {
 					$net->ncmd(FMODE => $chan, $ts, @$_);
-				} &Modes::to_multi($net, $modes, $args, $dirs, $capabs[$$net]{MAXMODES}));
+				} Modes::to_multi($net, $modes, $args, $dirs, $capabs[$$net]{MAXMODES}));
 			}
 		}
 
-		my($modes,$args,$dirs,$users) = &Modes::from_irc($net, $chan, @_[4 .. $#_]);
+		my($modes,$args,$dirs,$users) = Modes::from_irc($net, $chan, @_[4 .. $#_]);
 		if ($applied && @$dirs) {
 			push @acts, +{
 				type => 'MODE',
@@ -527,7 +527,7 @@ $moddef{CORE} = {
 		my $chan = $net->chan($_[2]) or return ();
 		my $ts = $_[3];
 		return () if $ts > $chan->ts();
-		my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, @_[4 .. $#_]);
+		my($modes,$args,$dirs) = Modes::from_irc($net, $chan, @_[4 .. $#_]);
 		return +{
 			type => 'MODE',
 			src => $src,
@@ -544,7 +544,7 @@ $moddef{CORE} = {
 			return () unless $dst->homenet() eq $net;
 			$net->_parse_umode($dst, $_[3]);
 		} else {
-			my($modes,$args,$dirs) = &Modes::from_irc($net, $dst, @_[3 .. $#_]);
+			my($modes,$args,$dirs) = Modes::from_irc($net, $dst, @_[3 .. $#_]);
 			return +{
 				type => 'MODE',
 				src => $src,
@@ -630,13 +630,13 @@ $moddef{CORE} = {
 	SERVER => sub {
 		my $net = shift;
 		if ($net->auth_ok) {
-			&Log::debug_in($net, "Introducing server $_[2] from $_[0] with numeric $_[5]");
+			Log::debug_in($net, "Introducing server $_[2] from $_[0] with numeric $_[5]");
 			$servers[$$net]{lc $_[2]} = $_[0] =~ /^\d/ ? $servernum[$$net]{$_[0]} : lc $_[0];
 			$serverdsc[$$net]{lc $_[2]} = $_[-1];
 			$servernum[$$net]{$_[5]} = $_[2];
 			return ();
 		} else {
-			&Log::debug_in($net, "Initial server introduction of $_[2] with numeric $_[5]");
+			Log::debug_in($net, "Initial server introduction of $_[2] with numeric $_[5]");
 			my $rpass = delete $capabs[$$net]{' HMAC_RPASS'} || $net->cparam('recvpass');
 			if ($_[3] eq $rpass) {
 				$net->auth_recvd;
@@ -675,7 +675,7 @@ $moddef{CORE} = {
 			}
 		}
 		my @ksg = sort keys %sgone;
-		&Log::info_in($net, 'Lost servers: '.join(' ', @ksg));
+		Log::info_in($net, 'Lost servers: '.join(' ', @ksg));
 		delete $servers[$$net]{$_} for @ksg;
 		delete $serverdsc[$$net]{$_} for @ksg;
 		for (keys %{$servernum[$$net]}) {
@@ -794,7 +794,7 @@ $moddef{CORE} = {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
 		if ($nick->homenet eq $net) {
-			&Log::warn_in($net, "Misdirected SVSNICK!");
+			Log::warn_in($net, "Misdirected SVSNICK!");
 			return ();
 		} elsif (lc $nick->homenick eq lc $nick->str($net)) {
 			return +{
@@ -806,7 +806,7 @@ $moddef{CORE} = {
 				altnick => 1,
 			};
 		} else {
-			&Log::warn_in($net, "Ignoring SVSNICK on already tagged nick");
+			Log::warn_in($net, "Ignoring SVSNICK on already tagged nick");
 			return ();
 		}
 	},
@@ -825,7 +825,7 @@ $moddef{CORE} = {
 			return () if $servers[$$net]{lc $srv};
 			# remote burst
 		} else {
-			&Log::warn_in($net, 'Source-less ENDBURST received!');
+			Log::warn_in($net, 'Source-less ENDBURST received!');
 		}
 		return (+{
 			type => 'LINKED',
@@ -894,7 +894,7 @@ $moddef{CORE} = {
 			};
 		} else {
 			my $home_srv = $src->info('home_server');
-			return &Interface::whois_reply($dst, $src,
+			return Interface::whois_reply($dst, $src,
 				$_[4], $_[3],
 				312 => [ $home_srv, $serverdsc[$$net]{$home_srv} ],
 			);
@@ -1011,7 +1011,7 @@ $moddef{CORE} = {
 				my $mode = join '', map {
 					$chan->has_nmode($_, $nick) ? ($net->txt2cmode("n_$_") || '') : ''
 				} qw/voice halfop op admin owner/;
-				my @cmodes = &Modes::to_multi($net, &Modes::dump($chan), $capabs[$$net]{MAXMODES});
+				my @cmodes = Modes::to_multi($net, Modes::dump($chan), $capabs[$$net]{MAXMODES});
 				@cmodes = (['+']) unless @cmodes && @{$cmodes[0]};
 				warn "w00t said this wouldn't happen" if @cmodes != 1;
 
@@ -1055,14 +1055,14 @@ $moddef{CORE} = {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
 		if ($act->{src}->homenet() eq $net) {
-			&Log::err_in($net,"Trying to force channel join remotely (".$act->{src}->gid().$chan->str($net).")");
+			Log::err_in($net,"Trying to force channel join remotely (".$act->{src}->gid().$chan->str($net).")");
 			return ();
 		}
 		my $mode = '';
 		if ($act->{mode}) {
 			$mode .= ($net->txt2cmode("n_$_") || '') for keys %{$act->{mode}};
 		}
-		my @cmodes = &Modes::to_multi($net, &Modes::dump($chan), $capabs[$$net]{MAXMODES});
+		my @cmodes = Modes::to_multi($net, Modes::dump($chan), $capabs[$$net]{MAXMODES});
 		@cmodes = (['+']) unless @cmodes && @{$cmodes[0]};
 		warn "w00t said this wouldn't happen" if @cmodes != 1;
 
@@ -1086,7 +1086,7 @@ $moddef{CORE} = {
 		my($net,$act) = @_;
 		my $src = $act->{src} || $net;
 		my $dst = $act->{dst};
-		my @modes = &Modes::to_multi($net, $act->{mode}, $act->{args}, $act->{dirs},
+		my @modes = Modes::to_multi($net, $act->{mode}, $act->{args}, $act->{dirs},
 			$capabs[$$net]{MAXMODES});
 		my @out;
 		for my $line (@modes) {
@@ -1129,32 +1129,32 @@ $moddef{CORE} = {
 		my $chan = $act->{dst};
 		my $ts = $act->{newts};
 
-		my @sjmodes = &Modes::to_irc($net, &Modes::dump($chan));
+		my @sjmodes = Modes::to_irc($net, Modes::dump($chan));
 		@sjmodes = '+' unless @sjmodes;
 
 		my @out = $net->ncmd(FJOIN => $chan, $ts, @sjmodes, ','.$net->_out($Interface::janus));
-		my($m1,$a1,$d1) = &Modes::delta(undef, $chan);
-		my($m2,$a2,$d2) = &Modes::reops($chan);
+		my($m1,$a1,$d1) = Modes::delta(undef, $chan);
+		my($m2,$a2,$d2) = Modes::reops($chan);
 		push @$m1, @$m2;
 		push @$a1, @$a2;
 		push @$d1, @$d2;
 
 		push @out, map {
 			$net->ncmd(FMODE => $chan, $ts, @$_);
-		} &Modes::to_multi($net, $m1, $a1, $d1, $capabs[$$net]{MAXMODES});
+		} Modes::to_multi($net, $m1, $a1, $d1, $capabs[$$net]{MAXMODES});
 
 		@out;
 	}, CHANBURST => sub {
 		my($net,$act) = @_;
 		my $old = $act->{before};
 		my $new = $act->{after};
-		my @sjmodes = &Modes::to_irc($net, &Modes::dump($new));
+		my @sjmodes = Modes::to_irc($net, Modes::dump($new));
 		@sjmodes = '+' unless @sjmodes;
 		my @out;
 		push @out, $net->ncmd(FJOIN => $new, $new->ts, @sjmodes, ','.$net->_out($Interface::janus));
 		push @out, map {
 			$net->ncmd(FMODE => $new, $new->ts, @$_);
-		} &Modes::to_multi($net, &Modes::delta($new->ts < $old->ts ? undef : $old, $new), $capabs[$$net]{MAXMODES});
+		} Modes::to_multi($net, Modes::delta($new->ts < $old->ts ? undef : $old, $new), $capabs[$$net]{MAXMODES});
 		if ($new->topic && (!$old->topic || $old->topic ne $new->topic)) {
 			push @out, $net->ncmd(FTOPIC => $new, $new->topicts, $new->topicset, $new->topic);
 		}
@@ -1162,7 +1162,7 @@ $moddef{CORE} = {
 	}, CHANALLSYNC => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{chan};
-		my @sjmodes = &Modes::to_irc($net, &Modes::dump($chan));
+		my @sjmodes = Modes::to_irc($net, Modes::dump($chan));
 		@sjmodes = '+' unless @sjmodes;
 		my @out;
 		my $fj = '';
@@ -1176,7 +1176,7 @@ $moddef{CORE} = {
 		push @out, $net->ncmd(FJOIN => $chan, $chan->ts, @sjmodes, $fj);
 		push @out, map {
 			$net->ncmd(FMODE => $chan, $chan->ts, @$_);
-		} &Modes::to_multi($net, &Modes::delta(undef, $chan), $capabs[$$net]{MAXMODES});
+		} Modes::to_multi($net, Modes::delta(undef, $chan), $capabs[$$net]{MAXMODES});
 		if ($chan->topic) {
 			push @out, $net->ncmd(FTOPIC => $chan, $chan->topicts, $chan->topicset, $chan->topic);
 		}
@@ -1216,13 +1216,13 @@ $moddef{CORE} = {
 	},
 }};
 
-&Event::hook_add(
+Event::hook_add(
 	INFO => 'Network:1' => sub {
 		my($dst, $net, $asker) = @_;
 		return unless $net->isa(__PACKAGE__);
-		&Janus::jmsg($dst, 'Server CAP line: '.join ' ', sort map
+		Janus::jmsg($dst, 'Server CAP line: '.join ' ', sort map
 			"$_=$capabs[$$net]{$_}", keys %{$capabs[$$net]});
-		&Janus::jmsg($dst, 'Modules: '. join ' ', sort $net->all_modules);
+		Janus::jmsg($dst, 'Modules: '. join ' ', sort $net->all_modules);
 		# TODO maybe server list?
 	},
 	Server => find_module => sub {

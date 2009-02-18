@@ -7,9 +7,9 @@ use integer;
 use Persist;
 
 our(@name, @filter);
-&Persist::register_vars(qw(name filter));
-&Persist::autoinit(qw(name filter));
-&Persist::autoget(qw(name));
+Persist::register_vars(qw(name filter));
+Persist::autoinit(qw(name filter));
+Persist::autoget(qw(name));
 
 sub _init {
 	my $log = shift;

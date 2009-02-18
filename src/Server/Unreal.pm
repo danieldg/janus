@@ -10,8 +10,8 @@ use strict;
 use warnings;
 
 our(@rawout, @sjmerge_head, @sjmerge_txt, @srvname, @servers, @numeric, @protoctl);
-&Persist::register_vars(qw(rawout sjmerge_head sjmerge_txt srvname servers numeric protoctl));
-&Persist::autoget(qw(protoctl));
+Persist::register_vars(qw(rawout sjmerge_head sjmerge_txt srvname servers numeric protoctl));
+Persist::autoget(qw(protoctl));
 
 sub _init {
 	my $net = shift;
@@ -178,7 +178,7 @@ sub parse {
 	}
 	my $cmd = $args[1];
 	$cmd = $args[1] = $token2cmd{$cmd} if exists $token2cmd{$cmd};
-	&Log::netin(@_) unless $cmd eq 'PRIVMSG' || $cmd eq 'NOTICE';
+	Log::netin(@_) unless $cmd eq 'PRIVMSG' || $cmd eq 'NOTICE';
 	unless ($net->auth_ok || $cmd eq 'PASS' || $cmd eq 'SERVER' || $cmd eq 'PROTOCTL' || $cmd eq 'ERROR') {
 		return () if $cmd eq 'NOTICE'; # NOTICE AUTH ... annoying
 		$net->send('ERROR :Not authorized');
@@ -241,7 +241,7 @@ sub dump_sendq {
 	$rawout[$$net] = '';
 	for (split /[\r\n]+/, $q) {
 		next if /^:\S+ (B|!) /;
-		&Log::netout($net, $_);
+		Log::netout($net, $_);
 	}
 	$q;
 }
@@ -382,7 +382,7 @@ sub nick_msg {
 		$msg->[0] = $about;
 	}
 	if ($_[2] =~ /\./) {
-		&Log::warn_in($net, 'numeric', @_);
+		Log::warn_in($net, 'numeric', @_);
 		return ();
 	}
 	my $dst = $net->nick($_[2]) or return ();
@@ -572,7 +572,7 @@ sub find_numeric {
 			return $_;
 		}
 	}
-	&Log::err_in($net, 'No available numerics');
+	Log::err_in($net, 'No available numerics');
 	return 0;
 }
 
@@ -589,7 +589,7 @@ sub _out {
 		return $net->cparam('linkname') if $itm eq $net;
 		return $itm->jname();
 	} else {
-		&Log::warn_in($net,"Unknown item $itm");
+		Log::warn_in($net,"Unknown item $itm");
 		$net->cparam('linkname');
 	}
 }
@@ -613,7 +613,7 @@ sub cmd2 {
 
 
 our %moddef;
-&Janus::static('moddef');
+Janus::static('moddef');
 $moddef{'CORE-2309'} = {
 	umode => { qw/
 		p hide_chans
@@ -750,7 +750,7 @@ $moddef{CORE} = {
 		my $vh_mode = 0;
 		if (@_ >= 12) {
 			my @m = split //, $_[9];
-			&Log::warn_in($net, "Invalid NICKv2") unless '+' eq shift @m;
+			Log::warn_in($net, "Invalid NICKv2") unless '+' eq shift @m;
 			$nick{mode} = {};
 			for (@m) {
 				$vh_mode++ if /[xt]/;
@@ -777,7 +777,7 @@ $moddef{CORE} = {
 					s/(.{16})/sprintf '%x:', oct "0b$1"/eg;
 					s/:[^:]*$//;
 				} else {
-					&Log::warn_in($net, "Unknown protocol address in use");
+					Log::warn_in($net, "Unknown protocol address in use");
 				}
 			}
 			$nick{info}{ip} = $_;
@@ -861,7 +861,7 @@ $moddef{CORE} = {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
 		if ($nick->homenet eq $net) {
-			&Log::warn_in($net, "Misdirected SVSNICK!");
+			Log::warn_in($net, "Misdirected SVSNICK!");
 			return ();
 		} elsif (lc $nick->homenick eq lc $_[2]) {
 			return +{
@@ -873,7 +873,7 @@ $moddef{CORE} = {
 				altnick => 1,
 			};
 		} else {
-			&Log::err_in($net, "Ignoring SVSNICK on already tagged nick\n");
+			Log::err_in($net, "Ignoring SVSNICK on already tagged nick\n");
 			return ();
 		}
 	}, UMODE2 => sub {
@@ -958,7 +958,7 @@ $moddef{CORE} = {
 		my $ts = $net->sjbint($_[2]);
 		if ($ts == 0) {
 			$ts = 42;
-			&Log::err_in($net, 'Broken (zero) timestamp on '.$_[3]);
+			Log::err_in($net, 'Broken (zero) timestamp on '.$_[3]);
 		}
 		my $chan = $net->chan($_[3], $ts);
 		my $applied = ($chan->ts() >= $ts);
@@ -976,7 +976,7 @@ $moddef{CORE} = {
 				newts => $ts,
 				oldts => $chan->ts(),
 			};
-			my($modes,$args,$dirs) = &Modes::dump($chan);
+			my($modes,$args,$dirs) = Modes::dump($chan);
 			if ($chan->homenet == $net) {
 				# this is a TS wipe, justified. Wipe janus's side.
 				$_ = '-' for @$dirs;
@@ -992,7 +992,7 @@ $moddef{CORE} = {
 				# someone else owns the channel. Fix.
 				$net->send(map {
 					$net->cmd1(MODE => $chan, @$_, 0);
-				} &Modes::to_multi($net, $modes, $args, $dirs));
+				} Modes::to_multi($net, $modes, $args, $dirs));
 			}
 		}
 
@@ -1018,7 +1018,7 @@ $moddef{CORE} = {
 			}
 		}
 		$cmode =~ tr/&"'/beI/;
-		my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, $cmode, @_[5 .. $#_]);
+		my($modes,$args,$dirs) = Modes::from_irc($net, $chan, $cmode, @_[5 .. $#_]);
 		push @acts, +{
 			type => 'MODE',
 			src => $net,
@@ -1074,7 +1074,7 @@ $moddef{CORE} = {
 			$mode =~ y/+-/-+/;
 			$net->send($net->cmd1(MODE => $_[2], $mode, @_[4 .. $#_]));
 		}
-		my($modes,$args,$dirs) = &Modes::from_irc($net, $chan, $mode, @_[4 .. $#_]);
+		my($modes,$args,$dirs) = Modes::from_irc($net, $chan, $mode, @_[4 .. $#_]);
 		push @out, {
 			type => 'MODE',
 			src => $src,
@@ -1138,7 +1138,7 @@ $moddef{CORE} = {
 				'PROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS UMODE2 TKLEXT SJB64'.
 				"\r\nSERVER $server 1 :U2309-hX6eE-$num Janus Network Link\r\n".$rawout[$$net];
 		}
-		&Log::info_in($net, "Server $_[2] [\@$snum] added from $src");
+		Log::info_in($net, "Server $_[2] [\@$snum] added from $src");
 		$servers[$$net]{$name} = {
 			parent => lc $src,
 			hops => $_[3],
@@ -1197,7 +1197,7 @@ $moddef{CORE} = {
 				msg => "$splitfrom $srv",
 			}
 		}
-		&Log::info_in($net, 'Lost servers: '.join(' ', sort keys %sgone).' with '.(scalar @quits).' users');
+		Log::info_in($net, 'Lost servers: '.join(' ', sort keys %sgone).' with '.(scalar @quits).' users');
 		@quits;
 	}, PING => sub {
 		my $net = shift;
@@ -1360,7 +1360,7 @@ $moddef{CORE} = {
 		my $new = $act->{net};
 		if ($net eq $new) {
 			# first link to the net
-			&Log::info_in($net, "First link, introducing all servers");
+			Log::info_in($net, "First link, introducing all servers");
 			my @out;
 			for my $ij (values %Janus::ijnets) {
 				next unless $ij->is_linked();
@@ -1442,7 +1442,7 @@ $moddef{CORE} = {
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
 		if ($act->{src}->homenet eq $net) {
-			&Log::err_in($net, 'Trying to force channel join remotely ('.$act->{src}->gid().$chan->str($net).")");
+			Log::err_in($net, 'Trying to force channel join remotely ('.$act->{src}->gid().$chan->str($net).")");
 			return ();
 		}
 		my $sj = '';
@@ -1466,7 +1466,7 @@ $moddef{CORE} = {
 	}, MODE => sub {
 		my($net,$act) = @_;
 		my $src = $act->{src};
-		my @modes = &Modes::to_multi($net, @$act{qw(mode args dirs)}, 12);
+		my @modes = Modes::to_multi($net, @$act{qw(mode args dirs)}, 12);
 		my @out;
 		for my $line (@modes) {
 			if (ref $src && $src->isa('Nick') && $src->is_on($net)) {
@@ -1484,7 +1484,7 @@ $moddef{CORE} = {
 		my($net,$act) = @_;
 		my $old = $act->{before};
 		my $new = $act->{after};
-		my @sjmodes = &Modes::to_irc($net, &Modes::dump($new));
+		my @sjmodes = Modes::to_irc($net, Modes::dump($new));
 		@sjmodes = '+' unless @sjmodes;
 		my @out;
 		push @out, $net->cmd1(SJOIN => $net->sjb64($new->ts), $new, @sjmodes, $Interface::janus);
@@ -1493,12 +1493,12 @@ $moddef{CORE} = {
 		}
 		push @out, map {
 			$net->cmd1(MODE => $new, @$_, 0);
-		} &Modes::to_multi($net, &Modes::delta($new->ts < $old->ts ? undef : $old, $new));
+		} Modes::to_multi($net, Modes::delta($new->ts < $old->ts ? undef : $old, $new));
 		@out;
 	}, CHANALLSYNC => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{chan};
-		my @sjmodes = &Modes::to_irc($net, &Modes::dump($chan));
+		my @sjmodes = Modes::to_irc($net, Modes::dump($chan));
 		@sjmodes = '+' unless @sjmodes;
 		my $sj = '';
 		for my $nick ($chan->all_nicks) {
@@ -1613,11 +1613,11 @@ $moddef{CORE} = {
   }
 };
 
-&Event::hook_add(
+Event::hook_add(
 	INFO => 'Network:1' => sub {
 		my($dst, $net, $asker) = @_;
 		return unless $net->isa(__PACKAGE__);
-		&Janus::jmsg($dst, 'Modules: '. join ' ', sort $net->all_modules);
+		Janus::jmsg($dst, 'Modules: '. join ' ', sort $net->all_modules);
 		# TODO maybe server list?
 	},
 	Server => find_module => sub {

@@ -5,7 +5,7 @@ package Commands::ClientUtils;
 use strict;
 use warnings;
 
-&Event::command_add({
+Event::command_add({
 	cmd => 'botnick',
 	help => 'Changes the nick of a ClientBot',
 	section => 'Network',
@@ -16,9 +16,9 @@ use warnings;
 	api => '=replyto localnet $',
 	code => sub {
 		my($dst,$net,$nick) = @_;
-		return &Janus::jmsg($dst, "Network must be a ClientBot.") unless $net->isa('Server::ClientBot');
+		return Janus::jmsg($dst, "Network must be a ClientBot.") unless $net->isa('Server::ClientBot');
 		$net->send("NICK $nick");
-		&Janus::jmsg($dst, 'Done');
+		Janus::jmsg($dst, 'Done');
 	}
 }, {
 	cmd => 'forceid',
@@ -31,14 +31,14 @@ use warnings;
 	api => '=replyto localnet',
 	code => sub {
 		my($dst, $net) = @_;
-		return &Janus::jmsg($dst, "Network must be a ClientBot.") unless $net->isa('Server::ClientBot');
+		return Janus::jmsg($dst, "Network must be a ClientBot.") unless $net->isa('Server::ClientBot');
 		if ($net->param('nspass') || $net->param('qauth')) {
-			&Janus::jmsg($dst, 'Done');
+			Janus::jmsg($dst, 'Done');
 		} else {
-			&Janus::jmsg($dst, "Network has no identify method configured");
+			Janus::jmsg($dst, "Network has no identify method configured");
 			return;
 		}
-		&Event::append(+{
+		Event::append(+{
 			type => 'IDENTIFY',
 			dst => $net,
 		});

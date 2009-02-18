@@ -8,7 +8,7 @@ use strict;
 use warnings;
 
 our @nicks;
-&Persist::register_vars('nicks');
+Persist::register_vars('nicks');
 
 sub _init {
 	my $net = shift;
@@ -19,11 +19,11 @@ sub mynick {
 	my($net, $name) = @_;
 	my $nick = $nicks[$$net]{lc $name};
 	unless ($nick) {
-		&Log::debug_in($net, "Nick '$name' does not exist; ignoring");
+		Log::debug_in($net, "Nick '$name' does not exist; ignoring");
 		return undef;
 	}
 	if ($nick->homenet() ne $net) {
-		&Log::err_in($net, "Nick '$name' is from network '".$nick->homenet()->name().
+		Log::err_in($net, "Nick '$name' is from network '".$nick->homenet()->name().
 			"' but was sourced locally");
 		return undef;
 	}
@@ -33,7 +33,7 @@ sub mynick {
 sub nick {
 	my($net, $name) = @_;
 	return $nicks[$$net]{lc $name} if $nicks[$$net]{lc $name};
-	&Log::debug_in($net, "Nick '$name' does not exist; ignoring") unless $_[2];
+	Log::debug_in($net, "Nick '$name' does not exist; ignoring") unless $_[2];
 	undef;
 }
 
@@ -46,7 +46,7 @@ sub nick_collide {
 	}
 	my $tsctl = $old->ts() <=> $new->ts();
 
-	&Log::debug("Nick collision over $name, old=".$old->ts." new=".$new->ts." tsctl=$tsctl");
+	Log::debug("Nick collision over $name, old=".$old->ts." new=".$new->ts." tsctl=$tsctl");
 
 	$nicks[$$net]->{lc $name} = $new if $tsctl > 0;
 	$nicks[$$net]->{lc $name} = $old if $tsctl < 0;
@@ -55,7 +55,7 @@ sub nick_collide {
 	if ($tsctl >= 0) {
 		# old nick lost, reconnect it
 		if ($old->homenet() eq $net) {
-			&Log::err_in($net, "Nick collision on home network!");
+			Log::err_in($net, "Nick collision on home network!");
 		} else {
 			push @rv, +{
 				type => 'RECONNECT',
