@@ -43,7 +43,7 @@ our @fails;
 			}
 		} elsif ($Account::accounts{$user}) {
 			my $salt = $Account::accounts{$user}{salt} || '';
-			my $hash = hash($pass, $salt);
+			my $hash = Util::Crypto::hmacsha1($pass, $salt);
 			if ($Account::accounts{$user}{pass} eq $hash) {
 				&Log::info($nick->netnick. ' identified as '.$user);
 				&Event::append({
