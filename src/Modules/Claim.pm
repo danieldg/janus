@@ -87,31 +87,23 @@ Event::hook_add(
 	MODE => check => sub {
 		my $act = shift;
 		return undef if acl_ok($act);
-		my %nact = %$act;
-		my $src = delete $nact{src};
-		delete $nact{IJ_RAW};
-		my $net = delete $nact{except} or return undef;
+		my $src = $act->{src};
 		my $chan = $act->{dst};
+		my $net = $act->{except} or return undef;
 		if ($src->isa('Nick')) {
 			Log::info('Bouncing mode change by '.$src->netnick.' on '.$chan->str($src->homenet));
 		} else {
 			Log::info('Bouncing mode change by '.$src->name.' on '.$chan->str($src));
 		}
-		my($m,$a,$d) = @nact{qw/mode args dirs/};
-		for my $i (0 .. $#$d) {
-			my $t = Modes::mtype($m->[$i]);
-			my $val = $t eq 'n' ? $chan->has_nmode($m->[$i], $a->[$i]) : $chan->get_mode($m->[$i]);
-			$d->[$i] = $val ? '+' : '-';
-			if ($t eq 'r') {
-				$a->[$i] = $val || 3;
-			} elsif ($t eq 'v') {
-				$a->[$i] = $val if $val;
-			} elsif ($t eq 'l') {
-				$val ||= [];
-				my $e = scalar grep { $a->[$i] eq $_ } @$val;
-				$d->[$i] = $e ? '+' : '-';
-			}
-		}
+		my($m,$a,$d) = Modes::revert($chan, $act->{mode}, $act->{args}, $act->{dirs});
+		my %nact = (
+			type => 'MODE',
+			src => $Interface::janus,
+			dst => $chan,
+			mode => $m,
+			args => $a,
+			dirs => $d,
+		);
 		$net->send(\%nact);
 		1;
 	}, KICK => act => sub {
@@ -139,9 +131,9 @@ Event::hook_add(
 		my $src = $act->{src};
 		return undef unless $chan->get_mode('topic'); # allow if not +t
 		if ($src->isa('Nick')) {
-			Log::info('Bouncing mode change by '.$src->netnick.' on '.$chan->str($src->homenet));
+			Log::info('Bouncing topic change by '.$src->netnick.' on '.$chan->str($src->homenet));
 		} else {
-			Log::info('Bouncing mode change by '.$src->name.' on '.$chan->str($src));
+			Log::info('Bouncing topic change by '.$src->name.' on '.$chan->str($src));
 		}
 		$net->send(+{
 			type => 'TOPIC',

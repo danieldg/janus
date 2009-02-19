@@ -1067,22 +1067,30 @@ $moddef{CORE} = {
 			} if $1 && $1 < $chan->ts();
 		}
 		my $mode = $_[3];
-		if ($mode =~ s/^&//) {
+		my $bounce = $mode =~ s/^&//;
+		my($modes,$args,$dirs) = Modes::from_irc($net, $chan, $mode, @_[4 .. $#_]);
+		if ($bounce) {
 			# mode bounce: assume we are correct, and inform the server
 			# that they are mistaken about whatever they think we have wrong.
 			# This is not very safe, but there's not much way around it
-			$mode =~ y/+-/-+/;
-			$net->send($net->cmd1(MODE => $_[2], $mode, @_[4 .. $#_]));
+			($modes, $args, $dirs) = Modes::revert($chan, $modes, $args, $dirs);
+			$net->send({
+				type => 'MODE',
+				dst => $chan,
+				mode => $modes,
+				args => $args,
+				dirs => $dirs,
+			}) if @$dirs;
+		} else {
+			push @out, {
+				type => 'MODE',
+				src => $src,
+				dst => $chan,
+				mode => $modes,
+				args => $args,
+				dirs => $dirs,
+			};
 		}
-		my($modes,$args,$dirs) = Modes::from_irc($net, $chan, $mode, @_[4 .. $#_]);
-		push @out, {
-			type => 'MODE',
-			src => $src,
-			dst => $chan,
-			mode => $modes,
-			args => $args,
-			dirs => $dirs,
-		};
 		@out;
 	}, TOPIC => sub {
 		my $net = shift;

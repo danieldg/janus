@@ -270,6 +270,50 @@ sub delta {
 	(\@modes, \@args, \@dirs);
 }
 
+=item (modes, args, dirs) Modes::revert($chan, $modes, $args, $dirs)
+
+Returns the mode changes required to revert the given MODE action
+
+=cut
+
+sub revert {
+	my($chan, $min, $ain, $din) = @_;
+	my(@modes, @args, @dirs);
+	for my $i (0 .. $#$din) {
+		my($m,$a,$d) = ($min->[$i], $ain->[$i], $din->[$i]);
+		my $t = Modes::mtype($m);
+		my $v = $a;
+		my $r;
+		if ($t eq 'n') {
+			$r = $chan->has_nmode($m, $a) ? '+' : '-';
+		} elsif ($t eq 'l') {
+			my $val = $chan->get_mode($m) || [];
+			$r = '-';
+			for my $b (@$val) {
+				if ($a eq $b) {
+					$r = '+';
+					last;
+				}
+			}
+		} else {
+			my $val = $chan->get_mode($m);
+			if ($val) {
+				$r = '+';
+				$v = $val;
+			} else {
+				$r = '-';
+				$v = 3 if $t eq 'r';
+			}
+		}
+		if ($d ne $r || $v ne $a) {
+			push @modes, $m;
+			push @args, $v;
+			push @dirs, $r;
+		}
+	}
+	(\@modes, \@args, \@dirs);
+}
+
 =item (modes, args, dirs) Modes::reops($chan)
 
 Returns the mode change needed to re-op everyone in the channel.
