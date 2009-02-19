@@ -32,7 +32,8 @@ $| = 1;
 $SIG{PIPE} = 'IGNORE';
 $SIG{CHLD} = 'IGNORE';
 
-Janus::load('Conffile') and Event::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
+$Conffile::conffile = $ARGV[0] if @ARGV;
+Janus::load('Conffile') and Conffile::read_conf();
 unless (%Conffile::netconf) {
 	print "Could not start:\n";
 	require Log::Debug;
@@ -84,7 +85,7 @@ if ($runmode ne 'uproc' && $runmode ne 'debug') {
 
 Log::timestamp($Janus::time);
 Janus::load('Connection') or die;
-Event::insert_full(+{ type => 'INIT', args => \@ARGV });
+Event::insert_full(+{ type => 'INIT' });
 Event::insert_full(+{ type => 'RUN' });
 
 eval { 

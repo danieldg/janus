@@ -35,20 +35,22 @@ if ($^P) {
 	Log::dump_queue();
 }
 
+$Conffile::conffile = $ARGV[0];
+
 my $line = <$Multiplex::sock>;
 chomp $line;
 if ($line =~ /^BOOT (\d+)/) {
 	no warnings 'once';
 	$Multiplex::master_api = $1;
-	Janus::load('Conffile') or die;
-	Event::insert_full(+{ type => 'INITCONF', (@ARGV ? (file => $ARGV[0]) : ()) });
+	require Conffile;
+	Conffile::read_conf();
 	Log::timestamp($Janus::time);
-	Janus::load('Multiplex') or die;
-	Event::insert_full(+{ type => 'INIT', args => \@ARGV });
+	require Multiplex;
+	Event::insert_full(+{ type => 'INIT' });
 	Event::insert_full(+{ type => 'RUN' });
 } elsif ($line =~ /^R\S* (\S+)$/) {
 	my $file = $1;
-	Janus::load('Snapshot') or die;
+	require Snapshot;
 	Snapshot::restore_from($file);
 } else {
 	die "Bad line from control socket: $line";

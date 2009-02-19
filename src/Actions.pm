@@ -339,7 +339,6 @@ my %spec = (
 		except => '?',
 	}, REHASH => {
 	}, 'INIT' => {
-		args => '@', # program arguments
 		except => '?',
 	}, RUN => {
 		except => '?'

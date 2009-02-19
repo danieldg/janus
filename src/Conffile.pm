@@ -303,11 +303,6 @@ Event::hook_add(
 		my $act = shift;
 		Conffile::rehash();
 	},
-	'INITCONF' => act => sub {
-		my $act = shift;
-		$conffile = $act->{file};
-		read_conf;
-	},
 	RESTORE => act => sub {
 		@Log::listeners = ();
 		Conffile::rehash();
