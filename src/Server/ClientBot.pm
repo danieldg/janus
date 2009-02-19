@@ -984,6 +984,7 @@ Event::hook_add(
 	INFO => 'Network:1' => sub {
 		my($dst, $net, $asker) = @_;
 		return unless $net->isa(__PACKAGE__);
+		Janus::jmsg($dst, 'Bot nick: '.$self[$$net]);
 		Janus::jmsg($dst, 'Server 005 line: '.join ' ', sort map {
 			defined $capabs[$$net]{$_} ? "$_=$capabs[$$net]{$_}" : $_
 		} keys %{$capabs[$$net]});
