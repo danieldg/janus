@@ -360,11 +360,12 @@ sub nicklen { 40 }
 		if ($dst->isa('Channel') && $dst->get_mode('cb_direct')) {
 			return "$type $dstr :$msg";
 		} else {
-			$src = $src->str($net);
+			my $nick = $src->str($net);
+			$nick = $src->homenick . '/' . $src->homenet->name if !defined $nick;
 			if ($msg =~ /^\001ACTION (.*?)\001?$/) {
-				return "$type $dstr :* $src $1";
+				return "$type $dstr :* $nick $1";
 			} else {
-				return "$type $dstr :<$src> $msg";
+				return "$type $dstr :<$nick> $msg";
 			}
 		}
 	},

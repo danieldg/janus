@@ -1193,7 +1193,7 @@ $moddef{CORE} = {
 			# TODO this should be improved by m_janus.so if it gets written
 			my $msg = $act->{msg};
 			my $src = $act->{src};
-			$src = $src->homenick() if $src && $src->isa('Nick');
+			$src = $src->homenick . '/' . $src->homenet->name if $src && $src->isa('Nick');
 			$msg = $msg =~ /^\001ACTION (.*?)\001?$/ ? '* '.$net->_out($src).' '.$msg : '<'.$net->_out($src).'> '.$msg;
 			return $net->cmd2($Interface::janus, $type, $dst, $msg);
 		}
