@@ -90,11 +90,15 @@ Event::command_add({
 		if (defined $onoff && $onoff =~ /^\d+$/) {
 			Log::audit("Autoconnect on $id ".($onoff ? 'enabled' : 'disabled').' by '.$src->netnick);
 			$nconf->{autoconnect} = $onoff ? 1 : 0;
+			$nconf->{backoff} = 0;
 			$nconf->{fb_id} = $onoff;
+			if ($onoff) {
+				Conffile::connect_net($id);
+			}
 			Janus::jmsg($dst, 'Done');
 		} else {
 			Janus::jmsg($dst, 'Autoconnect is '.($nconf->{autoconnect} ? 'on' : 'off').
-				" for $id (backoff=$nconf->{backoff})");
+				" for $id (backoff=$nconf->{backoff}/$nconf->{fb_id})");
 		}
 	},
 }, {
