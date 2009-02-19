@@ -14,11 +14,11 @@ void ssl_gblinit() {
 	gnutls_dh_params_generate2(dh_params, 1024);
 }
 
-static void do_eagain(struct sockifo* ifo) {
+static void do_eagain(struct sockifo* ifo, int strict) {
 	if (gnutls_record_get_direction(ifo->ssl)) {
 		ifo->state.poll = POLL_FORCE_WOK;
 	} else {
-		ifo->state.poll = POLL_FORCE_ROK;
+		ifo->state.poll = strict ? POLL_FORCE_ROK : POLL_NORMAL;
 	}
 }
 
@@ -34,7 +34,7 @@ static void ssl_handshake(struct sockifo* ifo) {
 		ifo->state.ssl = SSL_ACTIVE;
 		// TODO verify remote cert against CA
 	} else if (rv == GNUTLS_E_AGAIN || rv == GNUTLS_E_INTERRUPTED) {
-		do_eagain(ifo);
+		do_eagain(ifo, 1);
 	} else {
 		esock(ifo, gnutls_strerror(rv));
 	}
@@ -46,7 +46,7 @@ static void ssl_bye(struct sockifo* ifo) {
 		close(ifo->fd);
 		ifo->fd = -1;
 	} else if (rv == GNUTLS_E_AGAIN || rv == GNUTLS_E_INTERRUPTED) {
-		do_eagain(ifo);
+		do_eagain(ifo, 1);
 	} else {
 		esock(ifo, gnutls_strerror(rv));
 	}
@@ -103,13 +103,18 @@ void ssl_readable(struct sockifo* ifo) {
 	ifo->state.poll = POLL_NORMAL;
 
 	int slack = q_bound(&ifo->recvq, MIN_QUEUE, IDEAL_QUEUE);
-	int n = gnutls_record_recv(ifo->ssl, ifo->recvq.data + ifo->recvq.end, slack);
-	if (n > 0) {
-		ifo->recvq.end += n;
-	} else if (n == GNUTLS_E_AGAIN || n == GNUTLS_E_INTERRUPTED) {
-		do_eagain(ifo);
-	} else {
-		esock(ifo, n == 0 ? "Client closed connection" : gnutls_strerror(n));
+	while (slack > 1024) {
+		int n = gnutls_record_recv(ifo->ssl, ifo->recvq.data + ifo->recvq.end, slack);
+		if (n > 0) {
+			ifo->recvq.end += n;
+			slack = ifo->recvq.size - ifo->recvq.end;
+		} else if (n == GNUTLS_E_AGAIN || n == GNUTLS_E_INTERRUPTED) {
+			do_eagain(ifo, 0);
+			return;
+		} else {
+			esock(ifo, n == 0 ? "Client closed connection" : gnutls_strerror(n));
+			return;
+		}
 	}
 }
 
@@ -126,7 +131,7 @@ void ssl_writable(struct sockifo* ifo) {
 		if (ifo->state.poll == POLL_FORCE_WOK) {
 			int n = gnutls_record_send(ifo->ssl, NULL, 0);
 			if (n == GNUTLS_E_AGAIN || n == GNUTLS_E_INTERRUPTED) {
-				do_eagain(ifo);
+				do_eagain(ifo, 0);
 			} else if (n < 0) {
 				esock(ifo, gnutls_strerror(n));
 			} else {
@@ -143,7 +148,7 @@ void ssl_writable(struct sockifo* ifo) {
 		else
 			ifo->state.poll = POLL_NORMAL;
 	} else if (n == GNUTLS_E_AGAIN || n == GNUTLS_E_INTERRUPTED) {
-		do_eagain(ifo);
+		do_eagain(ifo, 0);
 	} else {
 		esock(ifo, n == 0 ? "Client closed connection" : gnutls_strerror(n));
 	}
