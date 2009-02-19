@@ -301,7 +301,7 @@ sub api_parse {
 		} elsif ($_ eq 'chan') {
 			my $cname = $argin[0] || '';
 			my $net = $hnet;
-			if ($cname && $cname =~ /^(\S+)(#.*)/) {
+			if ($cname && $cname =~ /^([^#]+)(#.*)/) {
 				$net = $Janus::nets{$1};
 				$cname = $2;
 				$fail ||= 'Could not find network '.$1 unless $opt || $net;
