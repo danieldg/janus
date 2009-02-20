@@ -12,12 +12,14 @@ use warnings;
 use integer;
 use Link;
 
-our(@sendq, @self, @kicks, @lchan, @cmode2txt, @txt2cmode, @capabs, @flood_bkt, @flood_ts, @half_cmd);
-Persist::register_vars(qw(sendq self kicks lchan cmode2txt txt2cmode capabs flood_bkt flood_ts half_cmd));
+our(@sendq, @self, @cmode2txt, @txt2cmode, @capabs);
+our(@kicks, @flood_bkt, @flood_ts, @half_in, @half_out);
+Persist::register_vars(qw(sendq self cmode2txt txt2cmode capabs kicks flood_bkt flood_ts half_in half_out));
 # $kicks[$$net]{$lid$channel} = 1 for a rejoin enabled
-# lchan = last channel we tried to join
-# half_cmd = Part of a multi-line response that will be processed later
+# half_in = Part of a multi-line response that will be processed later
 #  [ 'TOPIC', channel, topic ]
+# half_out = Currently queued commands going out. List of lists.
+#  [ TS, raw-line, ID, ... ]
 
 our $awaken;
 
@@ -26,15 +28,30 @@ my %toirc;
 
 sub ignore { () }
 
-sub unkick {
-	my $e = shift;
-	my($net, $nick, $chan) = @$e{qw(net nick chan)};
-	return unless $net && $nick && $chan && $kicks[$$net]{$$nick.$chan->str($net)};
-	Event::insert_full(+{
-		type => 'JOIN',
-		src => $nick,
-		dst => $chan,
-	});
+sub shift_halfout {
+	my $n = shift;
+	shift @{$half_out[$$n]};
+	if (@{$half_out[$$n]}) {
+		$half_out[$$n][0][0] += $Janus::time;
+		$n->send($half_out[$$n][0][1]);
+	}
+}
+
+sub add_halfout {
+	my($n, $cmd) = @_;
+	push @{$half_out[$$n]}, $cmd;
+	if (@{$half_out[$$n]} == 1) {
+		$half_out[$$n][0][0] += $Janus::time;
+		$n->send($half_out[$$n][0][1]);
+	}
+}
+
+sub poll_halfout {
+	my $n = shift;
+	return unless @{$half_out[$$n]};
+	my $t = $half_out[$$n][0][0];
+	return if $t > $Janus::time;
+	$n->shift_halfout();
 }
 
 sub invisquit {
@@ -90,6 +107,7 @@ $def_t2c{n_op} = 'o';
 sub _init {
 	my $net = shift;
 	$sendq[$$net] = [];
+	$half_out[$$net] = [];
 	$capabs[$$net] = {
 		MODES => 4,
 	};
@@ -260,6 +278,7 @@ Event::setting_add({
 sub dump_sendq {
 	my $net = shift;
 	local $_;
+	$net->poll_halfout();
 	my $tokens = $flood_bkt[$$net];
 	my $rate = Setting::get(tbf_rate => $net);
 	my $max = Setting::get(tbf_burst => $net);
@@ -296,6 +315,32 @@ sub request_cnick {
 	Server::BaseNick::request_cnick($net, $nick, $reqnick, $tag);
 }
 
+sub unkick {
+	my $e = shift;
+	my($net, $nick, $chan) = @$e{qw(net nick chan)};
+	return unless $net && $nick && $chan && $kicks[$$net]{$$nick.$chan->str($net)};
+	Event::insert_full(+{
+		type => 'JOIN',
+		src => $nick,
+		dst => $chan,
+	});
+}
+
+sub delink_cancel_join {
+	my $net = shift;
+	my $curr = $half_out[$$net][0];
+	if ($curr && $curr->[2] eq 'JOIN' && lc $_[3] eq lc $curr->[3]) {
+		$net->shift_halfout();
+	}
+	my $chan = $net->chan($_[3]) or return ();
+	return +{
+		type => 'DELINK',
+		cause => 'unlink',
+		dst => $chan,
+		net => $net,
+	};
+}
+
 sub nicklen { 40 }
 
 %toirc = (
@@ -305,8 +350,8 @@ sub nicklen { 40 }
 		my $dst = $act->{dst};
 		if ($src == $Interface::janus) {
 			my $chan = $dst->str($net);
-			$lchan[$$net] = $chan;
-			"JOIN $chan";
+			$net->add_halfout([ 10, "JOIN $chan", 'JOIN', $chan ]);
+			();
 		} else {
 			return () unless $dst->get_mode('cb_showjoin');
 			my $id = $src->str($net).'!'.$src->info('ident').'@'.$src->info('vhost');
@@ -553,8 +598,7 @@ sub kicked {
 			};
 		}
 	}
-	# try to rejoin - TODO enqueue the channel and delink it if this doesn't succeed in a little bit
-	$net->send("JOIN $cname");
+	$net->add_halfout([ 10, "JOIN $cname", 'JOIN', $cname ]);
 	@out;
 }
 
@@ -564,7 +608,14 @@ sub kicked {
 	JOIN => sub {
 		my $net = shift;
 		if (lc $_[0] eq lc $self[$$net]) {
-			$lchan[$$net] = undef if $_[2] eq $lchan[$$net];
+			my $curr = $half_out[$$net][0];
+			if ($curr && $curr->[2] eq 'JOIN' && lc $curr->[3] eq lc $_[2]) {
+				$net->add_halfout([ 30, "WHO $_[2]", 'WHO', $_[2] ]);
+				$net->shift_halfout();
+			} else {
+				my $chan = $net->chan($_[2]);
+				$net->send("PART $_[2] :Channel not voluntarily joined") unless $chan;
+			}
 			return ();
 		}
 		my $src = $net->mynick($_[0]) or return ();
@@ -808,17 +859,17 @@ sub kicked {
 	331 => \&ignore, # no topic
 	332 => sub {
 		my $net = shift;
-		$half_cmd[$$net] = [ 'TOPIC', $_[3], $_[-1] ];
+		$half_in[$$net] = [ 'TOPIC', $_[3], $_[-1] ];
 		();
 	},
 	333 => sub {
 		my $net = shift;
-		my $h = $half_cmd[$$net];
+		my $h = $half_in[$$net];
 		unless ($h && $h->[0] eq 'TOPIC' && $h->[1] eq $_[3]) {
 			Log::warn_in($net, 'Malformed 333 numeric (no matching 332 found)');
 			return ();
 		}
-		$half_cmd[$$net] = undef;
+		$half_in[$$net] = undef;
 		my $chan = $net->chan($_[3]) or return ();
 		return () unless $chan->get_mode('cb_topicsync');
 		return {
@@ -847,10 +898,14 @@ sub kicked {
 		};
 	},
 
-	315 => \&ignore, # end of /WHO
 	352 => sub {
 		my $net = shift;
-#		:server 352 jmirror #test ident host their.server nick Hr*@ :0 Gecos
+#		:server 352 j #test ident host their.server nick Hr*@ :0 Gecos
+		my $curr = $half_out[$$net][0];
+		unless ($curr && $curr->[2] eq 'WHO' && lc $curr->[3] eq lc $_[3]) {
+			Log::warn_in($net, 'Unexpected WHO reply');
+			return ();
+		}
 		my $chan = $net->chan($_[3]) or return ();
 		my $n = $_[-1];
 		$n =~ s/^\d+\s+//; # remove server hop count
@@ -868,12 +923,18 @@ sub kicked {
 		};
 		@out;
 	},
-	353 => \&ignore, # /NAMES list
-	366 => sub { # end of /NAMES
+	315 => sub {
 		my $net = shift;
-		$net->send("WHO $_[3]");
+		my $curr = $half_out[$$net][0];
+		if ($curr && $curr->[2] eq 'WHO' && lc $curr->[3] eq lc $_[3]) {
+			$net->shift_halfout();
+		} else {
+			Log::warn_in($net, 'Unexpected end-of-who ', @_[3..$#_]);
+		}
 		();
 	},
+	353 => \&ignore, # /NAMES list
+	366 => \&ignore, # end of /NAMES
 	400 => \&ignore, # no suck Nick
 	433 => sub { # nick in use, try another
 		my $net = shift;
@@ -885,46 +946,11 @@ sub kicked {
 		$self[$$net] = $tried;
 		();
 	},
-	471 => sub { # +l User list if full.
-		my $net = shift;
-		my $chan = $net->chan($_[3]) or return ();
-		return +{
-			type => 'DELINK',
-			cause => 'unlink',
-			dst => $chan,
-			net => $net,
-		};
-	},
-	473 => sub { # +i invited only.
-		my $net = shift;
-		my $chan = $net->chan($_[3]) or return ();
-		return +{
-			type => 'DELINK',
-			cause => 'unlink',
-			dst => $chan,
-			net => $net,
-		};
-	},
-	474 => sub { # +b we are banned.
-		my $net = shift;
-		my $chan = $net->chan($_[3]) or return ();
-		return +{
-			type => 'DELINK',
-			cause => 'unlink',
-			dst => $chan,
-			net => $net,
-		};
-	},
-	475 => sub { # +k needs key.
-		my $net = shift;
-		my $chan = $net->chan($_[3]) or return ();
-		return +{
-			type => 'DELINK',
-			cause => 'unlink',
-			dst => $chan,
-			net => $net,
-		};
-	},
+	471 => \&delink_cancel_join,
+	473 => \&delink_cancel_join,
+	474 => \&delink_cancel_join,
+	475 => \&delink_cancel_join,
+	520 => \&delink_cancel_join,
 	482 => sub { # need channel ops
 		my $net = shift;
 		my $chan = $net->chan($_[3]) or return ();
@@ -939,15 +965,19 @@ sub kicked {
 	},
 	477 => sub { # Need to register.
 		my $net = shift;
-		my $cname = $lchan[$$net] || "requested channel";
 		my @out;
-		my $chan = $net->chan($cname);
-		if ($chan) {
-			push @out, +{
-				type => 'DELINK',
-				cause => 'unlink',
-				dst => $chan,
-				net => $net,
+		my $curr = $half_out[$$net][0];
+		if ($curr && $curr->[2] eq 'JOIN') {
+			$net->shift_halfout();
+			my $cname = $curr->[3];
+			my $chan = $net->chan($cname);
+			if ($chan) {
+				push @out, +{
+					type => 'DELINK',
+					cause => 'unlink',
+					dst => $chan,
+					net => $net,
+				}
 			}
 		}
 		push @out, +{
@@ -955,17 +985,6 @@ sub kicked {
 			dst => $net,
 		};
 		@out;
-	},
-	520 => sub {
-		my $net = shift;
-		$_[3] =~ /(#\S+)/ or return ();
-		my $chan = $net->chan($1) or return ();
-		return +{
-			type => 'DELINK',
-			cause => 'unlink',
-			dst => $chan,
-			net => $net,
-		};
 	},
 	670 => sub {
 		my $net = shift;
