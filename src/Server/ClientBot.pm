@@ -160,6 +160,9 @@ sub cli_hostintro {
 			type => 'NEWNICK',
 			dst => $nick,
 		};
+		unless ($gecos) {
+			$net->add_halfout([ 10, "WHO $nname", 'WHO/N', $nname ]);
+		}
 	}
 	if ($nick->info('vhost') ne $host) {
 		push @out, +{
