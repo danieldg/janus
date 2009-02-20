@@ -69,13 +69,9 @@ sub intro {
 	my($net,$param) = @_;
 	$net->SUPER::intro($param);
 	if ($net->cparam('linktype') eq 'tls') {
-		$net->send('STARTTLS');
-	} else {
-		$net->send(
-			'USER mirror gamma * :Janus IRC Client',
-			"NICK $param->{nick}",
-		);
+		$net->add_halfout([ 15, 'STARTTLS', 'TLS' ]);
 	}
+	$net->add_halfout([ 30, "USER mirror gamma * :Janus IRC Client\r\nNICK $param->{nick}", 'USER' ]);
 	$self[$$net] = $param->{nick};
 	$flood_bkt[$$net] = Setting::get(tbf_burst => $net);
 	$flood_ts[$$net] = $Janus::time;
@@ -776,6 +772,10 @@ sub kicked {
 	# misc
 	'001' => sub {
 		my $net = shift;
+		my $curr = $half_out[$$net][0];
+		unless ($curr && $curr->[2] eq 'USER') {
+			Log::warn_in($net, 'Unexpected 001 numeric');
+		}
 		if ($net->cparam('linktype') eq 'tls' && !delete $capabs[$$net]{' TLS'}) {
 			return {
 				type => 'NETSPLIT',
@@ -804,6 +804,9 @@ sub kicked {
 				$capabs[$$net]{$1} = $2;
 			} else {
 				Log::warn_in($net, "Invalid 005 line: $_");
+			}
+			if ($_ eq 'NAMESX') {
+				$net->send('PROTOCTL NAMESX');
 			}
 		}
 		my(@g,@ltype,@ttype);
@@ -850,10 +853,24 @@ sub kicked {
 	265 => \&ignore,
 	266 => \&ignore,
 	# MOTD
-	372 => \&ignore,
 	375 => \&ignore,
-	376 => \&ignore,
-	422 => \&ignore, # MOTD missing
+	372 => \&ignore,
+	376 => sub { # end of MOTD
+		my $net = shift;
+		my $curr = $half_out[$$net][0];
+		if ($curr && $curr->[2] eq 'USER') {
+			$net->shift_halfout();
+		}
+		();
+	},
+	422 => sub { # MOTD missing
+		my $net = shift;
+		my $curr = $half_out[$$net][0];
+		if ($curr && $curr->[2] eq 'USER') {
+			$net->shift_halfout();
+		}
+		();
+	},
 
 	301 => \&ignore, # away
 	331 => \&ignore, # no topic
@@ -901,7 +918,6 @@ sub kicked {
 	352 => sub {
 		my $net = shift;
 #		:server 352 j #test ident host their.server nick Hr*@ :0 Gecos
-		return () if lc $_[7] eq lc $self[$$net];
 		my $curr = $half_out[$$net][0];
 		my $chan;
 		if ($curr && $curr->[2] eq 'WHO/C') {
@@ -924,6 +940,7 @@ sub kicked {
 			Log::warn_in($net, 'Unexpected WHO reply');
 			return ();
 		}
+		return () if lc $_[7] eq lc $self[$$net];
 		my $gecos = $_[-1];
 		$gecos =~ s/^\d+\s+//; # remove server hop count
 		my @out = $net->cli_hostintro($_[7], $_[4], $_[5], $gecos);
@@ -944,7 +961,7 @@ sub kicked {
 		my $curr = $half_out[$$net][0];
 		if ($curr && $curr->[2] =~ /^WHO/ && lc $curr->[3] eq lc $_[3]) {
 			if ($curr->[2] eq 'WHO/C' && %{$curr->[4]}) {
-				Log::debug('Incomplete channel /WHO reply, querying manually');
+				Log::debug("Incomplete channel /WHO reply for $_[3], querying manually");
 				for my $k (keys %{$curr->[4]}) {
 					$net->add_halfout([ 10, "WHO $k", 'WHO/N', $k, $_[3], $curr->[4]{$k} ]);
 				}
@@ -1019,14 +1036,15 @@ sub kicked {
 	},
 	670 => sub {
 		my $net = shift;
-		my($ssl_key, $ssl_cert, $ssl_ca) = find_ssl_keys($net->name);
-		Connection::starttls($net, $ssl_key, $ssl_cert, $ssl_ca);
-		$self[$$net] = $net->param('nick');
-		$net->send(
-			'USER mirror gamma * :Janus IRC Client',
-			"NICK $self[$$net]",
-		);
-		$capabs[$$net]{' TLS'}++;
+		my $curr = $half_out[$$net][0];
+		if ($curr && $curr->[2] eq 'TLS') {
+			my($ssl_key, $ssl_cert, $ssl_ca) = find_ssl_keys($net->name);
+			Connection::starttls($net, $ssl_key, $ssl_cert, $ssl_ca);
+			$net->shift_halfout();
+			$capabs[$$net]{' TLS'}++;
+		} else {
+			Log::warn_in($net, 'Unexpected 670 numeric');
+		}
 		();
 	},
 );
