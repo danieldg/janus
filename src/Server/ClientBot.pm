@@ -13,9 +13,8 @@ use integer;
 use Link;
 
 our(@sendq, @self, @cmode2txt, @txt2cmode, @capabs);
-our(@kicks, @flood_bkt, @flood_ts, @half_in, @half_out);
-Persist::register_vars(qw(sendq self cmode2txt txt2cmode capabs kicks flood_bkt flood_ts half_in half_out));
-# $kicks[$$net]{$lid$channel} = 1 for a rejoin enabled
+our(@flood_bkt, @flood_ts, @half_in, @half_out);
+Persist::register_vars(qw(sendq self cmode2txt txt2cmode capabs flood_bkt flood_ts half_in half_out));
 # half_in = Part of a multi-line response that will be processed later
 #  [ 'TOPIC', channel, topic ]
 # half_out = Currently queued commands going out. List of lists.
@@ -48,9 +47,21 @@ sub add_halfout {
 
 sub poll_halfout {
 	my $n = shift;
-	return unless @{$half_out[$$n]};
-	my $t = $half_out[$$n][0][0];
+	my $evt = $half_out[$$n][0] or return;
+	my $t = $evt->[0];
 	return if $t > $Janus::time;
+	if ($evt->[2] eq 'KICK') {
+		my $chan = $n->chan($evt->[3]);
+		my $nick = $evt->[4];
+		if ($nick && $chan) {
+			Log::debug_in($n, 'Unkicking '.$nick->str($n).' from '.$evt->[3]);
+			Event::insert_full(+{
+				type => 'JOIN',
+				src => $nick,
+				dst => $chan,
+			});
+		}
+	}
 	$n->shift_halfout();
 }
 
@@ -58,6 +69,11 @@ sub invisquit {
 	my $e = shift;
 	my $nick = $e->{nick} or return;
 	return if $nick->all_chans;
+	my $net = $nick->homenet;
+	for my $i (0..$#{$half_out[$$net]}) {
+		my $curr = $half_out[$$net][$i];
+		return if $curr->[2] eq 'KICK' && $curr->[4] && $curr->[4] == $nick;
+	}
 	Event::insert_full(+{
 		type => 'QUIT',
 		dst => $nick,
@@ -272,6 +288,11 @@ Event::setting_add({
 	type => __PACKAGE__,
 	help => 'Flood burst length (lines)',
 	default => 20,
+}, {
+	name => 'kick_rejoin',
+	type => __PACKAGE__,
+	help => 'Automatically rejoin channel when kicked (0|1)',
+	default => 1,
 });
 
 sub dump_sendq {
@@ -312,17 +333,6 @@ sub request_cnick {
 	my($net, $nick, $reqnick, $tag) = @_;
 	$reqnick = $self[$$net] if $nick == $Interface::janus;
 	Server::BaseNick::request_cnick($net, $nick, $reqnick, $tag);
-}
-
-sub unkick {
-	my $e = shift;
-	my($net, $nick, $chan) = @$e{qw(net nick chan)};
-	return unless $net && $nick && $chan && $kicks[$$net]{$$nick.$chan->str($net)};
-	Event::insert_full(+{
-		type => 'JOIN',
-		src => $nick,
-		dst => $chan,
-	});
 }
 
 sub delink_cancel_join {
@@ -448,19 +458,10 @@ sub nicklen { 40 }
 		$src = ref $src && $src->isa('Nick') ? '<'.$src->str($net).'>' : '[?]';
 		my $cn = $chan->str($net);
 		my $nn = $nick->str($net);
-		my $evt = {
-			delay => 15,
-			net => $net,
-			nick => $nick,
-			chan => $chan,
-			code => \&unkick,
-		};
-		weaken($evt->{net});
-		weaken($evt->{nick});
-		weaken($evt->{chan});
-		Event::schedule($evt);
-		$kicks[$$net]{$$nick.$cn} = 1;
-		"KICK $cn $nn :$src $act->{msg}";
+		my $evt = [ 5, "KICK $cn $nn :$src $act->{msg}", 'KICK', $cn, $nick ];
+		weaken($evt->[4]);
+		$net->add_halfout($evt);
+		();
 	},
 	MODE => sub {
 		my ($net,$act) = @_;
@@ -623,7 +624,17 @@ sub kicked {
 			};
 		}
 	}
-	$net->add_halfout([ 10, "JOIN $cname", 'JOIN', $cname ]);
+	my $rejoin = Setting::get(kick_rejoin => $net);
+	if ($rejoin) {
+		$net->add_halfout([ 10, "JOIN $cname", 'JOIN', $cname ]);
+	} else {
+		push @out, +{
+			type => 'DELINK',
+			cause => 'unlink',
+			dst => $chan,
+			net => $net,
+		};
+	}
 	@out;
 }
 
@@ -695,13 +706,24 @@ sub kicked {
 			}
 		}
 		my $nick = $net->mynick($_[0]) or return ();
-		delete $kicks[$$net]{$$nick.$_[2]};
 		my @out = +{
 			type => 'PART',
 			src => $nick,
 			dst => $chan,
 			msg => $_[3],
 		};
+		for my $i (0..$#{$half_out[$$net]}) {
+			my $curr = $half_out[$$net][$i];
+			next unless $curr->[2] eq 'KICK' && lc $curr->[3] eq lc $_[2];
+			next unless $curr->[4] && $curr->[4] == $nick;
+			if ($i) {
+				splice @{$half_out[$$net]}, $i, 1;
+			} else {
+				$net->shift_halfout();
+			}
+			shift @out;
+			last;
+		}
 		my @chans = $nick->all_chans();
 		if (!@chans || (@chans == 1 && lc $chans[0]->str($net) eq lc $_[2])) {
 			push @out, +{
@@ -724,7 +746,6 @@ sub kicked {
 				return ();
 			}
 		}
-		delete $kicks[$$net]{$$victim.$_[2]};
 		my @out;
 		push @out, +{
 			type => 'KICK',
@@ -733,6 +754,18 @@ sub kicked {
 			kickee => $victim,
 			msg => $_[4],
 		};
+		for my $i (0..$#{$half_out[$$net]}) {
+			my $curr = $half_out[$$net][$i];
+			next unless $curr->[2] eq 'KICK' && lc $curr->[3] eq lc $_[2];
+			next unless $curr->[4] && $curr->[4] == $victim;
+			if ($i) {
+				splice @{$half_out[$$net]}, $i, 1;
+			} else {
+				$net->shift_halfout();
+			}
+			shift @out;
+			last;
+		}
 		my @chans = $victim->all_chans();
 		if (!@chans || (@chans == 1 && lc $chans[0]->str($net) eq lc $_[2])) {
 			push @out, +{
@@ -990,7 +1023,7 @@ sub kicked {
 		my $curr = $half_out[$$net][0];
 		if ($curr && $curr->[2] =~ /^WHO/ && lc $curr->[3] eq lc $_[3]) {
 			if ($curr->[2] eq 'WHO/C' && %{$curr->[4]}) {
-				Log::debug("Incomplete channel /WHO reply for $_[3], querying manually");
+				Log::debug_in($net, "Incomplete channel /WHO reply for $_[3], querying manually");
 				for my $k (keys %{$curr->[4]}) {
 					$net->add_halfout([ 10, "WHO $k", 'WHO/N', $k, $_[3], $curr->[4]{$k} ]);
 				}
@@ -1027,6 +1060,7 @@ sub kicked {
 	473 => \&delink_cancel_join,
 	474 => \&delink_cancel_join,
 	475 => \&delink_cancel_join,
+	495 => \&delink_cancel_join,
 	520 => \&delink_cancel_join,
 	482 => sub { # need channel ops
 		my $net = shift;
