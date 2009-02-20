@@ -610,7 +610,7 @@ sub kicked {
 		if (lc $_[0] eq lc $self[$$net]) {
 			my $curr = $half_out[$$net][0];
 			if ($curr && $curr->[2] eq 'JOIN' && lc $curr->[3] eq lc $_[2]) {
-				$net->add_halfout([ 30, "WHO $_[2]", 'WHO', $_[2] ]);
+				$net->add_halfout([ 30, "WHO $_[2]", 'WHO/C', $_[2], {} ]);
 				$net->shift_halfout();
 			} else {
 				my $chan = $net->chan($_[2]);
@@ -901,16 +901,32 @@ sub kicked {
 	352 => sub {
 		my $net = shift;
 #		:server 352 j #test ident host their.server nick Hr*@ :0 Gecos
+		return () if lc $_[7] eq lc $self[$$net];
 		my $curr = $half_out[$$net][0];
-		unless ($curr && $curr->[2] eq 'WHO' && lc $curr->[3] eq lc $_[3]) {
+		my $chan;
+		if ($curr && $curr->[2] eq 'WHO/C') {
+			unless (lc $curr->[3] eq lc $_[3]) {
+				Log::warn_in($net, 'Unexpected WHO reply, expecting '.$curr->[3].', got '.$_[3]);
+				return ();
+			}
+			delete $curr->[4]{lc $_[7]};
+			$chan = $net->chan($_[3]);
+		} elsif ($curr && $curr->[2] eq 'WHO/N') {
+			unless (lc $curr->[3] eq lc $_[7]) {
+				Log::warn_in($net, 'Unexpected WHO reply, expecting '.$curr->[3].', got '.$_[7]);
+				return ();
+			}
+			if (@$curr == 6) {
+				$chan = $net->chan($curr->[4]);
+				$_[8] = $curr->[5];
+			}
+		} else {
 			Log::warn_in($net, 'Unexpected WHO reply');
 			return ();
 		}
-		my $chan = $net->chan($_[3]) or return ();
-		my $n = $_[-1];
-		$n =~ s/^\d+\s+//; # remove server hop count
-		return () if lc $_[7] eq lc $self[$$net];
-		my @out = $net->cli_hostintro($_[7], $_[4], $_[5], $n);
+		my $gecos = $_[-1];
+		$gecos =~ s/^\d+\s+//; # remove server hop count
+		my @out = $net->cli_hostintro($_[7], $_[4], $_[5], $gecos);
 		my %mode;
 		$mode{op} = 1 if $_[8] =~ /[~&\@]/;
 		$mode{halfop} = 1 if $_[8] =~ /\%/;
@@ -920,20 +936,35 @@ sub kicked {
 			src => $net->mynick($_[7]),
 			dst => $chan,
 			mode => \%mode,
-		};
+		} if $chan;
 		@out;
 	},
 	315 => sub {
 		my $net = shift;
 		my $curr = $half_out[$$net][0];
-		if ($curr && $curr->[2] eq 'WHO' && lc $curr->[3] eq lc $_[3]) {
+		if ($curr && $curr->[2] =~ /^WHO/ && lc $curr->[3] eq lc $_[3]) {
+			if ($curr->[2] eq 'WHO/C' && %{$curr->[4]}) {
+				Log::debug('Incomplete channel /WHO reply, querying manually');
+				for my $k (keys %{$curr->[4]}) {
+					$net->add_halfout([ 10, "WHO $k", 'WHO/N', $k, $_[3], $curr->[4]{$k} ]);
+				}
+			}
 			$net->shift_halfout();
 		} else {
 			Log::warn_in($net, 'Unexpected end-of-who ', @_[3..$#_]);
 		}
 		();
 	},
-	353 => \&ignore, # /NAMES list
+	353 => sub {
+		my $net = shift;
+		# :server 353 jmirror = #channel :nick @nick
+		for my $curr (@{$half_out[$$net]}) {
+			if ($curr && $curr->[2] eq 'WHO/C' && lc $curr->[3] eq lc $_[4]) {
+				/^([-,.`*?!^~&\$\@\%+=]*)(.*)/ and $curr->[4]{lc $2} = $1 for split / /, $_[-1];
+			}
+		}
+		();
+	},
 	366 => \&ignore, # end of /NAMES
 	400 => \&ignore, # no suck Nick
 	433 => sub { # nick in use, try another
