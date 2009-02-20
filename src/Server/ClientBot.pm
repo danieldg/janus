@@ -357,6 +357,32 @@ sub nicklen { 40 }
 			$net->cmd1(NOTICE => $dst, "Join: $id");
 		}
 	},
+	DELINK => sub {
+		my($net,$act) = @_;
+		return () unless $net == $act->{net};
+		my $dst = $act->{split};
+		my @bye;
+		for my $nick ($dst->all_nicks) {
+			next unless $nick->homenet == $net;
+			my @chans = $nick->all_chans();
+			if (!@chans || (@chans == 1 && $chans[0] == $dst)) {
+				push @bye, {
+					type => 'QUIT',
+					dst => $nick,
+					msg => 'Relay bot parted channel',
+				};
+			} else {
+				push @bye, {
+					type => 'PART',
+					src => $nick,
+					dst => $dst,
+					msg => 'Relay bot parted channel',
+				};
+			}
+		}
+		Event::append(@bye);
+		();
+	},
 	PART => sub {
 		my($net,$act) = @_;
 		my $src = $act->{src};
