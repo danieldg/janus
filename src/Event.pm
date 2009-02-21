@@ -388,23 +388,6 @@ sub timer {
 	}
 }
 
-=item Event::next_event(max)
-
-Returns the unix timestamp of the next event, if one will happen before $max when interpreted as a
-timestamp.
-
-=back
-
-=cut
-
-sub next_event {
-	my $max = shift;
-	for ($Janus::time..$max) {
-		return $_ if $tqueue{$_};
-	}
-	$max;
-}
-
 sub wipe_hooks {
 	my $module = $_[0];
 	for my $hk (values %hook_mod) {

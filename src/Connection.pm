@@ -288,7 +288,7 @@ sub run_sendq {
 }
 
 sub iowait {
-	my($r,$w,$time) = ('','',$_[0]);
+	my($r,$w) = ('','');
 	for my $i (0..$#queues) {
 		my $q = $queues[$i] or next;
 		if (!@$q || $q->[STATE] & STATE_DROPPED) {
@@ -304,7 +304,7 @@ sub iowait {
 		vec($w,$q->[FD],1) = 1 if $q->[TRY_W];
 	}
 
-	my $fd = select $r, $w, undef, $time - time;
+	my $fd = select $r, $w, undef, 1;
 
 	for my $q (@queues) {
 		next unless $q;
@@ -349,8 +349,7 @@ sub do_accept {
 
 # This sub is allowed to use Janus API as it is not called from multiplex
 sub ts_simple {
-	my $next = Event::next_event($Janus::time + 60);
-	iowait($next);
+	iowait();
 	Event::timer(time);
 	for my $q (@queues) {
 		next unless $q;

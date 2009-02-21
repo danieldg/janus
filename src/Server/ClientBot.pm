@@ -20,8 +20,6 @@ Persist::register_vars(qw(sendq self cmode2txt txt2cmode capabs flood_bkt flood_
 # half_out = Currently queued commands going out. List of lists.
 #  [ TS, raw-line, ID, ... ]
 
-our $awaken;
-
 my %fromirc;
 my %toirc;
 
@@ -313,13 +311,6 @@ sub dump_sendq {
 	}
 	$flood_ts[$$net] = $Janus::time;
 	$flood_bkt[$$net] = $tokens;
-	if (@{$sendq[$$net]} && !$awaken) {
-		$awaken = {
-			delay => 1,
-			code => sub { $awaken = undef; },
-		};
-		Event::schedule($awaken);
-	}
 	$q;
 }
 
