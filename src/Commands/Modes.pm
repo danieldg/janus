@@ -56,7 +56,6 @@ Event::command_add({
 	api => '=src =replyto homenet chan @',
 	code => sub {
 		my($src,$dst,$hn,$chan,@argin) = @_;
-		return Janus::jmsg($dst, 'That channel does not exist') unless $chan;
 		return unless Account::chan_access_chk($src, $chan, 'mode', $dst);
 		my(@modes,@args,@dirs);
 		for (@argin) {

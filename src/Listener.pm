@@ -24,25 +24,37 @@ sub delink {
 	Connection::drop_socket($net);
 }
 
+sub init_matching {
+	my($nconf, $id, $fb_id, $addr) = @_;
+	if ($Janus::nets{$id} || $Janus::ijnets{$id}) {
+		Log::info("Rejecting connection from $addr, network $id already connected");
+		return undef;
+	} elsif ($Janus::pending{$id}) {
+		Log::info("Rejecting connection from $addr, pending connection to network $id already exists");
+		return undef;
+	} else {
+		$nconf->{fb_id} = $fb_id;
+		my $type = 'Server::'.$nconf->{type};
+		Janus::load($type) or return undef;
+		my $net = Persist::new($type, id => $id);
+		$Janus::pending{$id} = $net;
+		Log::info("Incoming connection from $addr for $type network $id (server $fb_id)");
+		$net->intro($nconf, $addr);
+		return $net;
+	}
+}
+
 sub init_pending {
 	my($self, $addr) = @_;
 
 	for my $id (keys %Conffile::netconf) {
-		next if $Janus::nets{$id} || $Janus::pending{$id} || $Janus::ijnets{$id};
 		my $nconf = $Conffile::netconf{$id};
 		Conffile::value(fb_max => $nconf);
 		my $fb_max = $nconf->{fb_max};
 		for my $fb_id (0..$fb_max) {
 			my $laddr = $nconf->{'linkaddr'.($fb_id ? '.'.$fb_id : '')};
 			next unless $laddr && $laddr eq $addr;
-			$nconf->{fb_id} = $fb_id;
-			my $type = 'Server::'.$nconf->{type};
-			Janus::load($type) or next;
-			my $net = Persist::new($type, id => $id);
-			$Janus::pending{$id} = $net;
-			Log::info("Incoming connection from $addr for $type network $id (server $fb_id)");
-			$net->intro($nconf, $addr);
-			return $net;
+			return init_matching($nconf, $id, $fb_id, $addr);
 		}
 	}
 	Log::info("Rejecting connection from $addr, no matching network definition found");
