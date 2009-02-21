@@ -84,7 +84,7 @@ sub request_nick {
 		$tagged = 1 if exists $nicks[$$net]->{lc $given};
 
 		my $tagre = Setting::get(force_tag => $net);
-		$tagged = 1 if $tagre && $$nick != 1 && $given =~ /^$tagre$/;
+		$tagged = 1 if $tagre && $$nick != 1 && $given =~ /^$tagre$/i;
 
 		if ($tagged) {
 			my $tagsep = Setting::get(tagsep => $net);
