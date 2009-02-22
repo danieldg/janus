@@ -634,6 +634,7 @@ Event::hook_add(
 		my $chan = $act->{dst};
 		my $net = $act->{net};
 		if ($net == $homenet[$$chan]) {
+			delete $Janus::gchans{$chan->real_keyname};
 			my $cause = $act->{cause} . '2';
 			for my $on (values %{$nets[$$chan]}) {
 				next if $on == $net;
