@@ -437,6 +437,7 @@ Event::hook_add(
 		my $reply = ($dst == $RemoteJanus::self || !$src->jlink) ? $act->{replyto} : undef;
 
 		my $api = $cmd->{api} || "=src =replyto @";
+		my $syn = $cmd->{syntax};
 		my($args, $fail, $bncto) = Interface::api_parse($act, $api, @{$act->{args}});
 		my $logpfx = '';
 		$logpfx = '-cmd' unless $cmd->{code};
@@ -454,12 +455,14 @@ Event::hook_add(
 		if ($acl && !Account::acl_check($src, $acl)) {
 			$logpfx ||= '-@'.$acl;
 			$fail = "You must have access to '$acl' to use this command";
+			$syn = undef;
 		}
 		$fail = 'Unknown command. Use "help" to see available commands' unless $cmd->{code};
 		Log::command($logpfx, $act->{src}, $act->{raw}) unless $cmd->{secret};
 		return unless $run;
 		if ($fail) {
 			Janus::jmsg($reply, $fail);
+			Janus::jmsg($reply, "Syntax: \002".uc($cmd->{cmd})."\002 $syn") if $syn;
 			return;
 		}
 

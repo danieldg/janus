@@ -33,10 +33,7 @@ Event::command_add({
 	cmd => 'modules',
 	help => 'Version information on all modules loaded by janus',
 	section => 'Info',
-	details => [
-		'Shows version information on all modules loaded by janus.',
-		"Syntax: \002MODULES\002 [all|janus|other|sha][columns]",
-	],
+	syntax => '[all|janus|other|sha][columns]',
 	code => sub {
 		my($src,$dst,$parm) = @_;
 		$parm ||= 'a';
@@ -71,9 +68,7 @@ Event::command_add({
 	cmd => 'modinfo',
 	help => 'Provides information about a module',
 	section => 'Info',
-	details => [
-		"Syntax: \002MODINFO\002 module",
-	],
+	syntax => '<module>',
 	code => sub {
 		my($src,$dst,$mod) = @_;
 		return Janus::jmsg($dst, 'Module not loaded') unless $Janus::modinfo{$mod};
@@ -127,6 +122,7 @@ Event::command_add({
 	cmd => 'unload',
 	help => "Unload the hooks registered by a module",
 	section => 'Admin',
+	syntax => '<module>',
 	acl => 'unload',
 	code => sub {
 		my($src,$dst,$name) = @_;
@@ -142,18 +138,20 @@ Event::command_add({
 	cmd => 'help',
 	help => 'Help on janus commands. See "help help" for use.',
 	section => 'Info',
-	details => [
-		'Use: help [command|all]'
-	],
+	api => '=src =replyto ?$',
+	syntax => "[<command>|\002ALL\002]",
 	code => sub {
 		my($src,$dst,$item) = @_;
 		$item = lc $item || '';
 		if (exists $Event::commands{lc $item}) {
 			my $det = $Event::commands{$item}{details};
+			my $syn = $Event::commands{$item}{syntax};
+			my $help = $Event::commands{$item}{help};
+			Janus::jmsg($dst, "Syntax: \002".uc($item)."\002 $syn") if $syn;
 			if (ref $det) {
 				Janus::jmsg($dst, @$det);
-			} elsif ($Event::commands{$item}{help}) {
-				Janus::jmsg($dst, "$item - $Event::commands{$item}{help}");
+			} elsif ($syn || $help) {
+				Janus::jmsg($dst, $help) if $help;
 			} else {
 				Janus::jmsg($dst, 'No help exists for that command');
 			}
@@ -168,7 +166,7 @@ Event::command_add({
 				my $allow = Account::acl_check($src, $aclchk) ? 'you' : 'you do not';
 				Janus::jmsg($dst, "Some options may require access to '$aclchk' ($allow currently have access)");
 			}
-		} else {
+		} elsif ($item eq '' || $item eq 'all') {
 			my %cmds;
 			my $synlen = 0;
 			for my $cmd (sort keys %Event::commands) {
@@ -191,6 +189,8 @@ Event::command_add({
 					sprintf " \002\%-${synlen}s\002  \%s", uc $_, $Event::commands{$_}{help};
 				} @{$cmds{$section}});
 			}
+		} else {
+			Janus::jmsg($dst, "Command not found. Use '\002HELP\002' to see the list of commands");
 		}
 	}
 });
