@@ -9,9 +9,7 @@ Event::command_add({
 	cmd => 'botnick',
 	help => 'Changes the nick of a ClientBot',
 	section => 'Network',
-	details => [
-		'Syntax: BOTNICK network newnick',
-	],
+	syntax => '<network> <newnick>',
 	acl => 'botnick',
 	api => '=replyto localnet $',
 	code => sub {
@@ -24,9 +22,7 @@ Event::command_add({
 	cmd => 'forceid',
 	help => 'Forcibly tries to identify a ClientBot to services',
 	section => 'Network',
-	details => [
-		"Syntax: \002FORCEID\002 network",
-	],
+	syntax => '<network>',
 	acl => 'forceid',
 	api => '=replyto localnet',
 	code => sub {

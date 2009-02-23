@@ -98,8 +98,8 @@ Event::command_add({
 	cmd => 'reload',
 	help => "Load or reload a module, live.",
 	section => 'Admin',
+	syntax => '<module>',
 	details => [
-		"Syntax: \002RELOAD\002 module",
 		"\002WARNING\002: Reloading core modules may introduce bugs because of persistance",
 		"of old code by the perl interpreter."
 	],

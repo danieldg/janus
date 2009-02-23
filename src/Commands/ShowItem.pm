@@ -89,9 +89,7 @@ Event::command_add({
 	help => 'Shows internal details on a nick',
 	section => 'Info',
 	aclchk => 'info/nick',
-	details => [
-		"\002SHOWNICK\002 nick|gid",
-	],
+	syntax => '<nick|gid>',
 	api => '=src =replyto ?nick ?$',
 	code => sub {
 		my($src, $dst, $nick, $gid) = @_;
@@ -108,9 +106,7 @@ Event::command_add({
 	cmd => 'showchan',
 	help => 'Shows internal details on a channel',
 	section => 'Info',
-	details => [
-		"\002SHOWCHAN\002 chan|gid",
-	],
+	syntax => '<chan|gid>',
 	api => '=src =replyto ?chan ?$',
 	code => sub {
 		my($src, $dst, $chan, $gid) = @_;
@@ -127,9 +123,7 @@ Event::command_add({
 	cmd => 'shownet',
 	help => 'Shows internal details on a network',
 	section => 'Info',
-	details => [
-		"\002SHOWNET\002 netid|gid",
-	],
+	syntax => '<network|gid>',
 	code => sub {
 		my($src, $dst, $args) = @_;
 		my $n = $Janus::nets{$args} || $Janus::gnets{$args};

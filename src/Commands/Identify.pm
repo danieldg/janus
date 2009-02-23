@@ -13,8 +13,8 @@ Event::command_add({
 	cmd => 'identify',
 	help => 'Identify yourself to janus',
 	section => 'Account',
+	syntax => '[<username>] <password>',
 	details => [
-		"Syntax: identify [username] password",
 		'Your nick is the default username',
 	],
 	secret => 1,
@@ -78,9 +78,7 @@ Event::command_add({
 	cmd => 'setpass',
 	help => 'Set your janus identify password',
 	section => 'Account',
-	details => [
-		"Syntax: \002setpass\002 [user] password",
-	],
+	syntax => '[<user>] <password>',
 	secret => 1,
 	acl => 'user',
 	aclchk => 'setpass',

@@ -31,6 +31,7 @@ Event::command_add({
 	help => 'Manages janus accounts',
 	acl => 'account',
 	section => 'Account',
+	syntax => '<action> <account> [<args...>]',
 	details => [
 		"\002ACCOUNT LIST\002                Lists all accounts",
 		"\002ACCOUNT SHOW\002 account        Shows details on an account",
@@ -94,6 +95,7 @@ Event::command_add({
 }, {
 	cmd => 'role',
 	help => 'Manages janus account roles',
+	syntax => '<action> <role> [<args...>]',
 	section => 'Account',
 	acl => 'role',
 	details => [
@@ -140,8 +142,9 @@ Event::command_add({
 	cmd => 'listroles',
 	help => 'Lists all janus access roles',
 	section => 'Info',
+	api => '=replyto',
 	code => sub {
-		my($src,$dst) = @_;
+		my($dst) = @_;
 		my @tbl;
 		my %all = %Account::roles;
 		$all{oper} = $all{user} = 7;

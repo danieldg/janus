@@ -8,9 +8,7 @@ Event::command_add({
 	cmd => 'forcetag',
 	help => 'Forces a user to use a tagged nick on a network',
 	section => 'Network',
-	details => [
-		"Syntax: \002FORCETAG\002 nick [network]",
-	],
+	syntax => '<nick> [<network>]',
 	acl => 'forcetag',
 	api => '=src =replyto nick localdefnet',
 	code => sub {

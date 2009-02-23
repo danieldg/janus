@@ -22,7 +22,7 @@ sub bgexec {
 Event::command_add({
 	cmd => 'upgrade',
 	help => 'Upgrades all modules loaded by janus',
-	details => [ 'Syntax: upgrade [force]' ],
+	syntax => '[force]',
 	section => 'Admin',
 	acl => 'upgrade',
 	code => sub {

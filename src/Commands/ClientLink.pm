@@ -8,9 +8,7 @@ Event::command_add({
 	cmd => 'clink',
 	help => 'Requests a link from a clientbot network',
 	section => 'Channel',
-	details => [
-		"\002CLINK\002 cb-net #channel [dest-net] [#dest-chan]"
-	],
+	syntax => '<network> <channel> [<dest-net>] [<dest-chan>]',
 	acl => 'clink',
 	api => '=src =replyto localnet $ ?$ ?$',
 	code => sub {
@@ -44,9 +42,7 @@ Event::command_add({
 	cmd => 'clinkrm',
 	help => 'Removes a clientbot channel link',
 	section => 'Channel',
-	details => [
-		"\002CLINKRM\002 cb-net #channel"
-	],
+	syntax => '<network> <channel>',
 	acl => 'clink',
 	api => '=src =replyto localnet $',
 	code => sub {

@@ -8,13 +8,13 @@ Event::command_add({
 	cmd => 'save',
 	help => 'Save janus state to filesystem',
 	section => 'Admin',
-	acl => 1,
+	acl => 'oper',
+	api => '=replyto',
 	code => sub {
-		my($src,$dst,$args) = @_;
 		if (Conffile::save()) {
-			Janus::jmsg($dst, 'Saved');
+			Janus::jmsg($_[0], 'Saved');
 		} else {
-			Janus::jmsg($dst, "Could not save: $!");
+			Janus::jmsg($_[0], "Could not save: $!");
 		}
 	}
 });

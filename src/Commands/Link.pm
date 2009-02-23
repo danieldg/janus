@@ -8,8 +8,8 @@ Event::command_add({
 	cmd => 'link',
 	help => 'Link to a remote network\'s shared channel',
 	section => 'Channel',
+	syntax => '<channel> <network> [<remote-channel>]',
 	details => [
-		"Syntax: \002LINK\002 channel network [remotechan]",
 		"The remote network must use the \002CREATE\002 command to",
 		"share a channel before links to that channel will be accepted",
 	],
@@ -46,9 +46,7 @@ Event::command_add({
 	cmd => 'create',
 	help => 'Creates a channel that other networks can link to',
 	section => 'Channel',
-	details => [
-		"Syntax: \002CREATE\002 #channel"
-	],
+	syntax => '<channel>',
 	api => '=src =replyto localchan',
 	code => sub {
 		my($src,$dst,$chan) = @_;
@@ -74,8 +72,8 @@ Event::command_add({
 	cmd => 'delink',
 	help => 'Delinks a channel',
 	section => 'Channel',
+	syntax => '<channel> [<network>]',
 	details => [
-		"Syntax: \002DELINK\002 #channel [network]",
 		"The home newtwork must specify a network to delink, or use \002DESTROY\002",
 		"Other networks can only delink themselves from the channel",
 	],
@@ -111,9 +109,7 @@ Event::command_add({
 	cmd => 'destroy',
 	help => 'Removes a channel that other networks can link to',
 	section => 'Channel',
-	details => [
-		"Syntax: \002DESTROY\002 #channel",
-	],
+	syntax => '<channel>',
 	api => '=src =replyto localchan',
 	code => sub {
 		my($src,$dst,$chan) = @_;
@@ -140,6 +136,7 @@ Event::command_add({
 	cmd => 'linkacl',
 	help => 'Manages access control for shared channels',
 	section => 'Channel',
+	syntax => '<action> <channel> [...]',
 	details => [
 		"\002LINKACL LIST\002 #channel               Lists ACL entries for the channel",
 		"\002LINKACL ALLOW\002 #channel net          Allows a network access to link",
@@ -198,8 +195,8 @@ Event::command_add({
 	cmd => 'accept',
 	help => 'Links a channel to a network that has previously requested a link',
 	section => 'Channel',
+	syntax => '<channel> <network>',
 	details => [
-		"Syntax: \002ACCEPT\002 #channel net",
 		'Links a channel to a network that has previously requested a link.',
 		'This command is useful after changing a channel ACL, or if the link',
 		'request was made before the destination channel was created.',

@@ -74,13 +74,17 @@ Event::command_add({
 	cmd => 'autoconnect',
 	help => 'Enable or disable autoconnect on a network',
 	section => 'Network',
+	syntax => '<network> <backoff>',
 	details => [
-		"Syntax: \002AUTOCONNECT\002 network [0|1]",
 		"Enables or disables the automatic reconnection that janus makes to a network.",
 		'A rehash will reread the value for the network from the janus configuration',
-		'Without parameters, displays the current state',
+		'Specify backoff=0 to disable autoconnect',
+		'Specify backoff=1 to autoconnect quickly',
+		'Higher backoff values will increase the time between connection attempts',
+		'If backoff is not specified, displays the current state',
 	],
 	acl => 'autoconnect',
+	api => '=src =replyto $ ?$',
 	code => sub {
 		my($src, $dst, $id, $onoff) = @_;
 		my $nconf = $Conffile::netconf{$id} or do {
@@ -103,12 +107,9 @@ Event::command_add({
 	},
 }, {
 	cmd => 'netsplit',
-	help => 'Split a network and reconnect to it',
+	help => 'Split a network',
 	section => 'Network',
-	details => [
-		"Syntax: \002NETSPLIT\002 network",
-		"Disconnects the given network from janus and then rehashes to (possibly) reconnect",
-	],
+	syntax => '<network>',
 	acl => 'netsplit',
 	code => sub {
 		my($src,$dst,$net) = @_;

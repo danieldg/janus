@@ -10,9 +10,7 @@ Event::command_add({
 	cmd => 'showmode',
 	help => 'Shows the current intended modes of a channel',
 	section => 'Channel',
-	details => [
-		"\002SHOWMODE\002 #channel - shows the intended modes of the channel on your network",
-	],
+	syntax => '<channel>',
 	api => '=src =replyto chan defnet',
 	code => sub {
 		my($src,$dst,$chan,$net) = @_;
@@ -48,8 +46,9 @@ Event::command_add({
 	cmd => 'setmode',
 	help => 'Sets a mode by its long name',
 	section => 'Channel',
+	syntax => '<channel> <modes...>',
 	details => [
-		"\002SETMODE\002 #channel +mode1 -mode2 +mode3=value",
+		"Modes: +modetoset -modeunset +mode=value +mode=nick ++multistate",
 		"For a list of modes, see the \002LISTMODES\002 command.",
 		"For multistate modes, use multiple + signs to set a higher level",
 	],
@@ -110,9 +109,7 @@ Event::command_add({
 }, {
 	cmd => 'listmodes',
 	help => 'Shows a list of the long modes\' names',
-	details => [
-		"Syntax: \002LISTMODES\002 [network] [width]",
-	],
+	syntax => '[<network>] [<width>]',
 	section => 'Info',
 	api => '=replyto localdefnet ?$',
 	code => sub {

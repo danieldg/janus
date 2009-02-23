@@ -26,8 +26,8 @@ Event::command_add({
 }, {
 	cmd => 'set',
 	help => 'Change network or channel settings',
+	syntax => '<network|channel> <setting> [<value>]',
 	details => [
-		"Syntax: \002SET\002 network|channel setting [value]",
 		'Changes the requested setting of the network or channel',
 		'See the LISTSETTINGS command for the available settings',
 	],
