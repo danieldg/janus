@@ -152,7 +152,7 @@ sub cli_hostintro {
 				host => $host,
 				vhost => $host,
 				ident => $ident,
-				name => ($gecos || 'MirrorServ Client'),
+				name => (defined $gecos ? $gecos : 'MirrorServ Client'),
 			},
 			mode => {
 				invisible => 1,
@@ -174,7 +174,7 @@ sub cli_hostintro {
 			type => 'NEWNICK',
 			dst => $nick,
 		};
-		unless ($gecos) {
+		unless (defined $gecos) {
 			$net->add_halfout([ 10, "WHO $nname", 'WHO/N', $nname ]);
 		}
 	}
@@ -995,7 +995,7 @@ sub kicked {
 		}
 		return () if lc $_[7] eq lc $self[$$net];
 		my $gecos = $_[-1];
-		$gecos =~ s/^\d+\s+//; # remove server hop count
+		$gecos =~ s/^\d+\s//; # remove server hop count
 		my @out = $net->cli_hostintro($_[7], $_[4], $_[5], $gecos);
 		my %mode;
 		$mode{op} = 1 if $_[8] =~ /[~&\@]/;
