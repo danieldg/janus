@@ -57,6 +57,7 @@ Event::hook_add(
 );
 
 mdef 'm_alias.so';
+mdef 12, 'm_allowinvite.so', cmode => { A => 'r_allinvite' };
 mdef 'm_alltime.so', cmds => {
 	ALLTIME => sub {
 		my $net = shift;
@@ -74,13 +75,9 @@ mdef 'm_alltime.so', cmds => {
 		$net->cmd2($act->{src}, 'ALLTIME');
 	},
 };
-
-mdef 12, 'm_allowinvite.so', cmode => { A => 'r_allinvite' };
 mdef 'm_antibear.so';
 mdef 'm_antibottler.so';
 
-# This can be set in config to hide ops too, see
-# http://www.inspircd.org/wiki/Modules/auditorium
 mdef 'm_auditorium.so', cmode => { u => 'r_auditorium' };
 mdef 'm_banexception.so', cmode => { e => 'l_except' };
 mdef 'm_banredirect.so'; # this just adds syntax to channel bans
@@ -93,7 +90,6 @@ mdef 'm_botmode.so', umode => { B => 'bot' };
 mdef 12, 'm_callerid.so', umode => { g => 'callerid' }, cmds => { ACCEPT => \&ignore };
 mdef 'm_cban.so', cmds => { CBAN => \&ignore }; # janus needs localjoin to link, so we don't care
 mdef 'm_censor.so', cmode => { G => 'r_badword' }, umode => { G => 'badword' };
-mdef 'm_hidechans.so', umode => { I => 'hide_chans' };
 mdef 'm_cgiirc.so';
 mdef 'm_chancreate.so';
 mdef 'm_chanlog.so';
@@ -157,7 +153,27 @@ mdef 'm_conn_umodes.so';
 mdef 'm_conn_waitpong.so';
 mdef 'm_connflood.so';
 mdef 'm_commonchans.so', umode => { c => 'deaf_commonchan' };
-mdef 'm_customtitle.so';
+mdef 'm_customtitle.so', metadata => {
+	ctitle => sub {
+		my $net = shift;
+		my $nick = $net->mynick($_[2]) or return ();
+		return +{
+			type => 'NICKINFO',
+			src => $net->item($_[0]),
+			dst => $nick,
+			item => 'ctitle',
+			value => $_[4],
+		};
+	},
+}, acts => {
+	NICKINFO => sub {
+		my($net,$act) = @_;
+		if ($act->{item} eq 'ctitle') {
+			return $net->ncmd(METADATA => $act->{dst}, 'ctitle', $act->{value});
+		}
+		()
+	},
+};
 mdef 'm_cycle.so';
 mdef 'm_dccallow.so', cmds => { DCCALLOW => \&ignore };
 mdef 'm_deaf.so', umode => { d => 'deaf_chan' };
@@ -186,6 +202,7 @@ mdef 'm_globalload.so', cmds => { GRELOADMODULE => \&ignore };
 mdef 'm_globops.so',
 	cmds => { GLOBOPS => \&ignore };
 mdef 'm_helpop.so', umode => { h => 'helpop' }, cmds => { HELPOP => \&ignore };
+mdef 'm_hidechans.so', umode => { I => 'hide_chans' };
 mdef 'm_hideoper.so', umode => { H => 'hideoper' };
 mdef 'm_hostchange.so';
 mdef 'm_http_client.so';
@@ -221,6 +238,7 @@ mdef 'm_lockserv.so';
 mdef 'm_md5.so';
 mdef 'm_messageflood.so', cmode => { f => 's_flood' };
 mdef 'm_namesx.so';
+mdef 'm_nationalchars.so';
 mdef 'm_nickflood.so', cmode => { F => 's_nickflood' };
 mdef 1105, 'm_nicklock.so', cmds => {
 	NICKLOCK => sub {
@@ -309,6 +327,7 @@ mdef 'm_remove.so', cmds => {
 		};
 	},
 };
+mdef 12, 'm_rline.so';
 mdef 'm_restrictbanned.so';
 mdef 'm_restrictchans.so';
 mdef 'm_restrictmsg.so';
@@ -440,7 +459,6 @@ mdef 'm_setname.so', cmds => {
 };
 mdef 'm_setidle.so';
 mdef 'm_sha256.so';
-mdef 'm_shun.so', cmds => { SHUN => \&ignore };
 mdef 'm_showwhois.so', umode => { W => 'whois_notice' }, acts => {
 	WHOIS => sub {
 		my($net,$act) = @_;
@@ -450,6 +468,7 @@ mdef 'm_showwhois.so', umode => { W => 'whois_notice' }, acts => {
 			$dst, '*** '.$src->str($net).' did a /whois on you.'));
 	},
 };
+mdef 'm_shun.so', cmds => { SHUN => \&ignore };
 mdef 'm_silence.so', cmds => { SILENCE => \&ignore };
 mdef 'm_silence_ext.so', cmds => { SILENCE => \&ignore };
 mdef 'm_spanningtree.so';
@@ -520,10 +539,10 @@ mdef 'm_testcommand.so';
 mdef 'm_timedbans.so', cmds => { TBAN => \&ignore };
 mdef 'm_tline.so';
 mdef 'm_uhnames.so';
-mdef 'm_uninvite.so';
+mdef 'm_uninvite.so', cmds => { UNINVITE => \&ignore };
 mdef 'm_userip.so';
 mdef 'm_vhost.so'; # routed as normal FHOST
-mdef 'm_watch.so';
+mdef 'm_watch.so', cmds => { SVSWATCH => \&ignore };
 mdef 'm_xmlsocket.so';
 
 1;
