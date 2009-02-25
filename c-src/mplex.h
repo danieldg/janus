@@ -14,6 +14,7 @@
 #define MIN_QUEUE 16384
 #define IDEAL_QUEUE 32768
 #define QUEUE_JUMP 32768
+#define TIMEOUT 150
 
 struct queue {
 	uint8_t* data;
@@ -25,6 +26,7 @@ struct queue {
 struct sockifo {
 	int fd;
 	int netid;
+	time_t death_time;
 	struct {
 		unsigned int type:2;
 		unsigned int poll:2;

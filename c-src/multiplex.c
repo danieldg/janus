@@ -30,7 +30,7 @@ struct iostate {
 
 static const char* conffile;
 static int io_stop;
-static time_t last_ts;
+static time_t now;
 static struct iostate* sockets;
 static pid_t worker_pid;
 
@@ -229,6 +229,7 @@ static void addnet(char* line) {
 		connect(fd, ainfo->ai_addr, ainfo->ai_addrlen);
 		ifo->state.connpend = 1;
 		ifo->state.poll = POLL_FORCE_WOK;
+		ifo->death_time = now + TIMEOUT;
 	} else if (type == 'L') {
 		ifo->state.type = TYPE_LISTEN;
 		ifo->state.poll = POLL_FORCE_ROK;
@@ -365,6 +366,7 @@ static void line_accept(char* line) {
 	nifo->state.type = TYPE_NETWORK;
 	nifo->state.frozen = freeze;
 	nifo->state.poll = freeze ? POLL_HANG : POLL_NORMAL;
+	nifo->death_time = now + TIMEOUT;
 }
 
 
@@ -458,12 +460,17 @@ static void readable(struct sockifo* ifo) {
 	while (1) {
 		char* line = q_gets(&ifo->recvq);
 		if (!line)
-			return;
+			break;
 		if (ifo->state.type == TYPE_NETWORK && !ifo->state.mplex_dropped) {
 			qprintf(&sockets->net[0].sendq, "%d %s\n", ifo->netid, line);
+			ifo->death_time = now + TIMEOUT;
 		} else if (ifo->state.type == TYPE_MPLEX) {
 			mplex_parse(line);
 		}
+	}
+	// prevent memory DoS by sending infinite text without \n
+	if (ifo->recvq.end - ifo->recvq.start > IDEAL_QUEUE) {
+		esock(ifo, "Line too long");
 	}
 }
 
@@ -484,6 +491,9 @@ static void mplex() {
 	}
 	for(i=0; i < sockets->count; i++) {
 		struct sockifo* ifo = &sockets->net[i];
+		if (ifo->death_time && ifo->death_time < now) {
+			esock(ifo, "Ping Timeout");
+		}
 		if (ifo->fd < 0) {
 			if (ifo->state.mplex_dropped) {
 				delnet_real(ifo);
@@ -526,10 +536,10 @@ static void mplex() {
 			break;
 	}
 	int ready = select(maxfd + 1, &rok, &wok, &xok, &timeout);
-	time_t now = time(NULL);
-	if (now != last_ts && io_stop != 2) {
+	time_t new_ts = time(NULL);
+	if (now != new_ts && io_stop != 2) {
+		now = new_ts;
 		qprintf(&sockets->net[0].sendq, "T %d\n", now);
-		last_ts = now;
 	}
 	if (ready <= 0)
 		return;
