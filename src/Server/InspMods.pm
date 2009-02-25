@@ -94,6 +94,7 @@ mdef 'm_cgiirc.so';
 mdef 'm_chancreate.so';
 mdef 'm_chanlog.so';
 mdef 'm_chanfilter.so', cmode => { g => 'l_badwords' };
+mdef 'm_channelban.so';
 mdef 'm_chanprotect.so', cmode => { a => 'n_admin', 'q' => 'n_owner' };
 mdef 'm_check.so';
 
@@ -196,6 +197,7 @@ mdef 'm_dnsbl.so';
 mdef 'm_filter.so', cmds => { FILTER => \&ignore };
 mdef 'm_filter_pcre.so', cmds => { FILTER => \&ignore };
 mdef 'm_foobar.so';
+mdef 'm_gecosban.so';
 # hack: G(UN)LOADMODULE cmds are in core so that m_globalload can be
 # loaded and used without needing to split janus
 mdef 'm_globalload.so', cmds => { GRELOADMODULE => \&ignore };
@@ -237,6 +239,7 @@ mdef 'm_knock.so', cmode => { K => 'r_noknock' };
 mdef 'm_lockserv.so';
 mdef 'm_md5.so';
 mdef 'm_messageflood.so', cmode => { f => 's_flood' };
+mdef 'm_muteban.so';
 mdef 'm_namesx.so';
 mdef 'm_nationalchars.so';
 mdef 'm_nickflood.so', cmode => { F => 's_nickflood' };
@@ -295,8 +298,10 @@ mdef 'm_noinvite.so', cmode => { V => 'r_noinvite' };
 mdef 'm_nokicks.so', cmode => { Q => 'r_nokick' };
 mdef 'm_nonicks.so', cmode => { N => 'r_norenick' };
 mdef 'm_nonotice.so', cmode => { T => 'r_noticeblock' };
+mdef 'm_nopartmsg.so';
 mdef 'm_oper_hash.so';
 mdef 'm_operchans.so', cmode => { O => 'r_oper' };
+mdef 'm_operinvex.so';
 mdef 'm_operjoin.so';
 mdef 'm_operlevels.so';
 mdef 'm_operlog.so';
@@ -365,6 +370,7 @@ mdef 1105, 'm_saquit.so', cmds => { 'SAQUIT' => 'KILL' };
 mdef 12, 'm_saquit.so', cmds => { 'SAQUIT' => \&ignore };
 mdef 'm_securelist.so';
 mdef 'm_seenicks.so';
+mdef 'm_serverban.so';
 mdef 1105, 'm_services.so', cmode => {
 	r => 'r_',
 	R => 'r_reginvite',
