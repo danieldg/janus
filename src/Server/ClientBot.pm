@@ -85,7 +85,7 @@ sub intro {
 	if ($net->cparam('linktype') eq 'tls') {
 		$net->add_halfout([ 15, 'STARTTLS', 'TLS' ]);
 	}
-	$net->add_halfout([ 30, "USER mirror gamma * :Janus IRC Client\r\nNICK $param->{nick}", 'USER' ]);
+	$net->add_halfout([ 60, "USER mirror gamma * :Janus IRC Client\r\nNICK $param->{nick}", 'USER' ]);
 	$self[$$net] = $param->{nick};
 	$flood_bkt[$$net] = Setting::get(tbf_burst => $net);
 	$flood_ts[$$net] = $Janus::time;
@@ -1110,7 +1110,7 @@ Event::hook_add(
 		Janus::jmsg($dst, 'Bot nick: '.$self[$$net]);
 		Janus::jmsg($dst, 'Server 005 line: '.join ' ', sort map {
 			defined $capabs[$$net]{$_} ? "$_=$capabs[$$net]{$_}" : $_
-		} keys %{$capabs[$$net]});
+		} grep !/ /, keys %{$capabs[$$net]});
 	},
 );
 
