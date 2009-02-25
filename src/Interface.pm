@@ -180,8 +180,10 @@ sub send {
 			next if !$src || !$src->isa('Nick') || $src == $janus;
 			$_ = $act->{msg};
 			next if /^\001/;
-			if ($dst->isa('Channel') && !$src->jlink) {
-				my $jnick = $janus->str($src->homenet);
+			if ($dst->isa('Channel')) {
+				my $hn = $src->homenet;
+				next if $hn->jlink || $hn->isa('Server::ClientBot');
+				my $jnick = $janus->str($hn);
 				my $jcmd = $dst->get_mode('jcommand') || 0;
 				next unless s/^\Q$jnick\E[:,] // || ($jcmd >= 2 && /^[.!@]/);
 				$dst = $src unless $jcmd;
