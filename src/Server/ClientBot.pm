@@ -59,6 +59,8 @@ sub poll_halfout {
 				dst => $chan,
 			});
 		}
+	} elsif ($evt->[2] eq 'USER') {
+		$n->process_capabs();
 	}
 	$n->shift_halfout();
 }
@@ -123,6 +125,46 @@ sub _init {
 	};
 	$cmode2txt[$$net] = \%def_c2t;
 	$txt2cmode[$$net] = \%def_t2c;
+}
+
+sub process_capabs {
+	my $net = shift;
+	my(@g,@ltype,@ttype);
+	if ($capabs[$$net]{CHANMODES} && $capabs[$$net]{CHANMODES} =~ /^([^,]*),([^,]*),([^,]*),([^,]*)$/) {
+		@g = ($1,$2,$3,$4);
+		@ltype = qw(l v s r);
+		@ttype = qw(l v v r);
+	}
+	if ($capabs[$$net]{PREFIX} && $capabs[$$net]{PREFIX} =~ /^\(([^()]+)\)/) {
+		push @g, $1;
+		push @ltype, 'n';
+		push @ttype, 'n';
+	}
+	if (@g == 5) {
+		my %c2t;
+		my %t2c;
+		for my $i (0..$#g) {
+			for (split //, $g[$i]) {
+				my $name = $ltype[$i].'__'.$ttype[$i].($_ eq lc $_ ? 'l' : 'u').(lc $_);
+
+				my $def = $def_c2t{$_};
+				if ($def && $def =~ /^._(.*)/ && Modes::mtype($1) eq $ttype[$i]) {
+					$name = $ltype[$i].'_'.$1;
+				}
+
+				$c2t{$_} = $name;
+				$t2c{$name} = $_;
+			}
+		}
+		$t2c{n_op} = 'o';
+		$txt2cmode[$$net] = \%t2c;
+		$cmode2txt[$$net] = \%c2t;
+	} else {
+		Log::warn_in($net, 'No 005 CHANMODES/PREFIX, assuming RFC1459 modes');
+	}
+	my $um = $capabs[$$net]{' umodes'} || '';
+	$net->send('PROTOCTL NAMESX') if $capabs[$$net]{NAMESX};
+	$net->send("MODE ".$self[$$net].' +B') if $um =~ /B/;
 }
 
 sub cmode2txt {
@@ -829,7 +871,7 @@ sub kicked {
 		unless ($curr && $curr->[2] eq 'USER') {
 			Log::warn_in($net, 'Unexpected 001 numeric');
 		}
-		if ($net->cparam('linktype') eq 'tls' && !delete $capabs[$$net]{' TLS'}) {
+		if ($net->cparam('linktype') eq 'tls' && !$capabs[$$net]{' TLS'}) {
 			return {
 				type => 'NETSPLIT',
 				net => $net,
@@ -849,7 +891,19 @@ sub kicked {
 	},
 	'002' => \&ignore,
 	'003' => \&ignore,
-	'004' => \&ignore,
+	'004' => sub {
+		my $net = shift;
+		my @keys = qw/server ircd umodes cmodes cmodes2/;
+		for my $i (3..$#_) {
+			$capabs[$$net]{' '.$keys[$i-3]} = $_[$i];
+		}
+		my $curr = $half_out[$$net][0];
+		unless ($curr && $curr->[2] eq 'USER') {
+			Log::warn_in($net, 'Unexpected 004 numeric');
+			$net->process_capabs();
+		}
+		();
+	},
 	'005' => sub {
 		my $net = shift;
 		for (@_[3..($#_-1)]) {
@@ -858,40 +912,11 @@ sub kicked {
 			} else {
 				Log::warn_in($net, "Invalid 005 line: $_");
 			}
-			if ($_ eq 'NAMESX') {
-				$net->send('PROTOCTL NAMESX');
-			}
 		}
-		my(@g,@ltype,@ttype);
-		if ($capabs[$$net]{CHANMODES} && $capabs[$$net]{CHANMODES} =~ /^([^,]*),([^,]*),([^,]*),([^,]*)$/) {
-			@g = ($1,$2,$3,$4);
-			@ltype = qw(l v s r);
-			@ttype = qw(l v v r);
-		}
-		if ($capabs[$$net]{PREFIX} && $capabs[$$net]{PREFIX} =~ /^\(([^()]+)\)/) {
-			push @g, $1;
-			push @ltype, 'n';
-			push @ttype, 'n';
-		}
-		if (@g) {
-			my %c2t;
-			my %t2c;
-			for my $i (0..$#g) {
-				for (split //, $g[$i]) {
-					my $name = $ltype[$i].'__'.$ttype[$i].($_ eq lc $_ ? 'l' : 'u').(lc $_);
-
-					my $def = $def_c2t{$_};
-					if ($def && $def =~ /^._(.*)/ && Modes::mtype($1) eq $ttype[$i]) {
-						$name = $ltype[$i].'_'.$1;
-					}
-
-					$c2t{$_} = $name;
-					$t2c{$name} = $_;
-				}
-			}
-			$t2c{n_op} = 'o';
-			$txt2cmode[$$net] = \%t2c;
-			$cmode2txt[$$net] = \%c2t;
+		my $curr = $half_out[$$net][0];
+		unless ($curr && $curr->[2] eq 'USER') {
+			Log::warn_in($net, 'Unexpected 005 numeric');
+			$net->process_capabs();
 		}
 		();
 	},
@@ -912,6 +937,7 @@ sub kicked {
 		my $net = shift;
 		my $curr = $half_out[$$net][0];
 		if ($curr && $curr->[2] eq 'USER') {
+			$net->process_capabs();
 			$net->shift_halfout();
 		}
 		();
@@ -920,6 +946,7 @@ sub kicked {
 		my $net = shift;
 		my $curr = $half_out[$$net][0];
 		if ($curr && $curr->[2] eq 'USER') {
+			$net->process_capabs();
 			$net->shift_halfout();
 		}
 		();
@@ -1108,7 +1135,10 @@ Event::hook_add(
 		my($dst, $net, $asker) = @_;
 		return unless $net->isa(__PACKAGE__);
 		Janus::jmsg($dst, 'Bot nick: '.$self[$$net]);
-		Janus::jmsg($dst, 'Server 005 line: '.join ' ', sort map {
+		Janus::jmsg($dst, join '', 'Server info:', sort map {
+			defined $capabs[$$net]{$_} ? "$_=$capabs[$$net]{$_}" : $_
+		} grep /^ /, keys %{$capabs[$$net]});
+		Janus::jmsg($dst, join ' ','Server 005:', sort map {
 			defined $capabs[$$net]{$_} ? "$_=$capabs[$$net]{$_}" : $_
 		} grep !/ /, keys %{$capabs[$$net]});
 	},
