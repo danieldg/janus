@@ -32,6 +32,10 @@ sub jlink {
 	$_[0]->parent();
 }
 
+sub jname {
+	$id[${$_[0]}].'.janus';
+}
+
 sub is_linked {
 	1;
 }

@@ -642,8 +642,8 @@ $moddef{CORE} = {
 				$net->auth_recvd;
 				if ($net->auth_should_send) {
 					my $spass = delete $capabs[$$net]{' HMAC_SPASS'} || $net->cparam('sendpass');
-					$sendq1[$$net] .= $net->cmd2(undef, SERVER => $net->cparam('linkname'),
-						$spass, 0, $net, "Janus Network Link\r\n");
+					my $name = $net->cparam('linkname') || $RemoteJanus::self->jname;
+					$sendq1[$$net] .= $net->cmd2(undef, SERVER => $name, $spass, 0, $net, "Janus Network Link\r\n");
 				}
 				$sendq1[$$net] .= 'BURST '.$Janus::time."\r\n";
 			} else {
@@ -709,7 +709,7 @@ $moddef{CORE} = {
 		};
 	}, PING => sub {
 		my $net = shift;
-		my $from = $_[3] || $net->cparam('linkname');
+		my $from = $_[3] || $net;
 		$net->send($net->cmd2($from, 'PONG', $from, $_[2]));
 		();
 	},
@@ -742,7 +742,8 @@ $moddef{CORE} = {
 			push @out, 'CAPAB END';
 			if ($net->auth_should_send) {
 				my $spass = delete $capabs[$$net]{' HMAC_SPASS'} || $net->cparam('sendpass');
-				push @out, $net->cmd2(undef, SERVER => $net->cparam('linkname'), $spass, 0, $net, 'Janus Network Link');
+				my $name = $net->cparam('linkname') || $RemoteJanus::self->jname;
+				push @out, $net->cmd2(undef, SERVER => $name, $spass, 0, $net, 'Janus Network Link');
 			}
 			$sendq1[$$net] .= join "\r\n", @out, '';
 		} # ignore START and any others
@@ -806,7 +807,8 @@ $moddef{CORE} = {
 				altnick => 1,
 			};
 		} else {
-			Log::warn_in($net, "Ignoring SVSNICK on already tagged nick");
+			Log::warn_in($net, "Bouncing SVSNICK on already tagged nick");
+			$net->send($net->cmd2($nick, NICK => $nick->str($net), $nick->ts));
 			return ();
 		}
 	},

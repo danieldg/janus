@@ -299,7 +299,6 @@ sub _out {
 	} elsif ($itm->isa('Channel')) {
 		return $itm->str($net);
 	} elsif ($itm->isa('Network')) {
-		return $net->cparam('linkname') if $itm eq $net;
 		return $itm->jname();
 	} else {
 		Log::warn_in($net,"Unknown item $itm");

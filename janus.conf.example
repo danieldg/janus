@@ -103,8 +103,6 @@ link u3 {
 	linkport 8001
 	# Source address (optional, for multihomed hosts)
 	linkbind ::1
-	# What server name is used to introduce ourselves?
-	linkname hub.janus
 	# Password which is sent
 	sendpass pass
 	# Password which is expected to receive
@@ -113,6 +111,9 @@ link u3 {
 	linktype plain
 	# Long name of this network
 	netname Test 1
+	# What server name is used to introduce ourselves
+	# Optional, defaults to NAME.janus where NAME is set above
+	linkname hub.janus
 	# Unreal-only: numerics used for janus servers. Optional, defaults to 100-600
 	numeric_range 40-45,70,85-190
 	# Untrusted: if set, don't send real IP/host to this network
@@ -131,7 +132,6 @@ link i1 {
 	# other paramaters can be specified without the link suffix if they are
 	# the same for all fallback servers
 	linkport 8003
-	linkname hub.janus
 	linktype plain
 	# Name of the server that we are linking to; required for inspircd only
 	server.1 penguin.omega.org.za
