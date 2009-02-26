@@ -189,11 +189,10 @@ Event::hook_add(
 				$nmode[$$chan]{$$arg} &= ~$nmodebit{$i} if $pm eq '-';
 			} elsif ($t eq 'l') {
 				next unless defined $arg;
-				if ($pm eq '+') {
-					@{$mode[$$chan]{$i}} = ($arg, grep { $_ ne $arg } @{$mode[$$chan]{$i}});
-				} else {
-					@{$mode[$$chan]{$i}} = grep { $_ ne $arg } @{$mode[$$chan]{$i}};
-				}
+				my $v = delete $mode[$$chan]{$i};
+				my @list = $v ? grep { $_ ne $arg } @$v : ();
+				push @list, $arg if $pm eq '+';
+				$mode[$$chan]{$i} = \@list if @list;
 			} elsif ($t eq 'v') {
 				$mode[$$chan]{$i} = $arg if $pm eq '+';
 				delete $mode[$$chan]{$i} if $pm eq '-';
