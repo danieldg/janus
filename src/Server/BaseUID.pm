@@ -95,6 +95,7 @@ sub register_nick {
 	unless ($old->homenet == $net) {
 		push @rv, +{
 			type => 'RECONNECT',
+			net => $net,
 			dst => $old,
 			killed => 0,
 			altnick => 1,

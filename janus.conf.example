@@ -65,7 +65,7 @@ log log/%Y-%m-%d-%H:%M:%S {
 
 	## The following settings are specific to the File type:
 	# Run a dump before opening the log file (for possible replays)
-	dump 1
+	#dump 1
 	# rotate the log every N seconds
 	rotate 86400
 	# action to take on the log after closing
