@@ -690,11 +690,11 @@ $moddef{CORE} = {
   cmds => {
 	NICK => sub {
 		my $net = shift;
+		my @out;
 		if (@_ < 7) {
 			my $nick = $net->mynick($_[0]) or return ();
 			my $stomp = $net->nick($_[2], 1);
 			my $nts = (@_ == 4 ? $net->sjbint($_[3]) : $Janus::time);
-			my @out;
 			if ($stomp && $stomp != $nick) {
 				if ($stomp->ts < $nts) {
 					$net->send({
@@ -796,15 +796,23 @@ $moddef{CORE} = {
 		}
 		$oplvl & (1 << $_) ? $nick{info}{opertype} = $opertypes[$_] : 0 for 0..$#opertypes;
 
-		my $nick = Nick->new(%nick);
-		my($good, @out) = $net->nick_collide($_[2], $nick);
-		if ($good) {
+		my $nick = $net->nick($_[3], 1);
+		if ($nick) {
+			push @out, +{
+				type => 'RECONNECT',
+				dst => $nick,
+				net => $net,
+				killed => 1,
+				altnick => 1,
+			} if $nick->homenet != $net;
+			$net->send($net->ncmd(KILL => $_[3], 'Nick collision'));
+		} else {
+			$nick = Nick->new(%nick);
+			$net->request_newnick($nick, $_[3]);
 			push @out, +{
 				type => 'NEWNICK',
 				dst => $nick,
 			};
-		} else {
-			$net->send($net->cmd1(KILL => $_[2], 'hub.janus (Nick collision)'));
 		}
 		@out;
 	}, QUIT => sub {

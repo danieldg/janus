@@ -344,8 +344,7 @@ $moddef{CORE} = {
 			$net->send($net->ncmd(KILL => $_[3], 'Nick collision'));
 		} else {
 			$nick = Nick->new(%nick);
-			$net->nick_collide($_[3], $nick);
-			# ignore return of _collide as we already checked
+			$net->request_newnick($nick, $_[3]);
 			push @out, +{
 				type => 'NEWNICK',
 				dst => $nick,

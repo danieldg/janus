@@ -177,14 +177,20 @@ sub txt2cmode {
 sub cli_hostintro {
 	my($net, $nname, $ident, $host, $gecos) = @_;
 	my @out;
-	return if lc $nname eq lc $self[$$net];
+	return () if lc $nname eq lc $self[$$net];
 	my $nick = $net->item($nname);
 
 	unless ($nick && $nick->homenet == $net) {
 		my $ts = $Janus::time;
 		if ($nick) {
 			# someone already exists, but remote. They get booted off their current nick
-			$ts = $nick->ts - 1;
+			Event::insert_full({
+				type => 'RECONNECT',
+				dst => $nick,
+				net => $net,
+				killed => 0,
+				altnick => 1,
+			});
 		}
 		$nick = Nick->new(
 			net => $net,
@@ -210,9 +216,8 @@ sub cli_hostintro {
 		weaken($evt->{nick});
 		Event::schedule($evt);
 
-		my($ok, @acts) = $net->nick_collide($nname, $nick);
-		warn 'Invalid clientbot collision' unless $ok;
-		push @out, @acts, +{
+		$net->request_nick($nick, $nname);
+		push @out, +{
 			type => 'NEWNICK',
 			dst => $nick,
 		};

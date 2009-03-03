@@ -37,38 +37,6 @@ sub nick {
 	undef;
 }
 
-sub nick_collide {
-	my($net, $name, $new) = @_;
-	my $old = delete $nicks[$$net]->{lc $name};
-	unless ($old) {
-		$nicks[$$net]->{lc $name} = $new;
-		return 1;
-	}
-	my $tsctl = $old->ts() <=> $new->ts();
-
-	Log::debug("Nick collision over $name, old=".$old->ts." new=".$new->ts." tsctl=$tsctl");
-
-	$nicks[$$net]->{lc $name} = $new if $tsctl > 0;
-	$nicks[$$net]->{lc $name} = $old if $tsctl < 0;
-
-	my @rv = ($tsctl > 0);
-	if ($tsctl >= 0) {
-		# old nick lost, reconnect it
-		if ($old->homenet() eq $net) {
-			Log::err_in($net, "Nick collision on home network!");
-		} else {
-			push @rv, +{
-				type => 'RECONNECT',
-				dst => $old,
-				net => $net,
-				killed => 1,
-				altnick => 1,
-			};
-		}
-	}
-	@rv;
-}
-
 # Request a nick on a remote network (CONNECT/JOIN must be sent AFTER this)
 sub request_nick {
 	my($net, $nick, $reqnick, $tagged) = @_;
