@@ -796,7 +796,7 @@ $moddef{CORE} = {
 		}
 		$oplvl & (1 << $_) ? $nick{info}{opertype} = $opertypes[$_] : 0 for 0..$#opertypes;
 
-		my $nick = $net->nick($_[3], 1);
+		my $nick = $net->nick($_[2], 1);
 		if ($nick) {
 			push @out, +{
 				type => 'RECONNECT',
@@ -805,10 +805,10 @@ $moddef{CORE} = {
 				killed => 1,
 				altnick => 1,
 			} if $nick->homenet != $net;
-			$net->send($net->cmd2($net, KILL => $_[3], 'Nick collision'));
+			$net->send($net->cmd2($net, KILL => $_[2], 'Nick collision'));
 		} else {
 			$nick = Nick->new(%nick);
-			$net->request_newnick($nick, $_[3]);
+			$net->request_newnick($nick, $_[2]);
 			push @out, +{
 				type => 'NEWNICK',
 				dst => $nick,
