@@ -805,7 +805,7 @@ $moddef{CORE} = {
 				killed => 1,
 				altnick => 1,
 			} if $nick->homenet != $net;
-			$net->send($net->ncmd(KILL => $_[3], 'Nick collision'));
+			$net->send($net->cmd2($net, KILL => $_[3], 'Nick collision'));
 		} else {
 			$nick = Nick->new(%nick);
 			$net->request_newnick($nick, $_[3]);
