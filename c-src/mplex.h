@@ -23,6 +23,11 @@ struct queue {
 	int size;
 };
 
+struct line {
+	uint8_t* data;
+	int len;
+};
+
 struct sockifo {
 	int fd;
 	int netid;
@@ -68,13 +73,14 @@ enum ssl_state {
 
 void esock(struct sockifo* ifo, const char* msg);
 
-int q_bound(struct queue* q, int min, int ideal);
+int q_bound(struct queue* q, int min);
 int q_read(int fd, struct queue* q);
 int q_write(int fd, struct queue* q);
 
-char* q_gets(struct queue* q);
-void q_puts(struct queue* q, const char* line, int newlines);
+struct line q_getl(struct queue* q);
+void q_putl(struct queue* q, struct line line, int newlines);
 void qprintf(struct queue* q, const char* format, ...);
+#define q_puts(q, s) q_putl(q, (struct line){ (uint8_t*)(s ""), sizeof(s) - 1}, 0)
 
 #if SSL_ENABLED
 void ssl_gblinit();

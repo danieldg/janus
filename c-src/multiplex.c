@@ -88,12 +88,12 @@ static void init_worker() {
 	}
 }
 
-static void reboot(const char* line) {
-	line++;
+static void reboot(struct line line) {
+	line.data++; line.len--;
 	close(sockets->net[0].fd);
 	init_worker();
-	q_puts(&sockets->net[0].sendq, "RESTORE", 0);
-	q_puts(&sockets->net[0].sendq, line, 1);
+	q_puts(&sockets->net[0].sendq, "RESTORE");
+	q_putl(&sockets->net[0].sendq, line, 1);
 }
 
 void esock(struct sockifo* ifo, const char* msg) {
@@ -230,7 +230,7 @@ static void addnet(char* line) {
 		ifo->state.connpend = 1;
 		ifo->state.poll = POLL_FORCE_WOK;
 		ifo->death_time = now + TIMEOUT;
-	} else if (type == 'L') {
+	} else {
 		ifo->state.type = TYPE_LISTEN;
 		ifo->state.poll = POLL_FORCE_ROK;
 		ifo->ifo_newfd = -1;
@@ -246,7 +246,7 @@ out_free:
 	freeaddrinfo(ainfo);
 	return;
 out_err:
-	esock(ifo, strerror(gai_err));
+	esock(ifo, strerror(errno));
 	goto out_free;
 }
 
@@ -369,39 +369,38 @@ static void line_accept(char* line) {
 	nifo->death_time = now + TIMEOUT;
 }
 
-
-
-static void sqfill(char* line) {
+static void sqfill(struct line line) {
 	int netid = 0;
-	while (isdigit(*line)) {
-		netid = 10 * netid + *line++ - '0';
+	while (isdigit(*line.data)) {
+		netid = 10 * netid + *line.data - '0';
+		line.data++; line.len--;
 	}
 	struct sockifo* ifo = find(netid);
 	if (!ifo)
 		exit(3);
-	line++;
-	q_puts(&ifo->sendq, line, 2);
+	line.data++; line.len--;
+	q_putl(&ifo->sendq, line, 2);
 }
 
-static void mplex_parse(char* line) {
-	switch (*line) {
+static void mplex_parse(struct line line) {
+	switch (*line.data) {
 	case '0' ... '9':
 		sqfill(line);
 		break;
 	case 'I':
-		addnet(line);
+		addnet((char*)line.data);
 		break;
 	case 'L':
-		line_accept(line);
+		line_accept((char*)line.data);
 		break;
 	case 'F':
-		freeze_net(line);
+		freeze_net((char*)line.data);
 		break;
 	case 'D':
-		delnet(line);
+		delnet((char*)line.data);
 		break;
 	case 'S':
-		start_ssl(line);
+		start_ssl((char*)line.data);
 		break;
 	case 'X':
 		io_stop = 1;
@@ -458,11 +457,12 @@ static void readable(struct sockifo* ifo) {
 		}
 	}
 	while (1) {
-		char* line = q_gets(&ifo->recvq);
-		if (!line)
+		struct line line = q_getl(&ifo->recvq);
+		if (!line.data)
 			break;
 		if (ifo->state.type == TYPE_NETWORK && !ifo->state.mplex_dropped) {
-			qprintf(&sockets->net[0].sendq, "%d %s\n", ifo->netid, line);
+			qprintf(&sockets->net[0].sendq, "%d ", ifo->netid);
+			q_putl(&sockets->net[0].sendq, line, 1);
 			ifo->death_time = now + TIMEOUT;
 		} else if (ifo->state.type == TYPE_MPLEX) {
 			mplex_parse(line);
@@ -487,7 +487,7 @@ static void mplex() {
 	FD_ZERO(&xok);
 	if (io_stop == 1) {
 		io_stop = 2;
-		q_puts(&sockets->net[0].sendq, "X", 1);
+		q_puts(&sockets->net[0].sendq, "X\n");
 	}
 	for(i=0; i < sockets->count; i++) {
 		struct sockifo* ifo = &sockets->net[i];
@@ -563,7 +563,7 @@ static void mplex() {
 			return;
 	}
 	if (ready > 1 || !FD_ISSET(sockets->net[0].fd, &rok))
-		q_puts(&sockets->net[0].sendq, "Q\n", 0);
+		q_puts(&sockets->net[0].sendq, "Q\n");
 }
 
 static void sig2child(int sig) {
@@ -592,7 +592,7 @@ static void init() {
 	sockets->net[0].state.type = TYPE_MPLEX;
 
 	init_worker();
-	q_puts(&sockets->net[0].sendq, "BOOT 12\n", 0);
+	q_puts(&sockets->net[0].sendq, "BOOT 12\n");
 	writable(&sockets->net[0]);
 
 #if SSL_ENABLED

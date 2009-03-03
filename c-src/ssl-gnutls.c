@@ -102,7 +102,7 @@ void ssl_readable(struct sockifo* ifo) {
 
 	ifo->state.poll = POLL_NORMAL;
 
-	int slack = q_bound(&ifo->recvq, MIN_QUEUE, IDEAL_QUEUE);
+	int slack = q_bound(&ifo->recvq, MIN_QUEUE);
 	while (slack > 1024) {
 		int n = gnutls_record_recv(ifo->ssl, ifo->recvq.data + ifo->recvq.end, slack);
 		if (n > 0) {
