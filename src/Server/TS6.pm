@@ -11,8 +11,8 @@ use strict;
 use warnings;
 use integer;
 
-our(@sendq, @servers, @serverdsc, @servernum, @next_uid);
-Persist::register_vars(qw(sendq servers serverdsc servernum next_uid));
+our(@sendq, @servers, @serverdsc, @servernum, @next_uid, @capabs);
+Persist::register_vars(qw(sendq servers serverdsc servernum next_uid capabs));
 
 sub _init {
 	my $net = shift;
@@ -22,8 +22,31 @@ sub _init {
 
 sub ignore { () }
 
+sub nick_msg {
+	my $net = shift;
+	my $src = $net->item($_[0]);
+	my $msg = [ @_[3..$#_] ];
+	my $about = $net->item($_[3]);
+	$about ||= $net->nick($_[3], 1);
+	if (ref $about && $about->isa('Nick')) {
+		$msg->[0] = $about;
+	}
+	if ($_[2] =~ /\./) {
+		Log::warn_in($net, 'numeric', @_);
+		return ();
+	}
+	my $dst = $net->nick($_[2]) or return ();
+	return {
+		type => 'MSG',
+		src => $src,
+		dst => $dst,
+		msg => $msg,
+		msgtype => $_[1],
+	};
+}
+
 sub nicklen {
-	15 # TODO
+	15 # TODO ?
 }
 
 sub str {
@@ -34,12 +57,14 @@ sub str {
 sub intro {
 	my($net,@param) = @_;
 	$net->SUPER::intro(@param);
+	my $sep = Setting::get(tagsep => $net);
+	Setting::set(tagsep => $net, '_') if $sep eq '/';
 	if ($net->auth_should_send) {
 		my $name = $net->cparam('linkname') || $RemoteJanus::self->jname;
 		$net->send(
 			$net->cmd2(undef, PASS => $net->cparam('sendpass'),'TS',6,$net),
-			'CAPAB QS EX CHW IE EOB HOPS HUB KNOCK TB ENCAP SAVE EUID',
-			$net->ncmd(SERVER => $name, 0, 'Janus Network Link'),
+			'CAPAB :QS EX CHW IE KLN EOB HOPS HUB KNOCK TB UNKLN CLUSTER ENCAP SERVICES RSFNC SAVE EUID',
+			$net->cmd2(undef, SERVER => $name, 0, 'Janus Network Link'),
 			'SVINFO 6 6 0 '.$Janus::time,
 		);
 	}
@@ -57,9 +82,11 @@ sub parse {
 	my $cmd = $args[1];
 	Log::netin(@_) unless $cmd eq 'PRIVMSG' || $cmd eq 'NOTICE';
 	unless ($net->auth_ok || $cmd eq 'PASS' || $cmd eq 'SERVER' || $cmd eq 'CAPAB' || $cmd eq 'ERROR') {
+		return () if $cmd eq 'NOTICE'; # NOTICE AUTH ... annoying
 		$sendq[$$net] .= "ERROR :Not authorized yet\r\n";
 		return ();
 	}
+	return $net->nick_msg(@args) if $cmd =~ /^\d+$/;
 	$net->from_irc(@args);
 }
 
@@ -102,27 +129,6 @@ sub next_uid {
 	}
 	warn if $number; # wow, you had 2 billion users on this server?
 	$pfx.$uid;
-}
-
-sub _connect_ifo {
-	my ($net, $nick) = @_;
-	my @out;
-
-	my $mode = '+';
-	for my $m ($nick->umodes()) {
-		my $um = $net->txt2umode($m);
-		next unless defined $um;
-		$mode .= $um;
-	}
-
-	my $ip = $nick->info('ip') || '0.0.0.0';
-	$ip = '0.0.0.0' if $ip eq '*' || $net->param('untrusted');
-	push @out, $net->cmd2($nick, AWAY => $nick->info('away')) if $nick->info('away');
-	my $host = $nick->info($net->param('untrusted') ? 'vhost' : 'host');
-	unshift @out, $net->cmd2($nick->homenet, EUID => $nick->str($net), 1, $nick->ts,
-		$mode, $nick->info('ident'), $nick->info('vhost'), $ip, $nick, $host, 0, $nick->info('name'));
-
-	@out;
 }
 
 # IRC Parser
@@ -175,6 +181,91 @@ sub cmd2 {
 
 our %moddef = ();
 Janus::static('moddef');
+$moddef{CAPAB_HOPS} = { cmode => { h => 'n_halfop' } };
+$moddef{CAPAB_EX} = { cmode => { e => 'l_except' } };
+$moddef{CAPAB_IE} = { cmode => { I => 'l_invex' } };
+$moddef{CAPAB_TB} = {
+	cmds => {
+		TB => sub {
+			my $net = shift;
+			my $src = $net->item($_[0]);
+			my $chan = $net->chan($_[2]) or return ();
+			return +{
+				type => 'TOPIC',
+				src => $src,
+				dst => $chan,
+				topicts => $_[3],
+				topicset => (@_ == 6 ? $_[4] : $src && $src->isa('Nick') ? $src->homenick() : 'janus'),
+				topic => $_[-1],
+			};
+		},
+	}, acts => {
+		CHANBURST => sub {
+			my($net,$act) = @_;
+			my $old = $act->{before};
+			my $new = $act->{after};
+			my @sjmodes = Modes::to_irc($net, Modes::dump($new));
+			@sjmodes = '+' unless @sjmodes;
+			my @out;
+			push @out, $net->ncmd(SJOIN => $new->ts, $new, @sjmodes, $net->_out($Interface::janus));
+			push @out, map {
+				$net->ncmd(TMODE => $new->ts, $new, @$_);
+			} Modes::to_multi($net, Modes::delta($new->ts < $old->ts ? undef : $old, $new), 10);
+			if ($new->topic && (!$old->topic || $old->topic ne $new->topic)) {
+				push @out, $net->ncmd(TB => $new, $new->topicts, $new->topicset, $new->topic);
+			}
+			@out;
+		}, CHANALLSYNC => sub {
+			my($net,$act) = @_;
+			my $chan = $act->{chan};
+			my @sjmodes = Modes::to_irc($net, Modes::dump($chan));
+			@sjmodes = '+' unless @sjmodes;
+			my @out;
+			my $fj = '';
+			for my $nick ($chan->all_nicks) {
+				my $mode = $chan->get_nmode($nick);
+				my $m = join '', map { $net->txt2cmode("n_$_") || '' } keys %$mode;
+				$fj .= ' '.$m.$net->_out($nick);
+			}
+			$fj =~ s/^ // or return ();
+			push @out, $net->ncmd(SJOIN => $chan->ts, $chan, @sjmodes, $fj);
+			push @out, map {
+				$net->ncmd(TMODE => $chan->ts, $chan, @$_);
+			} Modes::to_multi($net, Modes::delta(undef, $chan), 10);
+			if ($chan->topic) {
+				push @out, $net->ncmd(TB => $chan, $chan->topicts, $chan->topicset, $chan->topic);
+			}
+			@out;
+		},
+	}
+};
+$moddef{CAPAB_EUID} = {
+	acts => {
+		CONNECT => sub {
+			my($net,$act) = @_;
+			my $nick = $act->{dst};
+			return () if $act->{net} != $net;
+			my @out;
+
+			my $mode = '+';
+			for my $m ($nick->umodes()) {
+				my $um = $net->txt2umode($m);
+				next unless defined $um;
+				$mode .= $um;
+			}
+
+			my $ip = $nick->info('ip') || '0.0.0.0';
+			$ip = '0.0.0.0' if $ip eq '*' || $net->param('untrusted');
+			push @out, $net->cmd2($nick, AWAY => $nick->info('away')) if $nick->info('away');
+			my $host = $nick->info($net->param('untrusted') ? 'vhost' : 'host');
+			unshift @out, $net->cmd2($nick->homenet, EUID => $nick->str($net), 1, $nick->ts,
+				$mode, $nick->info('ident'), $nick->info('vhost'), $ip, $nick, $host, 0, $nick->info('name'));
+
+			@out;
+		}
+	},
+};
+
 $moddef{CORE} = {
   cmode => {
 		b => 'l_ban',
@@ -212,9 +303,27 @@ $moddef{CORE} = {
 			item => 'away',
 			value => $_[2],
 		};
-	}, 
+	},
 	BMASK => \&ignore, # TODO
-	CAPAB => \&ignore, # TODO
+	CAPAB => sub {
+		my $net = shift;
+		for (split /\s+/, $_[-1]) {
+			$capabs[$$net]{$_}++;
+			$net->module_add('CAPAB_'.$_, 1);
+		}
+		# We send: QS EX CHW IE KLN EOB HOPS HUB KNOCK TB UNKLN CLUSTER ENCAP SERVICES RSFNC SAVE EUID
+		# We require: (second list can be eliminated)
+		for (qw/QS SAVE ENCAP  CHW/) {
+			next if $capabs[$$net]{$_};
+			Log::err_in($net, "Cannot reliably link: CAPAB $_ not supported");
+		}
+		# We emulate:
+		for (qw/TB EUID/) {
+			next if $capabs[$$net]{$_};
+			$net->module_add('NOCAP_'.$_);
+		}
+		();
+	},
 	CHGHOST => sub {
 		my $net = shift;
 		my $src = $net->item($_[0]);
@@ -295,7 +404,7 @@ $moddef{CORE} = {
 			to => $chan,
 			timeout => $_[4],
 		};
-	}, 
+	},
 	JOIN => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
@@ -341,7 +450,7 @@ $moddef{CORE} = {
 			kickee => $nick,
 			msg => $_[4],
 		};
-	}, 
+	},
 	KILL => sub {
 		my $net = shift;
 		my $src = $net->item($_[0]);
@@ -453,8 +562,8 @@ $moddef{CORE} = {
 				my $name = $net->cparam('linkname') || $RemoteJanus::self->jname;
 				$net->send(
 					$net->cmd2(undef, PASS => $net->cparam('sendpass'),'TS',6,$net),
-					'CAPAB QS ENCAP EX CHW IE KNOCK SAVE EUID',
-					$net->ncmd(SERVER => $name, 0, 'Janus Network Link'),
+					'CAPAB :QS EX CHW IE KLN EOB HOPS HUB KNOCK TB UNKLN CLUSTER ENCAP SERVICES RSFNC SAVE EUID',
+					$net->cmd2(undef, SERVER => $name, 0, 'Janus Network Link'),
 					'SVINFO 6 6 0 '.$Janus::time,
 				);
 			}
@@ -463,7 +572,7 @@ $moddef{CORE} = {
 			$net->send('ERROR :Bad password');
 		}
 		();
-	}, 
+	},
 	PING => sub {
 		my $net = shift;
 		my $from = $_[3] || $net;
@@ -517,7 +626,7 @@ $moddef{CORE} = {
 			dst => $nick,
 			item => 'host',
 			value => $_[2],
-		}, 
+		},
 	},
 	REHASH => \&ignore,
 	RESV => \&ignore, # TODO
@@ -546,7 +655,7 @@ $moddef{CORE} = {
 		return ();
 		();
 	},
-	SIGNON => \&ignore, # TODO 
+	SIGNON => \&ignore, # TODO
 	SJOIN => sub {
 		my $net = shift;
 		my $ts = $_[2];
@@ -673,19 +782,6 @@ $moddef{CORE} = {
 			dirs => $dirs,
 		};
 	},
-	TB => sub {
-		my $net = shift;
-		my $src = $net->item($_[0]);
-		my $chan = $net->chan($_[2]) or return ();
-		return +{
-			type => 'TOPIC',
-			src => $src,
-			dst => $chan,
-			topicts => $_[3],
-			topicset => (@_ == 6 ? $_[4] : $src && $src->isa('Nick') ? $src->homenick() : 'janus'),
-			topic => $_[-1],
-		};
-	},
 	TOPIC => sub {
 		my $net = shift;
 		my $src = $net->item($_[0]);
@@ -708,7 +804,14 @@ $moddef{CORE} = {
 	USERS => \&ignore,
 	VERSION => \&ignore,
 	WALLOPS => \&ignore,
-	WHOIS => \&ignore, # TODO
+	WHOIS => sub {
+		my $net = shift;
+		+{
+			type => 'WHOIS',
+			src => $net->item($_[0]),
+			dst => $net->nick($_[2]),
+		}
+	},
 	XLINE => \&ignore,
   }, acts => {
 	JNETLINK => sub {
@@ -762,30 +865,23 @@ $moddef{CORE} = {
 		return (
 			$net->ncmd(SQUIT => $jid, $msg),
 		);
-	}, CONNECT => sub {
-		my($net,$act) = @_;
-		my $nick = $act->{dst};
-		return () if $act->{net} ne $net;
-		my @out = $net->_connect_ifo($nick);
-		@out;
 	}, RECONNECT => sub {
-		die; # TODO
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
 		return () if $act->{net} ne $net;
 
 		if ($act->{killed}) {
-			my @out = $net->_connect_ifo($nick);
+			my @out = $net->to_irc({ type => 'CONNECT', nick => $nick, net => $net });
 			for my $chan (@{$act->{reconnect_chans}}) {
 				next unless $chan->is_on($net);
 				my $mode = join '', map {
 					$chan->has_nmode($_, $nick) ? ($net->txt2cmode("n_$_") || '') : ''
-				} qw/voice halfop op admin owner/;
+				} qw/voice halfop op/;
+				$mode =~ tr/ohv/@%+/;
 				my @cmodes = Modes::to_multi($net, Modes::dump($chan), 10);
 				@cmodes = (['+']) unless @cmodes && @{$cmodes[0]};
-				warn "w00t said this wouldn't happen" if @cmodes != 1;
 
-				push @out, $net->ncmd(FJOIN => $chan, $chan->ts(), @{$cmodes[0]}, $mode.','.$nick->str($net));
+				push @out, $net->ncmd(SJOIN => $chan->ts, $chan, @{$cmodes[0]}, $mode.$nick->str($net));
 			}
 			return @out;
 		} else {
@@ -894,68 +990,24 @@ $moddef{CORE} = {
 		} Modes::to_multi($net, $m1, $a1, $d1, 10);
 
 		@out;
-	}, CHANBURST => sub {
-		my($net,$act) = @_;
-		my $old = $act->{before};
-		my $new = $act->{after};
-		my @sjmodes = Modes::to_irc($net, Modes::dump($new));
-		@sjmodes = '+' unless @sjmodes;
-		my @out;
-		push @out, $net->ncmd(SJOIN => $new, $new->ts, @sjmodes, $net->_out($Interface::janus));
-		push @out, map {
-			$net->ncmd(TMODE => $new->ts, $new, @$_);
-		} Modes::to_multi($net, Modes::delta($new->ts < $old->ts ? undef : $old, $new), 10);
-		if ($new->topic && (!$old->topic || $old->topic ne $new->topic)) {
-			push @out, $net->ncmd(TB => $new, $new->topicts, $new->topicset, $new->topic);
-		}
-		@out;
-	}, CHANALLSYNC => sub {
-		die; # TODO
-		my($net,$act) = @_;
-		my $chan = $act->{chan};
-		my @sjmodes = Modes::to_irc($net, Modes::dump($chan));
-		@sjmodes = '+' unless @sjmodes;
-		my @out;
-		my $fj = '';
-		# TODO this likely misses +qa if people turn off prefix mode for them
-		for my $nick ($chan->all_nicks) {
-			my $mode = $chan->get_nmode($nick);
-			my $m = join '', map { $net->txt2cmode("n_$_") || '' } keys %$mode;
-			$fj .= ' '.$m.','.$net->_out($nick);
-		}
-		$fj =~ s/^ // or return ();
-		push @out, $net->ncmd(FJOIN => $chan, $chan->ts, @sjmodes, $fj);
-		push @out, map {
-			$net->ncmd(FMODE => $chan, $chan->ts, @$_);
-		} Modes::to_multi($net, Modes::delta(undef, $chan), 10);
-		if ($chan->topic) {
-			push @out, $net->ncmd(FTOPIC => $chan, $chan->topicts, $chan->topicset, $chan->topic);
-		}
-		@out;
 	}, MSG => sub {
 		my($net,$act) = @_;
 		return if $act->{dst}->isa('Network');
 		my $type = $act->{msgtype} || 'PRIVMSG';
 		my $dst = ($act->{prefix} || '').$net->_out($act->{dst});
-		if ($type eq '317') {
-			die; # TODO
-			my @msg = @{$act->{msg}};
-			return () unless @msg >= 3;
-			return $net->cmd2($msg[0], IDLE => $act->{dst}, $msg[2], $msg[1]);
-		} elsif ($type =~ /^[356789]\d\d$/) {
-			# assume this is part of a WHOIS reply; discard
-			return ();
+		return () unless $type eq 'PRIVMSG' || $type eq 'NOTICE' || $type =~ /^\d\d\d$/;
+		return () if $type eq '378' && $net->param('untrusted');
+		my @msg = ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg};
+		if (ref $msg[0] && $msg[0]->isa('Nick')) {
+			$msg[0] = $msg[0]->str($net);
 		}
 		my $src = $act->{src};
 		$src = $src->homenet if $src->isa('Nick') && !$src->is_on($net);
-		if ($type eq 'PRIVMSG' || $type eq 'NOTICE') {
-			return $net->cmd2($src, $type, $dst, $act->{msg});
-		}
+		return $net->cmd2($src, $type, $dst, @msg);
 		return ();
 	}, WHOIS => sub {
-		die; # TODO
 		my($net,$act) = @_;
-		$net->cmd2($act->{src}, IDLE => $act->{dst});
+		$net->cmd2($act->{src}, WHOIS => $act->{dst}, $act->{dst});
 	}, PING => sub {
 		my($net,$act) = @_;
 		$net->ncmd(PING => $net);

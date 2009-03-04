@@ -65,8 +65,9 @@ sub module_add {
 }
 
 sub module_remove {
-	my($net,$name) = @_;
+	my($net,$name,$opt) = @_;
 	my $mod = delete $modules[$$net]{$name} or do {
+		return if $opt;
 		Log::err_in($net, "Could not unload moule $name: not loaded");
 		return;
 	};
