@@ -182,6 +182,9 @@ sub init_connection {
 
 sub starttls {
 	my($net, $sslkey, $sslcert, $sslca) = @_;
+	$sslkey ||= '';
+	$sslcert ||= '';
+	$sslca ||= '';
 	die 'Cannot STARTTLS with this API' if $Multiplex::master_api < 11;
 	Multiplex::cmd("SC $$net $sslkey $sslcert $sslca");
 }

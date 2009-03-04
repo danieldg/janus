@@ -1123,7 +1123,7 @@ sub kicked {
 		my $net = shift;
 		my $curr = $half_out[$$net][0];
 		if ($curr && $curr->[2] eq 'TLS') {
-			my($ssl_key, $ssl_cert, $ssl_ca) = find_ssl_keys($net->name);
+			my($ssl_key, $ssl_cert, $ssl_ca) = Conffile::find_ssl_keys($net->name);
 			Connection::starttls($net, $ssl_key, $ssl_cert, $ssl_ca);
 			$net->shift_halfout();
 			$capabs[$$net]{' TLS'}++;
