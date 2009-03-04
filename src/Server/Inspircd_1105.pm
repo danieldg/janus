@@ -444,15 +444,16 @@ $moddef{CORE} = {
 		my @acts;
 
 		if ($chan->ts > $ts) {
-			push @acts, +{
+			my $syncact = +{
 				type => 'CHANTSSYNC',
 				src => $net,
 				dst => $chan,
 				newts => $ts,
 				oldts => $chan->ts(),
 			};
-			my($modes,$args,$dirs) = Modes::dump($chan);
+			push @acts, $syncact;
 			if ($chan->homenet == $net) {
+				my($modes,$args,$dirs) = Modes::dump($chan);
 				# this is a TS wipe, justified. Wipe janus's side.
 				$_ = '-' for @$dirs;
 				push @acts, +{
@@ -465,9 +466,7 @@ $moddef{CORE} = {
 				};
 			} else {
 				# someone else owns the channel. Fix.
-				$net->send(map {
-					$net->ncmd(FMODE => $chan, $ts, @$_);
-				} Modes::to_multi($net, $modes, $args, $dirs, $capabs[$$net]{MAXMODES}));
+				$net->send($syncact);
 			}
 		}
 

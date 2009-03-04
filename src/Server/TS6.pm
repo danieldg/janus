@@ -423,14 +423,30 @@ $moddef{CORE} = {
 		} else {
 			my $chan = $net->chan($_[3], $_[2]);
 			if ($chan->ts > $_[2]) {
-				push @act, +{
+				my $syncact = +{
 					type => 'CHANTSSYNC',
 					src => $net,
 					dst => $chan,
 					newts => $_[2],
 					oldts => $chan->ts(),
 				};
-				# TODO mode sync here
+				push @act, $syncact;
+				if ($chan->homenet == $net) {
+					my($modes,$args,$dirs) = Modes::dump($chan);
+					# this is a TS wipe, justified. Wipe janus's side.
+					$_ = '-' for @$dirs;
+					push @act, +{
+						type => 'MODE',
+						src => $net,
+						dst => $chan,
+						mode => $modes,
+						args => $args,
+						dirs => $dirs,
+					};
+				} else {
+					# someone else owns the channel. Fix.
+					$net->send($syncact);
+				}
 			}
 			push @act, +{
 				type => 'JOIN',
@@ -664,15 +680,16 @@ $moddef{CORE} = {
 		my @acts;
 
 		if ($chan->ts > $ts) {
-			push @acts, +{
+			my $syncact = +{
 				type => 'CHANTSSYNC',
 				src => $net,
 				dst => $chan,
-				newts => $ts,
+				newts => $_[2],
 				oldts => $chan->ts(),
 			};
-			my($modes,$args,$dirs) = Modes::dump($chan);
+			push @acts, $syncact;
 			if ($chan->homenet == $net) {
+				my($modes,$args,$dirs) = Modes::dump($chan);
 				# this is a TS wipe, justified. Wipe janus's side.
 				$_ = '-' for @$dirs;
 				push @acts, +{
@@ -685,9 +702,7 @@ $moddef{CORE} = {
 				};
 			} else {
 				# someone else owns the channel. Fix.
-				$net->send(map {
-					$net->ncmd(FMODE => $chan, $ts, @$_);
-				} Modes::to_multi($net, $modes, $args, $dirs, 10));
+				$net->send($syncact);
 			}
 		}
 
@@ -970,15 +985,11 @@ $moddef{CORE} = {
 		}
 		return ();
 	}, CHANTSSYNC => sub {
-		die; # TODO
 		my($net,$act) = @_;
 		my $chan = $act->{dst};
 		my $ts = $act->{newts};
 
-		my @sjmodes = Modes::to_irc($net, Modes::dump($chan));
-		@sjmodes = '+' unless @sjmodes;
-
-		my @out = $net->ncmd(FJOIN => $chan, $ts, @sjmodes, ','.$net->_out($Interface::janus));
+		my @out = $net->cmd2($Interface::janus, JOIN => $ts, $chan, '+');
 		my($m1,$a1,$d1) = Modes::delta(undef, $chan);
 		my($m2,$a2,$d2) = Modes::reops($chan);
 		push @$m1, @$m2;
@@ -986,7 +997,7 @@ $moddef{CORE} = {
 		push @$d1, @$d2;
 
 		push @out, map {
-			$net->ncmd(FMODE => $chan, $ts, @$_);
+			$net->ncmd(TMODE => $ts, $chan, @$_);
 		} Modes::to_multi($net, $m1, $a1, $d1, 10);
 
 		@out;
