@@ -2,6 +2,7 @@
  * Copyright (C) 2009 Daniel De Graaf
  * Released under the GNU Affero General Public License v3
  */
+#include <ctype.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -118,4 +119,44 @@ void qprintf(struct queue* q, const char* format, ...) {
 		va_end(ap);
 	}
 	q->end += n;
+}
+
+#define INC(l) do { l.data++; l.len--; } while (0)
+#define WRITE(dst, type, value) do { \
+	*((type *)(dst)) = (value); \
+	dst = (void*)(1 + ((type*)(dst))); \
+} while (0)
+
+void sscan(struct line line, const char* format, void* dst) {
+	while (1) {
+		switch (*format++) {
+			case 'i': {
+				int v = 0;
+				while (line.len && isdigit(*line.data)) {
+					v = 10 * v + *line.data - '0';
+					INC(line);
+				}
+				WRITE(dst, int, v);
+				break;
+			}
+
+			case 's':
+				WRITE(dst, uint8_t*, line.data);
+			case '-':
+				while (line.len && *line.data != ' ')
+					INC(line);
+				break;
+
+			case 'l':
+				WRITE(dst, struct line, line);
+				break;
+
+			default:
+				return;
+		}
+		if (line.len && *line.data == ' ') {
+			*line.data = '\0';
+			INC(line);
+		}
+	}
 }

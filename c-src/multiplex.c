@@ -34,25 +34,6 @@ static time_t now;
 static struct iostate* sockets;
 static pid_t worker_pid;
 
-#define WORDSTRING(x) \
-	const char* x = NULL; \
-	if (*line == ' ') { \
-		*line++ = '\0'; \
-		x = line; \
-		while (*line && *line != ' ') line++; \
-	}
-
-#define INTSTRING(x) \
-	int x = 0; \
-	if (*line == ' ') { \
-		*line++ = '\0'; \
-		while (isdigit(*line)) { \
-			x = 10 * x + *line++ - '0'; \
-		} \
-	}
-
-#define ENDSTRING() do { *line = '\0'; } while (0)
-
 static void init_worker() {
 	int sv[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sv)) {
@@ -160,29 +141,30 @@ static void writable(struct sockifo* ifo) {
 	}
 }
 
-static void addnet(char* line) {
-	line++;
-	char type = *line++;
+static void addnet(struct line line) {
+	struct {
+		const char* type;
+		int netid;
+		const char* addr;
+		const char* port;
+		const char* bindto;
+		int freeze;
+	} __attribute__((__packed__)) args;
+	sscan(line, "sisssi", &args);
+	char type = args.type[1];
 	if (type != 'L' && type != 'C') exit(2);
 
-	INTSTRING(netid);
-	WORDSTRING(addr);
-	WORDSTRING(port);
-	WORDSTRING(bindto);
-	INTSTRING(freeze);
-	ENDSTRING();
-
-	if (!addr || !*addr) {
+	if (!args.addr || !*args.addr) {
 		if (type == 'C')
 			exit(2);
-		addr = "::";
+		args.addr = "::";
 	}
-	if (!netid || !port || !*port)
+	if (!args.netid || !*args.port)
 		exit(2);
 
 	struct sockifo* ifo = alloc_ifo();
 	ifo->fd = -1;
-	ifo->netid = netid;
+	ifo->netid = args.netid;
 
 	struct addrinfo hints = {
 		.ai_family = AF_UNSPEC,
@@ -190,7 +172,7 @@ static void addnet(char* line) {
 		.ai_flags = (type == 'C' ? AI_ADDRCONFIG : AI_PASSIVE | AI_ADDRCONFIG),
 	};
 	struct addrinfo* ainfo = NULL;
-	int gai_err = getaddrinfo(addr, port, &hints, &ainfo);
+	int gai_err = getaddrinfo(args.addr, args.port, &hints, &ainfo);
 	if (gai_err) {
 		esock(ifo, gai_strerror(gai_err));
 		return;
@@ -206,14 +188,14 @@ static void addnet(char* line) {
 	fcntl(fd, F_SETFD, FD_CLOEXEC);
 	if (type == 'C') {
 		ifo->state.type = TYPE_NETWORK;
-		ifo->state.frozen = freeze;
-		if (bindto && *bindto) {
+		ifo->state.frozen = args.freeze;
+		if (*args.bindto) {
 			if (ainfo->ai_family == AF_INET6) {
 				struct sockaddr_in6 bsa = {
 					.sin6_family = AF_INET6,
 					.sin6_port = 0,
 				};
-				inet_pton(AF_INET6, bindto, &bsa.sin6_addr);
+				inet_pton(AF_INET6, args.bindto, &bsa.sin6_addr);
 				if (bind(fd, (struct sockaddr*)&bsa, sizeof(bsa)))
 					goto out_err;
 			} else {
@@ -221,7 +203,7 @@ static void addnet(char* line) {
 					.sin_family = AF_INET,
 					.sin_port = 0,
 				};
-				inet_pton(AF_INET, bindto, &bsa.sin_addr);
+				inet_pton(AF_INET, args.bindto, &bsa.sin_addr);
 				if (bind(fd, (struct sockaddr*)&bsa, sizeof(bsa)))
 					goto out_err;
 			}
@@ -266,10 +248,13 @@ static void delnet_real(struct sockifo* ifo) {
 	}
 }
 
-static void delnet(char* line) {
-	line++;
-	INTSTRING(netid);
-	struct sockifo* ifo = find(netid);
+static void delnet(struct line line) {
+	struct {
+		int netid;
+	} __attribute__((__packed__)) args;
+	sscan(line, "-i", &args);
+
+	struct sockifo* ifo = find(args.netid);
 
 	if (!ifo)
 		exit(2);
@@ -288,54 +273,62 @@ static void delnet(char* line) {
 	}
 }
 
-static void freeze_net(char* line) {
-	line++;
-	INTSTRING(netid);
-	INTSTRING(freeze);
-	struct sockifo* ifo = find(netid);
+static void freeze_net(struct line line) {
+	struct {
+		int netid;
+		int freeze;
+	} __attribute__((__packed__)) args;
+	sscan(line, "-ii", &args);
+	struct sockifo* ifo = find(args.netid);
 	if (!ifo)
 		exit(2);
-	ifo->state.frozen = freeze;
+	ifo->state.frozen = args.freeze;
 	writable(ifo);
 	ifo->state.poll = POLL_HANG;
 }
 
-static void start_ssl(char* line) {
-	char type = line[1];
-	line += 2;
-	INTSTRING(netid);
+static void start_ssl(struct line line) {
+	struct {
+		const char* type;
+		int netid;
+		const char* ssl_key;
+		const char* ssl_cert;
+		const char* ssl_ca;
+	} __attribute__((__packed__)) args;
+	sscan(line, "sisss", &args);
 
-	struct sockifo* ifo = find(netid);
+	struct sockifo* ifo = find(args.netid);
 	if (!ifo) {
 		exit(2);
 	}
 
 #if SSL_ENABLED
-	WORDSTRING(ssl_key);
-	WORDSTRING(ssl_cert);
-	WORDSTRING(ssl_ca);
-	ENDSTRING();
-
 	ifo->state.frozen = 0;
 	if (ifo->state.poll == POLL_HANG)
 		ifo->state.poll = POLL_NORMAL;
 
-	int server = (type == 'S');
-	ssl_init(ifo, ssl_key, ssl_cert, ssl_ca, server);
+	int server = (args.type[1] == 'S');
+	ssl_init(ifo, args.ssl_key, args.ssl_cert, args.ssl_ca, server);
 #else
 	esock(ifo, "SSL support not enabled");
 #endif
 }
 
-static void line_accept(char* line) {
-	char type = line[1];
+static void line_accept(struct line line) {
+	struct {
+		const char* type;
+		int lnetid;
+		int nnetid;
+		int freeze;
+	} __attribute__((__packed__)) args;
+	sscan(line, "siii", &args);
+	char type = args.type[1];
 	if (type != 'A' && type != 'D')
 		exit(2);
-	line += 2;
+	if (!args.nnetid)
+		exit(2);
 
-	INTSTRING(lnetid);
-
-	struct sockifo* lifo = find(lnetid);
+	struct sockifo* lifo = find(args.lnetid);
 
 	if (!lifo || lifo->state.type != TYPE_LISTEN)
 		exit(2);
@@ -349,12 +342,6 @@ static void line_accept(char* line) {
 		return;
 	}
 
-	INTSTRING(nnetid);
-	INTSTRING(freeze);
-
-	if (!nnetid)
-		exit(2);
-
 	int flags = fcntl(fd, F_GETFL);
 	flags |= O_NONBLOCK;
 	fcntl(fd, F_SETFL, flags);
@@ -362,24 +349,23 @@ static void line_accept(char* line) {
 
 	struct sockifo* nifo = alloc_ifo();
 	nifo->fd = fd;
-	nifo->netid = nnetid;
+	nifo->netid = args.nnetid;
 	nifo->state.type = TYPE_NETWORK;
-	nifo->state.frozen = freeze;
-	nifo->state.poll = freeze ? POLL_HANG : POLL_NORMAL;
+	nifo->state.frozen = args.freeze;
+	nifo->state.poll = args.freeze ? POLL_HANG : POLL_NORMAL;
 	nifo->death_time = now + TIMEOUT;
 }
 
 static void sqfill(struct line line) {
-	int netid = 0;
-	while (isdigit(*line.data)) {
-		netid = 10 * netid + *line.data - '0';
-		line.data++; line.len--;
-	}
-	struct sockifo* ifo = find(netid);
+	struct {
+		int netid;
+		struct line data;
+	} __attribute__((__packed__)) args;
+	sscan(line, "il", &args);
+	struct sockifo* ifo = find(args.netid);
 	if (!ifo)
 		exit(3);
-	line.data++; line.len--;
-	q_putl(&ifo->sendq, line, 2);
+	q_putl(&ifo->sendq, args.data, 2);
 }
 
 static void mplex_parse(struct line line) {
@@ -388,19 +374,19 @@ static void mplex_parse(struct line line) {
 		sqfill(line);
 		break;
 	case 'I':
-		addnet((char*)line.data);
+		addnet(line);
 		break;
 	case 'L':
-		line_accept((char*)line.data);
+		line_accept(line);
 		break;
 	case 'F':
-		freeze_net((char*)line.data);
+		freeze_net(line);
 		break;
 	case 'D':
-		delnet((char*)line.data);
+		delnet(line);
 		break;
 	case 'S':
-		start_ssl((char*)line.data);
+		start_ssl(line);
 		break;
 	case 'X':
 		io_stop = 1;

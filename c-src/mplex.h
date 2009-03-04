@@ -82,6 +82,8 @@ void q_putl(struct queue* q, struct line line, int newlines);
 void qprintf(struct queue* q, const char* format, ...);
 #define q_puts(q, s) q_putl(q, (struct line){ (uint8_t*)(s ""), sizeof(s) - 1}, 0)
 
+void sscan(struct line line, const char* format, void* dst);
+
 #if SSL_ENABLED
 void ssl_gblinit();
 void ssl_init(struct sockifo* ifo, const char* key, const char* cert, const char* ca, int server);
