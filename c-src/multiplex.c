@@ -422,7 +422,7 @@ static void readable(struct sockifo* ifo) {
 		}
 		struct sockaddr_in6 addr;
 		unsigned int addrlen = sizeof(addr);
-		char linebuf[8192];
+		char linebuf[100];
 		int fd = accept(ifo->fd, (struct sockaddr*)&addr, &addrlen);
 		if (fd < 0)
 			return;

@@ -32,8 +32,8 @@ sub intro {
 	my($net,$conf,$peer) = @_;
 	$auth[$$net] = $peer ? AUTH_DIR_IN : AUTH_DIR_OUT;
 	$fbid[$$net] = 1 + ($conf->{fb_id} % $conf->{fb_max});
-	$conf->{'linkname.'.$fbid[$$net]} ||= $RemoteJanus::self->jname;
 	$cparms[$$net] = { %$conf };
+	$cparms[$$net]{'linkname.'.$fbid[$$net]} ||= $RemoteJanus::self->jname;
 	$net->_set_netname($net->cparam('netname'));
 }
 

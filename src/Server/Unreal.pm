@@ -1148,7 +1148,7 @@ $moddef{CORE} = {
 
 		if ($net->auth_should_send) {
 			my $server = $net->cparam('linkname');
-			my $pass = $net->param('sendpass');
+			my $pass = $net->cparam('sendpass');
 			my $num = $net->numeric_for($net);
 			$rawout[$$net] = "PASS :$pass\r\n".
 				'PROTOCTL NOQUIT TOKEN NICKv2 CLK NICKIP SJOIN SJOIN2 SJ3 VL NS UMODE2 TKLEXT SJB64'.
