@@ -31,9 +31,12 @@ sub cparam {
 sub intro {
 	my($net,$conf,$peer) = @_;
 	$auth[$$net] = $peer ? AUTH_DIR_IN : AUTH_DIR_OUT;
-	$fbid[$$net] = 1 + ($conf->{fb_id} % $conf->{fb_max});
 	$cparms[$$net] = { %$conf };
-	$cparms[$$net]{'linkname.'.$fbid[$$net]} ||= $RemoteJanus::self->jname;
+
+	my $fbmax = $cparms[$$net]{fb_max} || 1;
+	my $fbid = $cparms[$$net]{fb_id} || 0;
+	$fbid[$$net] = $fbid = 1 + ($fbid % $fbmax);
+	$cparms[$$net]{'linkname.'.$fbid} ||= $RemoteJanus::self->jname;
 	$net->_set_netname($net->cparam('netname'));
 }
 
