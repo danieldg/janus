@@ -660,6 +660,9 @@ $moddef{CORE} = {
 		}, {
 			type => 'BURST',
 			net => $net,
+		}, {
+			type => 'LINKED',
+			net => $net,
 		};
 	},
 	SID => sub {
@@ -947,7 +950,7 @@ $moddef{CORE} = {
 			@cmodes = (['+']) unless @cmodes && @{$cmodes[0]};
 			return $net->ncmd(SJOIN => $chan->ts, $chan, @{$cmodes[0]}, $mode.$net->_out($act->{src}));
 		} else {
-			return $net->cmd2($act->{src}, JOIN => $chan, $chan->ts(), '+');
+			return $net->cmd2($act->{src}, JOIN => $chan->ts, $chan, '+');
 		}
 	}, PART => sub {
 		my($net,$act) = @_;
