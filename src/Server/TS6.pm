@@ -59,6 +59,10 @@ sub intro {
 	$net->SUPER::intro(@param);
 	my $sep = Setting::get(tagsep => $net);
 	Setting::set(tagsep => $net, '_') if $sep eq '/';
+	my $ircd = $net->cparam('ircd');
+	if ($ircd) {
+		$net->module_add(uc $ircd, 1);
+	}
 	if ($net->auth_should_send) {
 		my $name = $net->cparam('linkname') || $RemoteJanus::self->jname;
 		$net->send(
@@ -276,6 +280,69 @@ $moddef{CAPAB_EUID} = {
 	},
 };
 
+$moddef{CHARYBDIS} = {
+	cmode => {
+		q => 'l_quiet',
+		f => 's_forward',
+		j => 's_joinlimit',
+		F => 'r_', # can be +f target
+		L => 'r_', # large ban lists
+		P => 'r_permanent',
+		Q => 'r_', # ignore forwards
+		c => 'r_colorblock',
+		g => 'r_allinvite',
+		z => 'r_survey',
+	},
+	umode => {
+		Z => 'ssl',
+		Q => '',
+		R => '',
+		g => '',
+		l => '',
+		s => '',
+		z => '',
+	},
+	cmds => {
+		CHGHOST => sub {
+			my $net = shift;
+			my $src = $net->item($_[0]);
+			my $dst = $net->nick($_[2]) or return ();
+			if ($dst->homenet == $net) {
+				return +{
+					type => 'NICKINFO',
+					src => $src,
+					dst => $dst,
+					item => 'vhost',
+					value => $_[3],
+				};
+			} else {
+				$net->send($net->cmd2($Interface::janus, CHGHOST => $_[2], $dst->info('vhost')));
+				();
+			}
+		},
+		PRIVS => \&ignore,
+		REALHOST => sub {
+			my $net = shift;
+			my $nick = $net->mynick($_[0]) or return ();
+			return +{
+				type => 'NICKINFO',
+				dst => $nick,
+				item => 'host',
+				value => $_[2],
+			},
+		},
+		REHASH => \&ignore,
+		SASL => \&ignore,
+		SNOTE => \&ignore,
+		SVSLOGIN => \&ignore,
+
+# TODO:
+		DLINE => \&ignore,
+		NICKDELAY => \&ignore, # act like SVSNICK?
+		UNDLINE => \&ignore,
+	},
+};
+
 $moddef{CORE} = {
   cmode => {
 		b => 'l_ban',
@@ -286,21 +353,18 @@ $moddef{CORE} = {
 		n => 'r_mustjoin',
 		o => 'n_op',
 		p =>   't1_chanhide',
+		r => 'r_reginvite',
 		's' => 't2_chanhide',
 		t => 'r_topic',
 		v => 'n_voice',
   },
   umode => {
+		D => 'deaf_chan',
+		S => 'service',
+		a => 'admin',
 		i => 'invisible',
-		's' => 'snomask',
 		o => 'oper',
 		w => 'wallops',
-  }, umode_hook => {
-		'snomask' => sub {
-			my($net,$nick,$dir,$out,$marg) = @_;
-			push @$marg, '+c' if $net->protoctl >= 1201;
-			's';
-		},
   },
   cmds => {
 	ADMIN => \&ignore,
@@ -323,7 +387,7 @@ $moddef{CORE} = {
 		}
 		# We send: QS EX CHW IE KLN EOB HOPS HUB KNOCK TB UNKLN CLUSTER ENCAP SERVICES RSFNC SAVE EUID
 		# We require: (second list can be eliminated)
-		for (qw/QS SAVE ENCAP  CHW TW EUID/) {
+		for (qw/QS SAVE ENCAP  CHW TB EUID/) {
 			next if $capabs[$$net]{$_};
 			Log::err_in($net, "Cannot reliably link: CAPAB $_ not supported");
 		}
@@ -334,25 +398,7 @@ $moddef{CORE} = {
 		}
 		();
 	},
-	CHGHOST => sub {
-		my $net = shift;
-		my $src = $net->item($_[0]);
-		my $dst = $net->nick($_[2]) or return ();
-		if ($dst->homenet == $net) {
-			return +{
-				type => 'NICKINFO',
-				src => $src,
-				dst => $dst,
-				item => 'vhost',
-				value => $_[3],
-			};
-		} else {
-			$net->send($net->cmd2($Interface::janus, CHGHOST => $_[2], $dst->info('vhost')));
-			();
-		}
-	},
 	CONNECT => \&ignore,
-	DLINE => \&ignore, # TODO Xline, IP or CIDR
 	ENCAP => sub {
 		my($net,$src,undef,$dst,@args) = @_;
 		# TODO check the dst mask
@@ -567,7 +613,6 @@ $moddef{CORE} = {
 		};
 		@out;
 	},
-	NICKDELAY => \&ignore, # TODO act like SVSNICK?
 	NOTICE => 'PRIVMSG',
 	OPERSPY => \&ignore,
 	OPERWALL => \&ignore,
@@ -634,7 +679,6 @@ $moddef{CORE} = {
 			} if $dst;
 		}
 	},
-	PRIVS => \&ignore,
 	QUIT => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
@@ -644,20 +688,8 @@ $moddef{CORE} = {
 			msg => $_[-1],
 		};
 	},
-	REALHOST => sub {
-		my $net = shift;
-		my $nick = $net->mynick($_[0]) or return ();
-		return +{
-			type => 'NICKINFO',
-			dst => $nick,
-			item => 'host',
-			value => $_[2],
-		},
-	},
-	REHASH => \&ignore,
 	RESV => \&ignore, # TODO
 	RSFNC => \&ignore, # TODO nick change
-	SASL => \&ignore, # TODO
 	SAVE => \&ignore, # TODO
 	SERVER => sub {
 		my $net = shift;
@@ -684,7 +716,27 @@ $moddef{CORE} = {
 		return ();
 		();
 	},
-	SIGNON => \&ignore, # TODO
+	SIGNON => sub {
+		my $net = shift;
+		my $nick = $net->mynick($_[0]) or return ();
+		my @out;
+		if ($nick->str($net) ne $_[2]) {
+			push @out, $net->from_irc($_[0], NICK => $_[2], $_[5]);
+		}
+		my @new = @_[3,4,6];
+		my @itm = qw/ident vhost name/;
+		for (0..2) {
+			next if $nick->info($itm[$_]) eq $new[$_];
+			push @out, {
+				type => 'NICKINFO',
+				src => $nick,
+				dst => $nick,
+				item => $itm[$_],
+				value => $new[$_],
+			};
+		}
+		@out;
+	},
 	SJOIN => sub {
 		my $net = shift;
 		my $ts = $_[2];
@@ -750,7 +802,6 @@ $moddef{CORE} = {
 		}
 		@acts;
 	},
-	SNOTE => \&ignore,
 	SQUIT => sub {
 		my $net = shift;
 		my $srv = $_[2];
@@ -788,11 +839,10 @@ $moddef{CORE} = {
 		@quits;
 	},
 	STATS => \&ignore,
-	SU => \&ignore, # TODO
+	SU => \&ignore, # TODO svslogin
 	SVINFO => sub {
 		();
 	},
-	SVSLOGIN => \&ignore,
 	TIME => \&ignore,
 	TMODE => sub {
 		my $net = shift;
@@ -825,7 +875,6 @@ $moddef{CORE} = {
 	},
 	TRACE => \&ignore,
 	'UID' => 'EUID',
-	UNDLINE => \&ignore,
 	UNKLINE => \&ignore,
 	UNRESV => \&ignore,
 	UNXLINE => \&ignore,
@@ -989,8 +1038,12 @@ $moddef{CORE} = {
 		@out;
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
+		my $nick = $act->{dst};
 		if ($act->{item} eq 'away') {
-			return $net->cmd2($act->{dst}, AWAY => defined $act->{value} ? $act->{value} : ());
+			return $net->cmd2($nick, AWAY => defined $act->{value} ? $act->{value} : ());
+		} elsif ($act->{item} =~ /^(?:vhost|ident|name)$/) {
+			return $net->cmd2($nick, SIGNON => $nick->str($net), $nick->info('ident'),
+				$nick->info('vhost'), $nick->ts, $nick->info('name'));
 		}
 		return ();
 	}, CHANTSSYNC => sub {

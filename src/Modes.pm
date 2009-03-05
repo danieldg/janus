@@ -17,10 +17,10 @@ $mtype{$_} = 'v' for qw/
 $mtype{$_} = 'r' for qw/
 	auditorium badword blockcaps chanhide colorblock
 	ctcpblock invite moderated mustjoin noinvite
-	nokick noknock nooperover norenick noticeblock
+	nokick noknock norenick noticeblock
 	oper operadmin opernetadm opersvsadm reginvite
 	regmoderated sslonly topic delayjoin
-	allinvite permanent jcommand
+	allinvite permanent survey jcommand
 	cb_direct cb_modesync cb_topicsync cb_showjoin
 /;
 

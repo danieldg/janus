@@ -28,7 +28,7 @@ sub module_add {
 			my $txt = $mod->{cmode}{$cm};
 			warn "Overriding mode $cm = $txt" if $cmode2txt[$$net]{$cm} || $txt2cmode[$$net]{$txt};
 			$cmode2txt[$$net]{$cm} = $txt;
-			$txt2cmode[$$net]{$txt} = $cm if $txt;
+			$txt2cmode[$$net]{$txt} = $cm if length $txt > 2;
 		}
 	}
 	if ($mod->{umode}) {
