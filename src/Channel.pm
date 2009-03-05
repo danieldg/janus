@@ -132,7 +132,6 @@ sub part {
 	delete $nmode[$$chan]{$$nick};
 	return if $fast || @{$nicks[$$chan]};
 	$chan->unhook_destroyed();
-	Event::append({ type => 'POISON', item => $chan, reason => 'Final part' });
 }
 
 Event::hook_add(
@@ -286,6 +285,7 @@ sub sendto {
 sub unhook_destroyed {
 	my $chan = shift;
 	LocalNetwork::replace_chan(undef, $keyname[$$chan], undef);
+	Event::append({ type => 'POISON', item => $chan, reason => 'Final part' });
 }
 
 1 ] : '#line '.__LINE__.' "'.__FILE__.qq{"\n}.q[#[[]]
@@ -535,7 +535,17 @@ sub real_keyname {
 }
 
 sub unhook_destroyed {
-	my $chan = shift;
+	my($chan,$remoteonly) = @_;
+	unless ($remoteonly) {
+		my $net = $chan->homenet;
+		if (1 < scalar keys %{$nets[$$chan]}) {
+			Log::warn('Shared channel becomes empty');
+		}
+		if ($chan->get_mode('permanent') && defined $net->txt2cmode('r_permanent')) {
+			Log::debug('Not destroying permanent channel '.$chan->real_keyname);
+			return;
+		}
+	}
 	# destroy channel
 	for my $id (keys %{$nets[$$chan]}) {
 		my $net = $nets[$$chan]{$id};
@@ -549,6 +559,7 @@ sub unhook_destroyed {
 		next if $net->jlink();
 		$net->replace_chan($name, undef);
 	}
+	Event::append({ type => 'POISON', item => $chan, reason => 'unhook destroyed' });
 }
 
 sub del_remoteonly {
@@ -583,8 +594,7 @@ sub del_remoteonly {
 			});
 		}
 	}
-	$chan->unhook_destroyed();
-	Event::append({ type => 'POISON', item => $chan, reason => 'delink gone' });
+	$chan->unhook_destroyed(1);
 }
 
 Event::hook_add(
