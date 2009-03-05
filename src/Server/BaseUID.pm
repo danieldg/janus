@@ -105,13 +105,6 @@ sub register_nick {
 		type => 'NEWNICK',
 		dst => $new,
 	};
-	unless ($old->homenet == $net) {
-		push @rv, {
-			type => 'RAW',
-			dst => $net,
-			msg => $net->ncmd(SVSNICK => $new, $name, $new->ts),
-		};
-	}
 	if ($tsctl <= 0) {
 		$nick2uid[$$net]{lc $new_uid} = $new_uid;
 		$nick2uid[$$net]{lc $name} = $old_uid;
@@ -164,9 +157,12 @@ sub request_newnick {
 
 sub request_cnick {
 	my($net, $nick, $reqnick, $tagged) = @_;
+	$tagged ||= 0;
 	my $current = $nick->str($net);
-	my $uid = delete $nick2uid[$$net]{lc $current};
+	my $uid = $nick2uid[$$net]{lc $current};
+	delete $nick2uid[$$net]{lc $current} unless $tagged == 2;
 	my $given = _request_nick(@_);
+	delete $nick2uid[$$net]{lc $current} if $tagged == 2;
 	$nick2uid[$$net]{lc $given} = $uid;
 	$given;
 }

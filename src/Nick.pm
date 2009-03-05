@@ -360,7 +360,7 @@ Event::hook_add(
 
 		if ($act->{altnick}) {
 			my $from = $act->{from} = $nicks[$$nick]{$$net};
-			my $to = $act->{to} = $net->request_cnick($nick, $homenick[$$nick], 1);
+			my $to = $act->{to} = $net->request_cnick($nick, $homenick[$$nick], 2);
 			$nicks[$$nick]{$$net} = $to;
 		}
 
