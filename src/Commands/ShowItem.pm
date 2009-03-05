@@ -24,11 +24,13 @@ Event::hook_add(
 	INFO => Channel => sub {
 		my($dst, $c, $asker) = @_;
 		my $all = Account::chan_access_chk($asker, $c, 'info', undef);
+		my $any = $all || scalar grep { $_ == $c } $asker->all_chans;
 		my $hn = $asker->homenet;
 
 		Janus::jmsg($dst, join ' ', "\002Channel\002",$$c,$c->real_keyname,'on',$c->homenet->name,
 			$c->ts.'='.gmtime($c->ts));
 		Janus::jmsg($dst, join ' ', "\002Names:\002", sort map { '@'.$_->name.'='.$c->str($_) } $c->nets);
+		return unless $any;
 		Janus::jmsg($dst, "\002Topic:\002 ".$c->topic) if defined $c->topic;
 
 		if ($all) {
