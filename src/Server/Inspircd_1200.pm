@@ -793,8 +793,8 @@ $moddef{CORE} = {
 	SVSNICK => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
-		if ($nick->homenet eq $net) {
-			Log::warn_in($net, "Misdirected SVSNICK!");
+		if ($nick->homenet == $net) {
+			Log::debug_in($net, "Misdirected SVSNICK ignored");
 			return ();
 		} elsif (lc $nick->homenick eq lc $nick->str($net)) {
 			return +{

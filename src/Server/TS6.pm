@@ -68,7 +68,7 @@ sub intro {
 		$net->send(
 			$net->cmd2(undef, PASS => $net->cparam('sendpass'),'TS',6,$net),
 # TODO goal 'CAPAB :QS EX CHW IE KLN EOB HOPS HUB KNOCK TB UNKLN CLUSTER ENCAP SERVICES RSFNC SAVE EUID',
-			'CAPAB :QS EX CHW IE EOB HOPS HUB KNOCK TB CLUSTER ENCAP SERVICES EUID',
+			'CAPAB :QS EX CHW IE EOB HOPS HUB KNOCK TB CLUSTER ENCAP SERVICES SAVE EUID',
 			$net->cmd2(undef, SERVER => $name, 0, 'Janus Network Link'),
 			'SVINFO 6 6 0 '.$Janus::time,
 		);
@@ -279,6 +279,28 @@ $moddef{CAPAB_EUID} = {
 		}
 	},
 };
+$moddef{CAPAB_SAVE} = {
+	cmds => {
+		SAVE => sub {
+			my $net = shift;
+			my $nick = $net->nick($_[2]) or return ();
+			return () unless $nick->ts == $_[3];
+			if ($nick->homenet == $net) {
+				Log::debug_in($net, "Misdirected SAVE ignored");
+				return ();
+			} else {
+				return +{
+					type => 'RECONNECT',
+					src => $net->item($_[0]),
+					dst => $nick,
+					net => $net,
+					killed => 0,
+					altnick => 1,
+				};
+			}
+		}
+	}
+};
 
 $moddef{CHARYBDIS} = {
 	cmode => {
@@ -387,7 +409,7 @@ $moddef{CORE} = {
 		}
 		# We send: QS EX CHW IE KLN EOB HOPS HUB KNOCK TB UNKLN CLUSTER ENCAP SERVICES RSFNC SAVE EUID
 		# We require: (second list can be eliminated)
-		for (qw/QS SAVE ENCAP  CHW TB EUID/) {
+		for (qw/QS ENCAP  CHW TB EUID/) {
 			next if $capabs[$$net]{$_};
 			Log::err_in($net, "Cannot reliably link: CAPAB $_ not supported");
 		}
@@ -633,7 +655,7 @@ $moddef{CORE} = {
 				my $name = $net->cparam('linkname') || $RemoteJanus::self->jname;
 				$net->send(
 					$net->cmd2(undef, PASS => $net->cparam('sendpass'),'TS',6,$net),
-					'CAPAB :QS EX CHW IE EOB HOPS HUB KNOCK TB CLUSTER ENCAP SERVICES EUID',
+					'CAPAB :QS EX CHW IE EOB HOPS HUB KNOCK TB CLUSTER ENCAP SERVICES SAVE EUID',
 					$net->cmd2(undef, SERVER => $name, 0, 'Janus Network Link'),
 					'SVINFO 6 6 0 '.$Janus::time,
 				);
@@ -690,7 +712,6 @@ $moddef{CORE} = {
 	},
 	RESV => \&ignore, # TODO
 	RSFNC => \&ignore, # TODO nick change
-	SAVE => \&ignore, # TODO
 	SERVER => sub {
 		my $net = shift;
 		my $num = delete $servernum[$$net]{''};
@@ -724,8 +745,8 @@ $moddef{CORE} = {
 			push @out, $net->from_irc($_[0], NICK => $_[2], $_[5]);
 		}
 		my @new = @_[3,4,6];
-		my @itm = qw/ident vhost name/;
-		for (0..2) {
+		my @itm = qw/ident vhost svsaccount/;
+		for (0,1) {
 			next if $nick->info($itm[$_]) eq $new[$_];
 			push @out, {
 				type => 'NICKINFO',
@@ -839,7 +860,17 @@ $moddef{CORE} = {
 		@quits;
 	},
 	STATS => \&ignore,
-	SU => \&ignore, # TODO svslogin
+	SU => sub {
+		my $net = shift;
+		my $nick = $net->mynick($_[2]) or return ();
+		return +{
+			type => 'NICKINFO',
+			src => $nick,
+			dst => $nick,
+			item => 'svsaccount',
+			value => $_[3],
+		};
+	},
 	SVINFO => sub {
 		();
 	},
@@ -1041,9 +1072,9 @@ $moddef{CORE} = {
 		my $nick = $act->{dst};
 		if ($act->{item} eq 'away') {
 			return $net->cmd2($nick, AWAY => defined $act->{value} ? $act->{value} : ());
-		} elsif ($act->{item} =~ /^(?:vhost|ident|name)$/) {
+		} elsif ($act->{item} =~ /^(?:vhost|ident)$/) {
 			return $net->cmd2($nick, SIGNON => $nick->str($net), $nick->info('ident'),
-				$nick->info('vhost'), $nick->ts, $nick->info('name'));
+				$nick->info('vhost'), $nick->ts, 0);
 		}
 		return ();
 	}, CHANTSSYNC => sub {
