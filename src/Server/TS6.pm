@@ -46,7 +46,7 @@ sub nick_msg {
 }
 
 sub nicklen {
-	15 # TODO ?
+	15 # TODO any way to tell?
 }
 
 sub str {
@@ -181,9 +181,6 @@ sub cmd2 {
 	$out;
 }
 
-# TODO this is mostly going off of charybdis, which supports EUID
-# Ratbox has a few differences, and does not support EUID; that could be a differentiator
-
 our %moddef = ();
 Janus::static('moddef');
 $moddef{CAPAB_HOPS} = { cmode => { h => 'n_halfop' } };
@@ -279,6 +276,32 @@ $moddef{CAPAB_EUID} = {
 		}
 	},
 };
+$moddef{NOCAP_EUID} = {
+	acts => {
+		CONNECT => sub {
+			my($net,$act) = @_;
+			my $nick = $act->{dst};
+			return () if $act->{net} != $net;
+			my @out;
+
+			my $mode = '+';
+			for my $m ($nick->umodes()) {
+				my $um = $net->txt2umode($m);
+				next unless defined $um;
+				$mode .= $um;
+			}
+
+			my $ip = $nick->info('ip') || '0.0.0.0';
+			$ip = '0.0.0.0' if $ip eq '*' || $net->param('untrusted');
+			push @out, $net->cmd2($nick, AWAY => $nick->info('away')) if $nick->info('away');
+			unshift @out, $net->cmd2($nick->homenet, UID => $nick->str($net), 1, $nick->ts,
+				$mode, $nick->info('ident'), $nick->info('vhost'), $ip, $nick, $nick->info('name'));
+
+			@out;
+		}
+	},
+};
+
 $moddef{CAPAB_SAVE} = {
 	cmds => {
 		SAVE => sub {
@@ -409,7 +432,7 @@ $moddef{CORE} = {
 		}
 		# We send: QS EX CHW IE KLN EOB HOPS HUB KNOCK TB UNKLN CLUSTER ENCAP SERVICES RSFNC SAVE EUID
 		# We require: (second list can be eliminated)
-		for (qw/QS ENCAP  CHW TB EUID/) {
+		for (qw/QS ENCAP  CHW TB/) {
 			next if $capabs[$$net]{$_};
 			Log::err_in($net, "Cannot reliably link: CAPAB $_ not supported");
 		}
