@@ -63,7 +63,8 @@ sub intro {
 		my $name = $net->cparam('linkname') || $RemoteJanus::self->jname;
 		$net->send(
 			$net->cmd2(undef, PASS => $net->cparam('sendpass'),'TS',6,$net),
-			'CAPAB :QS EX CHW IE KLN EOB HOPS HUB KNOCK TB UNKLN CLUSTER ENCAP SERVICES RSFNC SAVE EUID',
+# TODO goal 'CAPAB :QS EX CHW IE KLN EOB HOPS HUB KNOCK TB UNKLN CLUSTER ENCAP SERVICES RSFNC SAVE EUID',
+			'CAPAB :QS EX CHW IE EOB HOPS HUB KNOCK TB CLUSTER ENCAP SERVICES EUID',
 			$net->cmd2(undef, SERVER => $name, 0, 'Janus Network Link'),
 			'SVINFO 6 6 0 '.$Janus::time,
 		);
@@ -237,6 +238,15 @@ $moddef{CAPAB_TB} = {
 			}
 			@out;
 		},
+		TOPIC => sub {
+			my($net,$act) = @_;
+			my $src = $act->{src};
+			if ($src && $src->isa('Nick') && $src->is_on($net)) {
+				return $net->cmd2($src, TOPIC => $act->{dst}, $act->{topic});
+			} else {
+				return $net->ncmd(TB => $act->{dst}, $act->{topicts}, $act->{topicset}, $act->{topic});
+			}
+		},
 	}
 };
 $moddef{CAPAB_EUID} = {
@@ -313,11 +323,11 @@ $moddef{CORE} = {
 		}
 		# We send: QS EX CHW IE KLN EOB HOPS HUB KNOCK TB UNKLN CLUSTER ENCAP SERVICES RSFNC SAVE EUID
 		# We require: (second list can be eliminated)
-		for (qw/QS SAVE ENCAP  CHW/) {
+		for (qw/QS SAVE ENCAP  CHW TW EUID/) {
 			next if $capabs[$$net]{$_};
 			Log::err_in($net, "Cannot reliably link: CAPAB $_ not supported");
 		}
-		# We emulate:
+		# We will be able to emulate:
 		for (qw/TB EUID/) {
 			next if $capabs[$$net]{$_};
 			$net->module_add('NOCAP_'.$_);
@@ -578,7 +588,7 @@ $moddef{CORE} = {
 				my $name = $net->cparam('linkname') || $RemoteJanus::self->jname;
 				$net->send(
 					$net->cmd2(undef, PASS => $net->cparam('sendpass'),'TS',6,$net),
-					'CAPAB :QS EX CHW IE KLN EOB HOPS HUB KNOCK TB UNKLN CLUSTER ENCAP SERVICES RSFNC SAVE EUID',
+					'CAPAB :QS EX CHW IE EOB HOPS HUB KNOCK TB CLUSTER ENCAP SERVICES EUID',
 					$net->cmd2(undef, SERVER => $name, 0, 'Janus Network Link'),
 					'SVINFO 6 6 0 '.$Janus::time,
 				);
@@ -977,10 +987,6 @@ $moddef{CORE} = {
 			push @out, $net->cmd2($src, TMODE => $dst->ts, $dst, @$line);
 		}
 		@out;
-	}, TOPIC => sub {
-		my($net,$act) = @_;
-		my $src = $act->{src};
-		return $net->cmd2($src, TOPIC => $act->{dst}, $act->{topic});
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
 		if ($act->{item} eq 'away') {
