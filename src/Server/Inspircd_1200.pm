@@ -1210,7 +1210,7 @@ $moddef{CORE} = {
 		$net->cmd2($act->{src}, IDLE => $act->{dst});
 	}, PING => sub {
 		my($net,$act) = @_;
-		$net->ncmd(PING => $net->cparam('server'));
+		$net->ncmd(PING => $net);
 	}, RAW => sub {
 		my($net,$act) = @_;
 		$act->{msg};

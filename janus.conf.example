@@ -133,9 +133,6 @@ link i1 {
 	# the same for all fallback servers
 	linkport 8003
 	linktype plain
-	# Name of the server that we are linking to; required for inspircd only
-	server.1 penguin.omega.org.za
-	server.2 ice.omega.org.za
 	sendpass pass
 	recvpass.1 password
 	recvpass.2 passwurd
