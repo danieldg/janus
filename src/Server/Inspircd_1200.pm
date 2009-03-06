@@ -1020,7 +1020,7 @@ $moddef{CORE} = {
 			}
 			return @out;
 		} else {
-			return $net->cmd2($act->{dst}, NICK => $act->{to}, $nick->ts());
+			return $net->cmd2($nick, NICK => $act->{to}, $nick->ts);
 		}
 	}, NICK => sub {
 		my($net,$act) = @_;

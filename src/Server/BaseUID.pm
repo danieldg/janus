@@ -58,42 +58,54 @@ sub register_nick {
 	$gid2uid[$$net]{$new->gid()} = $new_uid;
 	my $name = $new->str($net);
 	Log::debug_in($net, "Registering $new_uid for local nick $name #$$new");
+
+	my @rv = +{
+		type => 'NEWNICK',
+		dst => $new,
+	};
+
 	my $old_uid = delete $nick2uid[$$net]{lc $name};
 	unless ($old_uid) {
 		$nick2uid[$$net]{lc $name} = $new_uid;
-		return +{
-			type => 'NEWNICK',
-			dst => $new,
-		};
+		return @rv;
 	}
-
-	# TODO this collision code is too inspircd-specific. It may need to be moved
 	my $old = $uids[$$net]{uc $old_uid} or warn;
-	my $tsctl = $old->ts() <=> $new->ts();
 
-	if ($new->info('ident') eq $old->info('ident') && $new->info('host') eq $old->info('host')) {
-		# this is a ghosting nick, we REVERSE the normal timestamping
-		$tsctl = -$tsctl;
-	}
+	if ($old->homenet == $net) {
+		# collide of two nicks on the network. Figure out who won
+		# TODO this collision code is too inspircd-specific. It may need to be moved
 
-	Log::debug("Nick collision over $name, old=".$old->ts." new=".$new->ts." tsctl=$tsctl");
+		my $tsctl = $old->ts() <=> $new->ts();
 
-	my @rv;
+		if ($new->info('ident') eq $old->info('ident') && $new->info('host') eq $old->info('host')) {
+			# this is a ghosting nick, we REVERSE the normal timestamping
+			$tsctl = -$tsctl;
+		}
 
-	if ($tsctl >= 0) {
-		$nick2uid[$$net]{lc $name} = $new_uid;
-		$nick2uid[$$net]{lc $old_uid} = $old_uid;
-		if ($old->homenet == $net) {
-			push @rv, +{
+		Log::debug("Nick self-collision over $name, old=".$old->ts." new=".$new->ts." tsctl=$tsctl");
+
+		$nick2uid[$$net]{lc $name} = $new_uid if $tsctl > 0;
+		$nick2uid[$$net]{lc $name} = $old_uid if $tsctl < 0;
+		if ($tsctl >= 0) {
+			unshift @rv, +{
 				type => 'NICK',
 				dst => $old,
 				nick => $old_uid,
 				nickts => 1, # this is a UID-based nick, it ALWAYS wins.
-			}
+			};
 		}
-	}
-	unless ($old->homenet == $net) {
-		push @rv, +{
+		if ($tsctl <= 0) {
+			push @rv, +{
+				type => 'NICK',
+				dst => $new,
+				nick => $new_uid,
+				nickts => 1,
+			};
+		}
+	} else {
+		# Old user of the nick was a janus nick. Give it up by reconnecting
+		$nick2uid[$$net]{lc $name} = $new_uid;
+		unshift @rv, +{
 			type => 'RECONNECT',
 			net => $net,
 			dst => $old,
@@ -101,21 +113,6 @@ sub register_nick {
 			altnick => 1,
 		};
 	}
-	push @rv, +{
-		type => 'NEWNICK',
-		dst => $new,
-	};
-	if ($tsctl <= 0) {
-		$nick2uid[$$net]{lc $new_uid} = $new_uid;
-		$nick2uid[$$net]{lc $name} = $old_uid;
-		push @rv, +{
-			type => 'NICK',
-			dst => $new,
-			nick => $new_uid,
-			nickts => 1,
-		};
-	}
-	delete $nick2uid[$$net]{lc $name} if $tsctl == 0;
 	@rv;
 }
 
@@ -158,11 +155,16 @@ sub request_newnick {
 sub request_cnick {
 	my($net, $nick, $reqnick, $tagged) = @_;
 	$tagged ||= 0;
-	my $current = $nick->str($net);
-	my $uid = $nick2uid[$$net]{lc $current};
-	delete $nick2uid[$$net]{lc $current} unless $tagged == 2;
+	my $uid = $net->nick2uid($nick);
+	my $current = lc $nick->str($net);
+	my $curr_uid = $nick2uid[$$net]{$current};
+	if ($tagged != 2 && $curr_uid eq $uid) {
+		delete $nick2uid[$$net]{$current};
+	}
 	my $given = _request_nick(@_);
-	delete $nick2uid[$$net]{lc $current} if $tagged == 2;
+	if ($tagged == 2 && $curr_uid eq $uid) {
+		delete $nick2uid[$$net]{$current};
+	}
 	$nick2uid[$$net]{lc $given} = $uid;
 	$given;
 }
