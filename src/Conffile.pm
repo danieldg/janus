@@ -43,6 +43,10 @@ sub read_conf {
 				return;
 			};
 			$current = { id => $1 };
+			if ($newconf{$1}) {
+				Log::err("Network ID '$1' specified twice in line $. of config file");
+				return;
+			}
 			$newconf{$1} = $current;
 		} elsif ($type eq 'listen') {
 			if (defined $current) {
@@ -54,6 +58,10 @@ sub read_conf {
 				return;
 			};
 			$current = { addr => $1 };
+			if ($newconf{'LISTEN:'.$1}) {
+				Log::err("Listen address '$1' specified twice in line $. of config file");
+				return;
+			}
 			$newconf{'LISTEN:'.$1} = $current;
 			$current = undef unless /{/;
 		} elsif ($type eq 'log') {
@@ -96,6 +104,9 @@ sub read_conf {
 			$newconf{set}{name} = $RemoteJanus::self->id();
 		} elsif ($newconf{set}{name} !~ /^[a-zA-Z][-0-9a-zA-Z_]{0,7}$/) {
 			Log::err("Invalid server name $newconf{set}{name}");
+			return;
+		} elsif ($newconf{$newconf{set}{name}}) {
+			Log::err("You cannot create a link block with the same ID as your server");
 			return;
 		}
 	} else {
