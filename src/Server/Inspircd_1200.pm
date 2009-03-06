@@ -133,6 +133,17 @@ sub next_uid {
 	$pfx.$uid;
 }
 
+sub collide_winner {
+	my($net,$old,$new) = @_;
+	my $tsctl = $old->ts() <=> $new->ts();
+
+	if ($new->info('ident') eq $old->info('ident') && $new->info('ip') eq $old->info('ip')) {
+		# this is a ghosting nick, we REVERSE the normal timestamping
+		$tsctl = -$tsctl;
+	}
+	$tsctl;
+}
+
 sub _connect_ifo {
 	my ($net, $nick) = @_;
 

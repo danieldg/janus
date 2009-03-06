@@ -72,15 +72,8 @@ sub register_nick {
 	my $old = $uids[$$net]{uc $old_uid} or warn;
 
 	if ($old->homenet == $net) {
-		# collide of two nicks on the network. Figure out who won
-		# TODO this collision code is too inspircd-specific. It may need to be moved
-
-		my $tsctl = $old->ts() <=> $new->ts();
-
-		if ($new->info('ident') eq $old->info('ident') && $new->info('host') eq $old->info('host')) {
-			# this is a ghosting nick, we REVERSE the normal timestamping
-			$tsctl = -$tsctl;
-		}
+		# collide of two nicks on the network. Let the protocol module figure out who won
+		my $tsctl = $net->collide_winner($old,$new);
 
 		Log::debug("Nick self-collision over $name, old=".$old->ts." new=".$new->ts." tsctl=$tsctl");
 

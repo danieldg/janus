@@ -136,6 +136,12 @@ sub next_uid {
 	$pfx.$uid;
 }
 
+sub collide_winner {
+	my($net,$old,$new) = @_;
+	# TODO
+	0;
+}
+
 # IRC Parser
 # Arguments:
 #	$_[0] = Network
