@@ -608,10 +608,6 @@ $moddef{CORE} = {
 			dst => $nick,
 			item => 'svsaccount',
 			value => $_[2],
-		}, +{
-			type => 'UMODE',
-			dst => $nick,
-			mode => [ '+registered' ],
 		};
 	},
 	LUSERS => \&ignore,

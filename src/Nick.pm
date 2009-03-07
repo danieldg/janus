@@ -41,15 +41,12 @@ do {
 	for (values %umodebit) {
 		$i = 2*$_ if $_ >= $i;
 	}
-	# special | common | silencing | uncommon | operonly
 	for (qw/
-		oper ssl registered
+		oper ssl colorstrip
 		invisible wallops bot badword hide_chans
 		dcc_reject deaf_chan deaf_regpriv deaf_ctcp deaf_commonchan no_privmsg callerid
-		colorstrip webtv
-		service globops snomask hideoper no_kick whois_notice
-		helpop oper_local coadmin admin svs_admin netadmin
-		hiddenabusiveoper
+		service hideoper no_kick whois_notice
+		oper_local coadmin admin svs_admin netadmin
 	/) {
 		next if $umodebit{$_};
 		$umodebit{$_} = $i;

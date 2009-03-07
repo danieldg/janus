@@ -212,8 +212,7 @@ mdef 'm_httpd.so';
 mdef 'm_httpd_stats.so';
 mdef 'm_ident.so';
 
-# sadly, you are NOT invisible to remote users :P
-mdef 'm_invisible.so', umode => { Q => 'hiddenabusiveoper' };
+mdef 'm_invisible.so', umode => { Q => '' };
 mdef 'm_inviteexception.so', cmode => { I => 'l_invex' };
 
 mdef 'm_janus.so', acts => {
@@ -376,10 +375,8 @@ mdef 1105, 'm_services.so', cmode => {
 	R => 'r_reginvite',
 	M => 'r_regmoderated'
 }, umode => {
-	r => 'registered',
-	R => 'deaf_regpriv'
-}, umode_hook => {
-	registered => sub { '' },
+	r => '',
+	R => 'deaf_regpriv',
 };
 mdef 1105, 'm_services_account.so', cmode => { R => 'r_reginvite', M => 'r_regmoderated' },
 	umode => { R => 'deaf_regpriv' },
@@ -392,10 +389,6 @@ mdef 1105, 'm_services_account.so', cmode => { R => 'r_reginvite', M => 'r_regmo
 				dst => $nick,
 				item => 'svsaccount',
 				value => $_[4],
-			}, +{
-				type => 'UMODE',
-				dst => $nick,
-				mode => [ $_[4] eq '' ? '-registered' : '+registered' ],
 			};
 		},
 	};
@@ -405,10 +398,8 @@ mdef 12, 'm_services_account.so', cmode => {
 	R => 'r_reginvite',
 	M => 'r_regmoderated',
 }, umode => {
-	r => 'registered',
+	r => '',
 	R => 'deaf_regpriv',
-}, umode_hook => {
-	registered => sub { '' },
 }, metadata => {
 	accountname => sub {
 		my $net = shift;

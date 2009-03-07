@@ -246,17 +246,10 @@ sub dump_sendq {
 	$q;
 }
 
-my %skip_umode = (
-	# TODO make this configurable
-	helpop => 1,
-	registered => 1,
-);
-
 sub umode_text {
 	my($net,$nick) = @_;
 	my $mode = '+';
 	for my $m ($nick->umodes()) {
-		next if $skip_umode{$m};
 		my $um = $net->txt2umode($m);
 		$mode .= $um if defined $um;
 	}
@@ -629,31 +622,25 @@ $moddef{'CORE-2309'} = {
 $moddef{CORE} = {
 	umode => { qw/
 		o oper
-		O oper_local
 		C coadmin
 		A admin
 		a svs_admin
 		N netadmin
 		S service
 		H hideoper
-		h helpop
-		g globops
 		W whois_notice
 
 		B bot
 		i invisible
 		G badword
 		q no_kick
-		r registered
-		s snomask
 		v dcc_reject
 		w wallops
 		z ssl
-		V webtv
 
 		d deaf_chan
 		R deaf_regpriv
-	/, 'x', '', 't', '' },
+	/, map { $_, '' } qw/r s x t g h V/ },
 	cmode => { qw/
 		v n_voice
 		h n_halfop
@@ -674,7 +661,6 @@ $moddef{CORE} = {
 		t r_topic
 		u r_auditorium
 		z r_sslonly
-		A r_operadmin
 		C r_ctcpblock
 		G r_badword
 		K r_noknock
@@ -686,7 +672,9 @@ $moddef{CORE} = {
 		R r_reginvite
 		S t1_colorblock
 		V r_noinvite
-	/, 'r', 'r_', },
+		A r_
+		r r_
+	/, },
   cmds => {
 	NICK => sub {
 		my $net = shift;
@@ -1591,7 +1579,6 @@ $moddef{CORE} = {
 			if (ref $um) {
 				$um = $um->($net, $act->{dst}, $ltxt, \@out);
 			}
-			next if $skip_umode{$txt};
 			if (defined $um && length $um) {
 				if ($visible == 0) {
 					next if $um =~ /[oaANSH]/;

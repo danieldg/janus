@@ -10,15 +10,12 @@ sub get_aid {
 	my $net = $nick->homenet;
 	return undef unless $net->isa('LocalNetwork');
 
-# XXX this is very network- and services-dependent code
-
 	my $acctid = $nick->info('svsaccount');
-	return undef unless $acctid || $nick->has_mode('registered');
 	if (defined $nick->info('svsts')) {
 		return undef unless $nick->ts == $nick->info('svsts');
+		$acctid = lc $nick->homenick unless $acctid;
 	}
-	$acctid = lc $nick->homenick unless $acctid;
-	return $net->name . ':' . $acctid;
+	return $acctid ? $net->name . ':' . $acctid : undef;
 }
 
 our %auth_cache;
@@ -96,21 +93,9 @@ Event::hook_add(
 			item => 'account:'.$RemoteJanus::self->id,
 			value => $jacct,
 		});
-	}, UMODE => act => sub {
-		my $act = shift;
-		return unless grep { $_ eq '+registered' } @{$act->{mode}};
-		my $nick = $act->{dst};
-		my $svsacct = get_aid($nick) or return;
-		my $jacct = find_account($svsacct) or return;
-		Event::append({
-			type => 'NICKINFO',
-			dst => $nick,
-			item => 'account:'.$RemoteJanus::self->id,
-			value => $jacct,
-		});
 	}, NICKINFO => 'act:1' => sub {
 		my $act = shift;
-		return unless $act->{item} eq 'svsaccount';
+		return unless $act->{item} eq 'svsaccount' || $act->{item} eq 'svsts';
 		my $nick = $act->{dst};
 		my $svsacct = get_aid($nick) or return;
 		my $jacct = find_account($svsacct) or return;

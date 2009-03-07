@@ -270,11 +270,10 @@ $moddef{CORE} = {
   },
   umode => {
 		i => 'invisible',
-		n => 'snomask',
 		o => 'oper',
-		's' => 'globops', # technically, server notices
 		w => 'wallops',
 		'+' => '', # inspircd bug, fixed in 1.2: an extra + may be added to the umode at each hop
+		'n', '', 's', '',
   },
   cmds => {
 	NICK => sub {

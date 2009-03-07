@@ -312,15 +312,9 @@ $moddef{CORE} = {
   },
   umode => {
 		i => 'invisible',
-		's' => 'snomask',
 		o => 'oper',
 		w => 'wallops',
-  }, umode_hook => {
-		'snomask' => sub {
-			my($net,$nick,$dir,$out,$marg) = @_;
-			push @$marg, '+c' if $net->protoctl >= 1201;
-			's';
-		},
+		's', '',
   },
   cmds => {
 	NICK => sub {
