@@ -907,8 +907,8 @@ $moddef{CORE} = {
 	TMODE => sub {
 		my $net = shift;
 		my $src = $net->item($_[0]);
-		my $chan = $net->chan($_[2]) or return ();
-		my $ts = $_[3];
+		my $chan = $net->chan($_[3]) or return ();
+		my $ts = $_[2];
 		return () if $ts > $chan->ts();
 		my($modes,$args,$dirs) = Modes::from_irc($net, $chan, @_[4 .. $#_]);
 		return +{
