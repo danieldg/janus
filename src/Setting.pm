@@ -20,7 +20,7 @@ sub get {
 		$key->isa('Channel') ? $key->netname :
 		$key.'';
 	my $val = $value{$name.' '.$iid};
-	$val = $Event::settings{$name}{default} unless $val;
+	$val = $Event::settings{$name}{default} unless defined $val;
 	return $val;
 }
 
@@ -30,7 +30,7 @@ sub set {
 		$key->isa('Network') ? $key->name :
 		$key->isa('Channel') ? $key->netname :
 		$key.'';
-	if ($val) {
+	if (defined $val) {
 		$value{$name.' '.$iid} = $val;
 	} else {
 		delete $value{$name.' '.$iid};
