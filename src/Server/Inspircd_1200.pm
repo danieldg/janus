@@ -202,7 +202,7 @@ sub process_capabs {
 	warn "I don't know how to read protocol $capabs[$$net]{PROTOCOL}"
 		unless $capabs[$$net]{PROTOCOL} == 1200 || $capabs[$$net]{PROTOCOL} == 1201;
 
-	# PREFIX=(qaohv)~&@%+ - We don't care (anymore)
+	# PREFIX=(qaohv)~&@%+ - just get the letters
 	$capabs[$$net]{PREFIX} =~ /\((\S+)\)\S+/ or warn;
 	my $pfxmodes = $1;
 	my $expect = Modes::modelist($net, $pfxmodes);
@@ -210,11 +210,10 @@ sub process_capabs {
 		$net->send($net->ncmd(SNONOTICE => 'l', 'Possible desync - CHANMODES do not match module list: '.
 			"expected $expect, got $capabs[$$net]{CHANMODES}"));
 	}
-	$expect = join '', sort map { $net->txt2cmode($_) } grep /^n_/, $net->all_cmodes;
-	$pfxmodes = join '', sort split //, $pfxmodes;
-	if ($expect ne $pfxmodes) {
-		$net->send($net->ncmd(SNONOTICE => 'l', 'Possible desync - PREFIX does not match module list: '.
-			"expected $expect, got $pfxmodes from PREFIX=$capabs[$$net]{PREFIX}"));
+	for (split //, $pfxmodes) {
+		my $t = $net->cmode2txt($_);
+		next if $t && $t =~ /^n_/;
+		$net->send($net->ncmd(SNONOTICE => 'l', "Possible desync - PREFIX does not include mode '$_'"));
 	}
 
 	$expect = '';
