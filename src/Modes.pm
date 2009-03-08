@@ -339,23 +339,24 @@ Create the CHANMODES list from the 005 output for this network.
 Removes the modes in $pfxmodes from the list.
 Example: CHANMODES=Ibe,k,jl,CKMNOQRTcimnprst
 
-$net must support: all_cmodes, txt2cmode, cmode2txt.
+$net must support cmode2txt.
 
 =cut
 
 sub modelist {
 	my($net, $pfxmodes) = @_;
 	my %split2c;
-	$split2c{substr $_,0,1}{$_} = $net->txt2cmode($_) for $net->all_cmodes();
+	for my $l (0..9, 'A'..'Z', 'a'..'z') {
+		next unless -1 == index $pfxmodes, $l;
+		my $m = $net->cmode2txt($l) or next;
+		my $t = substr $m,0,1;
+		$t =~ tr/nt/lr/;
+		# n->l : Without a prefix character, nick modes such as +qa appear in the "l" section
+		# t->r : tristates show up in the 4th group
+		$split2c{$t} .= $l;
+	}
 
-	# Without a prefix character, nick modes such as +qa appear in the "l" section
-	$split2c{l}{$_} = $split2c{n}{$_} for keys %{$split2c{n}};
-	delete $split2c{l}{$net->cmode2txt($_) || ''} for split //, $pfxmodes;
-
-	# tristates show up in the 4th group
-	$split2c{r}{$_} = $split2c{t}{$_} for keys %{$split2c{t}};
-
-	join ',', map { join '', sort values %{$split2c{$_}} } qw(l v s r);
+	join ',', map $split2c{$_}, qw(l v s r);
 }
 
 sub chan_pfx {
