@@ -246,7 +246,7 @@ sub connect_net {
 
 			my($ssl_key, $ssl_cert, $ssl_ca) = find_ssl_keys($id);
 
-			my $net = Persist::new($type, id => $id);
+			my $net = Persist::new($type, id => $id, netname => $name);
 			# this is equivalent to $type->new(id => \$id) but without using eval
 
 			Connection::init_connection($net, $addr, $port, $bind, $ssl_key, $ssl_cert, $ssl_ca);

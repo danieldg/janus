@@ -36,7 +36,7 @@ sub init_matching {
 		$nconf->{fb_id} = $fb_id;
 		my $type = 'Server::'.$nconf->{type};
 		Janus::load($type) or return undef;
-		my $net = Persist::new($type, id => $id);
+		my $net = Persist::new($type, id => $id, netname => Conffile::value(netname => $nconf));
 		$Janus::pending{$id} = $net;
 		Log::info("Incoming connection from $addr for $type network $id (server $fb_id)");
 		$net->intro($nconf, $addr);

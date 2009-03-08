@@ -73,8 +73,8 @@ Event::hook_add(
 		$network = Interface->new(
 			id => 'janus',
 			gid => 'janus',
+			netname => 'Janus',
 		);
-		$network->_set_netname('Janus');
 		Event::append(+{
 			type => 'NETLINK',
 			net => $network,

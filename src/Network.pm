@@ -50,14 +50,6 @@ sub _init {
 	}
 }
 
-sub _set_name {
-	$name[${$_[0]}] = $_[1];
-}
-
-sub _set_netname {
-	$netname[${$_[0]}] = $_[1];
-}
-
 sub to_ij {
 	my($net,$ij) = @_;
 	my $out = '';

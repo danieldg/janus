@@ -37,7 +37,6 @@ sub intro {
 	my $fbid = $cparms[$$net]{fb_id} || 0;
 	$fbid[$$net] = $fbid = 1 + ($fbid % $fbmax);
 	$cparms[$$net]{'linkname.'.$fbid} ||= $RemoteJanus::self->jname;
-	$net->_set_netname($net->cparam('netname'));
 }
 
 sub next_nickgid {
