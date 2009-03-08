@@ -84,14 +84,14 @@ Event::command_add({
 		'If backoff is not specified, displays the current state',
 	],
 	acl => 'autoconnect',
-	api => '=src =replyto $ ?$',
+	api => '=src =replyto $ ?#',
 	code => sub {
 		my($src, $dst, $id, $onoff) = @_;
 		my $nconf = $Conffile::netconf{$id} or do {
 			Janus::jmsg($dst, 'Cannot find network');
 			return;
 		};
-		if (defined $onoff && $onoff =~ /^\d+$/) {
+		if (defined $onoff) {
 			Log::audit("Autoconnect on $id ".($onoff ? 'enabled' : 'disabled').' by '.$src->netnick);
 			$nconf->{autoconnect} = $onoff ? 1 : 0;
 			$nconf->{backoff} = 0;

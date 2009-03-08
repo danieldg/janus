@@ -111,10 +111,10 @@ Event::command_add({
 	help => 'Shows a list of the long modes\' names',
 	syntax => '[<network>] [<width>]',
 	section => 'Info',
-	api => '=replyto localdefnet ?$',
+	api => '=replyto localdefnet ?#',
 	code => sub {
 		my($dst,$net,$w) = @_;
-		$w = ($w+0) || 5;
+		$w ||= 5;
 		my @nmodes = sort keys %Nick::umodebit;
 		my @cmodes = sort keys %Modes::mtype;
 		my $l = 0;

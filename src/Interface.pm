@@ -279,7 +279,16 @@ sub api_parse {
 			@argin = ();
 		} elsif ($_ eq '$') {
 			$fail ||= 'Not enough arguments' unless $opt || @argin;
-			push @args, shift @argin if @argin;
+			push @args, (@argin ? shift @argin : undef);
+		} elsif ($_ eq '#') {
+			my $n = $argin[0] || '';
+			if ($n =~ /^\d+$/) {
+				shift @argin;
+			} else {
+				$fail ||= @argin ? 'Argument must be an integer' : 'Not enough arguments' unless $opt;
+				$n = undef;
+			}
+			push @args, $n;
 		} elsif ($_ eq 'homenet') {
 			push @args, $hnet;
 		} elsif ($_ eq 'nick') {
