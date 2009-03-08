@@ -379,6 +379,8 @@ sub add_net {
 	my $net = $homenet[$$src];
 	my $sname = $src->str($net) || '?';
 
+	delete $nets[$$chan]{$$net}; # remove from $joinnets
+
 	my $joinnets = [ values %{$nets[$$chan]} ];
 	my %burstmap;
 	for my $n (@$joinnets) {
