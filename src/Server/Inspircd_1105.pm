@@ -167,6 +167,7 @@ sub process_capabs {
 	# IP6NATIVE=1 IP6SUPPORT=1 - we currently require IPv6 support, and claim to be native because we're cool like that :)
 	# PROTOCOL=1105
 	# PREFIX=(qaohv)~&@%+
+	$capabs[$$net]{IP6SUPPORT} = 1;
 	local $_ = $capabs[$$net]{PREFIX};
 	my $modes;
 	my(%p2t,%t2p);

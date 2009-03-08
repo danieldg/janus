@@ -198,6 +198,7 @@ sub process_capabs {
 	# Other maxima are not required to be enforced
 	# IP6NATIVE=1 IP6SUPPORT=1 - we currently require IPv6 support, and claim to be native because we're cool like that :)
 	# PROTOCOL=1201
+	$capabs[$$net]{IP6SUPPORT} = 1;
 	warn "I don't know how to read protocol $capabs[$$net]{PROTOCOL}"
 		unless $capabs[$$net]{PROTOCOL} == 1200 || $capabs[$$net]{PROTOCOL} == 1201;
 
