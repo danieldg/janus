@@ -27,7 +27,7 @@ Event::command_add({
 		'expr consists of one or more of the following:',
 		'  (nick|ident|host|name|from) ? Matches the given item',
 		'  /perl regex/                  Regex with implicit ^$, matched against nick!ident@host',
-		'  x/perl regex/                 same, but against '."nick\!ident\@host\002\n\002src\002\t\002gecos",
+		'  x/perl regex/                 same, but against '."nick\!ident\@host\002\\n\002src\002\\t\002gecos",
 		'  to (network|*)                Network(s) on which this ban is applied',
 		'  for 2w4d12h5m2s               Time the ban is applied (0=perm, default=1 week)',
 		'  reason "reason here"          Reason the ban was added',
