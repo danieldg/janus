@@ -5,6 +5,7 @@ use strict;
 use warnings;
 use integer;
 use Log::Base;
+use Util::Exec;
 use Scalar::Util 'weaken';
 use POSIX 'strftime';
 use Persist 'Log::Base';
@@ -74,12 +75,9 @@ sub closelog {
 	my $fn = $filename[$$log];
 	close $fn;
 	if ($closeact[$$log] && -f $fn) {
-		fork or do {
-			my $run = $closeact[$$log].' '.$fn;
-			$run =~ /(.*)/;
-			{ exec $run; }
-			POSIX::_exit(1);
-		};
+		my $run = $closeact[$$log].' '.$fn;
+		$run =~ /(.*)/;
+		Util::Exec::system($run);
 	}
 }
 
