@@ -104,9 +104,33 @@ sub send {
 sub dump_sendq {
 	my $net = shift;
 	local $_;
-	my $q = $sendq[$$net];
+	my @lines = split /\r\n/, $sendq[$$net];
 	$sendq[$$net] = '';
-	Log::netout($net, $_) for split /\r\n/, $q;
+	my $q = '';
+	my $sj_pfx;
+	my $sj_line = '';
+	for (@lines) {
+		if (/^:\S+ SJOIN (.*?) :(.*)/) {
+			if ($sj_line && $sj_pfx eq $1 && length $sj_line < 490) {
+				$sj_line .= ' '.$2;
+			} else {
+				$q .= $sj_line."\r\n" if $sj_line;
+				Log::netout($net, $sj_line) if $sj_line;
+				$sj_pfx = $1;
+				$sj_line = $_;
+			}
+		} else {
+			if ($sj_line && !/^:\S+ (?:UID|PRIVMSG) /) {
+				$q .= $sj_line."\r\n";
+				Log::netout($net, $sj_line);
+				$sj_line = '';
+			}
+			$q .= $_ . "\r\n";
+			Log::netout($net, $_) unless /^:\S+ (?:PRIVMSG|NOTICE) /;
+		}
+	}
+	$q .= $sj_line."\r\n" if $sj_line;
+	Log::netout($net, $sj_line) if $sj_line;
 	$q;
 }
 
@@ -274,9 +298,12 @@ $moddef{CAPAB_EUID} = {
 			my $ip = $nick->info('ip') || '0.0.0.0';
 			$ip = '0.0.0.0' if $ip eq '*' || $net->param('untrusted');
 			push @out, $net->cmd2($nick, AWAY => $nick->info('away')) if $nick->info('away');
-			my $host = $nick->info($net->param('untrusted') ? 'vhost' : 'host');
+			my $host = substr $nick->info($net->param('untrusted') ? 'vhost' : 'host'), 0, 63;
+			my $vhost = substr $nick->info('vhost'), 0, 63;
+			my $ident = substr $nick->info('ident'), 0, 10;
+			my $name = substr $nick->info('name'), 0, 50;
 			unshift @out, $net->cmd2($nick->homenet, EUID => $nick->str($net), 1, $nick->ts,
-				$mode, $nick->info('ident'), $nick->info('vhost'), $ip, $nick, $host, 0, $nick->info('name'));
+				$mode, $ident, $vhost, $ip, $nick, $host, 0, $name);
 
 			@out;
 		}
@@ -300,8 +327,11 @@ $moddef{NOCAP_EUID} = {
 			my $ip = $nick->info('ip') || '0.0.0.0';
 			$ip = '0.0.0.0' if $ip eq '*' || $net->param('untrusted');
 			push @out, $net->cmd2($nick, AWAY => $nick->info('away')) if $nick->info('away');
+			my $vhost = substr $nick->info('vhost'), 0, 63;
+			my $ident = substr $nick->info('ident'), 0, 10;
+			my $name = substr $nick->info('name'), 0, 50;
 			unshift @out, $net->cmd2($nick->homenet, UID => $nick->str($net), 1, $nick->ts,
-				$mode, $nick->info('ident'), $nick->info('vhost'), $ip, $nick, $nick->info('name'));
+				$mode, $ident, $vhost, $ip, $nick, $name);
 
 			@out;
 		}
