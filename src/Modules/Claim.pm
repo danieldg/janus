@@ -41,7 +41,7 @@ Event::command_add({
 			} else {
 				my %n;
 				$n{$_}++ for split /,/, $claims;
-				$n{$nhome->name}++;
+				$n{$chome->name}++;
 				$claim{$chan->netname} = join ',', sort keys %n;
 				Janus::jmsg($dst, 'Set to '.$claim{$chan->netname});
 			}
