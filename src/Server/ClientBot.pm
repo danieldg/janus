@@ -778,7 +778,7 @@ sub kicked {
 	},
 	KICK => sub {
 		my $net = shift;
-		my $src = $net->nick($_[0]);
+		my $src = $net->item($_[0]);
 		my $chan = $net->chan($_[2]) or return ();
 		my $victim = $net->nick($_[3]) or return ();
 		if ($victim == $Interface::janus) {
@@ -1014,7 +1014,7 @@ sub kicked {
 				Log::warn_in($net, 'Unexpected WHO reply, expecting '.$curr->[3].', got '.$_[3]);
 				return ();
 			}
-			delete $curr->[4]{lc $_[7]};
+			delete $curr->[4]{$_[7]};
 			$chan = $net->chan($_[3]);
 		} elsif ($curr && $curr->[2] eq 'WHO/N') {
 			unless (lc $curr->[3] eq lc $_[7]) {

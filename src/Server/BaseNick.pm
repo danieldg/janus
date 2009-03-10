@@ -45,6 +45,7 @@ sub request_nick {
 	my ($given,$given_lc);
 	if ($nick->homenet() eq $net) {
 		$given = $given_lc = $reqnick;
+		$given_lc =~ tr#A-Z[]\\#a-z{}|#;
 	} else {
 		$reqnick =~ s/[^0-9a-zA-Z\[\]\\^\-_`{|}]/_/g;
 		$reqnick = '_'.$reqnick unless $reqnick =~ /^[A-Za-z\[\]\\^\-_`{|}]/;
