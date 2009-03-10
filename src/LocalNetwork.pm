@@ -88,7 +88,7 @@ Event::setting_add({
 });
 
 ### MODE SPLIT ###
-eval($Janus::lmode eq 'Bridge' ? '#line '.__LINE__.' "'.__FILE__.'"'.q[#[[]]
+eval($Janus::lmode eq 'Bridge' ? '#line '.__LINE__.' "'.__FILE__.qq{"\n}.q[#[[]]
 ### BRIDGE MODE ###
 
 sub chan {
@@ -123,7 +123,7 @@ sub all_chans {
 	values %Janus::chans;
 }
 
-1 ] : '#line '.__LINE__.' "'.__FILE__.'"'.q[#[[]]
+1 ] : '#line '.__LINE__.' "'.__FILE__.qq{"\n}.q[#[[]]
 ### LINK MODE ###
 our @chans;
 Persist::register_vars(qw(chans));
