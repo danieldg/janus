@@ -93,26 +93,28 @@ eval($Janus::lmode eq 'Bridge' ? '#line '.__LINE__.' "'.__FILE__.'"'.q[#[[]]
 
 sub chan {
 	my($net, $name, $new) = @_;
-	unless (exists $Janus::chans{lc $name}) {
+	$name =~ tr#A-Z[]\\\\#a-z{}|#;
+	unless (exists $Janus::chans{$name}) {
 		return undef unless $new;
 		my $chan = Channel->new(
 			net => $net,
 			name => $name,
 			ts => $new,
 		);
-		$Janus::chans{lc $name} = $chan;
+		$Janus::chans{$name} = $chan;
 	}
-	$Janus::chans{lc $name};
+	$Janus::chans{$name};
 }
 
 sub replace_chan {
 	my($net,$name,$new) = @_;
-	my $old = $Janus::chans{lc $name};
+	$name =~ tr#A-Z[]\\\\#a-z{}|#;
+	my $old = $Janus::chans{$name};
 	warn "replacing nonexistant channel" unless $old;
 	if (defined $new) {
-		$Janus::chans{lc $name} = $new;
+		$Janus::chans{$name} = $new;
 	} else {
-		delete $Janus::chans{lc $name};
+		delete $Janus::chans{$name};
 	}
 	$old;
 }
@@ -133,26 +135,28 @@ sub _init {
 
 sub chan {
 	my($net, $name, $new) = @_;
-	unless (exists $chans[$$net]{lc $name}) {
+	$name =~ tr#A-Z[]\\\\#a-z{}|#;
+	unless (exists $chans[$$net]{$name}) {
 		return undef unless $new;
 		my $chan = Channel->new(
 			net => $net,
 			name => $name,
 			ts => $new,
 		);
-		$chans[$$net]{lc $name} = $chan;
+		$chans[$$net]{$name} = $chan;
 	}
-	$chans[$$net]{lc $name};
+	$chans[$$net]{$name};
 }
 
 sub replace_chan {
 	my($net,$name,$new) = @_;
-	my $old = $chans[$$net]{lc $name};
+	$name =~ tr#A-Z[]\\\\#a-z{}|#;
+	my $old = $chans[$$net]{$name};
 	warn "replacing nonexistant channel" unless $old;
 	if (defined $new) {
-		$chans[$$net]{lc $name} = $new;
+		$chans[$$net]{$name} = $new;
 	} else {
-		delete $chans[$$net]{lc $name};
+		delete $chans[$$net]{$name};
 	}
 	$old;
 }

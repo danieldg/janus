@@ -239,9 +239,9 @@ sub rejoin {
 	my($nick,$chan,$from) = @_;
 	my $hn = $homenet[$$nick];
 	my %clist;
-	$clist{lc $_->str($hn)} = $_ for @{$chans[$$nick]};
-	delete $clist{lc $from->str($hn)} if $from;
-	$clist{lc $chan->str($hn)} = $chan;
+	$clist{$_->lstr($hn)} = $_ for @{$chans[$$nick]};
+	delete $clist{$from->lstr($hn)} if $from;
+	$clist{$chan->lstr($hn)} = $chan;
 	$chans[$$nick] = [ values %clist ];
 
 

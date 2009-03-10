@@ -25,7 +25,8 @@ sub mynick {
 	my($net, $name) = @_;
 	if ($name !~ /^\d/) {
 		Log::warn_in($net, "Nick used where UID expected; converting");
-		$name = $nick2uid[$$net]{lc $name} || $name;
+		$name =~ tr#A-Z[]\\#a-z{}|#;
+		$name = $nick2uid[$$net]{$name} || $name;
 	}
 	my $nick = $uids[$$net]{uc $name};
 	unless ($nick) {
@@ -44,7 +45,8 @@ sub nick {
 	my($net, $name) = @_;
 	if ($name !~ /^\d/) {
 		Log::warn_in($net, "Nick used where UID expected: converting") unless $_[2];
-		$name = $nick2uid[$$net]{lc $name} || $name;
+		$name =~ tr#A-Z[]\\#a-z{}|#;
+		$name = $nick2uid[$$net]{$name} || $name;
 	}
 	return $uids[$$net]{uc $name} if $uids[$$net]{uc $name};
 	Log::warn_in($net, "UID '$name' does not exist; ignoring") unless $_[2];
@@ -64,9 +66,10 @@ sub register_nick {
 		dst => $new,
 	};
 
-	my $old_uid = delete $nick2uid[$$net]{lc $name};
+	$name =~ tr#A-Z[]\\#a-z{}|#;
+	my $old_uid = delete $nick2uid[$$net]{$name};
 	unless ($old_uid) {
-		$nick2uid[$$net]{lc $name} = $new_uid;
+		$nick2uid[$$net]{$name} = $new_uid;
 		return @rv;
 	}
 	my $old = $uids[$$net]{uc $old_uid} or warn;
@@ -77,8 +80,8 @@ sub register_nick {
 
 		Log::debug("Nick self-collision over $name, old=".$old->ts." new=".$new->ts." tsctl=$tsctl");
 
-		$nick2uid[$$net]{lc $name} = $new_uid if $tsctl > 0;
-		$nick2uid[$$net]{lc $name} = $old_uid if $tsctl < 0;
+		$nick2uid[$$net]{$name} = $new_uid if $tsctl > 0;
+		$nick2uid[$$net]{$name} = $old_uid if $tsctl < 0;
 		if ($tsctl >= 0) {
 			unshift @rv, +{
 				type => 'NICK',
@@ -97,7 +100,7 @@ sub register_nick {
 		}
 	} else {
 		# Old user of the nick was a janus nick. Give it up by reconnecting
-		$nick2uid[$$net]{lc $name} = $new_uid;
+		$nick2uid[$$net]{$name} = $new_uid;
 		unshift @rv, +{
 			type => 'RECONNECT',
 			net => $net,
@@ -114,8 +117,10 @@ sub _request_nick {
 	$reqnick =~ s/[^0-9a-zA-Z\[\]\\^\-_`{|}]/_/g;
 	my $maxlen = $net->nicklen();
 	my $given = substr $reqnick, 0, $maxlen;
+	my $given_lc = $given;
+	$given_lc =~ tr#A-Z[]\\#a-z{}|#;
 
-	$tagged = 1 if exists $nick2uid[$$net]->{lc $given};
+	$tagged = 1 if exists $nick2uid[$$net]->{$given_lc};
 
 	my $tagre = Setting::get(force_tag => $net);
 	$tagged = 1 if $tagre && $$nick != 1 && $given =~ /$tagre/;
@@ -124,23 +129,25 @@ sub _request_nick {
 		my $tagsep = Setting::get(tagsep => $net);
 		my $tag = $tagsep . $nick->homenet()->name();
 		my $i = 0;
-		$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
-		while (exists $nick2uid[$$net]->{lc $given}) {
+		$given_lc = $given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
+		$given_lc =~ tr#A-Z[]\\#a-z{}|#;
+		while (exists $nick2uid[$$net]->{given}) {
 			my $itag = $tagsep.(++$i).$tag; # it will find a free nick eventually...
-			$given = substr($reqnick, 0, $maxlen - length $itag) . $itag;
+			$given_lc = $given = substr($reqnick, 0, $maxlen - length $itag) . $itag;
+			$given_lc =~ tr#A-Z[]\\#a-z{}|#;
 		}
 	}
-	$given;
+	($given,$given_lc);
 }
 
 # Request a nick on a remote network (CONNECT/JOIN must be sent AFTER this)
 sub request_newnick {
 	my($net, $nick, $reqnick, $tagged) = @_;
-	my $given = _request_nick(@_);
+	my($given,$glc) = _request_nick(@_);
 	my $uid = $net->next_uid($nick->homenet());
 	Log::debug_in($net, "Registering nick #$$nick as uid $uid with nick $given");
 	$uids[$$net]{uc $uid} = $nick;
-	$nick2uid[$$net]{lc $given} = $uid;
+	$nick2uid[$$net]{$glc} = $uid;
 	$gid2uid[$$net]{$nick->gid()} = $uid;
 	return $given;
 }
@@ -149,23 +156,25 @@ sub request_cnick {
 	my($net, $nick, $reqnick, $tagged) = @_;
 	$tagged ||= 0;
 	my $uid = $net->nick2uid($nick);
-	my $current = lc $nick->str($net);
+	my $current = $nick->str($net);
+	$current =~ tr#A-Z[]\\#a-z{}|#;
 	my $curr_uid = $nick2uid[$$net]{$current};
 	if ($tagged != 2 && $curr_uid eq $uid) {
 		delete $nick2uid[$$net]{$current};
 	}
-	my $given = _request_nick(@_);
+	my($given,$glc) = _request_nick(@_);
 	if ($tagged == 2 && $curr_uid eq $uid) {
 		delete $nick2uid[$$net]{$current};
 	}
-	$nick2uid[$$net]{lc $given} = $uid;
+	$nick2uid[$$net]{$glc} = $uid;
 	$given;
 }
 
 # Release a nick on a remote network (PART/QUIT must be sent BEFORE this)
 sub release_nick {
 	my($net, $req, $nick) = @_;
-	delete $nick2uid[$$net]{lc $req};
+	$req =~ tr#A-Z[]\\#a-z{}|#;
+	delete $nick2uid[$$net]{$req};
 	my $uid = delete $gid2uid[$$net]{$nick->gid()};
 	delete $uids[$$net]{uc $uid};
 }

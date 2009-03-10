@@ -270,6 +270,13 @@ sub str {
 	$keyname[$$chan];
 }
 
+sub lstr {
+	my($chan,$net) = @_;
+	my $cn = $keyname[$$chan];
+	$cn =~ tr#A-Z[]\\\\#a-z{}|#;
+	$cn;
+}
+
 sub real_keyname {
 	$keyname[${$_[0]}];
 }
@@ -310,7 +317,9 @@ sub homename {
 sub netname {
 	my $c = $_[0];
 	my $n = $homenet[$$c];
-	$n->name . lc $names[$$c]{$$n};
+	my $cn = $names[$$c]{$$n};
+	$cn =~ tr#A-Z[]\\\\#a-z{}|#;
+	$n->name . $cn;
 }
 
 sub to_ij {
@@ -339,7 +348,6 @@ sub _init {
 	}
 	if ($ifo->{net}) {
 		my $net = $ifo->{net};
-		my $kn = $net->gid().lc $ifo->{name};
 		$homenet[$$c] = $net;
 		$nets[$$c]{$$net} = $net;
 		$names[$$c]{$$net} = $ifo->{name};
@@ -352,10 +360,8 @@ sub _init {
 			my $net = $Janus::gnets{$id} or warn next;
 			$names[$$c]{$$net} = $name;
 			$nets[$$c]{$$net} = $net;
-			if ($net == $homenet[$$c] && 1 < scalar keys %$names) {
-				$keyname[$$c] = $net->gid().lc $name;
-			}
 		}
+		$keyname[$$c] = $c->real_keyname if 1 < scalar keys %$names;
 	}
 	join ',', sort map { $_.$names[$$c]{$_} } keys %{$names[$$c]};
 }
@@ -520,6 +526,15 @@ sub str {
 	$names[$$chan]{$$net};
 }
 
+sub lstr {
+	my($chan,$net) = @_;
+	return undef unless $net;
+	return $keyname[$$chan] if $net == $Interface::network;
+	my $cn = $names[$$chan]{$$net};
+	$cn =~ tr#A-Z[]\\\\#a-z{}|#;
+	$cn;
+}
+
 sub is_on {
 	my($chan, $net) = @_;
 	exists $nets[$$chan]{$$net};
@@ -533,7 +548,8 @@ sub sendto {
 sub real_keyname {
 	my $chan = shift;
 	my $hn = $homenet[$$chan];
-	$hn->gid . lc $chan->str($hn);
+	my $name = $chan->lstr($hn);
+	$hn->gid . $name; 
 }
 
 sub unhook_destroyed {
@@ -552,10 +568,10 @@ sub unhook_destroyed {
 	for my $id (keys %{$nets[$$chan]}) {
 		my $net = $nets[$$chan]{$id};
 		my $name = $names[$$chan]{$id};
-		my $c = delete $Janus::gchans{$net->gid().lc $name};
+		my $c = delete $Janus::gchans{$chan->real_keyname};
 		if ($c && $c ne $chan) {
 			Log::err("Corrupted unhook! $$c found where $$chan expected");
-			$Janus::gchans{$net->gid().lc $name} = $c;
+			$Janus::gchans{$chan->real_keyname} = $c;
 			next;
 		}
 		next if $net->jlink();

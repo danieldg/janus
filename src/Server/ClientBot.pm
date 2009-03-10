@@ -60,6 +60,7 @@ sub poll_halfout {
 			});
 		}
 	} elsif ($evt->[2] eq 'USER') {
+		Log::warn_in($n, 'Timeout on initial introduction, high lag?');
 		$n->process_capabs();
 	}
 	$n->shift_halfout();
@@ -87,7 +88,7 @@ sub intro {
 	if ($net->cparam('linktype') eq 'tls') {
 		$net->add_halfout([ 15, 'STARTTLS', 'TLS' ]);
 	}
-	$net->add_halfout([ 60, "USER mirror gamma * :Janus IRC Client\r\nNICK $param->{nick}", 'USER' ]);
+	$net->add_halfout([ 90, "USER mirror gamma * :Janus IRC Client\r\nNICK $param->{nick}", 'USER' ]);
 	$self[$$net] = $param->{nick};
 	$flood_bkt[$$net] = Setting::get(tbf_burst => $net);
 	$flood_ts[$$net] = $Janus::time;
@@ -177,8 +178,8 @@ sub txt2cmode {
 sub cli_hostintro {
 	my($net, $nname, $ident, $host, $gecos) = @_;
 	my @out;
-	return () if lc $nname eq lc $self[$$net];
 	my $nick = $net->item($nname);
+	return () if $nick && $nick == $Interface::janus;
 
 	unless ($nick && $nick->homenet == $net) {
 		my $ts = $Janus::time;
@@ -587,14 +588,15 @@ sub cb_cmd {
 sub pm_not {
 	my $net = shift;
 	my $src = $net->item($_[0]) or return ();
+	my $dst = $net->item($_[2]) or return ();
 	return () unless $src->isa('Nick');
-	if (lc $_[2] eq lc $self[$$net]) {
+	if ($dst == $Interface::janus) {
 		# PM to the bot
 		my $msg = $_[3];
 		return if $msg =~ /^\001/; # ignore CTCPs
 		return cb_cmd($net, $src, $msg) if $msg =~ s/^!//;
 		if ($msg =~ s/^(\S+)\s//) {
-			my $dst = $net->item($1);
+			$dst = $net->item($1);
 			if (ref $dst && $dst->isa('Nick') && $dst->homenet() ne $net) {
 				return () if $dst == $Interface::janus;
 				return +{
@@ -628,16 +630,18 @@ sub pm_not {
 			}
 		}
 		return ();
+	} elsif ($dst->isa('Channel')) {
+		return +{
+			type => 'MSG',
+			src => $src,
+			msgtype => $_[1],
+			dst => $dst,
+			msg => $_[3],
+		};
+	} else {
+		# server msg, etc. Ignore.
+		();
 	}
-	my $dst = $net->item($_[2]) or return ();
-	return () unless $dst->isa('Channel');
-	return +{
-		type => 'MSG',
-		src => $src,
-		msgtype => $_[1],
-		dst => $dst,
-		msg => $_[3],
-	};
 }
 
 sub kicked {
@@ -705,7 +709,8 @@ sub kicked {
 			return ();
 		}
 		my $nick = $net->mynick($_[0]) or return ();
-		my $replace = (lc $_[0] eq lc $_[2]) ? undef : $net->item($_[2]);
+		my $replace = $net->item($_[2]);
+		$replace = undef if $replace && $replace == $nick;
 		my @out;
 		if ($replace && $replace->homenet() eq $net) {
 			push @out, +{
@@ -985,9 +990,9 @@ sub kicked {
 
 	TOPIC => sub {
 		my $net = shift;
-		return if lc $_[0] eq lc $self[$$net];
 		my $src = $net->item($_[0]) or return ();
 		my $chan = $net->chan($_[2]) or return ();
+		return () if $src == $Interface::janus;
 		return () unless $chan->get_mode('cb_topicsync');
 		return {
 			type => 'TOPIC',
@@ -1061,7 +1066,7 @@ sub kicked {
 		# :server 353 jmirror = #channel :nick @nick
 		for my $curr (@{$half_out[$$net]}) {
 			if ($curr && $curr->[2] eq 'WHO/C' && lc $curr->[3] eq lc $_[4]) {
-				/^([-,.`*?!^~&\$\@\%+=]*)(.*)/ and $curr->[4]{lc $2} = $1 for split / /, $_[-1];
+				/^([-,.`*?!^~&\$\@\%+=]*)(.*)/ and $curr->[4]{$2} = $1 for split / /, $_[-1];
 			}
 		}
 		();

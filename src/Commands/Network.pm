@@ -111,9 +111,10 @@ Event::command_add({
 	section => 'Network',
 	syntax => '<network>',
 	acl => 'netsplit',
+	api => '=src =replyto $',
 	code => sub {
 		my($src,$dst,$net) = @_;
-		$net = $Janus::nets{lc $net} || $Janus::ijnets{lc $net};
+		$net = $Janus::nets{lc $net} || $Janus::ijnets{lc $net} || $Janus::pending{lc $net};
 		return unless $net;
 		if ($net->isa('LocalNetwork')) {
 			Log::audit("Network ".$net->name.' split by '.$src->netnick);
@@ -146,8 +147,8 @@ Event::command_add({
 			delete $nets{$$Interface::network};
 			next unless scalar keys %nets;
 			my $cnet = $chan->homenet();
-			my $cname = lc $chan->str($cnet);
-			my $hname = lc $chan->str($hnet);
+			my $cname = $chan->lstr($cnet);
+			my $hname = $chan->lstr($hnet);
 			my $hcol;
 			my @list = ($hnetn);
 			if ($hnet == $cnet) {
@@ -160,7 +161,7 @@ Event::command_add({
 			}
 			for my $net (values %nets) {
 				next if $net == $hnet || $net == $cnet;
-				my $oname = lc $chan->str($net);
+				my $oname = $chan->lstr($net);
 				push @list, $net->name().($cname eq $oname ? '' : $oname);
 			}
 			$chans{$hname} = [ $hname, $hcol, join ' ', sort @list ];

@@ -151,7 +151,7 @@ Event::command_add({
 		my $acl = $m eq 'list' ? 'info' : 'create';
 		return unless Account::chan_access_chk($src, $chan, $acl, $dst);
 		my $hn = $chan->homenet;
-		my $cname = lc $chan->str($hn);
+		my $cname = $chan->lstr($hn);
 		my $ifo = $Link::request{$hn->name}{$cname};
 		unless ($ifo && $ifo->{mode}) {
 			Interface::jmsg($dst, 'That channel is not shared');

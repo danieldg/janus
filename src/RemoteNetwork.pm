@@ -21,7 +21,8 @@ sub all_chans {
 
 sub chan {
 	my($net, $cname) = @_;
-	my $kn = $net->gid() . lc $cname;
+	$cname =~ tr#A-Z[]\\#a-z{}|#;
+	my $kn = $net->gid() . $cname;
 	my $c = $Janus::gchans{$kn};
 	if (!$c && $_[2]) {
 		croak "Cannot create remote channel";
