@@ -1153,9 +1153,6 @@ $moddef{CORE} = {
 		$_[0] ? () : ({
 			type => 'NETLINK',
 			net => $net,
-		}, {
-			type => 'BURST',
-			net => $net,
 		});
 	}, SQUIT => sub {
 		my $net = shift;

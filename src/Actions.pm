@@ -152,10 +152,6 @@ my %spec = (
 		except => 'RemoteJanus',
 		sendto => '=$Janus::global= Janus @',
 	},
-	BURST => {
-		net => 'Network',
-		sendto => '=$RemoteJanus::self= RemoteJanus @',
-	},
 	NETSPLIT => {
 		net => 'Network',
 		msg => '$',

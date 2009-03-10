@@ -120,7 +120,7 @@ sub dump_sendq {
 				$sj_line = $_;
 			}
 		} else {
-			if ($sj_line && !/^:\S+ (?:UID|PRIVMSG) /) {
+			if ($sj_line && !/^:\S+ (?:E?UID|PRIVMSG) /) {
 				$q .= $sj_line."\r\n";
 				Log::netout($net, $sj_line);
 				$sj_line = '';
@@ -774,9 +774,6 @@ $moddef{CORE} = {
 		$serverdsc[$$net]{$_[2]} = $_[-1];
 		{
 			type => 'NETLINK',
-			net => $net,
-		}, {
-			type => 'BURST',
 			net => $net,
 		}, {
 			type => 'LINKED',

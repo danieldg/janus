@@ -9,7 +9,7 @@ use Carp;
 our %mtype;
 
 $mtype{$_} = 'n' for qw/voice halfop op admin owner/;
-$mtype{$_} = 'l' for qw/ban except invex badwords/;
+$mtype{$_} = 'l' for qw/ban except invex badwords quiet/;
 $mtype{$_} = 'v' for qw/
 	flood flood3.2 forward joinlimit key
 	kicknorejoin limit nickflood

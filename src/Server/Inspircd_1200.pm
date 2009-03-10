@@ -659,9 +659,6 @@ $moddef{CORE} = {
 			return ({
 				type => 'NETLINK',
 				net => $net,
-			}, {
-				type => 'BURST',
-				net => $net,
 			});
 		}
 	}, SQUIT => sub {

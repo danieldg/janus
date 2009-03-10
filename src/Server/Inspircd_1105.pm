@@ -638,9 +638,6 @@ $moddef{CORE} = {
 			return ({
 				type => 'NETLINK',
 				net => $net,
-			}, {
-				type => 'BURST',
-				net => $net,
 			});
 		}
 	}, SQUIT => sub {
@@ -684,9 +681,6 @@ $moddef{CORE} = {
 	},
 	PONG => \&ignore,
 	BURST => sub {
-# 		my $net = shift;
-# 		return () if $auth[$$net] != 1;
-# 		$auth[$$net] = 2;
 		();
 	}, CAPAB => sub {
 		my $net = shift;
