@@ -240,7 +240,7 @@ sub rejoin {
 	my $hn = $homenet[$$nick];
 	my %clist;
 	$clist{$_->lstr($hn)} = $_ for @{$chans[$$nick]};
-	delete $clist{$from->lstr($hn)} if $from;
+	delete $clist{$from->lstr($hn)} if $from && $from->is_on($hn);
 	$clist{$chan->lstr($hn)} = $chan;
 	$chans[$$nick] = [ values %clist ];
 

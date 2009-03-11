@@ -531,7 +531,7 @@ sub lstr {
 	return undef unless $net;
 	return $keyname[$$chan] if $net == $Interface::network;
 	my $cn = $names[$$chan]{$$net};
-	$cn =~ tr#A-Z[]\\\\#a-z{}|#;
+	$cn =~ tr#A-Z[]\\\\#a-z{}|# if defined $cn;
 	$cn;
 }
 
