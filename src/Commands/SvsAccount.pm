@@ -12,7 +12,7 @@ sub get_aid {
 
 	my $acctid = $nick->info('svsaccount');
 	if (defined $nick->info('svsts')) {
-		return undef unless $nick->ts == $nick->info('svsts');
+		return undef unless $nick->ts($net) == $nick->info('svsts');
 		$acctid = lc $nick->homenick unless $acctid;
 	}
 	return $acctid ? $net->name . ':' . $acctid : undef;
