@@ -82,12 +82,16 @@ sub request_newnick {
 
 sub request_cnick {
 	my($net, $nick, $reqnick, $tagged) = @_;
+	$tagged ||= 0;
 	my $b4 = $nick->str($net);
 	$b4 =~ tr#A-Z[]\\#a-z{}|#;
-	if ($nicks[$$net]{$b4} == $nick) {
+	if ($tagged != 2 && $nicks[$$net]{$b4} == $nick) {
 		delete $nicks[$$net]{$b4};
 	}
 	my $gv = $net->request_nick($nick, $reqnick, $tagged);
+	if ($tagged == 2 && $nicks[$$net]{$b4} == $nick) {
+		delete $nicks[$$net]{$b4};
+	}
 	return $gv;
 }
 
