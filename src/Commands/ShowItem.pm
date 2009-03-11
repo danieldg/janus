@@ -8,8 +8,7 @@ Event::hook_add(
 	INFO => Nick => sub {
 		my($dst, $n, $asker) = @_;
 		my $all = Account::acl_check($asker, 'info/nick') || $asker == $n;
-		Janus::jmsg($dst, join ' ', "\002Nick\002",$$n,$n->homenick,'on',$n->homenet->name,$n->gid,
-			$all ? $n->ts.'='.gmtime($n->ts) : ());
+		Janus::jmsg($dst, join ' ', "\002Nick\002",$$n,$n->homenick,'on',$n->homenet->name,$n->gid);
 		if ($all) {
 			Janus::jmsg($dst, join ' ', "\002Mode:\002", $n->umodes);
 			Janus::jmsg($dst, join ' ', "\002Channels:\002", map $_->netname, $n->all_chans);
@@ -17,7 +16,7 @@ Event::hook_add(
 			Janus::jmsg($dst, join ' ', '', map $_.'='.$n->info($_), @ifokeys);
 		}
 		Janus::jmsg($dst, join ' ', "\002Nicks:\002",
-			sort map { '@'.$_->name.'='.$n->str($_) }
+			sort map { "\002".$_->name.":\002".$n->str($_).($all ? '@'.$n->ts($_) : '') }
 				grep { $_->isa('LocalNetwork') }
 				$n->netlist);
 	},

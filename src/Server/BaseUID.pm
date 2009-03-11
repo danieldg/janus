@@ -78,7 +78,7 @@ sub register_nick {
 		# collide of two nicks on the network. Let the protocol module figure out who won
 		my $tsctl = $net->collide_winner($old,$new);
 
-		Log::debug("Nick self-collision over $name, old=".$old->ts." new=".$new->ts." tsctl=$tsctl");
+		Log::debug("Nick self-collision over $name, old=".$old->ts($net)." new=".$new->ts($net)." tsctl=$tsctl");
 
 		$nick2uid[$$net]{$name} = $new_uid if $tsctl > 0;
 		$nick2uid[$$net]{$name} = $old_uid if $tsctl < 0;
@@ -131,7 +131,7 @@ sub _request_nick {
 		my $i = 0;
 		$given_lc = $given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
 		$given_lc =~ tr#A-Z[]\\#a-z{}|#;
-		while (exists $nick2uid[$$net]->{given}) {
+		while (exists $nick2uid[$$net]->{$given_lc}) {
 			my $itag = $tagsep.(++$i).$tag; # it will find a free nick eventually...
 			$given_lc = $given = substr($reqnick, 0, $maxlen - length $itag) . $itag;
 			$given_lc =~ tr#A-Z[]\\#a-z{}|#;

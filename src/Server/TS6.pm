@@ -302,7 +302,7 @@ $moddef{CAPAB_EUID} = {
 			my $vhost = substr $nick->info('vhost'), 0, 63;
 			my $ident = substr $nick->info('ident'), 0, 10;
 			my $name = substr $nick->info('name'), 0, 50;
-			unshift @out, $net->cmd2($nick->homenet, EUID => $nick->str($net), 1, $nick->ts,
+			unshift @out, $net->cmd2($nick->homenet, EUID => $nick->str($net), 1, $nick->ts($net),
 				$mode, $ident, $vhost, $ip, $nick, $host, 0, $name);
 
 			@out;
@@ -330,7 +330,7 @@ $moddef{NOCAP_EUID} = {
 			my $vhost = substr $nick->info('vhost'), 0, 63;
 			my $ident = substr $nick->info('ident'), 0, 10;
 			my $name = substr $nick->info('name'), 0, 50;
-			unshift @out, $net->cmd2($nick->homenet, UID => $nick->str($net), 1, $nick->ts,
+			unshift @out, $net->cmd2($nick->homenet, UID => $nick->str($net), 1, $nick->ts($net),
 				$mode, $ident, $vhost, $ip, $nick, $name);
 
 			@out;
@@ -343,7 +343,7 @@ $moddef{CAPAB_SAVE} = {
 		SAVE => sub {
 			my $net = shift;
 			my $nick = $net->nick($_[2]) or return ();
-			return () unless $nick->ts == $_[3];
+			return () unless $nick->ts($net) == $_[3];
 			if ($nick->homenet == $net) {
 				Log::debug_in($net, "Misdirected SAVE ignored");
 				return ();
@@ -1045,13 +1045,13 @@ $moddef{CORE} = {
 			}
 			return @out;
 		} else {
-			return $net->cmd2($act->{dst}, NICK => $act->{to}, $nick->ts());
+			return $net->cmd2($act->{dst}, NICK => $act->{to}, $nick->ts($net));
 		}
 	}, NICK => sub {
 		my($net,$act) = @_;
 		my $id = $$net;
 		my $dst = $act->{dst};
-		$net->cmd2($dst, NICK => $act->{to}{$id}, $dst->ts);
+		$net->cmd2($dst, NICK => $act->{to}{$id}, $dst->ts($net));
 	}, UMODE => sub {
 		my($net,$act) = @_;
 		my $pm = '';
@@ -1126,7 +1126,7 @@ $moddef{CORE} = {
 			return $net->cmd2($nick, AWAY => defined $act->{value} ? $act->{value} : ());
 		} elsif ($act->{item} =~ /^(?:vhost|ident)$/) {
 			return $net->cmd2($nick, SIGNON => $nick->str($net), $nick->info('ident'),
-				$nick->info('vhost'), $nick->ts, 0);
+				$nick->info('vhost'), $nick->ts($net), 0);
 		}
 		return ();
 	}, CHANTSSYNC => sub {

@@ -143,7 +143,7 @@ sub _connect_ifo {
 	}
 	push @out, $net->cmd2($nick, AWAY => $nick->info('away')) if $nick->info('away');
 	my $host = $nick->info($net->param('untrusted') ? 'vhost' : 'host');
-	unshift @out, $net->cmd2($srv, NICK => $nick->ts, $nick, $host, $nick->info('vhost'),
+	unshift @out, $net->cmd2($srv, NICK => $nick->ts($net), $nick, $host, $nick->info('vhost'),
 		$nick->info('ident'), $mode, $ip, $nick->info('name'));
 
 	@out;

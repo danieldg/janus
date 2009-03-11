@@ -313,7 +313,7 @@ sub _connect_ifo {
 		}
 	}
 	my @out;
-	push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts()), $nick->info('ident'), $rhost,
+	push @out, $net->cmd1(NICK => $nick, $hc, $net->sjb64($nick->ts($net)), $nick->info('ident'), $rhost,
 		$srv, 0, $mode, $vhost, $ip, $nick->info('name'));
 	my $whois = $nick->info('swhois');
 	push @out, $net->cmd1(SWHOIS => $nick, $whois) if defined $whois && $whois ne '';
@@ -684,7 +684,7 @@ $moddef{CORE} = {
 			my $stomp = $net->nick($_[2], 1);
 			my $nts = (@_ == 4 ? $net->sjbint($_[3]) : $Janus::time);
 			if ($stomp && $stomp != $nick) {
-				if ($stomp->ts < $nts) {
+				if ($stomp->ts($net) < $nts) {
 					$net->send({
 						type => 'QUIT',
 						dst => $stomp,
@@ -1437,7 +1437,7 @@ $moddef{CORE} = {
 			}
 			return @out;
 		} else {
-			return $net->cmd2($act->{from}, NICK => $act->{to}, $nick->ts());
+			return $net->cmd2($act->{from}, NICK => $act->{to}, $nick->ts($net));
 		}
 	}, JOIN => sub {
 		my($net,$act) = @_;
@@ -1545,7 +1545,7 @@ $moddef{CORE} = {
 	}, NICK => sub {
 		my($net,$act) = @_;
 		my $id = $$net;
-		$net->cmd2($act->{from}->{$id}, NICK => $act->{to}->{$id}, $act->{dst}->ts());
+		$net->cmd2($act->{from}->{$id}, NICK => $act->{to}->{$id}, $act->{dst}->ts($net));
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
 		my $item = $act->{item};

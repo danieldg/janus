@@ -25,15 +25,15 @@ Home network object for this nick.
 
 String of the home nick of this user
 
-=item $nick->ts()
+=item $nick->ts($net)
 
-Last nick-change timestamp of this user (to help determine collision resolution)
+Last nick-change timestamp of this user on the given network
 
 =cut
 
-our(@gid, @homenet, @homenick, @nets, @nicks, @chans, @mode, @info, @ts);
-Persist::register_vars(qw(gid homenet homenick nets nicks chans mode info ts));
-Persist::autoget(qw(gid homenet homenick ts));
+our(@gid, @homenet, @homenick, @nets, @nicks, @nickts, @chans, @mode, @info);
+Persist::register_vars(qw(gid homenet homenick nets nicks nickts chans mode info));
+Persist::autoget(qw(gid homenet homenick));
 
 our %umodebit;
 do {
@@ -65,8 +65,8 @@ sub _init {
 	$homenick[$$nick] = $ifo->{nick};
 	$nets[$$nick] = { $$net => $net };
 	$nicks[$$nick] = { $$net => $ifo->{nick} };
+	$nickts[$$nick] = { $$net => $ifo->{ts} };
 	$chans[$$nick] = [];
-	$ts[$$nick] = 0 + ($ifo->{ts} || $Janus::time);
 	$info[$$nick] = $ifo->{info} || {};
 	$mode[$$nick] = 0;
 	if ($ifo->{mode}) {
@@ -91,7 +91,6 @@ sub to_ij {
 	$out .= ' gid='.$ij->ijstr($gid[$$nick]);
 	$out .= ' net='.$ij->ijstr($homenet[$$nick]);
 	$out .= ' nick='.$ij->ijstr($homenick[$$nick]);
-	$out .= ' ts='.$ij->ijstr($ts[$$nick]);
 	$out .= ' mode='.$ij->ijstr(\%mode);
 	$out .= ' info=';
 	$out . $ij->ijstr($info[$$nick]);
@@ -324,6 +323,13 @@ sub str {
 	$nicks[$$nick]{$$net};
 }
 
+our @ts;
+sub ts {
+	my($nick,$net) = @_;
+	$nickts[$$nick]{$$net} ||= $ts[$$nick] if exists $ts[$$nick];
+	$nickts[$$nick]{$$net};
+}
+
 =back
 
 =cut
@@ -347,6 +353,7 @@ Event::hook_add(
 		return if $net->jlink();
 
 		my $rnick = $net->request_newnick($nick, $homenick[$$nick], $act->{tag});
+		$nickts[$$nick]->{$$net} = $Janus::time;
 		$nicks[$$nick]->{$$net} = $rnick;
 	}, RECONNECT => act => sub {
 		my $act = shift;
@@ -358,6 +365,7 @@ Event::hook_add(
 		if ($act->{altnick}) {
 			my $from = $act->{from} = $nicks[$$nick]{$$net};
 			my $to = $act->{to} = $net->request_cnick($nick, $homenick[$$nick], 2);
+			$nickts[$$nick]->{$$net} = $Janus::time;
 			$nicks[$$nick]{$$net} = $to;
 		}
 
@@ -371,7 +379,6 @@ Event::hook_add(
 		my $new = $act->{nick};
 		my $ftag = $act->{tag} || {};
 
-		$ts[$$nick] = 0+$act->{nickts} if $act->{nickts};
 		for my $id (keys %{$nets[$$nick]}) {
 			my $net = $nets[$$nick]->{$id};
 			next if $net->jlink();
@@ -379,6 +386,7 @@ Event::hook_add(
 			my $from = $nicks[$$nick]->{$id};
 			my $to = $net->request_cnick($nick, $new, $tag);
 			$nicks[$$nick]->{$id} = $to;
+			$nickts[$$nick]->{$$net} = ($net == $nick->homenet && $act->{nickts}) || $Janus::time;
 
 			$act->{from}->{$id} = $from;
 			$act->{to}->{$id} = $to;

@@ -135,7 +135,7 @@ sub next_uid {
 
 sub collide_winner {
 	my($net,$old,$new) = @_;
-	my $tsctl = $old->ts() <=> $new->ts();
+	my $tsctl = $old->ts($net) <=> $new->ts($net);
 
 	if ($new->info('ident') eq $old->info('ident') && $new->info('ip') eq $old->info('ip')) {
 		# this is a ghosting nick, we REVERSE the normal timestamping
@@ -179,7 +179,7 @@ sub _connect_ifo {
 	}
 	push @out, $net->cmd2($nick, AWAY => $nick->info('away')) if $nick->info('away');
 	my $host = $nick->info($net->param('untrusted') ? 'vhost' : 'host');
-	unshift @out, $net->cmd2($nick->homenet, UID => $nick, $nick->ts, $nick->str($net),
+	unshift @out, $net->cmd2($nick->homenet, UID => $nick, $nick->ts($net), $nick->str($net),
 		$host, $nick->info('vhost'), $nick->info('ident'), $ip, ($nick->info('signonts') || 1),
 		$mode, @modearg, $nick->info('name'));
 
@@ -795,10 +795,11 @@ $moddef{CORE} = {
 	SVSNICK => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
+		my $ts = $_[4];
 		if ($nick->homenet == $net) {
 			Log::debug_in($net, "Misdirected SVSNICK ignored");
 			return ();
-		} elsif (lc $nick->homenick eq lc $nick->str($net)) {
+		} elsif ($ts >= $nick->ts($net)) {
 			return +{
 				type => 'RECONNECT',
 				src => $net->item($_[0]),
@@ -808,8 +809,7 @@ $moddef{CORE} = {
 				altnick => 1,
 			};
 		} else {
-			Log::warn_in($net, "Bouncing SVSNICK on already tagged nick");
-			$net->send($net->cmd2($nick, NICK => $nick->str($net), $nick->ts));
+			$net->send($net->cmd2($nick, NICK => $nick->str($net), $nick->ts($net)));
 			return ();
 		}
 	},
@@ -1022,13 +1022,13 @@ $moddef{CORE} = {
 			}
 			return @out;
 		} else {
-			return $net->cmd2($nick, NICK => $act->{to}, $nick->ts);
+			return $net->cmd2($nick, NICK => $act->{to}, $nick->ts($net));
 		}
 	}, NICK => sub {
 		my($net,$act) = @_;
 		my $id = $$net;
 		my $dst = $act->{dst};
-		$net->cmd2($dst, NICK => $act->{to}{$id}, $dst->ts);
+		$net->cmd2($dst, NICK => $act->{to}{$id}, $dst->ts($net));
 	}, UMODE => sub {
 		my($net,$act) = @_;
 		my $pm = '';
