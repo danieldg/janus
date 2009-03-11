@@ -505,15 +505,15 @@ $moddef{CORE} = {
 				home_server => $srvname,
 				ident => $_[6],
 				vhost => $_[7],
+				host => $_[7],
 				ip => $_[8],
+				signonts => $Janus::time,
 				name => $_[-1],
 			},
 		);
 		if ($_[1] eq 'EUID') {
 			$nick{info}{host} = $_[10];
 			$nick{info}{svsaccount} = $_[11] if $_[11] ne '0';
-		} else {
-			$nick{info}{host} = $_[7];
 		}
 		my @m = split //, $_[5];
 		warn unless '+' eq shift @m;

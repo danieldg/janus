@@ -319,6 +319,7 @@ $moddef{CORE} = {
 				host => $_[4],
 				vhost => $_[5],
 				ident => $_[6],
+				signonts => $Janus::time,
 				ip => $ip,
 				name => $_[-1],
 			},

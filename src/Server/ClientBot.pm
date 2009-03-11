@@ -198,6 +198,7 @@ sub cli_hostintro {
 			ts => $ts,
 			nick => $nname,
 			info => {
+				signonts => $Janus::time,
 				host => $host,
 				vhost => $host,
 				ident => $ident,

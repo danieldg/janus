@@ -93,6 +93,7 @@ Event::hook_add(
 				vhost => ($Conffile::netconf{set}{janus_host} || 'service'),
 				name => 'Janus Control Interface',
 				opertype => 'Janus Service',
+				signonts => $^T,
 				noquit => 1,
 			},
 			mode => { oper => 1, service => 1, bot => 1 },
@@ -217,7 +218,7 @@ sub send {
 		} elsif ($act->{type} eq 'WHOIS' && $act->{dst} == $janus) {
 			my $src = $act->{src} or next;
 			my $snet = $src->homenet;
-			Event::append(whois_reply($src, $janus, 0, $^T,
+			Event::append(whois_reply($src, $janus, 0, $janus->info('signonts'),
 				312 => [ 'janus.janus', "Janus Interface" ],
 			));
 		} elsif ($act->{type} eq 'TSREPORT') {

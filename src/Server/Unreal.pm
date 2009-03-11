@@ -726,12 +726,12 @@ $moddef{CORE} = {
 			nick => $_[2],
 			ts => $net->sjbint($_[4]),
 			info => {
-				#hopcount => $_[3],
 				ident => $_[5],
 				host => $_[6],
 				vhost => $_[6],
 				home_server => $net->srvname($_[7]),
 				svsts => $net->sjbint($_[8]),
+				signonts => $Janus::time,
 				name => $_[-1],
 			},
 		);
