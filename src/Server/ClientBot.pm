@@ -175,6 +175,10 @@ sub txt2cmode {
 	$txt2cmode[${$_[0]}]{$_[1]};
 }
 
+sub lc {
+	lc $_[1];
+}
+
 sub cli_hostintro {
 	my($net, $nname, $ident, $host, $gecos) = @_;
 	my @out;

@@ -204,6 +204,12 @@ sub protoctl {
 	$capabs[$$net]{PROTOCOL}
 }
 
+sub lc {
+	my $o = $_[1];
+	$o =~ tr#A-Z[]\\#a-z{}|#;
+	$o;
+}
+
 # IRC Parser
 # Arguments:
 #	$_[0] = Network

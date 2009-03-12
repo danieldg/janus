@@ -25,7 +25,7 @@ sub mynick {
 	my($net, $name) = @_;
 	if ($name !~ /^\d/) {
 		Log::warn_in($net, "Nick used where UID expected; converting");
-		$name =~ tr#A-Z[]\\#a-z{}|#;
+		$name = $net->lc($name);
 		$name = $nick2uid[$$net]{$name} || $name;
 	}
 	my $nick = $uids[$$net]{uc $name};
@@ -45,7 +45,7 @@ sub nick {
 	my($net, $name) = @_;
 	if ($name !~ /^\d/) {
 		Log::warn_in($net, "Nick used where UID expected: converting") unless $_[2];
-		$name =~ tr#A-Z[]\\#a-z{}|#;
+		$name = $net->lc($name);
 		$name = $nick2uid[$$net]{$name} || $name;
 	}
 	return $uids[$$net]{uc $name} if $uids[$$net]{uc $name};
@@ -66,7 +66,7 @@ sub register_nick {
 		dst => $new,
 	};
 
-	$name =~ tr#A-Z[]\\#a-z{}|#;
+	$name = $net->lc($name);
 	my $old_uid = delete $nick2uid[$$net]{$name};
 	unless ($old_uid) {
 		$nick2uid[$$net]{$name} = $new_uid;
@@ -117,8 +117,7 @@ sub _request_nick {
 	$reqnick =~ s/[^0-9a-zA-Z\[\]\\^\-_`{|}]/_/g;
 	my $maxlen = $net->nicklen();
 	my $given = substr $reqnick, 0, $maxlen;
-	my $given_lc = $given;
-	$given_lc =~ tr#A-Z[]\\#a-z{}|#;
+	my $given_lc = $net->lc($given);
 
 	$tagged = 1 if exists $nick2uid[$$net]->{$given_lc};
 
@@ -129,12 +128,12 @@ sub _request_nick {
 		my $tagsep = Setting::get(tagsep => $net);
 		my $tag = $tagsep . $nick->homenet()->name();
 		my $i = 0;
-		$given_lc = $given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
-		$given_lc =~ tr#A-Z[]\\#a-z{}|#;
+		$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
+		$given_lc = $net->lc($given);
 		while (exists $nick2uid[$$net]->{$given_lc}) {
 			my $itag = $tagsep.(++$i).$tag; # it will find a free nick eventually...
-			$given_lc = $given = substr($reqnick, 0, $maxlen - length $itag) . $itag;
-			$given_lc =~ tr#A-Z[]\\#a-z{}|#;
+			$given = substr($reqnick, 0, $maxlen - length $itag) . $itag;
+			$given_lc = $net->lc($given);
 		}
 	}
 	($given,$given_lc);
@@ -156,8 +155,7 @@ sub request_cnick {
 	my($net, $nick, $reqnick, $tagged) = @_;
 	$tagged ||= 0;
 	my $uid = $net->nick2uid($nick);
-	my $current = $nick->str($net);
-	$current =~ tr#A-Z[]\\#a-z{}|#;
+	my $current = $net->lc($nick->str($net));
 	my $curr_uid = $nick2uid[$$net]{$current};
 	if ($tagged != 2 && $curr_uid eq $uid) {
 		delete $nick2uid[$$net]{$current};
@@ -173,7 +171,7 @@ sub request_cnick {
 # Release a nick on a remote network (PART/QUIT must be sent BEFORE this)
 sub release_nick {
 	my($net, $req, $nick) = @_;
-	$req =~ tr#A-Z[]\\#a-z{}|#;
+	$req = $net->lc($req);
 	delete $nick2uid[$$net]{$req};
 	my $uid = delete $gid2uid[$$net]{$nick->gid()};
 	delete $uids[$$net]{uc $uid};

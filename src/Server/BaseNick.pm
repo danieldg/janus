@@ -17,7 +17,7 @@ sub _init {
 
 sub mynick {
 	my($net, $name) = @_;
-	$name =~ tr#A-Z[]\\#a-z{}|#;
+	$name = $net->lc($name);
 	my $nick = $nicks[$$net]{$name};
 	unless ($nick) {
 		Log::debug_in($net, "Nick '$name' does not exist; ignoring");
@@ -33,7 +33,7 @@ sub mynick {
 
 sub nick {
 	my($net, $name) = @_;
-	$name =~ tr#A-Z[]\\#a-z{}|#;
+	$name = $net->lc($name);
 	return $nicks[$$net]{$name} if $nicks[$$net]{$name};
 	Log::debug_in($net, "Nick '$name' does not exist; ignoring") unless $_[2];
 	undef;
@@ -44,14 +44,14 @@ sub request_nick {
 	my($net, $nick, $reqnick, $tagged) = @_;
 	my ($given,$given_lc);
 	if ($nick->homenet() eq $net) {
-		$given = $given_lc = $reqnick;
-		$given_lc =~ tr#A-Z[]\\#a-z{}|#;
+		$given = $reqnick;
+		$given_lc = $net->lc($given);
 	} else {
 		$reqnick =~ s/[^0-9a-zA-Z\[\]\\^\-_`{|}]/_/g;
 		$reqnick = '_'.$reqnick unless $reqnick =~ /^[A-Za-z\[\]\\^\-_`{|}]/;
 		my $maxlen = $net->nicklen();
-		$given_lc = $given = substr $reqnick, 0, $maxlen;
-		$given_lc =~ tr#A-Z[]\\#a-z{}|#;
+		$given = substr $reqnick, 0, $maxlen;
+		$given_lc = $net->lc($given);
 
 		$tagged = 1 if exists $nicks[$$net]->{$given_lc};
 
@@ -62,12 +62,12 @@ sub request_nick {
 			my $tagsep = Setting::get(tagsep => $net);
 			my $tag = $tagsep . $nick->homenet()->name();
 			my $i = 0;
-			$given_lc = $given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
-			while (1) {
-				$given_lc =~ tr#A-Z[]\\#a-z{}|#;
-				last if !exists $nicks[$$net]->{$given_lc};
+			$given = substr($reqnick, 0, $maxlen - length $tag) . $tag;
+			$given_lc = $net->lc($given);
+			while (exists $nicks[$$net]->{$given_lc}) {
 				my $itag = $tagsep.(++$i).$tag;
 				$given = substr($reqnick, 0, $maxlen - length $itag) . $itag;
+				$given_lc = $net->lc($given);
 			}
 		}
 	}
@@ -83,8 +83,7 @@ sub request_newnick {
 sub request_cnick {
 	my($net, $nick, $reqnick, $tagged) = @_;
 	$tagged ||= 0;
-	my $b4 = $nick->str($net);
-	$b4 =~ tr#A-Z[]\\#a-z{}|#;
+	my $b4 = $net->lc($nick->str($net));
 	if ($tagged != 2 && $nicks[$$net]{$b4} == $nick) {
 		delete $nicks[$$net]{$b4};
 	}
@@ -98,8 +97,7 @@ sub request_cnick {
 # Release a nick on a remote network (PART/QUIT must be sent BEFORE this)
 sub release_nick {
 	my($net, $req, $nick) = @_;
-	$req =~ tr#A-Z[]\\#a-z{}|#;
-	delete $nicks[$$net]->{$req};
+	delete $nicks[$$net]->{$net->lc($req)};
 }
 
 sub all_nicks {
@@ -110,7 +108,7 @@ sub all_nicks {
 sub item {
 	my($net, $item) = @_;
 	return undef unless defined $item;
-	$item =~ tr#A-Z[]\\#a-z{}|#;
+	$item = $net->lc($item);
 	return $net->chan($item) if $item =~ /^#/;
 	return $nicks[$$net]{$item} if exists $nicks[$$net]{$item};
 	return $net if $item =~ /\./;

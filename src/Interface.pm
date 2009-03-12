@@ -239,10 +239,9 @@ sub release_nick { }
 sub is_synced { 0 }
 sub all_nicks { $janus }
 sub all_chans { values %Janus::gchans }
-
-sub chan {
-	$Janus::gchans{$_[1]};
-}
+sub lc { $_[1] }
+sub type { 'Interface' }
+sub chan { $Janus::gchans{$_[1]}; }
 
 sub replace_chan {
 	my $new = $_[2];

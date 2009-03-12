@@ -49,6 +49,12 @@ sub nicklen {
 	15 # TODO any way to tell?
 }
 
+sub lc {
+	my $o = $_[1];
+	$o =~ tr#A-Z[]\\#a-z{}|#;
+	$o;
+}
+
 sub str {
 	my $net = shift;
 	$net->jname();

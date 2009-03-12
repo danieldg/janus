@@ -7,6 +7,11 @@ use strict;
 use warnings;
 use Carp;
 
+our @type;
+Persist::register_vars(qw(type));
+Persist::autoinit(qw(type));
+Persist::autoget(qw(type));
+
 sub all_nicks {
 	my $net = shift;
 	grep { $_->is_on($net) } values %Janus::gnicks;
@@ -21,13 +26,22 @@ sub all_chans {
 
 sub chan {
 	my($net, $cname) = @_;
-	$cname =~ tr#A-Z[]\\#a-z{}|#;
-	my $kn = $net->gid() . $cname;
+	my $kn = $net->gid() . $net->lc($cname);
 	my $c = $Janus::gchans{$kn};
 	if (!$c && $_[2]) {
 		croak "Cannot create remote channel";
 	}
 	$c;
+}
+
+sub lc {
+	my($net, $o) = @_;
+	if ($type[$$net] eq 'Server::Unreal' || $type[$$net] eq 'Server::ClientBot') {
+		$o = lc $o;
+	} else {
+		$o =~ tr#A-Z[]\\#a-z{}|#;
+	}
+	$o;
 }
 
 sub send {

@@ -53,10 +53,11 @@ sub _init {
 sub to_ij {
 	my($net,$ij) = @_;
 	my $out = '';
-	$out .= ' gid='.$ij->ijstr($net->gid());
-	$out .= ' id='.$ij->ijstr($net->name());
-	$out .= ' jlink='.$ij->ijstr($net->jlink() || $RemoteJanus::self);
-	$out .= ' netname='.$ij->ijstr($net->netname());
+	$out .= ' gid='.$ij->ijstr($net->gid);
+	$out .= ' id='.$ij->ijstr($net->name);
+	$out .= ' jlink='.$ij->ijstr($net->jlink || $RemoteJanus::self);
+	$out .= ' netname='.$ij->ijstr($net->netname);
+	$out .= ' type='.$ij->ijstr($net->type);
 	$out;
 }
 

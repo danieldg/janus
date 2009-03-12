@@ -67,6 +67,12 @@ sub auth_should_send {
 	1;
 }
 
+sub type {
+	my $t = ref $_[0];
+	$t = ${$_[0]}->{class} if $t eq 'Persist::Poison';
+	$t;
+}
+
 Event::setting_add({
 	name => 'force_tag',
 	type => 'LocalNetwork',
@@ -93,7 +99,7 @@ eval($Janus::lmode eq 'Bridge' ? '#line '.__LINE__.' "'.__FILE__.qq{"\n}.q[#[[]]
 
 sub chan {
 	my($net, $name, $new) = @_;
-	$name =~ tr#A-Z[]\\\\#a-z{}|#;
+	$name = $net->lc($name);
 	unless (exists $Janus::chans{$name}) {
 		return undef unless $new;
 		my $chan = Channel->new(
@@ -108,7 +114,7 @@ sub chan {
 
 sub replace_chan {
 	my($net,$name,$new) = @_;
-	$name =~ tr#A-Z[]\\\\#a-z{}|#;
+	$name = $net->lc($name);
 	my $old = $Janus::chans{$name};
 	warn "replacing nonexistant channel" unless $old;
 	if (defined $new) {
@@ -135,7 +141,7 @@ sub _init {
 
 sub chan {
 	my($net, $name, $new) = @_;
-	$name =~ tr#A-Z[]\\\\#a-z{}|#;
+	$name = $net->lc($name);
 	unless (exists $chans[$$net]{$name}) {
 		return undef unless $new;
 		my $chan = Channel->new(
@@ -150,7 +156,7 @@ sub chan {
 
 sub replace_chan {
 	my($net,$name,$new) = @_;
-	$name =~ tr#A-Z[]\\\\#a-z{}|#;
+	$name = $net->lc($name);
 	my $old = $chans[$$net]{$name};
 	warn "replacing nonexistant channel" unless $old;
 	if (defined $new) {

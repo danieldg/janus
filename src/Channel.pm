@@ -272,9 +272,7 @@ sub str {
 
 sub lstr {
 	my($chan,$net) = @_;
-	my $cn = $keyname[$$chan];
-	$cn =~ tr#A-Z[]\\\\#a-z{}|#;
-	$cn;
+	$net->lc($keyname[$$chan]);
 }
 
 sub real_keyname {
@@ -318,8 +316,7 @@ sub netname {
 	my $c = $_[0];
 	my $n = $homenet[$$c];
 	my $cn = $names[$$c]{$$n};
-	$cn =~ tr#A-Z[]\\\\#a-z{}|#;
-	$n->name . $cn;
+	$n->name . $n->lc($cn);
 }
 
 sub to_ij {
@@ -531,8 +528,7 @@ sub lstr {
 	return undef unless $net;
 	return $keyname[$$chan] if $net == $Interface::network;
 	my $cn = $names[$$chan]{$$net};
-	$cn =~ tr#A-Z[]\\\\#a-z{}|# if defined $cn;
-	$cn;
+	$net->lc($cn);
 }
 
 sub is_on {
