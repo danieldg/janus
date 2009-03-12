@@ -33,7 +33,7 @@ sub v_nick {
 	if ($Janus::gnicks{$gid} == $nick) {
 		return unless $top;
 	} else {
-		push @err, "nick $$nick not in gnicks; found in $path";
+		push @err, "nick $$nick not in gnicks at $gid; found in $path";
 	}
 	if ($hs) {
 		v_serv $hs, "nick $$nick (homenet) <= $path";
@@ -58,7 +58,7 @@ sub v_nick {
 }
 
 sub v_serv {
-	my($net, $path) = @_;
+	my($net, $path, $top) = @_;
 	if (ref $net eq 'Persist::Poison') {
 		my $id = $$net->{id};
 		push @err, "Poisoned network $id ($Network::gid[$id] = $Network::name[$id]) in $path";
@@ -69,13 +69,15 @@ sub v_serv {
 		return;
 	}
 
-	return if $sseen{$$net};
+	return if $sseen{$$net} && !$top;
 	$sseen{$$net} = $net;
 
 	my $gid = $net->gid;
 	my $name = $net->name;
 
-	if ($Janus::gnets{$gid} != $net) {
+	if ($Janus::gnets{$gid} == $net) {
+		return unless $top;
+	} else {
 		push @err, "net $$net ($name - $gid) not in gnets; found in $path";
 	}
 	if ($Janus::nets{$name} != $net) {
@@ -110,7 +112,7 @@ sub v_chan {
 	my $hnet = $chan->homenet;
 
 	if ($kn && $Janus::gchans{$kn} != $chan) {
-		push @err, "channel $$chan not in gchans; found in $path";
+		push @err, "channel $$chan not in gchans at $kn; found in $path";
 	}
 	if (!$kn && $Janus::gchans{$chan->real_keyname}) {
 		my $imp = $Janus::gchans{$chan->real_keyname};
@@ -141,9 +143,9 @@ sub verify {
 	(@err, %cseen, %nseen, %sseen, %n_c) = ();
 
 	v_nick $_,'gnicks',1 for values %Janus::gnicks;
-	v_chan $_,'gchans' for values %Janus::gchans;
-	v_serv $_,'gnets' for values %Janus::gnets;
+	v_serv $_,'gnets',1 for values %Janus::gnets;
 	v_serv $_,'nets' for values %Janus::nets;
+	v_chan $_,'gchans' for values %Janus::gchans;
 
 	while (my($k,$v) = each %n_c) {
 		next if $v == 3;
