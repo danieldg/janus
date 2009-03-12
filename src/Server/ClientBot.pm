@@ -146,7 +146,7 @@ sub process_capabs {
 		my %t2c;
 		for my $i (0..$#g) {
 			for (split //, $g[$i]) {
-				my $name = $ltype[$i].'__'.$ttype[$i].($_ eq lc $_ ? 'l' : 'u').(lc $_);
+				my $name = $ltype[$i].'__'.$ttype[$i].($_ eq CORE::lc $_ ? 'l' : 'u').(CORE::lc $_);
 
 				my $def = $def_c2t{$_};
 				if ($def && $def =~ /^._(.*)/ && Modes::mtype($1) eq $ttype[$i]) {
@@ -176,7 +176,7 @@ sub txt2cmode {
 }
 
 sub lc {
-	lc $_[1];
+	CORE::lc $_[1];
 }
 
 sub cli_hostintro {
@@ -381,7 +381,7 @@ sub request_cnick {
 sub delink_cancel_join {
 	my $net = shift;
 	my $curr = $half_out[$$net][0];
-	if ($curr && $curr->[2] eq 'JOIN' && lc $_[3] eq lc $curr->[3]) {
+	if ($curr && $curr->[2] eq 'JOIN' && $net->lc($_[3]) eq $net->lc($curr->[3])) {
 		$net->shift_halfout();
 	}
 	my $chan = $net->chan($_[3]) or return ();
@@ -616,7 +616,7 @@ sub pm_not {
 		if ($_[1] eq 'PRIVMSG') {
 			$net->send("NOTICE $_[0] :Error: user not found. To message a user, prefix your message with their nick");
 		} elsif ($_[1] eq 'NOTICE') {
-			if (lc $_[0] eq 'nickserv') {
+			if ($net->lc($_[0]) eq 'nickserv') {
 				if ($_[3] =~ /(registered|protected|identify)/i && $_[3] !~ / not /i) {
 					return +{
 						type => 'IDENTIFY',
@@ -662,7 +662,7 @@ sub kicked {
 			msg => 'Janus relay bot kicked by '.$knick.': '.$msg,
 		};
 		my @chans = $nick->all_chans();
-		if (!@chans || (@chans == 1 && lc $chans[0]->str($net) eq lc $cname)) {
+		if (!@chans || (@chans == 1 && $chans[0] == $chan)) {
 			push @out, +{
 				type => 'QUIT',
 				dst => $nick,
@@ -689,9 +689,9 @@ sub kicked {
 	NOTICE => \&pm_not,
 	JOIN => sub {
 		my $net = shift;
-		if (lc $_[0] eq lc $self[$$net]) {
+		if ($net->lc($_[0]) eq $net->lc($self[$$net])) {
 			my $curr = $half_out[$$net][0];
-			if ($curr && $curr->[2] eq 'JOIN' && lc $curr->[3] eq lc $_[2]) {
+			if ($curr && $curr->[2] eq 'JOIN' && $net->lc($curr->[3]) eq $net->lc($_[2])) {
 				$net->add_halfout([ 30, "WHO $_[2]", 'WHO/C', $_[2], {} ]);
 				$net->shift_halfout();
 			} else {
@@ -709,7 +709,7 @@ sub kicked {
 	},
 	NICK => sub {
 		my $net = shift;
-		if (lc $_[0] eq lc $self[$$net]) {
+		if ($net->lc($_[0]) eq $net->lc($self[$$net])) {
 			$self[$$net] = $_[2];
 			return ();
 		}
@@ -744,7 +744,7 @@ sub kicked {
 	PART => sub {
 		my $net = shift;
 		my $chan = $net->chan($_[2]) or return ();
-		if (lc $_[0] eq lc $self[$$net]) {
+		if ($net->lc($_[0]) eq $net->lc($self[$$net])) {
 			if (grep $_ == $chan, $Interface::janus->all_chans) {
 				# SAPART == same as kick
 				return $net->kicked($_[2], $_[3],$_[1]);
@@ -761,7 +761,7 @@ sub kicked {
 		};
 		for my $i (0..$#{$half_out[$$net]}) {
 			my $curr = $half_out[$$net][$i];
-			next unless $curr->[2] eq 'KICK' && lc $curr->[3] eq lc $_[2];
+			next unless $curr->[2] eq 'KICK' && $net->lc($curr->[3]) eq $net->lc($_[2]);
 			next unless $curr->[4] && $curr->[4] == $nick;
 			if ($i) {
 				splice @{$half_out[$$net]}, $i, 1;
@@ -772,7 +772,7 @@ sub kicked {
 			last;
 		}
 		my @chans = $nick->all_chans();
-		if (!@chans || (@chans == 1 && lc $chans[0]->str($net) eq lc $_[2])) {
+		if (!@chans || (@chans == 1 && $chans[0] == $chan)) {
 			push @out, +{
 				type => 'QUIT',
 				dst => $nick,
@@ -803,7 +803,7 @@ sub kicked {
 		};
 		for my $i (0..$#{$half_out[$$net]}) {
 			my $curr = $half_out[$$net][$i];
-			next unless $curr->[2] eq 'KICK' && lc $curr->[3] eq lc $_[2];
+			next unless $curr->[2] eq 'KICK' && $net->lc($curr->[3]) eq $net->lc($_[2]);
 			next unless $curr->[4] && $curr->[4] == $victim;
 			if ($i) {
 				splice @{$half_out[$$net]}, $i, 1;
@@ -814,7 +814,7 @@ sub kicked {
 			last;
 		}
 		my @chans = $victim->all_chans();
-		if (!@chans || (@chans == 1 && lc $chans[0]->str($net) eq lc $_[2])) {
+		if (!@chans || (@chans == 1 && $chans[0] == $chan)) {
 			push @out, +{
 				type => 'QUIT',
 				dst => $victim,
@@ -840,7 +840,7 @@ sub kicked {
 	PONG => \&ignore,
 	MODE => sub {
 		my $net = shift;
-		if (lc $_[0] eq lc $self[$$net]) {
+		if ($net->lc($_[0]) eq $net->lc($self[$$net])) {
 			# confirmation of self-sourced mode change
 		} elsif ($_[2] =~ /^#/) {
 			my $nick = $net->item($_[0]) or return ();
@@ -1015,14 +1015,14 @@ sub kicked {
 		my $curr = $half_out[$$net][0];
 		my $chan;
 		if ($curr && $curr->[2] eq 'WHO/C') {
-			unless (lc $curr->[3] eq lc $_[3]) {
+			unless ($net->lc($curr->[3]) eq $net->lc($_[3])) {
 				Log::warn_in($net, 'Unexpected WHO reply, expecting '.$curr->[3].', got '.$_[3]);
 				return ();
 			}
 			delete $curr->[4]{$_[7]};
 			$chan = $net->chan($_[3]);
 		} elsif ($curr && $curr->[2] eq 'WHO/N') {
-			unless (lc $curr->[3] eq lc $_[7]) {
+			unless ($net->lc($curr->[3]) eq $net->lc($_[7])) {
 				Log::warn_in($net, 'Unexpected WHO reply, expecting '.$curr->[3].', got '.$_[7]);
 				return ();
 			}
@@ -1034,7 +1034,7 @@ sub kicked {
 			Log::warn_in($net, 'Unexpected WHO reply');
 			return ();
 		}
-		return () if lc $_[7] eq lc $self[$$net];
+		return () if $net->lc($_[7]) eq $net->lc($self[$$net]);
 		my $gecos = $_[-1];
 		$gecos =~ s/^\d+\s//; # remove server hop count
 		my @out = $net->cli_hostintro($_[7], $_[4], $_[5], $gecos);
@@ -1053,7 +1053,7 @@ sub kicked {
 	315 => sub {
 		my $net = shift;
 		my $curr = $half_out[$$net][0];
-		if ($curr && $curr->[2] =~ /^WHO/ && lc $curr->[3] eq lc $_[3]) {
+		if ($curr && $curr->[2] =~ /^WHO/ && $net->lc($curr->[3]) eq $net->lc($_[3])) {
 			if ($curr->[2] eq 'WHO/C' && %{$curr->[4]}) {
 				Log::debug_in($net, "Incomplete channel /WHO reply for $_[3], querying manually");
 				for my $k (keys %{$curr->[4]}) {
@@ -1070,7 +1070,7 @@ sub kicked {
 		my $net = shift;
 		# :server 353 jmirror = #channel :nick @nick
 		for my $curr (@{$half_out[$$net]}) {
-			if ($curr && $curr->[2] eq 'WHO/C' && lc $curr->[3] eq lc $_[4]) {
+			if ($curr && $curr->[2] eq 'WHO/C' && $net->lc($curr->[3]) eq $net->lc($_[4])) {
 				/^([-,.`*?!^~&\$\@\%+=]*)(.*)/ and $curr->[4]{$2} = $1 for split / /, $_[-1];
 			}
 		}

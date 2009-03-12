@@ -139,7 +139,7 @@ my $textip_table = join '', 'A'..'Z','a'..'z', 0 .. 9, '+/';
 sub nicklen { 30 }
 
 sub lc {
-	lc $_[1];
+	CORE::lc $_[1];
 }
 
 sub request_nick {
@@ -338,7 +338,7 @@ sub _connect_ifo {
 sub nickact {
 	#(SET|CHG)(HOST|IDENT|NAME)
 	my $net = shift;
-	my($type, $act) = (lc($_[1]) =~ /(SET|CHG)(HOST|IDENT|NAME)/i);
+	my($type, $act) = (CORE::lc($_[1]) =~ /(SET|CHG)(HOST|IDENT|NAME)/i);
 	$act =~ s/host/vhost/i;
 
 	my($src,$dst);
@@ -356,7 +356,7 @@ sub nickact {
 			type => 'NICKINFO',
 			src => $src,
 			dst => $dst,
-			item => lc $act,
+			item => CORE::lc $act,
 			value => $_[-1],
 		};
 	} else {
@@ -863,7 +863,7 @@ $moddef{CORE} = {
 		if ($nick->homenet eq $net) {
 			Log::warn_in($net, "Misdirected SVSNICK!");
 			return ();
-		} elsif (lc $nick->homenick eq lc $_[2]) {
+		} elsif ($net->lc($nick->homenick) eq $net->lc($_[2])) {
 			return +{
 				type => 'RECONNECT',
 				src => $net->item($_[0]),
@@ -1126,7 +1126,7 @@ $moddef{CORE} = {
 		my $net = shift;
 		# :src SERVER name hopcount [numeric] description
 		my $src = $_[0] ? $net->srvname($_[0]) : $net->cparam('linkname');
-		my $name = lc $_[2];
+		my $name = CORE::lc $_[2];
 		my $desc = $_[-1];
 
 		my $snum = 0;
@@ -1148,7 +1148,7 @@ $moddef{CORE} = {
 		}
 		Log::info_in($net, "Server $_[2] [\@$snum] added from $src");
 		$servers[$$net]{$name} = {
-			parent => lc $src,
+			parent => CORE::lc $src,
 			hops => $_[3],
 			numeric => $snum,
 		};
@@ -1161,7 +1161,7 @@ $moddef{CORE} = {
 	}, SQUIT => sub {
 		my $net = shift;
 		my $srv = $net->srvname($_[2]);
-		my $splitfrom = $servers[$$net]{lc $srv}{parent};
+		my $splitfrom = $servers[$$net]{CORE::lc $srv}{parent};
 
 		if (!$splitfrom && $srv =~ /^(.*)\.janus/) {
 			my $ns = $Janus::nets{$1} or return ();
@@ -1179,7 +1179,7 @@ $moddef{CORE} = {
 			return @out;
 		}
 
-		my %sgone = (lc $srv => 1);
+		my %sgone = (CORE::lc $srv => 1);
 		my $k = 0;
 		while ($k != scalar keys %sgone) {
 			# loop to traverse each layer of the map
@@ -1194,7 +1194,7 @@ $moddef{CORE} = {
 		my @quits;
 		for my $nick ($net->all_nicks()) {
 			next unless $nick->homenet() eq $net;
-			next unless $sgone{lc $nick->info('home_server')};
+			next unless $sgone{CORE::lc $nick->info('home_server')};
 			push @quits, +{
 				type => 'QUIT',
 				src => $net,
@@ -1316,7 +1316,7 @@ $moddef{CORE} = {
 	TSCTL => sub {
 		my $net = shift;
 		my $nick = $net->item($_[0]) or return ();
-		return () unless lc $_[2] eq 'alltime';
+		return () unless CORE::lc $_[2] eq 'alltime';
 		return +{
 			type => 'TSREPORT',
 			src => $nick,

@@ -641,8 +641,8 @@ $moddef{CORE} = {
 		my $net = shift;
 		if ($net->auth_ok) {
 			Log::debug_in($net, "Introducing server $_[2] from $_[0] with numeric $_[5]");
-			$servers[$$net]{lc $_[2]} = $_[0] =~ /^\d/ ? $servernum[$$net]{$_[0]} : lc $_[0];
-			$serverdsc[$$net]{lc $_[2]} = $_[-1];
+			$servers[$$net]{CORE::lc $_[2]} = $_[0] =~ /^\d/ ? $servernum[$$net]{$_[0]} : CORE::lc $_[0];
+			$serverdsc[$$net]{CORE::lc $_[2]} = $_[-1];
 			$servernum[$$net]{$_[5]} = $_[2];
 			return ();
 		} else {
@@ -660,7 +660,7 @@ $moddef{CORE} = {
 				$sendq1[$$net] .= "ERROR :Bad password\r\n";
 				return ();
 			}
-			$serverdsc[$$net]{lc $_[2]} = $_[-1];
+			$serverdsc[$$net]{CORE::lc $_[2]} = $_[-1];
 			$servernum[$$net]{$_[5]} = $_[2];
 			return ({
 				type => 'NETLINK',
@@ -670,9 +670,9 @@ $moddef{CORE} = {
 	}, SQUIT => sub {
 		my $net = shift;
 		my $srv = $_[2];
-		my $splitfrom = $servers[$$net]{lc $srv};
+		my $splitfrom = $servers[$$net]{CORE::lc $srv};
 
-		my %sgone = (lc $srv => 1);
+		my %sgone = (CORE::lc $srv => 1);
 		my $k = 0;
 		while ($k != scalar keys %sgone) {
 			# loop to traverse each layer of the map
@@ -693,7 +693,7 @@ $moddef{CORE} = {
 		my @quits;
 		for my $nick ($net->all_nicks()) {
 			next unless $nick->homenet() eq $net;
-			next unless $sgone{lc $nick->info('home_server')};
+			next unless $sgone{CORE::lc $nick->info('home_server')};
 			push @quits, +{
 				type => 'QUIT',
 				src => $net,
@@ -831,7 +831,7 @@ $moddef{CORE} = {
 		my $net = shift;
 		if ($_[0]) {
 			my $srv = $servernum[$$net]{$_[0]};
-			return () if $servers[$$net]{lc $srv};
+			return () if $servers[$$net]{CORE::lc $srv};
 			# remote burst
 		} else {
 			Log::warn_in($net, 'Source-less ENDBURST received!');
@@ -969,21 +969,19 @@ $moddef{CORE} = {
 				my $jl = $new->jlink();
 				if ($jl) {
 					push @out, $net->cmd2($jl, SERVER => $new->jname(), '*', 2, $new, $new->netname());
-					push @out, $net->cmd2($new, VERSION => 'Remote Janus Server');
 				} else {
 					push @out, $net->ncmd(SERVER => $new->jname(), '*', 1, $new, $new->netname());
-					push @out, $net->cmd2($new, VERSION => 'Remote Janus Server: '.ref $new);
 				}
+				push @out, $net->cmd2($new, VERSION => 'Remote Janus Server: '.$new->type);
 			}
 		} else {
 			my $jl = $new->jlink();
 			if ($jl) {
 				push @out, $net->cmd2($jl, SERVER => $new->jname(), '*', 2, $new, $new->netname());
-				push @out, $net->cmd2($new, VERSION => 'Remote Janus Server');
 			} else {
 				push @out, $net->ncmd(SERVER => $new->jname(), '*', 1, $new, $new->netname());
-				push @out, $net->cmd2($new, VERSION => 'Remote Janus Server: '.ref $new);
 			}
+			push @out, $net->cmd2($new, VERSION => 'Remote Janus Server: '.$new->type);
 		}
 		return @out;
 	}, NETSPLIT => sub {
