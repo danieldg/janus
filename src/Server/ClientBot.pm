@@ -1071,7 +1071,7 @@ sub kicked {
 		# :server 353 jmirror = #channel :nick @nick
 		for my $curr (@{$half_out[$$net]}) {
 			if ($curr && $curr->[2] eq 'WHO/C' && $net->lc($curr->[3]) eq $net->lc($_[4])) {
-				/^([-,.`*?!^~&\$\@\%+=]*)(.*)/ and $curr->[4]{$2} = $1 for split / /, $_[-1];
+				/^([-,.*?!~&\$\@\%+=]*)(.*)/ and $curr->[4]{$2} = $1 for split / /, $_[-1];
 			}
 		}
 		();
