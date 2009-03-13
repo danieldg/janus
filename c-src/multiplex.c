@@ -34,29 +34,26 @@ static time_t now;
 static struct iostate* sockets;
 static pid_t worker_pid;
 
+#define die(x, ...) do { \
+	fprintf(stderr, x "\n", ##__VA_ARGS__); \
+	exit(1); \
+} while (0)
+
 static void init_worker() {
 	int sv[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sv)) {
-		perror("socketpair");
-		exit(1);
+		die("socketpair: %s", strerror(errno));
 	}
 	worker_pid = fork();
 	if (worker_pid < 0) {
-		perror("fork");
-		exit(1);
+		die("fork: %s", strerror(errno));
 	}
 	if (worker_pid == 0) {
 		close(sv[0]);
 		dup2(sv[1], 0);
 		if (sv[1])
 			close(sv[1]);
-		close(1);
-		int log = open("daemon.log", O_WRONLY| O_CREAT, 0666);
-		if (log != 1) {
-			perror("open");
-			exit(1);
-		}
-		dup2(1, 2);
+		dup2(2, 1);
 		execlp("perl", "perl", "src/worker.pl", conffile, NULL);
 		perror("exec");
 		exit(1);
@@ -85,7 +82,7 @@ void esock(struct sockifo* ifo, const char* msg) {
 	if (ifo->state.mplex_dropped)
 		return;
 	if (ifo->state.type == TYPE_MPLEX)
-		exit(0);
+		die("Multiplex socket closed: %s", msg);
 	qprintf(&sockets->net[0].sendq, "D %d %s\n", ifo->netid, msg);
 }
 
@@ -152,15 +149,18 @@ static void addnet(struct line line) {
 	} __attribute__((__packed__)) args;
 	sscan(line, "sisssi", &args);
 	char type = args.type[1];
-	if (type != 'L' && type != 'C') exit(2);
+	if (type != 'L' && type != 'C')
+		die("Protocol violation: no type %c in addnet", type);
 
 	if (!args.addr || !*args.addr) {
 		if (type == 'C')
-			exit(2);
+			die("Protocol violation: no address to connect to");
 		args.addr = "::";
 	}
-	if (!args.netid || !*args.port)
-		exit(2);
+	if (!args.netid)
+		die("Protocol violation: no netid in addnet");
+	if (!*args.port)
+		die("Protocol violation: no port in addnet");
 
 	struct sockifo* ifo = alloc_ifo();
 	ifo->fd = -1;
@@ -257,7 +257,7 @@ static void delnet(struct line line) {
 	struct sockifo* ifo = find(args.netid);
 
 	if (!ifo)
-		exit(2);
+		die("Cannot find network %d in delnet", args.netid);
 	ifo->state.mplex_dropped = 1;
 	if (ifo->fd >= 0)
 		qprintf(&sockets->net[0].sendq, "D %d Drop Requested\n", ifo->netid);
@@ -281,7 +281,7 @@ static void freeze_net(struct line line) {
 	sscan(line, "-ii", &args);
 	struct sockifo* ifo = find(args.netid);
 	if (!ifo)
-		exit(2);
+		die("Cannot find network %d in freeze_net", args.netid);
 	ifo->state.frozen = args.freeze;
 	writable(ifo);
 	ifo->state.poll = POLL_HANG;
@@ -298,9 +298,8 @@ static void start_ssl(struct line line) {
 	sscan(line, "sisss", &args);
 
 	struct sockifo* ifo = find(args.netid);
-	if (!ifo) {
-		exit(2);
-	}
+	if (!ifo)
+		die("Cannot find network %d in start_ssl", args.netid);
 
 #if SSL_ENABLED
 	ifo->state.frozen = 0;
@@ -324,15 +323,15 @@ static void line_accept(struct line line) {
 	sscan(line, "siii", &args);
 	char type = args.type[1];
 	if (type != 'A' && type != 'D')
-		exit(2);
+		die("Unknown type %c in line_accept", type);
 
 	struct sockifo* lifo = find(args.lnetid);
 
 	if (!lifo || lifo->state.type != TYPE_LISTEN)
-		exit(2);
+		die("Network %d not found or not a listener", args.lnetid);
 	int fd = lifo->ifo_newfd;
 	if (fd <= 0)
-		exit(3);
+		die("Network %d does not have an FD ready", args.lnetid);
 	lifo->ifo_newfd = -1;
 	lifo->state.poll = POLL_FORCE_ROK;
 	if (type == 'D') {
@@ -340,7 +339,7 @@ static void line_accept(struct line line) {
 		return;
 	}
 	if (!args.nnetid)
-		exit(2);
+		die("No new network ID in listen accept");
 
 	int flags = fcntl(fd, F_GETFL);
 	flags |= O_NONBLOCK;
@@ -364,7 +363,7 @@ static void sqfill(struct line line) {
 	sscan(line, "il", &args);
 	struct sockifo* ifo = find(args.netid);
 	if (!ifo)
-		exit(3);
+		die("Cannot find network %d in sqfill", args.netid);
 	q_putl(&ifo->sendq, args.data, 2);
 }
 
@@ -396,7 +395,7 @@ static void mplex_parse(struct line line) {
 		reboot(line);
 		break;
 	default:
-		exit(2);
+		die("Protocol violation: %s", line.data);
 	}
 }
 
@@ -568,9 +567,8 @@ static void init() {
 	sigaction(SIGUSR1, &sig, NULL);
 	sigaction(SIGUSR2, &sig, NULL);
 
-	close(0);
-	close(1);
-	close(2);
+	fclose(stdin);
+	fclose(stdout);
 
 	sockets = malloc(sizeof(struct iostate) + 16 * sizeof(struct sockifo));
 	sockets->size = 16;
