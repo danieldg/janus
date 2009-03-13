@@ -325,8 +325,6 @@ static void line_accept(struct line line) {
 	char type = args.type[1];
 	if (type != 'A' && type != 'D')
 		exit(2);
-	if (!args.nnetid)
-		exit(2);
 
 	struct sockifo* lifo = find(args.lnetid);
 
@@ -341,6 +339,8 @@ static void line_accept(struct line line) {
 		close(fd);
 		return;
 	}
+	if (!args.nnetid)
+		exit(2);
 
 	int flags = fcntl(fd, F_GETFL);
 	flags |= O_NONBLOCK;
