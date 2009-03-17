@@ -212,11 +212,22 @@ sub value {
 sub find_ssl_keys {
 	my($net,$lnet) = @_;
 	return () unless value(linktype => $net) eq 'ssl';
-	return (value(ssl_keyfile => $net), value(ssl_certfile => $net), value(ssl_cafile => $net)) if value(ssl_certfile => $net);
-	return (value(keyfile => $lnet), value(certfile => $lnet), value(cafile => $lnet)) if $lnet && value(certfile => $lnet);
-	return (value(ssl_keyfile => 'set'), value(ssl_certfile => 'set'), value(ssl_cafile => 'set')) if value(ssl_certfile => 'set');
-	Log::warn_in($net, 'Could not find SSL certificates') if $lnet;
-	return ('client', '', '');
+	my $key = value(ssl_keyfile => $net);
+	my $cert = value(ssl_certfile => $net);
+	my $ca = value(ssl_cafile => $net);
+	if ($lnet) {
+		$key ||= value(keyfile => $lnet);
+		$cert ||= value(certfile => $lnet);
+		$ca ||= value(cafile => $lnet);
+	}
+	$key ||= value(ssl_keyfile => 'set');
+	$cert ||= value(ssl_certfile => 'set');
+	$ca ||= value(ssl_cafile => 'set');
+	Log::warn_in($net, 'Could not find SSL certificates') if $lnet && !$cert;
+	$key ||= 'client';
+	$cert ||= '';
+	$ca ||= '';
+	return ($key,$cert,$ca);
 }
 
 sub connect_net {
