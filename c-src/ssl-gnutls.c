@@ -61,7 +61,7 @@ static void ssl_vfy_fp(struct sockifo* ifo) {
 		esock(ifo, "No certificate given to fingerprint");
 		return;
 	}
-	int rv = gnutls_fingerprint(GNUTLS_DIG_SHA256, cert, result + 32, &resultsiz);
+	int rv = gnutls_fingerprint(GNUTLS_DIG_SHA1, cert, result + 32, &resultsiz);
 	if (rv) {
 		esock(ifo, gnutls_strerror(rv));
 		return;
