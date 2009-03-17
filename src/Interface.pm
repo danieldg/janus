@@ -281,7 +281,7 @@ sub api_parse {
 			$fail ||= 'Not enough arguments' unless $opt || @argin;
 			push @args, (@argin ? shift @argin : undef);
 		} elsif ($_ eq '#') {
-			my $n = $argin[0] || '';
+			my $n = @argin ? $argin[0] : '';
 			if ($n =~ /^\d+$/) {
 				shift @argin;
 			} else {
