@@ -42,6 +42,7 @@ struct sockifo {
 
 #if SSL_GNUTLS
 		unsigned int ssl:2;
+		unsigned int ssl_verify_type:2;
 #endif
 	} state;
 
@@ -50,6 +51,7 @@ struct sockifo {
 #if SSL_GNUTLS
 	gnutls_certificate_credentials_t xcred;
 	gnutls_session_t ssl;
+	char* fingerprint;
 #endif
 };
 
@@ -69,6 +71,12 @@ enum ssl_state {
 	SSL_HSHK,
 	SSL_ACTIVE,
 	SSL_BYE,
+};
+
+enum ssl_verify_type {
+	VERIFY_NONE,
+	VERIFY_CA,
+	VERIFY_FP,
 };
 
 void esock(struct sockifo* ifo, const char* msg);

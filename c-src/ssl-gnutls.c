@@ -4,8 +4,12 @@
  */
 #include "mplex.h"
 #include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 // #include <gcrypt.h>
 static gnutls_dh_params_t dh_params;
+static char errbuf[200];
 
 void ssl_gblinit() {
 //	gcry_control(GCRYCTL_ENABLE_QUICK_RANDOM, 0);
@@ -25,6 +29,53 @@ static void do_eagain(struct sockifo* ifo, int strict) {
 void ssl_free(struct sockifo* ifo) {
 	gnutls_deinit(ifo->ssl);
 	gnutls_certificate_free_credentials(ifo->xcred);
+	if (ifo->fingerprint)
+		free(ifo->fingerprint);
+}
+
+static void ssl_vfy_ca(struct sockifo* ifo) {
+	unsigned int status = 0;
+	if (gnutls_certificate_verify_peers2(ifo->ssl, &status)) {
+		esock(ifo, "Error in peer verification");
+	} else if (status & GNUTLS_CERT_INVALID) {
+		esock(ifo, "Certificate Invalid");
+	} else if (status & GNUTLS_CERT_SIGNER_NOT_FOUND) {
+		esock(ifo, "Certificate Signer not found");
+	} else if (status) {
+		esock(ifo, "Other certificate verification error");
+	}
+}
+
+const char hex[16] = "0123456789abcdef";
+
+static void ssl_vfy_fp(struct sockifo* ifo) {
+	unsigned int i;
+	uint8_t result[65];
+	size_t resultsiz = 32;
+	if (!ifo->fingerprint) {
+		esock(ifo, "No fingerprint given");
+		return;
+	}
+	const gnutls_datum_t* cert = gnutls_certificate_get_peers(ifo->ssl, &i);
+	if (i < 1) {
+		esock(ifo, "No certificate given to fingerprint");
+		return;
+	}
+	int rv = gnutls_fingerprint(GNUTLS_DIG_SHA256, cert, result + 32, &resultsiz);
+	if (rv) {
+		esock(ifo, gnutls_strerror(rv));
+		return;
+	}
+	for(i=0; i < 32; i++) {
+		uint8_t v = result[32+i];
+		result[2*i  ] = hex[v / 16];
+		result[2*i+1] = hex[v % 16];
+	}
+	result[64] = 0;
+	if (memcmp(result, ifo->fingerprint, 64)) {
+		snprintf(errbuf, sizeof(errbuf), "FP error: expected %s got %s", ifo->fingerprint, result);
+		esock(ifo, errbuf);
+	}
 }
 
 static void ssl_handshake(struct sockifo* ifo) {
@@ -32,7 +83,11 @@ static void ssl_handshake(struct sockifo* ifo) {
 	if (rv == GNUTLS_E_SUCCESS) {
 		ifo->state.poll = POLL_NORMAL;
 		ifo->state.ssl = SSL_ACTIVE;
-		// TODO verify remote cert against CA
+		if (ifo->state.ssl_verify_type == VERIFY_CA) {
+			ssl_vfy_ca(ifo);
+		} else if (ifo->state.ssl_verify_type == VERIFY_FP) {
+			ssl_vfy_fp(ifo);
+		}
 	} else if (rv == GNUTLS_E_AGAIN || rv == GNUTLS_E_INTERRUPTED) {
 		do_eagain(ifo, 1);
 	} else {
@@ -61,8 +116,14 @@ void ssl_init(struct sockifo* ifo, const char* key, const char* cert, const char
 		if (rv < 0) goto out_err_cred;
 	}
 	if (ca && *ca) {
-		rv = gnutls_certificate_set_x509_trust_file(ifo->xcred, ca, GNUTLS_X509_FMT_PEM);
-		if (rv < 0) goto out_err_cred;
+		if (!access(ca, R_OK)) {
+			ifo->state.ssl_verify_type = VERIFY_CA;
+			rv = gnutls_certificate_set_x509_trust_file(ifo->xcred, ca, GNUTLS_X509_FMT_PEM);
+			if (rv < 0) goto out_err_cred;
+		} else {
+			ifo->state.ssl_verify_type = VERIFY_FP;
+			ifo->fingerprint = strdup(ca);
+		}
 	}
 	gnutls_certificate_set_dh_params(ifo->xcred, dh_params);
 	rv = gnutls_init(&ifo->ssl, server ? GNUTLS_SERVER : GNUTLS_CLIENT);
@@ -88,6 +149,8 @@ out_err_all:
 	gnutls_deinit(ifo->ssl);
 out_err_cred:
 	gnutls_certificate_free_credentials(ifo->xcred);
+	if (ifo->fingerprint)
+		free(ifo->fingerprint);
 out_err:
 	esock(ifo, gnutls_strerror(rv));
 }
