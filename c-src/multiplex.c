@@ -28,6 +28,12 @@ struct iostate {
 	struct sockifo net[0];
 };
 
+union sockaddrs {
+	struct sockaddr sa;
+	struct sockaddr_in in4;
+	struct sockaddr_in6 in6;
+};
+
 static const char* conffile;
 static int io_stop;
 static time_t now;
@@ -190,21 +196,16 @@ static void addnet(struct line line) {
 		ifo->state.type = TYPE_NETWORK;
 		ifo->state.frozen = args.freeze;
 		if (*args.bindto) {
+			union sockaddrs bsa = {
+				.sa.sa_family = ainfo->ai_family,
+			};
 			if (ainfo->ai_family == AF_INET6) {
-				struct sockaddr_in6 bsa = {
-					.sin6_family = AF_INET6,
-					.sin6_port = 0,
-				};
-				inet_pton(AF_INET6, args.bindto, &bsa.sin6_addr);
-				if (bind(fd, (struct sockaddr*)&bsa, sizeof(bsa)))
+				inet_pton(AF_INET6, args.bindto, &bsa.in6.sin6_addr);
+				if (bind(fd, &bsa.sa, sizeof(bsa.in6)))
 					goto out_err;
 			} else {
-				struct sockaddr_in bsa = {
-					.sin_family = AF_INET,
-					.sin_port = 0,
-				};
-				inet_pton(AF_INET, args.bindto, &bsa.sin_addr);
-				if (bind(fd, (struct sockaddr*)&bsa, sizeof(bsa)))
+				inet_pton(AF_INET, args.bindto, &bsa.in4.sin_addr);
+				if (bind(fd, &bsa.sa, sizeof(bsa.in4)))
 					goto out_err;
 			}
 		}
@@ -405,21 +406,20 @@ static void readable(struct sockifo* ifo) {
 			ifo->state.poll = POLL_HANG;
 			return;
 		}
-		struct sockaddr_in6 addr;
+		union sockaddrs addr;
 		unsigned int addrlen = sizeof(addr);
 		char linebuf[100];
-		int fd = accept(ifo->fd, (struct sockaddr*)&addr, &addrlen);
+		int fd = accept(ifo->fd, &addr.sa, &addrlen);
 		if (fd < 0)
 			return;
-		if (addr.sin6_family == AF_INET6) {
-			inet_ntop(AF_INET6, &addr.sin6_addr, linebuf, sizeof(linebuf));
+		if (addr.sa.sa_family == AF_INET6) {
+			inet_ntop(AF_INET6, &addr.in6.sin6_addr, linebuf, sizeof(linebuf));
 			char* atxt = linebuf;
 			if (!strncmp("::ffff:", linebuf, 7))
 				atxt += 7;
 			qprintf(&sockets->net[0].sendq, "P %d %s\n", ifo->netid, atxt);
 		} else {
-			struct sockaddr_in* p = (struct sockaddr_in*)&addr;
-			inet_ntop(AF_INET, &(p->sin_addr), linebuf, sizeof(linebuf));
+			inet_ntop(AF_INET, &addr.in4.sin_addr, linebuf, sizeof(linebuf));
 			qprintf(&sockets->net[0].sendq, "P %d %s\n", ifo->netid, linebuf);
 		}
 		ifo->ifo_newfd = fd;
