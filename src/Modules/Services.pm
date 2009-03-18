@@ -91,8 +91,9 @@ Event::hook_add(
 		my $src = $act->{src};
 		my $dst = $act->{dst};
 		return 1 if $act->{msgtype} eq '439' || $act->{msgtype} eq '931';
-		return undef unless $src->isa('Nick') && $dst->isa('Nick');
+		return undef unless $src->isa('Nick');
 		return 1 if svs_type($src) & NO_MSG;
+		return undef unless $dst->isa('Nick');
 		return 1 if svs_type($dst) & NO_MSG;
 		undef;
 	}, KILL => check => sub {
