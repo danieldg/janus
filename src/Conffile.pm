@@ -215,6 +215,7 @@ sub find_ssl_keys {
 	my $key = value(ssl_keyfile => $net);
 	my $cert = value(ssl_certfile => $net);
 	my $ca = value(ssl_cafile => $net);
+	$ca ||= value(ssl_fp => $net);
 	if ($lnet) {
 		$key ||= value(keyfile => $lnet);
 		$cert ||= value(certfile => $lnet);

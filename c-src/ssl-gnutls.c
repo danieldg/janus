@@ -50,8 +50,8 @@ const char hex[16] = "0123456789abcdef";
 
 static void ssl_vfy_fp(struct sockifo* ifo) {
 	unsigned int i;
-	uint8_t result[65];
-	size_t resultsiz = 32;
+	uint8_t result[41];
+	size_t resultsiz = 20;
 	if (!ifo->fingerprint) {
 		esock(ifo, "No fingerprint given");
 		return;
@@ -61,18 +61,18 @@ static void ssl_vfy_fp(struct sockifo* ifo) {
 		esock(ifo, "No certificate given to fingerprint");
 		return;
 	}
-	int rv = gnutls_fingerprint(GNUTLS_DIG_SHA1, cert, result + 32, &resultsiz);
+	int rv = gnutls_fingerprint(GNUTLS_DIG_SHA1, cert, result + 20, &resultsiz);
 	if (rv) {
 		esock(ifo, gnutls_strerror(rv));
 		return;
 	}
-	for(i=0; i < 32; i++) {
-		uint8_t v = result[32+i];
+	for(i=0; i < 20; i++) {
+		uint8_t v = result[20+i];
 		result[2*i  ] = hex[v / 16];
 		result[2*i+1] = hex[v % 16];
 	}
-	result[64] = 0;
-	if (memcmp(result, ifo->fingerprint, 64)) {
+	result[40] = 0;
+	if (memcmp(result, ifo->fingerprint, 41)) {
 		snprintf(errbuf, sizeof(errbuf), "FP error: expected %s got %s", ifo->fingerprint, result);
 		esock(ifo, errbuf);
 	}
