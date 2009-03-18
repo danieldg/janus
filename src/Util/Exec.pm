@@ -13,7 +13,7 @@ our $event;
 sub waiter {
 	my $pid = waitpid -1, WNOHANG;
 	my $evt = delete $pid2cmd{$pid} or return;
-	$evt->{code}->($evt);
+	$evt->{code}->($evt) if $evt->{code};
 	unless (%pid2cmd) {
 		$event->{repeat} = 0;
 		$event = undef;
@@ -24,6 +24,7 @@ $event->{code} = \&waiter if $event;
 
 sub reap {
 	my($pid, $act) = @_;
+	$act ||= {};
 	$pid2cmd{$pid} = $act;
 	unless ($event) {
 		$event = {
@@ -39,7 +40,7 @@ sub system {
 	my($cmd, $act) = @_;
 	my $pid = fork;
 	if ($pid) {
-		reap $pid, $act if $act;
+		reap $pid, $act;
 		1;
 	} elsif (defined $pid) {
 		do { exec $cmd; };
@@ -54,7 +55,7 @@ sub bgrun {
 	my($code, $act) = @_;
 	my $pid = fork;
 	if ($pid) {
-		reap $pid, $act if $act;
+		reap $pid, $act;
 		1;
 	} elsif (defined $pid) {
 		my $rv = $code->($act);
