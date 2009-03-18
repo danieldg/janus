@@ -38,8 +38,10 @@ set {
 	# SSL certificate. Only required if you are using an SSL server port,
 	# but will be presented as client certificates on connections
 	# These can be overridden in an individual link block
-	ssl_certfile server.cert.pem
-	ssl_keyfile server.key.pem
+	ssl_certfile janus-cert.pem
+	ssl_keyfile janus-key.pem
+	# Certificate Authority to verify certificates against - incoming and outgoing
+	#ssl_cafile janus-cert.pem
 }
 
 # Modules block: this is a list of modules which are loaded at startup.
@@ -108,7 +110,11 @@ link u3 {
 	# Password which is expected to receive
 	recvpass pass
 	# Link type: either plain or ssl. Also used for incoming connections.
-	linktype plain
+	linktype ssl
+	# For SSL links, certificate fingerprint may be checked.
+	# See extras/get-fp to read the fingerprint of an existing server
+	# This is done instead of checking the CA
+	ssl_fp da39a3ee5e6b4b0d3255bfef95601890afd80709
 	# Long name of this network
 	netname Test 1
 	# What server name is used to introduce ourselves
