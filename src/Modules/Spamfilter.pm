@@ -75,7 +75,7 @@ Event::hook_add(
 		my $dst = $act->{dst};
 		my $msg = $act->{msg};
 		my $net = $dst->homenet;
-		return 0 if $src->has_mode('oper');
+		return 0 if !$src->isa('Nick') || $src->has_mode('oper');
 		my $netlist = $exprs{$net->name} or return 0;
 		for my $e (@$netlist) {
 			if ($msg =~ /$e->[0]/) {
