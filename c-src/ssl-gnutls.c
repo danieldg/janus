@@ -72,10 +72,14 @@ static void ssl_vfy_fp(struct sockifo* ifo) {
 		result[2*i+1] = hex[v % 16];
 	}
 	result[40] = 0;
-	if (memcmp(result, ifo->fingerprint, 41)) {
-		snprintf(errbuf, sizeof(errbuf), "FP error: expected %s got %s", ifo->fingerprint, result);
-		esock(ifo, errbuf);
+	char* fp = ifo->fingerprint - 1;
+	while (fp) {
+		if (!memcmp(result, fp + 1, 40))
+			return;
+		fp = strchr(fp + 1, ',');
 	}
+	snprintf(errbuf, sizeof(errbuf), "SSL fingerprint error: got %s expected %s", result, ifo->fingerprint);
+	esock(ifo, errbuf);
 }
 
 static void ssl_handshake(struct sockifo* ifo) {
