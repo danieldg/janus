@@ -71,13 +71,14 @@ Event::command_add({
 Event::hook_add(
 	MSG => check => sub {
 		my $act = shift;
+		my $src = $act->{src};
 		my $dst = $act->{dst};
 		my $msg = $act->{msg};
 		my $net = $dst->homenet;
+		return 0 if $src->has_mode('oper');
 		my $netlist = $exprs{$net->name} or return 0;
 		for my $e (@$netlist) {
 			if ($msg =~ /$e->[0]/) {
-				my $spammer = $act->{src};
 				if ($dst->isa('Channel')) {
 					Event::append({
 						type => 'MODE',
@@ -85,14 +86,14 @@ Event::hook_add(
 						dst => $dst,
 						dirs => [ '+' ],
 						mode => [ 'ban' ],
-						args => [ $spammer->vhostmask ],
+						args => [ $src->vhostmask ],
 					});
 				}
 				Event::append(+{
 					type => 'KILL',
 					net => $net,
 					src => $net,
-					dst => $spammer,
+					dst => $src,
 					msg => 'Spamfilter triggered',
 				});
 				return 1;
