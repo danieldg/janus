@@ -282,9 +282,6 @@ sub _connect_ifo {
 		$vhost = $rhost if $vhost eq '*';
 		$rhost = $vhost;
 		$ip = '*';
-	} elsif ($vhost eq 'unknown.cloaked') {
-		$vhost = '*'; # hack
-		$mode =~ s/t//;
 	}
 	if ($althost) {
 		$rhost = $nick->homenet->name . '/' . $rhost;
@@ -757,7 +754,7 @@ $moddef{CORE} = {
 				$nick{info}{chost} = $_[11];
 				$_ = $_[12];
 			} else {
-				$nick{info}{chost} = 'unknown.cloaked';
+				$nick{info}{chost} = $_[6];
 				$_ = $_[11];
 			}
 			if (s/=+//) {
@@ -774,7 +771,7 @@ $moddef{CORE} = {
 			}
 			$nick{info}{ip} = $_;
 		} else {
-			$nick{info}{chost} = 'unknown.cloaked';
+			$nick{info}{chost} = $_[6];
 		}
 
 		if ($vh_mode == 0) {
