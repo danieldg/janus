@@ -555,7 +555,7 @@ sub unhook_destroyed {
 		if (1 < scalar keys %{$nets[$$chan]}) {
 			Log::warn('Shared channel becomes empty');
 		}
-		if ($chan->get_mode('permanent') && defined $net->txt2cmode('r_permanent')) {
+		if ($chan->get_mode('permanent') && $net->can('txt2cmode') && defined $net->txt2cmode('r_permanent')) {
 			Log::debug('Not destroying permanent channel '.$chan->real_keyname);
 			return;
 		}
