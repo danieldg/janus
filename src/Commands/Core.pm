@@ -34,6 +34,7 @@ Event::command_add({
 	help => 'Version information on all modules loaded by janus',
 	section => 'Info',
 	syntax => '[all|janus|other|sha][columns]',
+	api => '=src =replyto ?$',
 	code => sub {
 		my($src,$dst,$parm) = @_;
 		$parm ||= 'a';
@@ -69,9 +70,10 @@ Event::command_add({
 	help => 'Provides information about a module',
 	section => 'Info',
 	syntax => '<module>',
+	api => '=src =replyto $',
 	code => sub {
 		my($src,$dst,$mod) = @_;
-		return Janus::jmsg($dst, 'Module not loaded') unless $Janus::modinfo{$mod};
+		return Janus::jmsg($dst, 'Module not loaded (or not janus module)') unless $Janus::modinfo{$mod};
 		my $ifo = $Janus::modinfo{$mod};
 		my $active = $ifo->{active} ? 'active' : 'inactive';
 		Janus::jmsg($dst, "Module $mod is at version $ifo->{version}; hooks are $active",
@@ -104,6 +106,7 @@ Event::command_add({
 		"of old code by the perl interpreter."
 	],
 	acl => 'reload',
+	api => '=src =replyto $',
 	code => sub {
 		my($src,$dst,$name) = @_;
 		return Janus::jmsg($dst, "Invalid module name") unless $name =~ /^([0-9_A-Za-z:]+)$/;
@@ -124,6 +127,7 @@ Event::command_add({
 	section => 'Admin',
 	syntax => '<module>',
 	acl => 'unload',
+	api => '=src =replyto $',
 	code => sub {
 		my($src,$dst,$name) = @_;
 		if ($name !~ /::/ || $name eq __PACKAGE__) {

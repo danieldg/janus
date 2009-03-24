@@ -125,6 +125,7 @@ Event::command_add({
 	help => 'Shows internal details on a network',
 	section => 'Info',
 	syntax => '<network|gid>',
+	api => '=src =replyto $',
 	code => sub {
 		my($src, $dst, $args) = @_;
 		my $n = $Janus::nets{$args} || $Janus::gnets{$args};
