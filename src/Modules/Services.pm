@@ -20,8 +20,9 @@ use constant \%bits;
 
 # clear the cache on each module load, to force new values
 our @cache = ();
-our @loop;
+our @loop = ();
 Persist::register_vars('Nick::cache' => \@cache, 'Nick::kloop' => \@loop);
+Janus::static(qw(cache loop));
 
 sub svs_type {
 	my $n = shift;
@@ -106,8 +107,17 @@ Event::hook_add(
 		} elsif ($type & KILL_LOOP) {
 			my $loop = $loop[$$nick] || '';
 			my %expand;
-			$expand{$1} = $2 while $loop =~ s/^(\S+)=(\d+)(,|$)//;
-			my $count = ++$expand{$net->name};
+			my $count = 1;
+			$expand{$net->name} = '1@'.$Janus::time;
+			while ($loop =~ s/^(\S+)=(\d+)\@(\d+)(,|$)//) {
+				next if $3 + 60 < $Janus::time;
+				if ($1 eq $net->name) {
+					$count = $2;
+					$expand{$1} = ++$count.'@'.$Janus::time;
+				} else {
+					$expand{$1} = "$2\@$3";
+				}
+			}
 			$loop[$$nick] = join ',', map { $_.'='.$expand{$_} } keys %expand;
 			return undef if $count > 3;
 		} else {
