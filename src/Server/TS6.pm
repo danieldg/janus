@@ -1164,7 +1164,10 @@ $moddef{CORE} = {
 			$msg[0] = $msg[0]->str($net);
 		}
 		my $src = $act->{src};
-		$src = $src->homenet if $src->isa('Nick') && !$src->is_on($net);
+		if ($src->isa('Nick') && !$src->is_on($net)) {
+			$msg[0] = '<' . $src->homenick . '> '. $msg[0] if @msg == 1;
+			$src = $src->homenet;
+		}
 		return $net->cmd2($src, $type, $dst, @msg);
 		return ();
 	}, WHOIS => sub {

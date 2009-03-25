@@ -1532,12 +1532,20 @@ $moddef{CORE} = {
 		my($net,$act) = @_;
 		return if $act->{dst}->isa('Network');
 		my $type = $act->{msgtype} || 'PRIVMSG';
+		my $src = $act->{src};
 		# only send things we know we should be able to get through to the client
 		return () unless $type eq 'PRIVMSG' || $type eq 'NOTICE' || $type =~ /^\d\d\d$/;
 		return () if $type eq '378' && $net->param('untrusted');
-		my @msg = ref $act->{msg} eq 'ARRAY' ? @{$act->{msg}} : $act->{msg};
+		my @msg;
+		if (ref $act->{msg} eq 'ARRAY') {
+			@msg = @{$act->{msg}};
+		} elsif ($src->isa('Nick') && !$src->is_on($net)) {
+			@msg = '<'.$src->homenick.'> '.$act->{msg};
+		} else {
+			@msg = $act->{msg};
+		}
 		my $dst = ($act->{prefix} || '').$net->_out($act->{dst});
-		$net->rawsend($net->cmd2($act->{src}, $type, $dst, @msg));
+		$net->rawsend($net->cmd2($src, $type, $dst, @msg));
 		();
 	}, WHOIS => sub {
 		my($net,$act) = @_;
