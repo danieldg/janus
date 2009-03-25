@@ -15,6 +15,7 @@ BEGIN { %bits = (
 	KILL_ALTNICK  => 0x20,
 	KILL_ALTHOST  => 0x40,
 	ALWAYS_TAG    => 0x80,
+	CAN_JCOMMAND  => 0x100,
 ); }
 use constant \%bits;
 
@@ -53,7 +54,7 @@ sub svs_type {
 	for (split /;/, Setting::get(service_set => $net)) {
 		next unless s/^([^=]+)=// and $nick eq $1;
 		my $v = CACHED;
-		for (split /,/, $r) {
+		for (split /,/) {
 			$v |= $1 if /(\d+)/;
 			$v |= $bits{uc $_} || 0;
 		}
@@ -92,6 +93,9 @@ Event::hook_add(
 		my $src = $act->{src};
 		my $dst = $act->{dst};
 		return 1 if $act->{msgtype} eq '439' || $act->{msgtype} eq '931';
+		if ($dst == $Interface::janus) {
+			return (svs_type($src) & CAN_JCOMMAND) ? 0 : 1;
+		}
 		return undef unless $src->isa('Nick');
 		return 1 if svs_type($src) & NO_MSG;
 		return undef unless $dst->isa('Nick');
