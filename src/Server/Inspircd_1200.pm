@@ -473,9 +473,8 @@ $moddef{CORE} = {
 			};
 			push @acts, $syncact;
 			if ($chan->homenet == $net) {
-				my($modes,$args,$dirs) = Modes::dump($chan);
+				my($modes,$args,$dirs) = Modes::delta($chan, undef, $net);
 				# this is a TS wipe, justified. Wipe janus's side.
-				$_ = '-' for @$dirs;
 				push @acts, +{
 					type => 'MODE',
 					src => $net,
@@ -1140,15 +1139,10 @@ $moddef{CORE} = {
 		@sjmodes = '+' unless @sjmodes;
 
 		my @out = $net->ncmd(FJOIN => $chan, $ts, @sjmodes, ','.$net->_out($Interface::janus));
-		my($m1,$a1,$d1) = Modes::delta(undef, $chan);
-		my($m2,$a2,$d2) = Modes::reops($chan);
-		push @$m1, @$m2;
-		push @$a1, @$a2;
-		push @$d1, @$d2;
 
 		push @out, map {
 			$net->ncmd(FMODE => $chan, $ts, @$_);
-		} Modes::to_multi($net, $m1, $a1, $d1, $capabs[$$net]{MAXMODES});
+		} Modes::to_multi($net, Modes::delta(undef, $chan, $net, 1), $capabs[$$net]{MAXMODES});
 
 		@out;
 	}, CHANBURST => sub {

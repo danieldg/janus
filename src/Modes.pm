@@ -50,6 +50,34 @@ sub mtype {
 	return $mtype{$m} || ($m =~ /^_(.)/ ? $1 : '');
 }
 
+sub implemented_as {
+	my ($net, $txt, $dir, $arg) = @_;
+	($dir,$arg) = ('+', 3) if !$dir;
+	my $type = mtype($txt);
+	my $char = $net->txt2cmode($type.'_'.$txt);
+	my $out = ($type ne 'r');
+
+	if (!defined $char && $type eq 'v') {
+		# maybe this is an s-type rather than a v-type command?
+		$char = $net->txt2cmode('s_'.$txt);
+		$out = 0 if $dir eq '-' && defined $char;
+	}
+
+	if (!defined $char && $type eq 'r') {
+		# maybe a tristate mode?
+		my $ar1 = $net->txt2cmode('t1_'.$txt);
+		my $ar2 = $net->txt2cmode('t2_'.$txt);
+		if ($ar1 && $ar2) {
+			$char .= $ar1 if $arg & 1;
+			$char .= $ar2 if $arg & 2;
+		} elsif ($ar1 || $ar2) {
+			# only one of the two available; use it
+			$char = ($ar1 || $ar2);
+		}
+	}
+	wantarray ? ($char, $out) : $char;
+}
+
 =item (modes,args,dirs) Modes::from_irc(net,chan,mode,args...)
 
 Translates an IRC-style mode string into a Janus mode change triplet
@@ -135,28 +163,7 @@ sub to_multi {
 	my @args;
 	while (@modin) {
 		my($txt,$arg,$dir) = (shift @modin, shift @argin, shift @dirin);
-		my $type = mtype($txt);
-		my $out = ($type ne 'r');
-
-		my $char = $net->txt2cmode($type.'_'.$txt);
-		if (!defined $char && $type eq 'v') {
-			# maybe this is an s-type rather than a v-type command?
-			$char = $net->txt2cmode('s_'.$txt);
-			$out = 0 if $dir eq '-' && defined $char;
-		}
-
-		if (!defined $char && $type eq 'r') {
-			# maybe a tristate mode?
-			my $ar1 = $net->txt2cmode('t1_'.$txt);
-			my $ar2 = $net->txt2cmode('t2_'.$txt);
-			if ($ar1 && $ar2) {
-				$char .= $ar1 if $arg & 1;
-				$char .= $ar2 if $arg & 2;
-			} elsif ($ar1 || $ar2) {
-				# only one of the two available; use it
-				$char = ($ar1 || $ar2);
-			}
-		}
+		my($char,$out) = implemented_as($net, $txt, $dir, $arg);
 
 		if (defined $char && $char ne '') {
 			$count++;
@@ -200,15 +207,16 @@ sub dump {
 	(\@modes, \@args, \@dirs);
 }
 
-=item (modes, args, dirs) Modes::delta(chan1, chan2)
+=item (modes, args, dirs) Modes::delta(chan1, chan2, net, reops)
 
 Returns the mode change required to make chan1's modes equal to
-those of chan2
+those of chan2. If network is specified, filters to modes available
+on that network. If reops is true, include op/deop mode changes.
 
 =cut
 
 sub delta {
-	my($chan1, $chan2) = @_;
+	my($chan1, $chan2, $net, $reops) = @_;
 	my %current = $chan1 ? %{$chan1->all_modes()} : ();
 	my %add =
 		'HASH' eq ref $chan2 ? %$chan2 :
@@ -216,6 +224,7 @@ sub delta {
 		();
 	my(@modes, @args, @dirs);
 	for my $txt (keys %current) {
+		next if $net && !implemented_as($net, $txt);
 		my $type = mtype($txt);
 		if ($type eq 'l') {
 			my %torm = map { $_ => 1 } @{$current{$txt}};
@@ -253,6 +262,7 @@ sub delta {
 		delete $add{$txt};
 	}
 	for my $txt (keys %add) {
+		next if $net && !implemented_as($net, $txt);
 		my $type = mtype($txt);
 		if ($type eq 'l') {
 			for my $i (@{$add{$txt}}) {
@@ -264,6 +274,26 @@ sub delta {
 			push @modes, $txt;
 			push @dirs, '+';
 			push @args, $add{$txt};
+		}
+	}
+	if ($reops && $chan1 && $chan1->isa('Channel')) {
+		for my $nick ($chan1->all_nicks) {
+			for my $mode (qw/voice halfop op admin owner/) {
+				next unless $chan1->has_nmode($mode, $nick);
+				push @modes, $mode;
+				push @args, $nick;
+				push @dirs, '-';
+			}
+		}
+	}
+	if ($reops && $chan2 && $chan2->isa('Channel')) {
+		for my $nick ($chan2->all_nicks) {
+			for my $mode (qw/voice halfop op admin owner/) {
+				next unless $chan2->has_nmode($mode, $nick);
+				push @modes, $mode;
+				push @args, $nick;
+				push @dirs, '+';
+			}
 		}
 	}
 	(\@modes, \@args, \@dirs);
@@ -308,26 +338,6 @@ sub revert {
 			push @modes, $m;
 			push @args, $v;
 			push @dirs, $r;
-		}
-	}
-	(\@modes, \@args, \@dirs);
-}
-
-=item (modes, args, dirs) Modes::reops($chan)
-
-Returns the mode change needed to re-op everyone in the channel.
-
-=cut
-
-sub reops {
-	my $chan = shift;
-	my(@modes, @args, @dirs);
-	for my $nick ($chan->all_nicks) {
-		for my $mode (qw/voice halfop op admin owner/) {
-			next unless $chan->has_nmode($mode, $nick);
-			push @modes, $mode;
-			push @args, $nick;
-			push @dirs, '+';
 		}
 	}
 	(\@modes, \@args, \@dirs);

@@ -575,7 +575,7 @@ $moddef{CORE} = {
 				};
 				push @act, $syncact;
 				if ($chan->homenet == $net) {
-					my($modes,$args,$dirs) = Modes::dump($chan);
+					my($modes,$args,$dirs) = Modes::delta($chan, undef, $net);
 					# this is a TS wipe, justified. Wipe janus's side.
 					$_ = '-' for @$dirs;
 					push @act, +{
@@ -833,7 +833,7 @@ $moddef{CORE} = {
 			};
 			push @acts, $syncact;
 			if ($chan->homenet == $net) {
-				my($modes,$args,$dirs) = Modes::dump($chan);
+				my($modes,$args,$dirs) = Modes::delta($chan, undef, $net);
 				# this is a TS wipe, justified. Wipe janus's side.
 				$_ = '-' for @$dirs;
 				push @acts, +{
@@ -1141,15 +1141,10 @@ $moddef{CORE} = {
 		my $ts = $act->{newts};
 
 		my @out = $net->cmd2($Interface::janus, JOIN => $ts, $chan, '+');
-		my($m1,$a1,$d1) = Modes::delta(undef, $chan);
-		my($m2,$a2,$d2) = Modes::reops($chan);
-		push @$m1, @$m2;
-		push @$a1, @$a2;
-		push @$d1, @$d2;
 
 		push @out, map {
 			$net->ncmd(TMODE => $ts, $chan, @$_);
-		} Modes::to_multi($net, $m1, $a1, $d1, 10);
+		} Modes::to_multi($net, Modes::delta(undef, $chan, $net, 1), 10);
 
 		@out;
 	}, MSG => sub {

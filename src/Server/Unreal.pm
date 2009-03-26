@@ -973,10 +973,9 @@ $moddef{CORE} = {
 				newts => $ts,
 				oldts => $chan->ts(),
 			};
-			my($modes,$args,$dirs) = Modes::dump($chan);
 			if ($chan->homenet == $net) {
+				my($modes,$args,$dirs) = Modes::delta($chan, undef, $net);
 				# this is a TS wipe, justified. Wipe janus's side.
-				$_ = '-' for @$dirs;
 				push @acts, +{
 					type => 'MODE',
 					src => $net,
@@ -986,6 +985,7 @@ $moddef{CORE} = {
 					dirs => $dirs,
 				};
 			} else {
+				my($modes,$args,$dirs) = Modes::delta(undef, $chan, $net, 1);
 				# someone else owns the channel. Fix.
 				$net->send(map {
 					$net->cmd1(MODE => $chan, @$_, 0);
