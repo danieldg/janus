@@ -56,7 +56,7 @@ sub _destroy {
 sub openlog {
 	my $log = shift;
 	my $fn = $filename[$$log] = strftime $log->name, gmtime $Janus::time;
-	open my $fh, '>', $fn or die $!;
+	open my $fh, '>', $fn or die "Could not open log $fn: $!";
 	my $ofh = select $fh; $| = 1; select $ofh;
 	$fh[$$log] = $fh;
 	if ($dump[$$log] && Janus::load('Snapshot')) {
