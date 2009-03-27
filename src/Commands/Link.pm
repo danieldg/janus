@@ -77,11 +77,10 @@ Event::command_add({
 		"The home newtwork must specify a network to delink, or use \002DESTROY\002",
 		"Other networks can only delink themselves from the channel",
 	],
-	api => '=src =replyto localchan ?net ?$',
+	api => '=src =replyto chan localdefnet ?$',
 	code => sub {
 		my($src, $dst, $chan, $net, $cause) = @_;
 		return unless Account::chan_access_chk($src, $chan, 'delink', $dst);
-		$net ||= $src->homenet;
 		if ($net == $chan->homenet) {
 			Janus::jmsg($dst, 'Please specify the network to delink, or use DESTROY');
 			return;
