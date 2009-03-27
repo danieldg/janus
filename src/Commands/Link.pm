@@ -206,10 +206,10 @@ Event::command_add({
 		my($genact, $src, $dst, $tochan, $snet, $chan, $dnet) = @_;
 		my $dnname = $dnet->name;
 		unless ($tochan) {
-			Janus::jmsg('Run this command on your own server') if $snet->jlink;
+			return Janus::jmsg('Run this command on your own server') if $snet->jlink;
 
 			return unless Account::chan_access_chk($src, $chan, 'create', $dst);
-			$tochan = lc $chan->homename;
+			$genact->{tochan} = $tochan = lc $chan->homename;
 
 			my $difo = $Link::request{$snet->name}{$tochan};
 			unless ($difo && $difo->{mode}) {
