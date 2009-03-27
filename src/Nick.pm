@@ -68,6 +68,9 @@ sub _init {
 	$nickts[$$nick] = { $$net => $ifo->{ts} };
 	$chans[$$nick] = [];
 	$info[$$nick] = $ifo->{info} || {};
+	for (qw/host vhost ident/) {
+		$info[$$nick]{$_} =~ s/(?:\003\d{0,2}|\002)//g;
+	}
 	$mode[$$nick] = 0;
 	if ($ifo->{mode}) {
 		for (keys %{$ifo->{mode}}) {
@@ -398,7 +401,9 @@ Event::hook_add(
 	}, NICKINFO => act => sub {
 		my $act = $_[0];
 		my $nick = $act->{dst};
-		$info[$$nick]{$act->{item}} = $act->{value};
+		my $i = $act->{item};
+		$act->{value} =~ s/(?:\003\d{0,2}|\002)//g if $i eq 'host' || $i eq 'vhost' || $i eq 'ident';
+		$info[$$nick]{$i} = $act->{value};
 	}, UMODE => act => sub {
 		my $act = $_[0];
 		my $nick = $act->{dst};
