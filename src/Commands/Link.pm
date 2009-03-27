@@ -201,15 +201,17 @@ Event::command_add({
 		'This command is useful after changing a channel ACL, or if the link',
 		'request was made before the destination channel was created.',
 	],
-	api => 'act =src =replyto =tochan homenet chan net',
+	api => 'act =src =replyto =tochan chan net',
 	code => sub {
-		my($genact, $src, $dst, $tochan, $snet, $chan, $dnet) = @_;
+		my($genact, $src, $dst, $tochan, $chan, $dnet) = @_;
+		my $snet = $chan->homenet;
 		my $dnname = $dnet->name;
 		unless ($tochan) {
-			return Janus::jmsg('Run this command on your own server') if $snet->jlink;
+			return Janus::jmsg($dst, 'Run this command on your own server') if $snet->jlink;
 
 			return unless Account::chan_access_chk($src, $chan, 'create', $dst);
-			$genact->{tochan} = $tochan = lc $chan->homename;
+			my %act = %$genact;
+			$act{tochan} = $tochan = lc $chan->homename;
 
 			my $difo = $Link::request{$snet->name}{$tochan};
 			unless ($difo && $difo->{mode}) {
@@ -222,7 +224,8 @@ Event::command_add({
 				delete $difo->{ack}{$dnname};
 			}
 
-			Event::reroute_cmd($genact, $dnet->jlink);
+			$act{dst} = $dnet->jlink;
+			$dnet->send(\%act) if $dnet->jlink;
 		}
 		return if $dnet->jlink;
 		my $hname = $snet->name;
@@ -230,10 +233,10 @@ Event::command_add({
 			my $ifo = $Link::request{$dnname}{$dcname};
 			next if $ifo->{mode};
 			next unless $ifo->{net} eq $hname && lc $ifo->{chan} eq $tochan;
-			my $chan = $dnet->chan($dcname, 1);
+			my $ichan = $dnet->chan($dcname, 1);
 			Event::append(+{
 				type => 'LINKREQ',
-				chan => $chan,
+				chan => $ichan,
 				dst => $snet,
 				dlink => $tochan,
 				reqby => $ifo->{mask},
