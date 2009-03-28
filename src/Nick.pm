@@ -263,7 +263,7 @@ sub rejoin {
 sub _netpart {
 	my($nick, $net) = @_;
 
-	delete $nets[$$nick]{$$net};
+	return unless delete $nets[$$nick]{$$net};
 	return if $net->jlink();
 	my $rnick = delete $nicks[$$nick]{$$net};
 	$net->release_nick($rnick, $nick);
