@@ -983,6 +983,9 @@ $moddef{CORE} = {
 			push @out, $net->cmd2($new, VERSION => 'Remote Janus Server: '.$new->type);
 		}
 		return @out;
+	}, LINKED => sub {
+		my($net,$act) = @_;
+		$net->cmd2($act->{net}, 'ENDBURST');
 	}, NETSPLIT => sub {
 		my($net,$act) = @_;
 		return () if $act->{netsplit_quit};
