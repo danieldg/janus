@@ -69,7 +69,7 @@ sub _init {
 	$chans[$$nick] = [];
 	$info[$$nick] = $ifo->{info} || {};
 	for (qw/host vhost ident/) {
-		$info[$$nick]{$_} =~ s/(?:\003\d{0,2}|\002)//g;
+		$info[$$nick]{$_} =~ s/(?:\003\d{0,2}(?:,\d{1,2})?|[\001\002\004-\037])//g;
 	}
 	$mode[$$nick] = 0;
 	if ($ifo->{mode}) {
@@ -402,7 +402,8 @@ Event::hook_add(
 		my $act = $_[0];
 		my $nick = $act->{dst};
 		my $i = $act->{item};
-		$act->{value} =~ s/(?:\003\d{0,2}|\002)//g if $i eq 'host' || $i eq 'vhost' || $i eq 'ident';
+		$act->{value} =~ s/(?:\003\d{0,2}(?:,\d{1,2})?|[\001\002\004-\037])//g
+			if $i eq 'host' || $i eq 'vhost' || $i eq 'ident';
 		$info[$$nick]{$i} = $act->{value};
 	}, UMODE => act => sub {
 		my $act = $_[0];
