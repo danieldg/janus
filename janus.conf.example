@@ -184,6 +184,7 @@ link cbot {
 	# tls requires the server to support STARTTLS
 	linktype tls
 	nick jmirror
+	servpass ServerPassWord
 	nspass NickServPassWord
 	# the nick must already be registered, and the bot will not ghost anyone camping
 	netname A Relay Bot

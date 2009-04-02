@@ -88,7 +88,9 @@ sub intro {
 	if ($net->cparam('linktype') eq 'tls') {
 		$net->add_halfout([ 15, 'STARTTLS', 'TLS' ]);
 	}
-	$net->add_halfout([ 90, "USER mirror gamma * :Janus IRC Client\r\nNICK $param->{nick}", 'USER' ]);
+	my $passifo = $net->cparam('servpass');
+	$passifo = $passifo ? "PASS :$passifo\r\n" : '';
+	$net->add_halfout([ 90, $passifo."USER mirror gamma * :Janus IRC Client\r\nNICK $param->{nick}", 'USER' ]);
 	$self[$$net] = $param->{nick};
 	$flood_bkt[$$net] = Setting::get(tbf_burst => $net);
 	$flood_ts[$$net] = $Janus::time;
