@@ -78,6 +78,7 @@ log log/%Y-%m-%d-%H:%M:%S {
 log net#logchan {
 	type Channel
 	filter audit
+	style color
 }
 
 # Listen blocks: listen for incoming server connections

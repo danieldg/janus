@@ -10,9 +10,9 @@ use Scalar::Util 'weaken';
 use POSIX 'strftime';
 use Persist 'Log::Base';
 
-our(@filename, @fh, @rotate, @closeact, @dump);
-Persist::register_vars(qw(filename fh rotate closeact dump));
-Persist::autoinit(qw(rotate closeact dump));
+our(@filename, @fh, @rotate, @closeact, @dump, @style);
+Persist::register_vars(qw(filename fh rotate closeact dump style));
+Persist::autoinit(qw(rotate closeact dump style));
 Janus::static(qw(fh));
 
 for my $rot (@rotate) {
@@ -44,6 +44,7 @@ sub _init {
 		$rotate[$$log] = $rotate;
 	}
 	$log->openlog();
+	$style[$$log] ||= '';
 	$filename[$$log];
 }
 
@@ -84,7 +85,11 @@ sub closelog {
 sub output {
 	my $log = shift;
 	my $fh = $fh[$$log];
-	print $fh "\e[$Log::ANSI[$_[0]]m$_[1]: $_[2]\e[m\n";
+	if ($style[$$log] eq 'color') {
+		print $fh "\e[$Log::ANSI[$_[0]]m$_[1]: $_[2]\e[m\n";
+	} else {
+		print $fh "$_[1]: $_[2]\n";
+	}
 }
 
 1;
