@@ -74,8 +74,11 @@ static void ssl_vfy_fp(struct sockifo* ifo) {
 	result[40] = 0;
 	char* fp = ifo->fingerprint - 1;
 	while (fp) {
-		if (!memcmp(result, fp + 1, 40))
+		if (!memcmp(result, fp + 1, 40)) {
+			free(ifo->fingerprint);
+			ifo->fingerprint = NULL;
 			return;
+		}
 		fp = strchr(fp + 1, ',');
 	}
 	snprintf(errbuf, sizeof(errbuf), "SSL fingerprint error: got %s expected %s", result, ifo->fingerprint);
