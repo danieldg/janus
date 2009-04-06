@@ -1007,6 +1007,7 @@ $moddef{CORE} = {
 				} else {
 					push @out, $net->ncmd(SID => $new->jname(), 1, $new, $new->netname());
 				}
+				push @out, $net->cmd2($new, ENCAP => '*', GCAP => 'QS EX CHW IE EOB HOPS KNOCK TB CLUSTER ENCAP SERVICES SAVE EUID');
 			}
 		} else {
 			my $jl = $new->jlink();
@@ -1015,6 +1016,7 @@ $moddef{CORE} = {
 			} else {
 				push @out, $net->ncmd(SID => $new->jname(), 1, $new, $new->netname());
 			}
+			push @out, $net->cmd2($new, ENCAP => '*', GCAP => 'QS EX CHW IE EOB HOPS KNOCK TB CLUSTER ENCAP SERVICES SAVE EUID');
 		}
 		return @out;
 	}, NETSPLIT => sub {
