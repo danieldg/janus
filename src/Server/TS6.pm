@@ -390,6 +390,16 @@ $moddef{CHARYBDIS} = {
 		s => '',
 		z => '',
 	},
+	acts => {
+		NICKINFO => sub {
+			my($net,$act) = @_;
+			my $nick = $act->{dst};
+			if ($act->{item} eq 'vhost') {
+				return $net->ncmd(ENCAP => '*', CHGHOST => $nick, $act->{value});
+			}
+			return ();
+		},
+	},
 	cmds => {
 		CHGHOST => sub {
 			my $net = shift;
@@ -1134,9 +1144,6 @@ $moddef{CORE} = {
 		my $nick = $act->{dst};
 		if ($act->{item} eq 'away') {
 			return $net->cmd2($nick, AWAY => defined $act->{value} ? $act->{value} : ());
-		} elsif ($act->{item} =~ /^(?:vhost|ident)$/) {
-			return $net->cmd2($nick, SIGNON => $nick->str($net), $nick->info('ident'),
-				$nick->info('vhost'), $nick->ts($net), 0);
 		}
 		return ();
 	}, CHANTSSYNC => sub {
