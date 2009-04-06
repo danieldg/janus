@@ -384,6 +384,7 @@ $moddef{CHARYBDIS} = {
 		Z => 'ssl',
 		Q => '',
 		R => '',
+		h => '',
 		g => '',
 		l => '',
 		s => '',
@@ -920,7 +921,8 @@ $moddef{CORE} = {
 	STATS => \&ignore,
 	SU => sub {
 		my $net = shift;
-		my $nick = $net->mynick($_[2]) or return ();
+		my $nick = $net->nick($_[2]) or return ();
+		return () if $nick->homenet != $net;
 		return +{
 			type => 'NICKINFO',
 			src => $nick,
