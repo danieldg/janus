@@ -166,7 +166,7 @@ sub from_irc {
 	$cmd = $fromirc[$$net]{$cmd} || $cmd;
 	$cmd = $fromirc[$$net]{$cmd} || $cmd if $cmd && !ref $cmd; # allow one layer of indirection
 	unless ($cmd && ref $cmd) {
-		Log::err_in($net, "Unknown command '$cmd'");
+		$net->unknown_cmd(@_) if $net->can('unknown_cmd');
 		return ();
 	}
 	$cmd->(@_);
