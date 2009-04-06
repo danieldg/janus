@@ -309,7 +309,7 @@ $moddef{CAPAB_EUID} = {
 			my $ident = substr $nick->info('ident'), 0, 10;
 			my $name = substr $nick->info('name'), 0, 50;
 			unshift @out, $net->cmd2($nick->homenet, EUID => $nick->str($net), 1, $nick->ts($net),
-				$mode, $ident, $vhost, $ip, $nick, $host, 0, $name);
+				$mode, $ident, $vhost, $ip, $nick, $host, '*', $name);
 
 			@out;
 		}
@@ -520,7 +520,7 @@ $moddef{CORE} = {
 		);
 		if ($_[1] eq 'EUID') {
 			$nick{info}{host} = $_[10];
-			$nick{info}{svsaccount} = $_[11] if $_[11] ne '0';
+			$nick{info}{svsaccount} = $_[11] if $_[11] ne '*' && $_[11] ne '0';
 		}
 		my @m = split //, $_[5];
 		warn unless '+' eq shift @m;
@@ -805,7 +805,7 @@ $moddef{CORE} = {
 		}
 		my @new = @_[3,4,6];
 		my @itm = qw/ident vhost svsaccount/;
-		for (0,1) {
+		for (0..$#itm) {
 			next if $nick->info($itm[$_]) eq $new[$_];
 			push @out, {
 				type => 'NICKINFO',
