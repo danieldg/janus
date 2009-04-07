@@ -654,7 +654,7 @@ $moddef{CORE} = {
 					my $name = $net->cparam('linkname') || $RemoteJanus::self->jname;
 					$sendq1[$$net] .= $net->cmd2(undef, SERVER => $name, $spass, 0, $net, "Janus Network Link\r\n");
 				}
-				$sendq1[$$net] .= 'BURST '.$Janus::time."\r\n";
+				$sendq1[$$net] .= $net->ncmd(BURST => $Janus::time)."\r\n";
 			} else {
 				$sendq1[$$net] .= "ERROR :Bad password\r\n";
 				return ();
