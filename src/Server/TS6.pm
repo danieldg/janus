@@ -217,6 +217,27 @@ sub cmd2 {
 	$out;
 }
 
+sub do_qjm {
+	my($net, $nick, $msg) = @_;
+	my @out;
+	if (defined $msg) {
+		push @out, $net->cmd2($nick, QUIT => $msg);
+	}
+	push @out, $net->to_irc({ type => 'CONNECT', dst => $nick, net => $net });
+	for my $chan ($nick->all_chans()) {
+		next unless $chan->is_on($net);
+		my $mode = join '', map {
+			$chan->has_nmode($_, $nick) ? ($net->txt2cmode("n_$_") || '') : ''
+		} qw/voice halfop op/;
+		$mode =~ tr/ohv/@%+/;
+		my @cmodes = Modes::to_multi($net, Modes::dump($chan), 60);
+		@cmodes = (['+']) unless @cmodes && @{$cmodes[0]};
+
+		push @out, $net->ncmd(SJOIN => $chan->ts, $chan, @{$cmodes[0]}, $mode.$nick->str($net));
+	}
+	@out;
+}
+
 our %moddef = ();
 Janus::static('moddef');
 $moddef{CAPAB_HOPS} = { cmode => { h => 'n_halfop' } };
@@ -396,6 +417,8 @@ $moddef{CHARYBDIS} = {
 			my $nick = $act->{dst};
 			if ($act->{item} eq 'vhost') {
 				return $net->ncmd(ENCAP => '*', CHGHOST => $nick, $act->{value});
+			} elsif ($act->{item} eq 'ident' || $act->{item} eq 'name') {
+				return $net->do_qjm($nick, 'Changing '.$act->{item});
 			}
 			return ();
 		},
@@ -1051,19 +1074,7 @@ $moddef{CORE} = {
 		return () if $act->{net} ne $net;
 
 		if ($act->{killed}) {
-			my @out = $net->to_irc({ type => 'CONNECT', nick => $nick, net => $net });
-			for my $chan (@{$act->{reconnect_chans}}) {
-				next unless $chan->is_on($net);
-				my $mode = join '', map {
-					$chan->has_nmode($_, $nick) ? ($net->txt2cmode("n_$_") || '') : ''
-				} qw/voice halfop op/;
-				$mode =~ tr/ohv/@%+/;
-				my @cmodes = Modes::to_multi($net, Modes::dump($chan), 10);
-				@cmodes = (['+']) unless @cmodes && @{$cmodes[0]};
-
-				push @out, $net->ncmd(SJOIN => $chan->ts, $chan, @{$cmodes[0]}, $mode.$nick->str($net));
-			}
-			return @out;
+			return $net->do_qjm($nick, undef);
 		} else {
 			return $net->cmd2($act->{dst}, NICK => $act->{to}, $nick->ts($net));
 		}
