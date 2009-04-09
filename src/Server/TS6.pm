@@ -249,6 +249,7 @@ $moddef{CAPAB_TB} = {
 			my $net = shift;
 			my $src = $net->item($_[0]);
 			my $chan = $net->chan($_[2]) or return ();
+			return () if $_[3] > $chan->topicts;
 			return +{
 				type => 'TOPIC',
 				src => $src,
@@ -1185,8 +1186,7 @@ $moddef{CORE} = {
 			$msg[0] = '<' . $src->homenick . '> '. $msg[0] if @msg == 1;
 			$src = $src->homenet;
 		}
-		return $net->cmd2($src, $type, $dst, @msg);
-		return ();
+		$net->cmd2($src, $type, $dst, @msg);
 	}, WHOIS => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, WHOIS => $act->{dst}, $act->{dst});
