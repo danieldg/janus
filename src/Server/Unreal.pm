@@ -1545,8 +1545,7 @@ $moddef{CORE} = {
 			@msg = $act->{msg};
 		}
 		my $dst = ($act->{prefix} || '').$net->_out($act->{dst});
-		$net->rawsend($net->cmd2($src, $type, $dst, @msg));
-		();
+		$net->cmd2($src, $type, $dst, @msg);
 	}, WHOIS => sub {
 		my($net,$act) = @_;
 		my $dst = $act->{dst};
