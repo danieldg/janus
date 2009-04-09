@@ -126,7 +126,7 @@ sub dump_sendq {
 				$sj_line = $_;
 			}
 		} else {
-			if ($sj_line && !/^:\S+ (?:E?UID|PRIVMSG) /) {
+			if ($sj_line && !/^:\S+ E?UID /) {
 				$q .= $sj_line."\r\n";
 				Log::netout($net, $sj_line);
 				$sj_line = '';

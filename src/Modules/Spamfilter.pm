@@ -50,7 +50,7 @@ Event::command_add({
 			Interface::msgtable($dst, \@tbl) if @tbl > 1;
 			Janus::jmsg($dst, 'No spamfilters defined') if @tbl == 1;
 		} elsif ($act eq 'add') {
-			my $expr = join '\s', @args;
+			my $expr = join ' ', @args;
 			eval {
 				push @$netlist, [ qr/$expr/, $src->netnick, $Janus::time ];
 				Janus::jmsg($dst, 'Added');

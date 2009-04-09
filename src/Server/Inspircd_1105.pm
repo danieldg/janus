@@ -91,7 +91,7 @@ sub dump_sendq {
 					$fj_line = $_;
 				}
 			} else {
-				if ($fj_line && !/^:\S+ (?:NICK|PRIVMSG) /) {
+				if ($fj_line && !/^:\S+ NICK /) {
 					$q .= $fj_line."\r\n";
 					Log::netout($net, $fj_line);
 					$fj_line = '';
