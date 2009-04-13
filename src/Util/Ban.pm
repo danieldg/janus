@@ -152,6 +152,15 @@ Event::hook_add(
 			msg => 'Banned by '.$setter[$$ban],
 		});
 		1;
+	}, NICKINFO => act => sub {
+		my $act = shift;
+		my $nick = $act->{dst};
+		my $i = $act->{item};
+		delete $mask[$$nick] if $i eq 'host' || $i eq 'name' || $i eq 'ident';
+	}, NICK => act => sub {
+		my $act = shift;
+		my $nick = $act->{dst};
+		delete $mask[$$nick];
 	},
 );
 
