@@ -125,11 +125,11 @@ sub AUTOLOAD {
 	}
 	if ($ftime == $Janus::time) {
 		$fcount++;
-		if ($fcount == 5000) {
+		if ($fcount == 15000) {
 			$AUTOLOAD = 'err';
 			$lvl = $action{err};
 			@_ = ('LOG OVERFLOW');
-		} elsif ($fcount > 5000) {
+		} elsif ($fcount > 15000) {
 			return;
 		}
 	} else {
