@@ -474,6 +474,7 @@ sub nicklen { 40 }
 	},
 	MSG => sub {
 		my($net,$act) = @_;
+		return () if $net->param('silent');
 		my $type = $act->{msgtype};
 		return () unless $type eq 'PRIVMSG' || $type eq 'NOTICE';
 		my $src = $act->{src};
