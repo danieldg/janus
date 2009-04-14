@@ -511,6 +511,7 @@ sub nicklen { 40 }
 	},
 	MODE => sub {
 		my ($net,$act) = @_;
+		return () if $net->param('silent');
 		my $chan = $act->{dst};
 		my @mm = @{$act->{mode}};
 		my @ma = @{$act->{args}};
