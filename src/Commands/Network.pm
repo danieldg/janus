@@ -55,7 +55,7 @@ Event::command_add({
 		Conffile::save();
 		Log::audit('RESTART by '.$src->netnick);
 		for my $net (values %Janus::nets) {
-			next if $net->jlink();
+			next if $net->jlink() || $net == $Interface::network;
 			Event::append(+{
 				type => 'NETSPLIT',
 				net => $net,

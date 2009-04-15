@@ -1026,11 +1026,7 @@ sub kicked {
 			delete $curr->[4]{$_[7]};
 			$chan = $net->chan($_[3]);
 		} elsif ($curr && $curr->[2] eq 'WHO/N') {
-			unless ($net->lc($curr->[3]) eq $net->lc($_[7])) {
-				Log::warn_in($net, 'Unexpected WHO reply, expecting '.$curr->[3].', got '.$_[7]);
-				return ();
-			}
-			if (@$curr == 6) {
+			if ($net->lc($curr->[3]) eq $net->lc($_[7]) && @$curr == 6) {
 				$chan = $net->chan($curr->[4]);
 				$_[8] = $curr->[5];
 			}
