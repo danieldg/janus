@@ -57,12 +57,12 @@ Event::command_add({
 			return;
 		}
 		return unless Account::chan_access_chk($src, $chan, 'create', $dst);
-		my $cname = $chan->str($net);
+		my $cname = $chan->lstr($net);
 		Log::audit("New channel $cname shared by ".$src->netnick);
 		Event::append(+{
 			type => 'LINKOFFER',
 			src => $net,
-			name => lc $cname,
+			name => $cname,
 			reqby => $src->realhostmask(),
 			reqtime => $Janus::time,
 		});

@@ -207,7 +207,7 @@ Event::hook_add(
 	}, LINKOFFER => act => sub {
 		my $act = shift;
 		my $net = $act->{src};
-		my $name = lc $act->{name};
+		my $name = $act->{name};
 		my %req = (
 			mode => 1,
 			mask => $act->{reqby},
@@ -215,7 +215,7 @@ Event::hook_add(
 		);
 		my $defacl = Setting::get(link_acl => $net);
 		for (split /,/, $defacl) {
-			my $m = s/([-+])// ? $1 eq '+' : 0;
+			my $m = s/-// ? 2 : s/\+// ? 1 : 2;
 			($_ ? $req{ack}{$_} : $req{mode}) = $m;
 		}
 		if ($act->{remove}) {
