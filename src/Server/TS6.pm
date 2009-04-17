@@ -330,6 +330,8 @@ $moddef{CAPAB_EUID} = {
 			my $vhost = substr $nick->info('vhost'), 0, 63;
 			my $ident = substr $nick->info('ident'), 0, 10;
 			my $name = substr $nick->info('name'), 0, 50;
+			$host =~ s/[^-.0-9:A-Za-z]/./g;
+			$ident =~ s/[^-\$.0-9A-~]/~/g;
 			unshift @out, $net->cmd2($nick->homenet, EUID => $nick->str($net), 1, $nick->ts($net),
 				$mode, $ident, $vhost, $ip, $nick, $host, '*', $name);
 
