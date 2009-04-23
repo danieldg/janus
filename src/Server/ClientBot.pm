@@ -5,23 +5,22 @@ use LocalNetwork;
 use Nick;
 use Modes;
 use Server::BaseNick;
-use Persist 'Server::BaseNick';
+use Server::BaseParser;
+use Server::ModularNetwork;
+use Persist 'Server::BaseNick', 'Server::BaseParser', 'Server::ModularNetwork';
 use Scalar::Util 'weaken';
 use strict;
 use warnings;
 use integer;
 use Link;
 
-our(@sendq, @self, @cmode2txt, @txt2cmode, @capabs);
+our(@sendq, @self, @capabs);
 our(@flood_bkt, @flood_ts, @half_in, @half_out);
-Persist::register_vars(qw(sendq self cmode2txt txt2cmode capabs flood_bkt flood_ts half_in half_out));
+Persist::register_vars(qw(sendq self capabs flood_bkt flood_ts half_in half_out));
 # half_in = Part of a multi-line response that will be processed later
 #  [ 'TOPIC', channel, topic ]
 # half_out = Currently queued commands going out. List of lists.
 #  [ TS, raw-line, ID, ... ]
-
-my %fromirc;
-my %toirc;
 
 sub ignore { () }
 
@@ -96,29 +95,6 @@ sub intro {
 	$flood_ts[$$net] = $Janus::time;
 }
 
-my %def_c2t = (qw/
-	q n_op
-	a n_op
-	o n_op
-	h n_halfop
-	v n_voice
-
-	b l_ban
-	e l_except
-	I l_invite
-	l s_limit
-	i r_invite
-	m r_moderated
-	n r_mustjoin
-	p t1_chanhide
-	s t2_chanhide
-	t r_topic
-/);
-
-my %def_t2c;
-$def_t2c{$def_c2t{$_}} = $_ for keys %def_c2t;
-$def_t2c{n_op} = 'o';
-
 sub _init {
 	my $net = shift;
 	$sendq[$$net] = [];
@@ -126,8 +102,7 @@ sub _init {
 	$capabs[$$net] = {
 		MODES => 4,
 	};
-	$cmode2txt[$$net] = \%def_c2t;
-	$txt2cmode[$$net] = \%def_t2c;
+	$net->module_add('CORE');
 }
 
 sub process_capabs {
@@ -143,6 +118,9 @@ sub process_capabs {
 		push @ltype, 'n';
 		push @ttype, 'n';
 	}
+
+=todo
+
 	if (@g == 5) {
 		my %c2t;
 		my %t2c;
@@ -160,21 +138,15 @@ sub process_capabs {
 			}
 		}
 		$t2c{n_op} = 'o';
-		$txt2cmode[$$net] = \%t2c;
-		$cmode2txt[$$net] = \%c2t;
 	} else {
 		Log::warn_in($net, 'No 005 CHANMODES/PREFIX, assuming RFC1459 modes');
 	}
+
+=cut
+
 	my $um = $capabs[$$net]{' umodes'} || '';
 	$net->send('PROTOCTL NAMESX') if $capabs[$$net]{NAMESX};
 	$net->send("MODE ".$self[$$net].' +B') if $um =~ /B/;
-}
-
-sub cmode2txt {
-	$cmode2txt[${$_[0]}]{$_[1]};
-}
-sub txt2cmode {
-	$txt2cmode[${$_[0]}]{$_[1]};
 }
 
 sub lc {
@@ -279,13 +251,12 @@ sub parse {
 	} else {
 		unshift @args, undef;
 	}
-	my $cmd = $args[1];
-	$cmd = $fromirc{$cmd} || $cmd;
-	unless (ref $cmd) {
-		Log::warn_in($net, "Unknown command in line $line");
+	my @hand = $net->hook(parse => $args[1]);
+	unless (@hand) {
+		Log::warn_in($net, "Unknown command '$args[1]' in line $line");
 		return ();
 	}
-	push @out, $cmd->($net,@args);
+	push @out, map { $_->($net, @args) } @hand;
 	@out;
 }
 
@@ -294,8 +265,8 @@ sub send {
 	for my $act (@_) {
 		if (ref $act) {
 			my $type = $act->{type};
-			next unless $toirc{$type};
-			push @{$sendq[$$net]}, $toirc{$type}->($net,$act);
+			my @hand = $net->hook('send', $type);
+			push @{$sendq[$$net]}, map { $_->($net, $act) } @hand;
 		} else {
 			push @{$sendq[$$net]}, $act;
 		}
@@ -397,7 +368,142 @@ sub delink_cancel_join {
 
 sub nicklen { 40 }
 
-%toirc = (
+sub cb_cmd {
+	my($net,$src,$msg) = @_;
+# TODO make generic, more commands
+	if ($msg =~ /^names (#\S*)/i) {
+		my $chan = $net->chan($1);
+		if ($chan) {
+			my @nicks = grep { $_->homenet != $net } $chan->all_nicks;
+			my @table = map [ Modes::chan_pfx($chan, $_) . $_->str($net) ], @nicks;
+			Interface::msgtable($src, \@table, cols => 6, pfx => $1.' ');
+		} else {
+			Janus::jmsg($src, 'Not on that channel');
+		}
+	} else {
+		Janus::jmsg($src, 'Unknown command');
+	}
+	return ();
+}
+
+sub pm_not {
+	my $net = shift;
+	my $src = $net->item($_[0]) or return ();
+	my $dst = $net->item($_[2]) or return ();
+	return () unless $src->isa('Nick');
+	if ($dst == $Interface::janus) {
+		# PM to the bot
+		my $msg = $_[3];
+		if ($msg =~ /^\001/) {
+			$net->send("NOTICE $_[0] :\001VERSION Janus Relay\001") if $msg =~ /^\001VERSION/i && $_[1] eq 'PRIVMSG';
+			return ();
+		}
+		return cb_cmd($net, $src, $msg) if $msg =~ s/^!//;
+		if ($msg =~ s/^(\S+)\s//) {
+			$dst = $net->item($1);
+			if (ref $dst && $dst->isa('Nick') && $dst->homenet() ne $net) {
+				return () if $dst == $Interface::janus;
+				return +{
+					type => 'MSG',
+					src => $src,
+					dst => $dst,
+					msgtype => $_[1],
+					msg => $msg,
+				};
+			}
+		}
+		if ($_[1] eq 'PRIVMSG') {
+			$net->send("NOTICE $_[0] :Error: user not found. To message a user, prefix your message with their nick");
+		} elsif ($_[1] eq 'NOTICE') {
+			if ($net->lc($_[0]) eq 'nickserv') {
+				if ($_[3] =~ /(registered|protected|identify)/i && $_[3] !~ / not /i) {
+					return +{
+						type => 'IDENTIFY',
+						dst => $net,
+						method => 'ns',
+					};
+				} elsif ($_[3] =~ /wrong\spassword/ ) {
+					Log::err_in($net, "Wrong password mentioned in the config file.");
+				}
+			} elsif (uc $_[0] eq 'Q' && $_[3] =~ /registered/i ) {
+				return +{
+					type => 'IDENTIFY',
+					dst => $net,
+					method => 'Q',
+				};
+			}
+		}
+		return ();
+	} elsif ($dst->isa('Channel')) {
+		return +{
+			type => 'MSG',
+			src => $src,
+			msgtype => $_[1],
+			dst => $dst,
+			msg => $_[3],
+		};
+	} else {
+		# server msg, etc. Ignore.
+		();
+	}
+}
+
+sub kicked {
+	my($net, $cname, $msg,$knick) = @_;
+	my $chan = $net->chan($cname) or return ();
+	my @out;
+	for my $nick ($chan->all_nicks()) {
+		next unless $nick->homenet() eq $net;
+		push @out, +{
+			type => 'PART',
+			src => $nick,
+			dst => $chan,
+			msg => 'Janus relay bot kicked by '.$knick.': '.$msg,
+		};
+		my @chans = $nick->all_chans();
+		if (!@chans || (@chans == 1 && $chans[0] == $chan)) {
+			push @out, +{
+				type => 'QUIT',
+				dst => $nick,
+				msg => 'Janus relay bot cannot see this nick',
+			};
+		}
+	}
+	my $rejoin = Setting::get(kick_rejoin => $net);
+	if ($rejoin) {
+		$net->add_halfout([ 10, "JOIN $cname", 'JOIN', $cname ]);
+	} else {
+		push @out, +{
+			type => 'DELINK',
+			cause => 'unlink',
+			dst => $chan,
+			net => $net,
+		};
+	}
+	@out;
+}
+
+
+our %moddef = ();
+Janus::static('moddef');
+$moddef{CORE} = {
+	cmode => {qw/
+		o n_op
+		h n_halfop
+		v n_voice
+
+		b l_ban
+		e l_except
+		I l_invite
+		l s_limit
+		i r_invite
+		m r_moderated
+		n r_mustjoin
+		p t1_chanhide
+		s t2_chanhide
+		t r_topic
+	/},
+  'send' => {
 	JOIN => sub {
 		my($net,$act) = @_;
 		my $src = $act->{src};
@@ -523,7 +629,7 @@ sub nicklen { 40 }
 				splice @ma, $i, 1;
 				splice @md, $i, 1;
 			} elsif ($mm[$i] eq 'cb_modesync' && $md[$i] eq '+') {
-				my @modes = Modes::to_multi($net, Modes::delta(undef, $chan), $capabs[$$net]{MODES});
+				my @modes = $net->cmode_to_irc($chan, Modes::delta(undef, $chan), $capabs[$$net]{MODES});
 				return map $net->cmd1(MODE => $chan, @$_), @modes;
 			} else {
 				$i++;
@@ -531,7 +637,7 @@ sub nicklen { 40 }
 		}
 		return () unless $chan->get_mode('cb_modesync');
 
-		my @modes = Modes::to_multi($net, \@mm, \@ma, \@md, $capabs[$$net]{MODES});
+		my @modes = $net->cmode_to_irc($chan, \@mm, \@ma, \@md, $capabs[$$net]{MODES});
 		map $net->cmd1(MODE => $chan, @$_), @modes;
 	},
 	TOPIC => sub {
@@ -574,121 +680,7 @@ sub nicklen { 40 }
 		Event::append(&Interface::whois_reply($act->{src}, $act->{dst}, 0, 0));
 		();
 	},
-);
-
-sub cb_cmd {
-	my($net,$src,$msg) = @_;
-# TODO make generic, more commands
-	if ($msg =~ /^names (#\S*)/i) {
-		my $chan = $net->chan($1);
-		if ($chan) {
-			my @nicks = grep { $_->homenet != $net } $chan->all_nicks;
-			my @table = map [ Modes::chan_pfx($chan, $_) . $_->str($net) ], @nicks;
-			Interface::msgtable($src, \@table, cols => 6, pfx => $1.' ');
-		} else {
-			Janus::jmsg($src, 'Not on that channel');
-		}
-	} else {
-		Janus::jmsg($src, 'Unknown command');
-	}
-	return ();
-}
-
-sub pm_not {
-	my $net = shift;
-	my $src = $net->item($_[0]) or return ();
-	my $dst = $net->item($_[2]) or return ();
-	return () unless $src->isa('Nick');
-	if ($dst == $Interface::janus) {
-		# PM to the bot
-		my $msg = $_[3];
-		return if $msg =~ /^\001/; # ignore CTCPs
-		return cb_cmd($net, $src, $msg) if $msg =~ s/^!//;
-		if ($msg =~ s/^(\S+)\s//) {
-			$dst = $net->item($1);
-			if (ref $dst && $dst->isa('Nick') && $dst->homenet() ne $net) {
-				return () if $dst == $Interface::janus;
-				return +{
-					type => 'MSG',
-					src => $src,
-					dst => $dst,
-					msgtype => $_[1],
-					msg => $msg,
-				};
-			}
-		}
-		if ($_[1] eq 'PRIVMSG') {
-			$net->send("NOTICE $_[0] :Error: user not found. To message a user, prefix your message with their nick");
-		} elsif ($_[1] eq 'NOTICE') {
-			if ($net->lc($_[0]) eq 'nickserv') {
-				if ($_[3] =~ /(registered|protected|identify)/i && $_[3] !~ / not /i) {
-					return +{
-						type => 'IDENTIFY',
-						dst => $net,
-						method => 'ns',
-					};
-				} elsif ($_[3] =~ /wrong\spassword/ ) {
-					Log::err_in($net, "Wrong password mentioned in the config file.");
-				}
-			} elsif (uc $_[0] eq 'Q' && $_[3] =~ /registered/i ) {
-				return +{
-					type => 'IDENTIFY',
-					dst => $net,
-					method => 'Q',
-				};
-			}
-		}
-		return ();
-	} elsif ($dst->isa('Channel')) {
-		return +{
-			type => 'MSG',
-			src => $src,
-			msgtype => $_[1],
-			dst => $dst,
-			msg => $_[3],
-		};
-	} else {
-		# server msg, etc. Ignore.
-		();
-	}
-}
-
-sub kicked {
-	my($net, $cname, $msg,$knick) = @_;
-	my $chan = $net->chan($cname) or return ();
-	my @out;
-	for my $nick ($chan->all_nicks()) {
-		next unless $nick->homenet() eq $net;
-		push @out, +{
-			type => 'PART',
-			src => $nick,
-			dst => $chan,
-			msg => 'Janus relay bot kicked by '.$knick.': '.$msg,
-		};
-		my @chans = $nick->all_chans();
-		if (!@chans || (@chans == 1 && $chans[0] == $chan)) {
-			push @out, +{
-				type => 'QUIT',
-				dst => $nick,
-				msg => 'Janus relay bot cannot see this nick',
-			};
-		}
-	}
-	my $rejoin = Setting::get(kick_rejoin => $net);
-	if ($rejoin) {
-		$net->add_halfout([ 10, "JOIN $cname", 'JOIN', $cname ]);
-	} else {
-		push @out, +{
-			type => 'DELINK',
-			cause => 'unlink',
-			dst => $chan,
-			net => $net,
-		};
-	}
-	@out;
-}
-
-%fromirc = (
+  }, parse => {
 	PRIVMSG => \&pm_not,
 	NOTICE => \&pm_not,
 	JOIN => sub {
@@ -849,19 +841,21 @@ sub kicked {
 		} elsif ($_[2] =~ /^#/) {
 			my $nick = $net->item($_[0]) or return ();
 			my $chan = $net->chan($_[2]) or return ();
-			return () unless $chan->get_mode('cb_modesync');
-			my($modes,$args,$dirs) = Modes::from_irc($net, $chan, @_[3 .. $#_]);
+			my($modes,$args,$dirs) = $net->cmode_from_irc($chan, @_[3 .. $#_]);
 			my $i = 0;
 			while ($i < @$modes) {
-				if (Modes::mtype($modes->[$i]) eq 'n' && $args->[$i]->homenet != $net) {
+				my $commit = Modes::mtype($modes->[$i]) eq 'n' ?
+					($args->[$i]->homenet == $net) :
+					$chan->get_mode('cb_modesync');
+				if ($commit) {
+					$i++;
+				} else {
 					splice @$modes, $i, 1;
 					splice @$args, $i, 1;
 					splice @$dirs, $i, 1;
-				} else {
-					$i++;
 				}
 			}
-
+			return () unless @$modes;
 			return +{
 				type => 'MODE',
 				src => $nick,
@@ -1142,7 +1136,7 @@ sub kicked {
 		}
 		();
 	},
-);
+}};
 
 Event::hook_add(
 	INFO => 'Network:1' => sub {
@@ -1156,6 +1150,12 @@ Event::hook_add(
 			defined $capabs[$$net]{$_} ? "$_=$capabs[$$net]{$_}" : $_
 		} grep !/ /, keys %{$capabs[$$net]});
 	},
+	Server => find_module => sub {
+		my($net, $name, $d) = @_;
+		return unless $net->isa(__PACKAGE__);
+		return unless $moddef{$name};
+		$$d = $moddef{$name};
+	}
 );
 
 1;

@@ -115,4 +115,22 @@ sub item {
 	return undef;
 }
 
+sub _out {
+	my($net,$itm) = @_;
+	return '' unless defined $itm;
+	return $itm =~ / / ? ':'.$itm : $itm unless ref $itm;
+	if ($itm->isa('Nick')) {
+		return $itm->str($net) if $itm->is_on($net);
+		return $itm->homenet()->jname();
+	} elsif ($itm->isa('Channel')) {
+		return $itm->str($net);
+	} elsif ($itm->isa('Network')) {
+		return $net->cparam('linkname') if $itm eq $net;
+		return $itm->jname();
+	} else {
+		Log::warn_in($net,"Unknown _out item $itm");
+	}
+	'';
+}
+
 1;

@@ -4,22 +4,22 @@ package Server::Inspircd_1200;
 use Nick;
 use Modes;
 use Server::BaseUID;
+use Server::BaseParser;
 use Server::ModularNetwork;
 use Server::InspMods;
 use Util::Crypto;
 
-use Persist 'Server::BaseUID', 'Server::ModularNetwork';
+use Persist 'Server::BaseUID', 'Server::BaseParser', 'Server::ModularNetwork';
 use strict;
 use warnings;
 use integer;
 
-our(@sendq1, @sendq2, @servers, @serverdsc, @servernum, @next_uid, @capabs);
-Persist::register_vars(qw(sendq1 sendq2 servers serverdsc servernum next_uid capabs));
+our(@auth_sendq, @servers, @serverdsc, @servernum, @next_uid, @capabs);
+Persist::register_vars(qw(auth_sendq servers serverdsc servernum next_uid capabs));
 
 sub _init {
 	my $net = shift;
-	$sendq1[$$net] = '';
-	$sendq2[$$net] = '';
+	$auth_sendq[$$net] = '';
 	$net->module_add('CORE');
 }
 
@@ -39,7 +39,7 @@ sub intro {
 	my($net,@param) = @_;
 	$net->SUPER::intro(@param);
 	my @out;
-	$sendq1[$$net] .= "CAPAB START\r\n";
+	$auth_sendq[$$net] = "CAPAB START\r\n";
 	# we cannot continue until we get the remote CAPAB list so we can
 	# forge the module list. However, we can set up the other server introductions
 	# as they will be sent after auth is done
@@ -47,63 +47,23 @@ sub intro {
 }
 
 # parse one line of input
-sub parse {
-	my ($net, $line) = @_;
-	my ($txt, $msg) = split /\s+:/, $line, 2;
-	my @args = split /\s+/, $txt;
-	push @args, $msg if defined $msg;
-	if ($args[0] !~ s/^://) {
-		unshift @args, undef;
-	}
-	my $cmd = $args[1];
-	Log::netin(@_) unless $cmd eq 'PRIVMSG' || $cmd eq 'NOTICE';
+sub inner_parse {
+	my($net, $args, $line) = @_;
+	my $cmd = $args->[1];
+	Log::netin($net, $line) unless $cmd eq 'PRIVMSG' || $cmd eq 'NOTICE';
 	unless ($net->auth_ok || $cmd eq 'CAPAB' || $cmd eq 'SERVER' || $cmd eq 'ERROR') {
-		$sendq1[$$net] .= "ERROR :Not authorized yet\r\n";
-		return ();
+		$auth_sendq[$$net] .= "ERROR :Not authorized yet\r\n";
+		return 0;
 	}
-	$net->from_irc(@args);
-}
-
-sub send {
-	my $net = shift;
-	my @q = $net->to_irc(@_);
-	$sendq2[$$net] .= join '', map "$_\r\n", @q;
+	1;
 }
 
 sub dump_sendq {
 	my $net = shift;
-	local $_;
-	my $q = $sendq1[$$net];
-	$sendq1[$$net] = '';
+	my $q = $auth_sendq[$$net];
 	Log::netout($net, $_) for split /\r\n/, $q;
-	if ($net->auth_ok) {
-		my $fj_pfx;
-		my $fj_line = '';
-		my @lines = split /\r\n/, $sendq2[$$net];
-		$sendq2[$$net] = '';
-		for (@lines) {
-			if (/^:\S+ FJOIN (.*?) :(.*)/) {
-				if ($fj_line && $fj_pfx eq $1 && length $fj_line < 490) {
-					$fj_line .= ' '.$2;
-				} else {
-					$q .= $fj_line."\r\n" if $fj_line;
-					Log::netout($net, $fj_line) if $fj_line;
-					$fj_pfx = $1;
-					$fj_line = $_;
-				}
-			} else {
-				if ($fj_line && !/^:\S+ UID /) {
-					$q .= $fj_line."\r\n";
-					Log::netout($net, $fj_line);
-					$fj_line = '';
-				}
-				$q .= $_ . "\r\n";
-				Log::netout($net, $_) unless /^:\S+ (?:PRIVMSG|NOTICE) /;
-			}
-		}
-		$q .= $fj_line."\r\n" if $fj_line;
-		Log::netout($net, $fj_line) if $fj_line;
-	}
+	$auth_sendq[$$net] = '';
+	$q .= Server::BaseParser::dump_sendq($net) if $net->auth_ok;
 	$q;
 }
 
@@ -149,17 +109,7 @@ sub _connect_ifo {
 
 	my @out;
 
-	my $mode = '+';
-	my @modearg;
-	for my $m ($nick->umodes()) {
-		my $um = $net->txt2umode($m);
-		next unless defined $um;
-		if (ref $um) {
-			$mode .= $um->($net, $nick, '+'.$m, \@out, \@modearg);
-		} else {
-			$mode .= $um;
-		}
-	}
+	my $mode = '+'.$net->umode_to_irc([ $nick->umodes ], $nick);
 
 	my $ip = $nick->info('ip') || '0.0.0.0';
 	$ip = '0.0.0.0' if $ip eq '*' || $net->param('untrusted');
@@ -169,7 +119,7 @@ sub _connect_ifo {
 		$visible = 3 if $nick == $Interface::janus;
 		my $suffix = $visible < 3 ? ' (remote)' : '';
 		if ($visible == 1) {
-			my $ho = $net->txt2umode('hideoper');
+			my $ho = $net->umode_to_irc([ 'hideoper' ], $nick);
 			$mode .= $ho if defined $ho && -1 == index $mode, $ho;
 		}
 		my $len = $net->nicklen() - length $suffix;
@@ -181,7 +131,7 @@ sub _connect_ifo {
 	my $host = $nick->info($net->param('untrusted') ? 'vhost' : 'host');
 	unshift @out, $net->cmd2($nick->homenet, UID => $nick, $nick->ts($net), $nick->str($net),
 		$host, $nick->info('vhost'), $nick->info('ident'), $ip, ($nick->info('signonts') || 1),
-		$mode, @modearg, $nick->info('name'));
+		$mode, $nick->info('name'));
 
 	@out;
 }
@@ -203,29 +153,29 @@ sub process_capabs {
 		unless $capabs[$$net]{PROTOCOL} == 1200 || $capabs[$$net]{PROTOCOL} == 1201;
 
 	# PREFIX=(qaohv)~&@%+ - just get the letters
-	$capabs[$$net]{PREFIX} =~ /\((\S+)\)\S+/ or warn;
-	my $pfxmodes = $1;
-	my $expect = Modes::modelist($net, $pfxmodes);
-	unless ($expect eq $capabs[$$net]{CHANMODES}) {
-		$net->send($net->ncmd(SNONOTICE => 'l', 'Possible desync - CHANMODES do not match module list: '.
-			"expected $expect, got $capabs[$$net]{CHANMODES}"));
-	}
-	for (split //, $pfxmodes) {
-		my $t = $net->cmode2txt($_);
-		next if $t && $t =~ /^n_/;
-		$net->send($net->ncmd(SNONOTICE => 'l', "Possible desync - PREFIX does not include mode '$_'"));
-	}
+#	$capabs[$$net]{PREFIX} =~ /\((\S+)\)\S+/ or warn;
+#	my $pfxmodes = $1;
+#	my $expect = Modes::modelist($net, $pfxmodes);
+#	unless ($expect eq $capabs[$$net]{CHANMODES}) {
+#		$net->send($net->ncmd(SNONOTICE => 'l', 'Possible desync - CHANMODES do not match module list: '.
+#			"expected $expect, got $capabs[$$net]{CHANMODES}"));
+#	}
+#	for (split //, $pfxmodes) {
+#		my $t = $net->cmode2txt($_);
+#		next if $t && $t =~ /^n_/;
+#		$net->send($net->ncmd(SNONOTICE => 'l', "Possible desync - PREFIX does not include mode '$_'"));
+#	}
 
-	$expect = '';
-	for ('0'..'9','A'..'Z','a'..'z') {
-		$expect .= $_ if defined $net->umode2txt($_, 1);
-	}
-	$expect =~ s/s//;
-	my $given = $capabs[$$net]{USERMODES};
-	unless (",,s,$expect" eq $given) {
-		$net->send($net->ncmd(SNONOTICE => 'l', 'Possible desync - USERMODES do not match module list: '.
-			"expected ,,s,$expect, got $given"));
-	}
+#	$expect = '';
+#	for ('0'..'9','A'..'Z','a'..'z') {
+#		$expect .= $_ if defined $net->umode2txt($_, 1);
+#	}
+#	$expect =~ s/s//;
+#	my $given = $capabs[$$net]{USERMODES};
+#	unless (",,s,$expect" eq $given) {
+#		$net->send($net->ncmd(SNONOTICE => 'l', 'Possible desync - USERMODES do not match module list: '.
+#			"expected ,,s,$expect, got $given"));
+#	}
 
 	my $chall = delete $capabs[$$net]{CHALLENGE};
 	my $sha2 = eval { require Digest::SHA; Digest::SHA->new('sha256') };
@@ -250,50 +200,8 @@ sub lc {
 	$o;
 }
 
-# IRC Parser
-# Arguments:
-#	$_[0] = Network
-#	$_[1] = source (not including leading ':') or 'undef'
-#	$_[2] = command (for multipurpose subs)
-#	3 ... = arguments to the irc line; last element has the leading ':' stripped
-# Return:
-#  list of hashrefs containing the Action(s) represented (can be empty)
-
-sub _out {
-	my($net,$itm) = @_;
-	return '' unless defined $itm;
-	return $itm unless ref $itm;
-	if ($itm->isa('Nick')) {
-		my $rv;
-		$rv = $net->nick2uid($itm) if $itm->is_on($net);
-		$rv = $net->net2uid($itm->homenet()) unless defined $rv;
-		return $rv;
-	} elsif ($itm->isa('Channel')) {
-		return $itm->str($net);
-	} elsif ($itm->isa('Network') || $itm->isa('RemoteJanus')) {
-		return $net->net2uid($itm);
-	} else {
-		Log::err_in($net, "Unknown item $itm");
-		return $net->net2uid($net);
-	}
-}
-
-sub ncmd {
-	my $net = shift;
-	$net->cmd2($net, @_);
-}
-
-sub cmd2 {
-	my($net,$src,$cmd) = (shift,shift,shift);
-	my $out = defined $src ? ':'.$net->_out($src).' ' : '';
-	$out .= $cmd;
-	if (@_) {
-		my $end = $net->_out(pop @_);
-		$out .= ' '.$net->_out($_) for @_;
-		$out .= ' :'.$end;
-	}
-	$out;
-}
+my %cm2txt = (qw/q owner a admin o op h halfop v voice/);
+my %txt2cm = (qw/owner q admin a op o halfop h voice v/);
 
 our %moddef = ();
 Janus::static('moddef');
@@ -322,7 +230,7 @@ $moddef{CORE} = {
 		w => 'wallops',
 		's', '',
   },
-  cmds => {
+  parse => {
 	NICK => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
@@ -374,13 +282,8 @@ $moddef{CORE} = {
 				name => $_[-1],
 			},
 		);
-		my @m = split //, $_[10];
-		warn unless '+' eq shift @m;
-		$nick{mode} = +{ map {
-			my $t = $net->umode2txt($_);
-			$t ? ($t => 1) : ();
-		} @m };
-
+		my $modes = $net->umode_from_irc($_[10]);
+		$nick{mode} = { map { /\+(.*)/ ? ($1 => 1) : () } @$modes };
 		my $nick = Nick->new(%nick);
 		$net->register_nick($nick, $_[2]);
 	}, OPERTYPE => sub {
@@ -489,7 +392,7 @@ $moddef{CORE} = {
 			}
 		}
 
-		my($modes,$args,$dirs,$users) = Modes::from_irc($net, $chan, @_[4 .. $#_]);
+		my($modes,$args,$dirs,$users) = $net->cmode_from_irc($chan, @_[4 .. $#_]);
 		if ($applied && @$dirs) {
 			push @acts, +{
 				type => 'MODE',
@@ -507,8 +410,8 @@ $moddef{CORE} = {
 			my $nmode = $1;
 			my $nick = $net->mynick($2) or next;
 			my %mh = map {
-				$_ = $net->cmode2txt($_);
-				/^n_(.+)/ ? ($1 => 1) : ();
+				$_ = $cm2txt{$_};
+				$_ ? ($_ => 1) : ();
 			} split //, $nmode;
 			push @acts, +{
 				type => 'JOIN',
@@ -536,7 +439,7 @@ $moddef{CORE} = {
 		my $chan = $net->chan($_[2]) or return ();
 		my $ts = $_[3];
 		return () if $ts > $chan->ts();
-		my($modes,$args,$dirs) = Modes::from_irc($net, $chan, @_[4 .. $#_]);
+		my($modes,$args,$dirs) = $net->cmode_from_irc($chan, @_[4 .. $#_]);
 		return +{
 			type => 'MODE',
 			src => $src,
@@ -553,7 +456,7 @@ $moddef{CORE} = {
 			return () unless $dst->homenet() eq $net;
 			$net->_parse_umode($dst, $_[3]);
 		} else {
-			my($modes,$args,$dirs) = Modes::from_irc($net, $dst, @_[3 .. $#_]);
+			my($modes,$args,$dirs) = $net->cmode_from_irc($dst, @_[3 .. $#_]);
 			return +{
 				type => 'MODE',
 				src => $src,
@@ -652,11 +555,11 @@ $moddef{CORE} = {
 				if ($net->auth_should_send) {
 					my $spass = delete $capabs[$$net]{' HMAC_SPASS'} || $net->cparam('sendpass');
 					my $name = $net->cparam('linkname') || $RemoteJanus::self->jname;
-					$sendq1[$$net] .= $net->cmd2(undef, SERVER => $name, $spass, 0, $net, "Janus Network Link\r\n");
+					$auth_sendq[$$net] .= $net->cmd2(undef, SERVER => $name, $spass, 0, $net, "Janus Network Link\r\n");
 				}
-				$sendq1[$$net] .= $net->ncmd(BURST => $Janus::time)."\r\n";
+				$auth_sendq[$$net] .= $net->ncmd(BURST => $Janus::time)."\r\n";
 			} else {
-				$sendq1[$$net] .= "ERROR :Bad password\r\n";
+				$auth_sendq[$$net] .= "ERROR :Bad password\r\n";
 				return ();
 			}
 			$serverdsc[$$net]{CORE::lc $_[2]} = $_[-1];
@@ -751,7 +654,7 @@ $moddef{CORE} = {
 				my $name = $net->cparam('linkname') || $RemoteJanus::self->jname;
 				push @out, $net->cmd2(undef, SERVER => $name, $spass, 0, $net, 'Janus Network Link');
 			}
-			$sendq1[$$net] .= join "\r\n", @out, '';
+			$auth_sendq[$$net] .= join "\r\n", @out, '';
 		} # ignore START and any others
 		();
 	}, ERROR => sub {
@@ -883,12 +786,14 @@ $moddef{CORE} = {
 	METADATA => sub {
 		my $net = shift;
 		my $key = $_[3];
-		$net->do_meta($key, @_);
+		my @hook = $net->hook('metadata', $key);
+		map { $_->($net, @_) } @hook;
 	},
 	ENCAP => sub {
 		my $net = shift;
 		my $key = $_[3];
-		$net->do_meta($key, @_);
+		my @hook = $net->hook('encap', $key);
+		map { $_->($net, @_) } @hook;
 	},
 	IDLE => sub {
 		my $net = shift;
@@ -943,7 +848,7 @@ $moddef{CORE} = {
 		$net->module_remove($_[2]);
 		();
 	},
-  }, acts => {
+  }, 'send' => {
 	JNETLINK => sub {
 		my($net,$act) = @_;
 		my $new = $act->{net};
@@ -1017,14 +922,10 @@ $moddef{CORE} = {
 			my @out = $net->_connect_ifo($nick);
 			for my $chan (@{$act->{reconnect_chans}}) {
 				next unless $chan->is_on($net);
-				my $mode = join '', map {
-					$chan->has_nmode($_, $nick) ? ($net->txt2cmode("n_$_") || '') : ''
-				} qw/voice halfop op admin owner/;
-				my @cmodes = Modes::to_multi($net, Modes::dump($chan), $capabs[$$net]{MAXMODES});
-				@cmodes = (['+']) unless @cmodes && @{$cmodes[0]};
-				warn "w00t said this wouldn't happen" if @cmodes != 1;
-
-				push @out, $net->ncmd(FJOIN => $chan, $chan->ts(), @{$cmodes[0]}, $mode.','.$nick->str($net));
+				my $mode = Modes::chan_pfx($chan, $nick, $net);
+				$mode =~ tr/~&@%+/qaohv/;
+				my @cmodes = $net->cmode_to_irc_1($chan, Modes::dump($chan), $capabs[$$net]{MAXMODES});
+				push @out, $net->ncmd(FJOIN => $chan, $chan->ts(), @cmodes, $mode.','.$nick->str($net));
 			}
 			return @out;
 		} else {
@@ -1037,23 +938,9 @@ $moddef{CORE} = {
 		$net->cmd2($dst, NICK => $act->{to}{$id}, $dst->ts($net));
 	}, UMODE => sub {
 		my($net,$act) = @_;
-		my $pm = '';
-		my $mode = '';
 		my @out;
-		my @modearg;
-		for my $ltxt (@{$act->{mode}}) {
-			my($d,$txt) = $ltxt =~ /^([-+])(.+)/;
-			my $um = $net->txt2umode($txt);
-			if (ref $um) {
-				$um = $um->($net, $act->{dst}, $ltxt, \@out, \@modearg);
-			}
-			if (defined $um && $um ne '') {
-				$mode .= $d if $pm ne $d;
-				$mode .= $um;
-				$pm = $d;
-			}
-		}
-		unshift @out, $net->cmd2($act->{dst}, MODE => $act->{dst}, $mode, @modearg) if $mode;
+		my $mode = $net->umode_to_irc($net, $act->{mode}, $act->{dst}, \@out);
+		unshift @out, $net->cmd2($act->{dst}, MODE => $act->{dst}, $mode) if $mode;
 		@out;
 	}, QUIT => sub {
 		my($net,$act) = @_;
@@ -1069,13 +956,10 @@ $moddef{CORE} = {
 		}
 		my $mode = '';
 		if ($act->{mode}) {
-			$mode .= ($net->txt2cmode("n_$_") || '') for keys %{$act->{mode}};
+			$mode .= Modes::implements($net, $_) ? $txt2cm{$_} : '' for keys %{$act->{mode}};
 		}
-		my @cmodes = Modes::to_multi($net, Modes::dump($chan), $capabs[$$net]{MAXMODES});
-		@cmodes = (['+']) unless @cmodes && @{$cmodes[0]};
-		warn "w00t said this wouldn't happen" if @cmodes != 1;
-
-		$net->ncmd(FJOIN => $chan, $chan->ts(), @{$cmodes[0]}, $mode.','.$net->_out($act->{src}));
+		my @cmodes = $net->cmode_to_irc_1($chan, Modes::dump($chan), $capabs[$$net]{MAXMODES});
+		$net->ncmd(FJOIN => $chan, $chan->ts(), @cmodes, $mode.','.$net->_out($act->{src}));
 	}, PART => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, PART => $act->{dst}, $act->{msg});
@@ -1095,8 +979,7 @@ $moddef{CORE} = {
 		my($net,$act) = @_;
 		my $src = $act->{src} || $net;
 		my $dst = $act->{dst};
-		my @modes = Modes::to_multi($net, $act->{mode}, $act->{args}, $act->{dirs},
-			$capabs[$$net]{MAXMODES});
+		my @modes = $net->cmode_to_irc($dst, $act->{mode}, $act->{args}, $act->{dirs}, $capabs[$$net]{MAXMODES});
 		my @out;
 		for my $line (@modes) {
 			push @out, $net->cmd2($src, FMODE => $dst, $dst->ts(), @$line);
@@ -1124,7 +1007,7 @@ $moddef{CORE} = {
 			my @out;
 			my $mch = '-o';
 			my $suffix = $visible < 3 ? ' (remote)' : '';
-			if ($visible == 1 && $net->txt2umode('hideoper')) {
+			if ($visible == 1 && $net->hook('cmode_out', 'hideoper')) {
 				push @out, $net->cmd2($act->{dst}, MODE => $act->{dst}, '+H');
 			}
 			my $len = $net->nicklen() - length $suffix;
@@ -1138,27 +1021,25 @@ $moddef{CORE} = {
 		my $chan = $act->{dst};
 		my $ts = $act->{newts};
 
-		my @sjmodes = Modes::to_irc($net, Modes::dump($chan));
-		@sjmodes = '+' unless @sjmodes;
+		my @sjmodes = $net->cmode_to_irc_1($chan, Modes::dump($chan));
 
 		my @out = $net->ncmd(FJOIN => $chan, $ts, @sjmodes, ','.$net->_out($Interface::janus));
 
 		push @out, map {
 			$net->ncmd(FMODE => $chan, $ts, @$_);
-		} Modes::to_multi($net, Modes::delta(undef, $chan, $net, 1), $capabs[$$net]{MAXMODES});
+		} $net->cmode_to_irc($chan, Modes::delta(undef, $chan, $net, 1), $capabs[$$net]{MAXMODES});
 
 		@out;
 	}, CHANBURST => sub {
 		my($net,$act) = @_;
 		my $old = $act->{before};
 		my $new = $act->{after};
-		my @sjmodes = Modes::to_irc($net, Modes::dump($new));
-		@sjmodes = '+' unless @sjmodes;
+		my @sjmodes = $net->cmode_to_irc_1($new, Modes::dump($new));
 		my @out;
 		push @out, $net->ncmd(FJOIN => $new, $new->ts, @sjmodes, ','.$net->_out($Interface::janus));
 		push @out, map {
 			$net->ncmd(FMODE => $new, $new->ts, @$_);
-		} Modes::to_multi($net, Modes::delta($new->ts < $old->ts ? undef : $old, $new), $capabs[$$net]{MAXMODES});
+		} $net->cmode_to_irc($new, Modes::delta($new->ts < $old->ts ? undef : $old, $new), $capabs[$$net]{MAXMODES});
 		if ($new->topic && (!$old->topic || $old->topic ne $new->topic)) {
 			push @out, $net->ncmd(FTOPIC => $new, $new->topicts, $new->topicset, $new->topic);
 		}
@@ -1166,21 +1047,20 @@ $moddef{CORE} = {
 	}, CHANALLSYNC => sub {
 		my($net,$act) = @_;
 		my $chan = $act->{chan};
-		my @sjmodes = Modes::to_irc($net, Modes::dump($chan));
-		@sjmodes = '+' unless @sjmodes;
+		my @sjmodes = $net->cmode_to_irc_1($chan, Modes::dump($chan));
 		my @out;
 		my $fj = '';
 		# TODO this likely misses +qa if people turn off prefix mode for them
 		for my $nick ($chan->all_nicks) {
 			my $mode = $chan->get_nmode($nick);
-			my $m = join '', map { $net->txt2cmode("n_$_") || '' } keys %$mode;
+			my $m = join '', map { Modes::implements($net, $_) ? $txt2cm{$_} : '' } keys %$mode;
 			$fj .= ' '.$m.','.$net->_out($nick);
 		}
 		$fj =~ s/^ // or return ();
 		push @out, $net->ncmd(FJOIN => $chan, $chan->ts, @sjmodes, $fj);
 		push @out, map {
 			$net->ncmd(FMODE => $chan, $chan->ts, @$_);
-		} Modes::to_multi($net, Modes::delta(undef, $chan), $capabs[$$net]{MAXMODES});
+		} $net->cmode_to_irc($chan, Modes::delta(undef, $chan), $capabs[$$net]{MAXMODES});
 		if ($chan->topic) {
 			push @out, $net->ncmd(FTOPIC => $chan, $chan->topicts, $chan->topicset, $chan->topic);
 		}

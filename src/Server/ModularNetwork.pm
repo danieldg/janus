@@ -6,16 +6,13 @@ use strict;
 use warnings;
 
 our @modules;   # {module} => definition - List of active modules
-our @meta;      # key => sub{} for METADATA command
-our @fromirc;   # command => sub{} for IRC commands
-our @act_hooks; # type => module => sub{} for Janus Action => output
-
-our(@txt2cmode, @cmode2txt, @txt2umode, @umode2txt); # quick lookup hashes for translation in/out of janus
-Persist::register_vars(qw(modules meta fromirc act_hooks txt2cmode cmode2txt txt2umode umode2txt));
+our @hooks;     # {'hook item'} => [ list ]
+Persist::register_vars(qw(modules hooks));
 
 sub module_add {
 	my($net,$name,$opt) = @_;
 	return if $modules[$$net]{$name};
+	$hooks[$$net] = {}; # clear cache, will be rebuilt as needed
 	my $mod;
 	Event::named_hook('Server/find_module', $net, $name, \$mod);
 	unless ($mod) {
@@ -25,41 +22,58 @@ sub module_add {
 	$modules[$$net]{$name} = $mod;
 	if ($mod->{cmode}) {
 		for my $cm (keys %{$mod->{cmode}}) {
-			my $txt = $mod->{cmode}{$cm};
-			warn "Overriding mode $cm = $txt" if $cmode2txt[$$net]{$cm} || $txt2cmode[$$net]{$txt};
-			$cmode2txt[$$net]{$cm} = $txt;
-			$txt2cmode[$$net]{$txt} = $cm if length $txt > 2;
+			my $ltxt = $mod->{cmode}{$cm};
+			my($t, $txt) = $ltxt =~ /^(.)_(.+)$/ or do {
+				warn "Use of ltxt=$ltxt for cm=$cm is deprecated in $name"; next;
+			};
+			if ($t eq 'r') {
+				$mod->{cmode_in}{$cm} = sub {
+					my(undef, $di, undef, $ai, $mo, $ao, $do) = @_;
+					push @$mo, $txt;
+					push @$ao, 1;
+					push @$do, $di;
+				};
+				$mod->{cmode_out}{$txt} = sub {
+					($cm)
+				};
+			} elsif ($t eq 'v' || $t eq 'l') {
+				$mod->{cmode_in}{$cm} = sub {
+					my(undef, $di, undef, $ai, $mo, $ao, $do) = @_;
+					push @$mo, $txt;
+					push @$ao, shift @$ai;
+					push @$do, $di;
+				};
+				$mod->{cmode_out}{$txt} = sub {
+					($cm, $_[3])
+				};
+			} elsif ($t eq 's') {
+				$mod->{cmode_in}{$cm} = sub {
+					my(undef, $di, $ci, $ai, $mo, $ao, $do) = @_;
+					push @$mo, $txt;
+					push @$ao, $di eq '+' ? shift @$ai : $ci->get_mode($txt);
+					push @$do, $di;
+				};
+				$mod->{cmode_out}{$txt} = sub {
+					($cm, $_[4] eq '+' ? $_[3] : ())
+				};
+			} elsif ($t eq 'n') {
+				$mod->{cmode_in}{$cm} = sub {
+					my($ni, $di, undef, $ai, $mo, $ao, $do) = @_;
+					push @$mo, $txt;
+					push @$ao, $ni->nick(shift @$ai);
+					push @$do, $di;
+				};
+				$mod->{cmode_out}{$txt} = sub {
+					($cm, $_[3])
+				};
+			} 
 		}
 	}
 	if ($mod->{umode}) {
 		for my $um (keys %{$mod->{umode}}) {
 			my $txt = $mod->{umode}{$um};
-			warn "Overriding umode $um = $txt" if $umode2txt[$$net]{$um} || $txt2umode[$$net]{$txt};
-			$umode2txt[$$net]{$um} = $txt;
-			$txt2umode[$$net]{$txt} = $um if $txt;
-		}
-	}
-	if ($mod->{umode_hook}) {
-		for my $txt (keys %{$mod->{umode_hook}}) {
-			warn "Overriding umode $txt" if $txt2umode[$$net]{$txt} && !$mod->{umode}{$txt2umode[$$net]{$txt}};
-			$txt2umode[$$net]{$txt} = $mod->{umode_hook}{$txt};
-		}
-	}
-	if ($mod->{cmds}) {
-		for my $cmd (keys %{$mod->{cmds}}) {
-			warn "Overriding command $cmd" if $fromirc[$$net]{$cmd};
-			$fromirc[$$net]{$cmd} = $mod->{cmds}{$cmd};
-		}
-	}
-	if ($mod->{acts}) {
-		for my $t (keys %{$mod->{acts}}) {
-			$act_hooks[$$net]{$t}{$name} = $mod->{acts}{$t};
-		}
-	}
-	if ($mod->{metadata}) {
-		for my $i (keys %{$mod->{metadata}}) {
-			warn "Overriding metadata $i" if $meta[$$net]{$i};
-			$meta[$$net]{$i} = $mod->{metadata}{$i};
+			$mod->{umode_in}{$um} = sub { $txt };
+			$mod->{umode_out}{$txt} = sub { $um } if $txt;
 		}
 	}
 }
@@ -71,145 +85,12 @@ sub module_remove {
 		Log::err_in($net, "Could not unload moule $name: not loaded");
 		return;
 	};
-	if ($mod->{cmode}) {
-		for my $cm (keys %{$mod->{cmode}}) {
-			my $txt = $mod->{cmode}{$cm};
-			delete $cmode2txt[$$net]{$cm};
-			delete $txt2cmode[$$net]{$txt};
-		}
-	}
-	if ($mod->{umode}) {
-		for my $um (keys %{$mod->{umode}}) {
-			my $txt = $mod->{umode}{$um};
-			delete $umode2txt[$$net]{$um};
-			delete $txt2umode[$$net]{$txt};
-		}
-	}
-	if ($mod->{umode_hook}) {
-		for my $txt (keys %{$mod->{umode}}) {
-			delete $txt2umode[$$net]{$txt};
-		}
-	}
-	if ($mod->{cmds}) {
-		for my $cmd (keys %{$mod->{cmds}}) {
-			delete $fromirc[$$net]{$cmd};
-		}
-	}
-	if ($mod->{acts}) {
-		for my $t (keys %{$mod->{acts}}) {
-			delete $act_hooks[$$net]{$t}{$name};
-		}
-	}
-	if ($mod->{metadata}) {
-		for my $i (keys %{$mod->{metadata}}) {
-			delete $meta[$$net]{$i};
-		}
-	}
-}
-
-sub get_module {
-	my($net,$name) = @_;
-	$modules[$$net]{$name};
+	$hooks[$$net] = {}; # clear cache, will be rebuilt as needed
 }
 
 sub all_modules {
 	my($net,$name) = @_;
 	keys %{$modules[$$net]};
-}
-
-sub cmode2txt {
-	my($net,$cm) = @_;
-	$cmode2txt[$$net]{$cm};
-}
-
-sub txt2cmode {
-	my($net,$tm) = @_;
-	$txt2cmode[$$net]{$tm};
-}
-
-sub all_cmodes {
-	my $net = shift;
-	keys %{$txt2cmode[$$net]};
-}
-
-sub umode2txt {
-	my($net,$um,$ok) = @_;
-	my $t = $umode2txt[$$net]{$um};
-	if (!defined $t && !$ok) {
-		Log::warn_in($net, "Unknown umode '$um'");
-		$t = '';
-	}
-	$t;
-}
-
-sub txt2umode {
-	my($net,$tm) = @_;
-	$txt2umode[$$net]{$tm};
-}
-
-sub all_umodes {
-	my $net = shift;
-	keys %{$txt2umode[$$net]};
-}
-
-sub do_meta {
-	my $net = shift;
-	my $key = shift;
-	my $mdh = $meta[$$net]{$key};
-	return () unless $mdh;
-	$mdh->($net, @_);
-}
-
-sub from_irc {
-	my $net = $_[0];
-	my $cmd = $_[2];
-	$cmd = $fromirc[$$net]{$cmd} || $cmd;
-	$cmd = $fromirc[$$net]{$cmd} || $cmd if $cmd && !ref $cmd; # allow one layer of indirection
-	unless ($cmd && ref $cmd) {
-		$net->unknown_cmd(@_) if $net->can('unknown_cmd');
-		return ();
-	}
-	$cmd->(@_);
-}
-
-sub _parse_umode {
-	my($net, $nick, $mode) = @_;
-	my @mode;
-	my $pm = '+';
-	for (split //, $mode) {
-		if (/[-+]/) {
-			$pm = $_;
-		} else {
-			my $txt = $net->umode2txt($_) or next;
-			push @mode, $pm.$txt;
-		}
-	}
-	my @out;
-	push @out, +{
-		type => 'UMODE',
-		dst => $nick,
-		mode => \@mode,
-	} if @mode;
-	@out;
-}
-
-sub to_irc {
-	my $net = shift;
-	my @sendq;
-	for my $act (@_) {
-		if (ref $act && ref $act eq 'HASH') {
-			my $type = $act->{type};
-			for my $ttype ("$type-", $type, "$type+") {
-				next unless $act_hooks[$$net]{$ttype};
-				for my $hook (values %{$act_hooks[$$net]{$ttype}}) {
-					push @sendq, $hook->($net,$act);
-				}
-			}
-		} else {
-			push @sendq, $act;
-		}
-	}
-	@sendq;
 }
 
 sub reload_moddef {
@@ -221,6 +102,19 @@ sub reload_moddef {
 		$net->module_remove($mod);
 		$net->module_add($mod, 1);
 	}
+}
+
+sub hook {
+	my($net, $type, $level) = @_;
+	my $key = $type.' '.$level;
+	my $hk = $hooks[$$net]{$key};
+	return @$hk if $hk;
+	$hk = $hooks[$$net]{$key} = [];
+	for my $mod (values %{$modules[$$net]}) {
+		my $item = $mod->{$type}{$level};
+		push @$hk, $item if $item;
+	}
+	@$hk;
 }
 
 Event::hook_add(

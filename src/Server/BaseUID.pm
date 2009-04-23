@@ -191,6 +191,25 @@ sub item {
 	return undef;
 }
 
+sub _out {
+	my($net,$itm) = @_;
+	return '' unless defined $itm;
+	return $itm =~ / / ? ':'.$itm : $itm unless ref $itm;
+	if ($itm->isa('Nick')) {
+		my $rv;
+		$rv = $net->nick2uid($itm) if $itm->is_on($net);
+		$rv = $net->net2uid($itm->homenet()) unless defined $rv;
+		return $rv;
+	} elsif ($itm->isa('Channel')) {
+		return $itm->str($net);
+	} elsif ($itm->isa('Network') || $itm->isa('RemoteJanus')) {
+		return $net->net2uid($itm);
+	} else {
+		Log::err_in($net, "Unknown item $itm");
+		return $net->net2uid($net);
+	}
+}
+
 Event::hook_add(
 	INFO => 'Nick:1' => sub {
 		my($dst, $nick) = @_;
