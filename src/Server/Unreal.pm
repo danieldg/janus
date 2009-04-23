@@ -2,10 +2,10 @@
 # Released under the GNU Affero General Public License v3
 package Server::Unreal;
 use Nick;
-use Server::BaseNick;
-use Server::BaseParser;
-use Server::ModularNetwork;
-use Persist 'Server::BaseNick', 'Server::BaseParser', 'Server::ModularNetwork';
+use Util::BaseNick;
+use Util::BaseParser;
+use Util::ModularNetwork;
+use Persist 'Util::BaseNick', 'Util::BaseParser', 'Util::ModularNetwork';
 use strict;
 use warnings;
 

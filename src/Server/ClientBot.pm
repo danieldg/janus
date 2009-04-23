@@ -4,10 +4,10 @@ package Server::ClientBot;
 use LocalNetwork;
 use Nick;
 use Modes;
-use Server::BaseNick;
-use Server::BaseParser;
-use Server::ModularNetwork;
-use Persist 'Server::BaseNick', 'Server::BaseParser', 'Server::ModularNetwork';
+use Util::BaseNick;
+use Util::BaseParser;
+use Util::ModularNetwork;
+use Persist 'Util::BaseNick', 'Util::BaseParser', 'Util::ModularNetwork';
 use Scalar::Util 'weaken';
 use strict;
 use warnings;
@@ -342,13 +342,13 @@ sub dump_sendq {
 sub request_newnick {
 	my($net, $nick, $reqnick, $tag) = @_;
 	$reqnick = $self[$$net] if $nick == $Interface::janus;
-	Server::BaseNick::request_nick($net, $nick, $reqnick, $tag);
+	Util::BaseNick::request_nick($net, $nick, $reqnick, $tag);
 }
 
 sub request_cnick {
 	my($net, $nick, $reqnick, $tag) = @_;
 	$reqnick = $self[$$net] if $nick == $Interface::janus;
-	Server::BaseNick::request_cnick($net, $nick, $reqnick, $tag);
+	Util::BaseNick::request_cnick($net, $nick, $reqnick, $tag);
 }
 
 sub delink_cancel_join {

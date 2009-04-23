@@ -1,6 +1,6 @@
 # Copyright (C) 2007-2009 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
-package Server::BaseUID;
+package Util::BaseUID;
 use LocalNetwork;
 use Persist 'LocalNetwork';
 use strict;
@@ -194,7 +194,7 @@ sub item {
 sub _out {
 	my($net,$itm) = @_;
 	return '' unless defined $itm;
-	return $itm =~ / / ? ':'.$itm : $itm unless ref $itm;
+	return $itm =~ / / || $itm eq '' ? ':'.$itm : $itm unless ref $itm;
 	if ($itm->isa('Nick')) {
 		my $rv;
 		$rv = $net->nick2uid($itm) if $itm->is_on($net);

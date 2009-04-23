@@ -1,6 +1,6 @@
 # Copyright (C) 2007-2009 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
-package Server::BaseParser;
+package Util::BaseParser;
 use LocalNetwork;
 use Persist 'LocalNetwork';
 use strict;

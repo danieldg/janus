@@ -1,6 +1,6 @@
 # Copyright (C) 2007-2009 Daniel De Graaf
 # Released under the GNU Affero General Public License v3
-package Server::ModularNetwork;
+package Util::ModularNetwork;
 use Persist 'LocalNetwork';
 use strict;
 use warnings;

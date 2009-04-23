@@ -3,13 +3,13 @@
 package Server::Inspircd_1105;
 use Nick;
 use Modes;
-use Server::BaseNick;
-use Server::BaseParser;
-use Server::ModularNetwork;
+use Util::BaseNick;
+use Util::BaseParser;
+use Util::ModularNetwork;
 use Server::InspMods;
 use Util::Crypto;
 
-use Persist 'Server::BaseNick', 'Server::BaseParser', 'Server::ModularNetwork';
+use Persist 'Util::BaseNick', 'Util::BaseParser', 'Util::ModularNetwork';
 use strict;
 use warnings;
 
@@ -61,7 +61,7 @@ sub dump_sendq {
 	my $q = $auth_sendq[$$net];
 	Log::netout($net, $_) for split /\r\n/, $q;
 	$auth_sendq[$$net] = '';
-	$q .= Server::BaseParser::dump_sendq($net) if $net->auth_ok;
+	$q .= Util::BaseParser::dump_sendq($net) if $net->auth_ok;
 	$q;
 }
 
