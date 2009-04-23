@@ -88,7 +88,4 @@ Janus::load('Connection') or die;
 Event::insert_full(+{ type => 'INIT' });
 Event::insert_full(+{ type => 'RUN' });
 
-eval { 
-	&Connection::ts_simple while 1;
-};
-Log::err("Aborting, error=$@");
+&Connection::ts_simple while 1;
