@@ -72,7 +72,7 @@ sub module_add {
 	if ($mod->{umode}) {
 		for my $um (keys %{$mod->{umode}}) {
 			my $txt = $mod->{umode}{$um};
-			$mod->{umode_in}{$um} = sub { $txt };
+			$mod->{umode_in}{$um} = sub { $_[1] . $txt };
 			$mod->{umode_out}{$txt} = sub { $um } if $txt;
 		}
 	}

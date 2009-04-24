@@ -14,11 +14,13 @@ use strict;
 use warnings;
 use integer;
 
-our(@auth_sendq, @servers, @serverdsc, @servernum, @next_uid, @capabs);
-Persist::register_vars(qw(auth_sendq servers serverdsc servernum next_uid capabs));
+our(@sjmerge_head, @sjmerge_txt, @auth_sendq, @servers, @serverdsc, @servernum, @next_uid, @capabs);
+Persist::register_vars(qw(sjmerge_head sjmerge_txt auth_sendq servers serverdsc servernum next_uid capabs));
 
 sub _init {
 	my $net = shift;
+	$sjmerge_head[$$net] = '';
+	$sjmerge_txt[$$net] = '';
 	$auth_sendq[$$net] = '';
 	$net->module_add('CORE');
 }
@@ -67,6 +69,29 @@ sub dump_sendq {
 	$q;
 }
 
+sub dump_reorder {
+	my($net, $head, $txt) = @_;
+	$head ||= '';
+	my @out;
+	my $chead = $sjmerge_head[$$net];
+	if ($chead && $chead ne $head) {
+		local $_ = $sjmerge_txt[$$net];
+		s/^ //;
+		my $i = 460 - length $chead;
+		my $j = 490 - length $chead;
+		while (s/^(.{$i,$j}) //) {
+			push @out, $net->ncmd('FJOIN')." $chead :$1";
+		}
+		push @out, $net->ncmd('FJOIN')." $chead :$_";
+		$sjmerge_txt[$$net] = '';
+	}
+	$sjmerge_head[$$net] = $head;
+	if ($head) {
+		$sjmerge_txt[$$net] .= ' ' . $txt;
+	}
+	@out;
+}
+
 my @letters = ('A' .. 'Z', 0 .. 9);
 
 sub net2uid {
@@ -109,7 +134,7 @@ sub _connect_ifo {
 
 	my @out;
 
-	my $mode = '+'.$net->umode_to_irc([ $nick->umodes ], $nick);
+	my $mode = '+'.$net->umode_to_irc([ $nick->umodes ], $nick, \@out);
 
 	my $ip = $nick->info('ip') || '0.0.0.0';
 	$ip = '0.0.0.0' if $ip eq '*' || $net->param('untrusted');
@@ -453,8 +478,14 @@ $moddef{CORE} = {
 		my $src = $net->item($_[0]);
 		my $dst = $net->item($_[2]) or return ();
 		if ($dst->isa('Nick')) {
-			return () unless $dst->homenet() eq $net;
-			$net->_parse_umode($dst, $_[3]);
+			return () unless $dst->homenet == $net;
+			my $mode = $net->umode_from_irc($_[3]);
+			return {
+				type => 'UMODE',
+				src => $src,
+				dst => $dst,
+				mode => $mode,
+			};
 		} else {
 			my($modes,$args,$dirs) = $net->cmode_from_irc($dst, @_[3 .. $#_]);
 			return +{
@@ -939,7 +970,7 @@ $moddef{CORE} = {
 	}, UMODE => sub {
 		my($net,$act) = @_;
 		my @out;
-		my $mode = $net->umode_to_irc($net, $act->{mode}, $act->{dst}, \@out);
+		my $mode = $net->umode_to_irc($act->{mode}, $act->{dst}, \@out);
 		unshift @out, $net->cmd2($act->{dst}, MODE => $act->{dst}, $mode) if $mode;
 		@out;
 	}, QUIT => sub {
@@ -959,7 +990,7 @@ $moddef{CORE} = {
 			$mode .= Modes::implements($net, $_) ? $txt2cm{$_} : '' for keys %{$act->{mode}};
 		}
 		my @cmodes = $net->cmode_to_irc_1($chan, Modes::dump($chan), $capabs[$$net]{MAXMODES});
-		$net->ncmd(FJOIN => $chan, $chan->ts(), @cmodes, $mode.','.$net->_out($act->{src}));
+		$net->dump_reorder(join(' ', $chan->str($net), $chan->ts, @cmodes), $mode.','.$net->_out($act->{src}));
 	}, PART => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, PART => $act->{dst}, $act->{msg});

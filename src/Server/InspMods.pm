@@ -58,7 +58,7 @@ Event::hook_add(
 
 mdef 'm_alias.so';
 mdef 12, 'm_allowinvite.so', cmode => { A => 'r_allinvite' };
-mdef 'm_alltime.so', cmds => {
+mdef 'm_alltime.so', parse => {
 	ALLTIME => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
@@ -68,7 +68,7 @@ mdef 'm_alltime.so', cmds => {
 			sendto => $Janus::global,
 		};
 	},
-}, acts => {
+}, 'send' => {
 	TSREPORT => sub {
 		my($net,$act) = @_;
 		return () unless $act->{src}->is_on($net);
@@ -87,8 +87,8 @@ mdef 12, 'm_blockcaps.so', cmode => { B => 'r_blockcaps' };
 mdef 'm_blockcolor.so', cmode => { c => 't2_colorblock' };
 mdef 'm_botmode.so', umode => { B => 'bot' };
 
-mdef 12, 'm_callerid.so', umode => { g => 'callerid' }, cmds => { ACCEPT => \&ignore };
-mdef 'm_cban.so', cmds => { CBAN => \&ignore }; # janus needs localjoin to link, so we don't care
+mdef 12, 'm_callerid.so', umode => { g => 'callerid' }, parse => { ACCEPT => \&ignore };
+mdef 'm_cban.so', parse => { CBAN => \&ignore }; # janus needs localjoin to link, so we don't care
 mdef 'm_censor.so', cmode => { G => 'r_badword' }, umode => { G => 'badword' };
 mdef 'm_cgiirc.so';
 mdef 'm_chancreate.so';
@@ -98,7 +98,7 @@ mdef 'm_channelban.so';
 mdef 'm_chanprotect.so', cmode => { a => 'n_admin', 'q' => 'n_owner' };
 mdef 'm_check.so';
 
-mdef 'm_chghost.so', cmds => {
+mdef 'm_chghost.so', parse => {
 	CHGHOST => sub {
 		my $net = shift;
 		my $dst = $net->mynick($_[2]) or return ();
@@ -111,7 +111,7 @@ mdef 'm_chghost.so', cmds => {
 		};
 	}
 };
-mdef 'm_chgident.so', cmds => {
+mdef 'm_chgident.so', parse => {
 	CHGIDENT => sub {
 		my $net = shift;
 		my $dst = $net->mynick($_[2]) or return ();
@@ -123,7 +123,7 @@ mdef 'm_chgident.so', cmds => {
 			value => $_[3],
 		};
 	}
-}, acts => {
+}, 'send' => {
 	NICKINFO => sub {
 		my($net,$act) = @_;
 		if ($act->{item} eq 'ident') {
@@ -132,7 +132,7 @@ mdef 'm_chgident.so', cmds => {
 		();
 	},
 };
-mdef 'm_chgname.so', cmds => {
+mdef 'm_chgname.so', parse => {
 	CHGNAME => sub {
 		my $net = shift;
 		my $dst = $net->mynick($_[2]) or return ();
@@ -166,7 +166,7 @@ mdef 'm_customtitle.so', metadata => {
 			value => $_[4],
 		};
 	},
-}, acts => {
+}, 'send' => {
 	NICKINFO => sub {
 		my($net,$act) = @_;
 		if ($act->{item} eq 'ctitle') {
@@ -176,11 +176,11 @@ mdef 'm_customtitle.so', metadata => {
 	},
 };
 mdef 'm_cycle.so';
-mdef 'm_dccallow.so', cmds => { DCCALLOW => \&ignore };
+mdef 'm_dccallow.so', parse => { DCCALLOW => \&ignore };
 mdef 'm_deaf.so', umode => { d => 'deaf_chan' };
 mdef 12, 'm_delayjoin.so', cmode => { D => 'r_delayjoin' };
 mdef 'm_denychans.so';
-mdef 'm_devoice.so', cmds => {
+mdef 'm_devoice.so', parse => {
 	DEVOICE => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
@@ -194,16 +194,16 @@ mdef 'm_devoice.so', cmds => {
 	},
 };
 mdef 'm_dnsbl.so';
-mdef 'm_filter.so', cmds => { FILTER => \&ignore };
-mdef 'm_filter_pcre.so', cmds => { FILTER => \&ignore };
+mdef 'm_filter.so', parse => { FILTER => \&ignore };
+mdef 'm_filter_pcre.so', parse => { FILTER => \&ignore };
 mdef 'm_foobar.so';
 mdef 'm_gecosban.so';
 # hack: G(UN)LOADMODULE cmds are in core so that m_globalload can be
 # loaded and used without needing to split janus
-mdef 'm_globalload.so', cmds => { GRELOADMODULE => \&ignore };
+mdef 'm_globalload.so', parse => { GRELOADMODULE => \&ignore };
 mdef 'm_globops.so',
-	cmds => { GLOBOPS => \&ignore };
-mdef 'm_helpop.so', umode => { h => 'helpop' }, cmds => { HELPOP => \&ignore };
+	parse => { GLOBOPS => \&ignore };
+mdef 'm_helpop.so', umode => { h => 'helpop' }, parse => { HELPOP => \&ignore };
 mdef 'm_hidechans.so', umode => { I => 'hide_chans' };
 mdef 'm_hideoper.so', umode => { H => 'hideoper' };
 mdef 'm_hostchange.so';
@@ -215,7 +215,7 @@ mdef 'm_ident.so';
 mdef 'm_invisible.so', umode => { Q => '' };
 mdef 'm_inviteexception.so', cmode => { I => 'l_invex' };
 
-mdef 'm_janus.so', acts => {
+mdef 'm_janus.so', 'send' => {
 	'CONNECT+' => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
@@ -242,7 +242,7 @@ mdef 'm_muteban.so';
 mdef 'm_namesx.so';
 mdef 'm_nationalchars.so';
 mdef 'm_nickflood.so', cmode => { F => 's_nickflood' };
-mdef 1105, 'm_nicklock.so', cmds => {
+mdef 1105, 'm_nicklock.so', parse => {
 	NICKLOCK => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]);
@@ -266,7 +266,7 @@ mdef 1105, 'm_nicklock.so', cmds => {
 	},
 	NICKUNLOCK => \&ignore,
 };
-mdef 12, 'm_nicklock.so', cmds => {
+mdef 12, 'm_nicklock.so', parse => {
 	NICKLOCK => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]);
@@ -316,7 +316,7 @@ mdef 'm_regex_pcre.so';
 mdef 'm_regex_posix.so';
 mdef 'm_regex_tre.so';
 mdef 'm_regonlycreate.so';
-mdef 'm_remove.so', cmds => {
+mdef 'm_remove.so', parse => {
 	FPART => 'KICK',
 	REMOVE => sub {
 		# this is stupid. Three commands that do the SAME EXACT THING...
@@ -336,9 +336,9 @@ mdef 'm_restrictbanned.so';
 mdef 'm_restrictchans.so';
 mdef 'm_restrictmsg.so';
 mdef 'm_safelist.so';
-mdef 'm_sajoin.so', cmds => { 'SAJOIN' => \&ignore };
+mdef 'm_sajoin.so', parse => { 'SAJOIN' => \&ignore };
 mdef 'm_samode.so';
-mdef 1105, 'm_sanick.so', cmds => {
+mdef 1105, 'm_sanick.so', parse => {
 	SANICK => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
@@ -351,7 +351,7 @@ mdef 1105, 'm_sanick.so', cmds => {
 		();
 	},
 };
-mdef 12, 'm_sanick.so', cmds => {
+mdef 12, 'm_sanick.so', parse => {
 	SANICK => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
@@ -364,9 +364,9 @@ mdef 12, 'm_sanick.so', cmds => {
 		();
 	},
 };
-mdef 'm_sapart.so', cmds => { 'SAPART' => \&ignore };
-mdef 1105, 'm_saquit.so', cmds => { 'SAQUIT' => 'KILL' };
-mdef 12, 'm_saquit.so', cmds => { 'SAQUIT' => \&ignore };
+mdef 'm_sapart.so', parse => { 'SAPART' => \&ignore };
+mdef 1105, 'm_saquit.so', parse => { 'SAQUIT' => 'KILL' };
+mdef 12, 'm_saquit.so', parse => { 'SAQUIT' => \&ignore };
 mdef 'm_securelist.so';
 mdef 'm_seenicks.so';
 mdef 'm_serverban.so';
@@ -415,7 +415,7 @@ mdef 12, 'm_services_account.so', cmode => {
 
 mdef 12, 'm_servprotect.so', umode => { k => 'service' };
 
-mdef 'm_sethost.so', cmds => {
+mdef 'm_sethost.so', parse => {
 	SETHOST => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
@@ -428,7 +428,7 @@ mdef 'm_sethost.so', cmds => {
 		};
 	}
 };
-mdef 'm_setident.so', cmds => {
+mdef 'm_setident.so', parse => {
 	SETIDENT => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
@@ -441,7 +441,7 @@ mdef 'm_setident.so', cmds => {
 		};
 	}
 };
-mdef 'm_setname.so', cmds => {
+mdef 'm_setname.so', parse => {
 	SETNAME => sub {
 		my $net = shift;
 		my $dst = $net->mynick($_[0]) or return ();
@@ -456,7 +456,7 @@ mdef 'm_setname.so', cmds => {
 };
 mdef 'm_setidle.so';
 mdef 'm_sha256.so';
-mdef 'm_showwhois.so', umode => { W => 'whois_notice' }, acts => {
+mdef 'm_showwhois.so', umode => { W => 'whois_notice' }, 'send' => {
 	WHOIS => sub {
 		my($net,$act) = @_;
 		my($src,$dst) = @$act{'src','dst'};
@@ -465,9 +465,9 @@ mdef 'm_showwhois.so', umode => { W => 'whois_notice' }, acts => {
 			$dst, '*** '.$src->str($net).' did a /whois on you.'));
 	},
 };
-mdef 'm_shun.so', cmds => { SHUN => \&ignore };
-mdef 'm_silence.so', cmds => { SILENCE => \&ignore };
-mdef 'm_silence_ext.so', cmds => { SILENCE => \&ignore };
+mdef 'm_shun.so', parse => { SHUN => \&ignore };
+mdef 'm_silence.so', parse => { SILENCE => \&ignore };
+mdef 'm_silence_ext.so', parse => { SILENCE => \&ignore };
 mdef 'm_spanningtree.so';
 mdef 'm_spy.so';
 mdef 'm_sslmodes.so', cmode => { z => 'r_sslonly' };
@@ -482,10 +482,10 @@ mdef 'm_ssl_dummy.so', metadata => {
 			mode => [ '+ssl' ],
 		};
 	},
-}, umode_hook => {
+}, umode_out => {
 	ssl => sub {
-		my($net, $nick, $pm, $out) = @_;
-		if ($pm eq '+ssl') {
+		my($net, $pm, $nick, $out) = @_;
+		if ($pm eq '+') {
 			push @$out, $net->ncmd(METADATA => $nick, ssl => 'ON');
 		} else {
 			Log::warn('Inspircd is incapable of unsetting SSL');
@@ -510,7 +510,7 @@ mdef 'm_swhois.so', metadata => {
 			value => $_[4],
 		};
 	},
-}, cmds => {
+}, parse => {
 	SWHOIS => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[2]) or return ();
@@ -522,24 +522,24 @@ mdef 'm_swhois.so', metadata => {
 			value => $_[3],
 		};
 	},
-}, acts => {
+}, 'send' => {
 	NICKINFO => sub {
 		my($net,$act) = @_;
 		if ($act->{item} eq 'swhois') {
-			return $net->ncmd(METADATA => $act->{dst}, 'swhois', $act->{value});
+			return $net->ncmd(METADATA => $act->{dst}, swhois => $act->{value});
 		}
 		()
 	},
 };
 mdef 'm_taxonomy.so';
 mdef 'm_testcommand.so';
-mdef 'm_timedbans.so', cmds => { TBAN => \&ignore };
+mdef 'm_timedbans.so', parse => { TBAN => \&ignore };
 mdef 'm_tline.so';
 mdef 'm_uhnames.so';
-mdef 'm_uninvite.so', cmds => { UNINVITE => \&ignore };
+mdef 'm_uninvite.so', parse => { UNINVITE => \&ignore };
 mdef 'm_userip.so';
 mdef 'm_vhost.so'; # routed as normal FHOST
-mdef 'm_watch.so', cmds => { SVSWATCH => \&ignore };
+mdef 'm_watch.so', parse => { SVSWATCH => \&ignore };
 mdef 'm_xmlsocket.so';
 
 1;

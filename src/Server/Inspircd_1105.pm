@@ -70,7 +70,7 @@ sub _connect_ifo {
 
 	my @out;
 
-	my $mode = '+' . $net->umode_to_irc([ $nick->umodes ], $nick);
+	my $mode = '+' . $net->umode_to_irc([ $nick->umodes ], $nick, \@out);
 
 	my $srv = $nick->homenet()->jname();
 	$srv = $net->cparam('linkname') if $srv eq 'janus.janus';
@@ -427,8 +427,14 @@ $moddef{CORE} = {
 		my $src = $net->item($_[0]);
 		my $dst = $net->item($_[2]) or return ();
 		if ($dst->isa('Nick')) {
-			return () unless $dst->homenet() eq $net;
-			$net->_parse_umode($dst, $_[3]);
+			return () unless $dst->homenet == $net;
+			my $mode = $net->umode_from_irc($_[3]);
+			return {
+				type => 'UMODE',
+				src => $src,
+				dst => $dst,
+				mode => $mode,
+			};
 		} else {
 			my($modes,$args,$dirs) = $net->cmode_from_irc($dst, @_[3 .. $#_]);
 			return +{
@@ -924,7 +930,7 @@ $moddef{CORE} = {
 	}, UMODE => sub {
 		my($net,$act) = @_;
 		my @out;
-		my $mode = $net->umode_to_irc($net, $act->{mode}, $act->{dst}, \@out);
+		my $mode = $net->umode_to_irc($act->{mode}, $act->{dst}, \@out);
 		unshift @out, $net->cmd2($act->{dst}, MODE => $act->{dst}, $mode) if $mode;
 		@out;
 	}, QUIT => sub {

@@ -462,7 +462,7 @@ $moddef{CORE} = {
 			$nick{info}{host} = $_[10];
 			$nick{info}{svsaccount} = $_[11] if $_[11] ne '*' && $_[11] ne '0';
 		}
-		my $modes = Server::BaseParser::umode_from_irc($net, $_[5]);
+		my $modes = Util::BaseParser::umode_from_irc($net, $_[5]);
 		$nick{mode} = { map { /\+(.*)/ ? ($1 => 1) : () } @$modes };
 		my $nick = Nick->new(%nick);
 		$net->register_nick($nick, $_[9]);
@@ -590,8 +590,14 @@ $moddef{CORE} = {
 		my $chan = $net->item($_[2]) or return ();
 		if ($chan->isa('Nick')) {
 			# umode change
-			return () unless $chan->homenet() eq $net;
-			return $net->_parse_umode($chan, @_[3 .. $#_]);
+			return () unless $chan->homenet == $net;
+			my $mode = $net->umode_from_irc($_[3]);
+			return {
+				type => 'UMODE',
+				src => $src,
+				dst => $chan,
+				mode => $mode,
+			};
 		}
 		my $mode = $_[3];
 		my($modes,$args,$dirs) = $net->cmode_from_irc($chan, $mode, @_[4 .. $#_]);
@@ -989,7 +995,7 @@ $moddef{CORE} = {
 	}, UMODE => sub {
 		my($net,$act) = @_;
 		my @out;
-		my $mode = $net->umode_to_irc($net, $act->{mode}, $act->{dst}, \@out);
+		my $mode = $net->umode_to_irc($act->{mode}, $act->{dst}, \@out);
 		unshift @out, $net->cmd2($act->{dst}, MODE => $act->{dst}, $mode) if $mode;
 		@out;
 	}, QUIT => sub {

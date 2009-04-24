@@ -174,7 +174,7 @@ sub inner_parse {
 	}
 	my $cmd = $args->[1];
 	$cmd = $args->[1] = $token2cmd{$cmd} if exists $token2cmd{$cmd};
-	Log::netin($net, $line) unless $cmd eq 'PRIVMSG' || $cmd eq 'NOTICE';
+	Log::netin($net, $line); # unless $cmd eq 'PRIVMSG' || $cmd eq 'NOTICE';
 	unless ($net->auth_ok || $cmd eq 'PASS' || $cmd eq 'SERVER' || $cmd eq 'PROTOCTL' || $cmd eq 'ERROR') {
 		return 0 if $cmd eq 'NOTICE'; # NOTICE AUTH ... annoying
 		$net->send('ERROR :Not authorized');
@@ -195,7 +195,7 @@ sub no_parse_hand {
 	();
 }
 
-sub merge_join {
+sub dump_reorder {
 	my($net, $head, $txt) = @_;
 	$head ||= '';
 	my @out;
@@ -204,9 +204,9 @@ sub merge_join {
 		local $_ = $sjmerge_txt[$$net];
 		s/^ //;
 		while (s/^(.{400,465}) //) {
-			push @out, $net->cmd1(SJOIN => $chead, $1);
+			push @out, $net->ncmd('SJOIN')." $chead :$1";
 		}
-		push @out, $net->cmd1(SJOIN => $chead, $_);
+		push @out, $net->ncmd('SJOIN')." $chead :$_";
 		$sjmerge_txt[$$net] = '';
 	}
 	$sjmerge_head[$$net] = $head;
@@ -215,8 +215,6 @@ sub merge_join {
 	}
 	@out;
 }
-
-*dump_reorder = \&merge_join;
 
 sub _connect_ifo {
 	my ($net, $nick, $althost) = @_;
@@ -658,7 +656,7 @@ $moddef{CORE} = {
 		);
 		my $vh_mode = 0;
 		if (@_ >= 12) {
-			my $modes = Server::BaseParser::umode_from_irc($net, $_[9]);
+			my $modes = Util::BaseParser::umode_from_irc($net, $_[9]);
 			$nick{mode} = { map { /\+(.*)/ ? ($1 => 1) : () } @$modes };
 			$vh_mode++ if $_[9] =~ /x/;
 			$vh_mode++ if $_[9] =~ /t/;
@@ -792,12 +790,12 @@ $moddef{CORE} = {
 	}, UMODE2 => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
-		$net->_parse_umode($nick, @_[2 .. $#_]);
+		$net->umode_from_irc($_[2], $nick);
 	}, SVSMODE => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
 		if ($nick->homenet() eq $net) {
-			return $net->_parse_umode($nick, @_[3 .. $#_]);
+			return $net->umode_from_irc($_[3], $nick);
 		} else {
 			my $mode = $_[3];
 			$mode =~ y/-+/+-/;
@@ -963,7 +961,7 @@ $moddef{CORE} = {
 		if ($chan->isa('Nick')) {
 			# umode change
 			return () unless $chan->homenet() eq $net;
-			return $net->_parse_umode($chan, @_[3 .. $#_]);
+			return $net->umode_from_irc($_[3], $chan);
 		}
 		my @out;
 		if ($src->isa('Network') && $_[-1] =~ /^(\d+)$/) {
@@ -1363,7 +1361,7 @@ $moddef{CORE} = {
 		}
 		return () unless $act->{src}->is_on($net);
 		$sj .= $net->_out($act->{src});
-		$net->merge_join($net->sjb64($chan->ts()).' '.$chan->str($net), $sj);
+		$net->dump_reorder($net->sjb64($chan->ts()).' '.$chan->str($net), $sj);
 	}, PART => sub {
 		my($net,$act) = @_;
 		$net->cmd2($act->{src}, PART => $act->{dst}, $act->{msg});
@@ -1482,7 +1480,7 @@ $moddef{CORE} = {
 	}, UMODE => sub {
 		my($net,$act) = @_;
 		my @out;
-		my $mode = $net->umode_to_irc($net, $act->{mode}, $act->{dst}, \@out);
+		my $mode = $net->umode_to_irc($act->{mode}, $act->{dst}, \@out);
 		push @out, $net->cmd2($act->{dst}, UMODE2 => $mode) if $mode;
 		@out;
 	}, QUIT => sub {

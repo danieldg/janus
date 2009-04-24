@@ -104,13 +104,13 @@ sub ncmd {
 sub umode_from_irc {
 	my($net, $mode) = (shift, shift);
 	my @mode;
-	my $pm = '+';
+	my $pm = '';
 	for (split //, $mode) {
 		if (/[-+]/) {
 			$pm = $_;
 		} else {
 			my @hooks = $net->hook(umode_in => $_);
-			push @mode, map { $_->($pm, @_) } @hooks;
+			push @mode, map { $_->($net, $pm, @_) } @hooks;
 		}
 	}
 	\@mode;
@@ -123,7 +123,7 @@ sub umode_to_irc {
 	for my $ltxt (@$modes) {
 		my($d, $txt) = $ltxt =~ /^([-+]?)(.+?)$/;
 		my @hooks = $net->hook(umode_out => $txt);
-		my $char = join '', map { $_->($d || '+', @_) } @hooks;
+		my $char = join '', map { $_->($net, $d || '+', @_) } @hooks;
 		if ($pm ne $d) {
 			$pm = $d;
 			$out .= $d;
