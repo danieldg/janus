@@ -360,28 +360,18 @@ sub nc_msg {
 }
 
 my %opermodes = (
-	oper => 1,
-	coadmin => 2,
-	admin => 4,
-	service => 8,
-	svs_admin => 16,
-	netadmin => 32,
+	'o' => 1,
+	'C' => 2,
+	'A' => 4,
+	'S' => 8,
+	'a' => 16,
+	'N' => 32,
 );
 
 my @opertypes = (
 	'IRC Operator', 'Server Co-Admin', 'Server Administrator',
 	'Service', 'Services Administrator', 'Network Administrator',
 );
-
-sub operlevel {
-	my($net, $nick) = @_;
-	my $lvl = 0;
-	for my $m (keys %opermodes) {
-		next unless $nick->has_mode($m);
-		$lvl |= $opermodes{$m};
-	}
-	$lvl;
-}
 
 # Unreal has some crazy umodes, including stacking
 sub umode_from_irc {
@@ -390,7 +380,7 @@ sub umode_from_irc {
 	my @mode;
 	my $pm = '+';
 	my $vh_delta = 0; # 0,1,2 = nochange,host,chost
-	my $oper_pre = $net->operlevel($nick);
+	my $oper_pre = $nick->info('operlevel');
 	my $oper_post = $oper_pre;
 	for (split //, $mode) {
 		if (/[-+]/) {
@@ -438,6 +428,11 @@ sub umode_from_irc {
 			dst => $nick,
 			item => 'opertype',
 			value => $t,
+		}, {
+			type => 'NICKINFO',
+			dst => $nick,
+			item => 'operlevel',
+			value => $oper_post,
 		};
 		push @mode, '+oper' if !$oper_pre;
 		push @mode, '-oper' if !$oper_post;
@@ -541,10 +536,6 @@ $moddef{'CORE-2309'} = {
 $moddef{CORE} = {
 	umode => { qw/
 		o oper
-		C coadmin
-		A admin
-		a svs_admin
-		N netadmin
 		S service
 		H hideoper
 		W whois_notice
@@ -655,11 +646,15 @@ $moddef{CORE} = {
 			},
 		);
 		my $vh_mode = 0;
+		my $oplvl = 0;
 		if (@_ >= 12) {
 			my $modes = Util::BaseParser::umode_from_irc($net, $_[9]);
 			$nick{mode} = { map { /\+(.*)/ ? ($1 => 1) : () } @$modes };
-			$vh_mode++ if $_[9] =~ /x/;
-			$vh_mode++ if $_[9] =~ /t/;
+			for (split //, $_[9]) {
+				$oplvl |= $opermodes{$_} if /[oaCANS]/;
+				$vh_mode++ if /[xt]/;
+			}
+			$nick{info}{operlevel} = $oplvl if $oplvl;
 			$nick{info}{vhost} = $_[10];
 		}
 		if (@_ >= 13) {
@@ -692,10 +687,6 @@ $moddef{CORE} = {
 			$nick{info}{vhost} = $nick{info}{host};
 		} elsif ($vh_mode == 1) {
 			$nick{info}{vhost} = $nick{info}{chost};
-		}
-		my $oplvl = 0;
-		for my $m (keys %opermodes) {
-			$oplvl |= $opermodes{$m} if $nick{mode}{$m};
 		}
 		$oplvl & (1 << $_) ? $nick{info}{opertype} = $opertypes[$_] : 0 for 0..$#opertypes;
 

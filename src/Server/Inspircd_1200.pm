@@ -253,7 +253,6 @@ $moddef{CORE} = {
 		i => 'invisible',
 		o => 'oper',
 		w => 'wallops',
-		's', '',
   },
   parse => {
 	NICK => sub {

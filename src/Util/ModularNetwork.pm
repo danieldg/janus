@@ -72,6 +72,9 @@ sub module_add {
 	if ($mod->{umode}) {
 		for my $um (keys %{$mod->{umode}}) {
 			my $txt = $mod->{umode}{$um};
+			if ($txt eq '') {
+				warn "Use of blank txt for um=$um is deprecated in $name"; next;
+			};
 			$mod->{umode_in}{$um} = sub { $_[1] . $txt };
 			$mod->{umode_out}{$txt} = sub { $um } if $txt;
 		}
