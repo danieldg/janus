@@ -499,8 +499,7 @@ $moddef{CORE} = {
 		i r_invite
 		m r_moderated
 		n r_mustjoin
-		p t1_chanhide
-		s t2_chanhide
+		ps t_chanhide
 		t r_topic
 	/},
   'send' => {

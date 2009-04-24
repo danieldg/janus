@@ -176,8 +176,7 @@ $moddef{CORE} = {
 		'm' => 'r_moderated',
 		n => 'r_mustjoin',
 		o => 'n_op',
-		p =>   't1_chanhide',
-		's' => 't2_chanhide',
+		'ps' => 't_chanhide',
 		t => 'r_topic',
 		v => 'n_voice',
   },
@@ -185,8 +184,6 @@ $moddef{CORE} = {
 		i => 'invisible',
 		o => 'oper',
 		w => 'wallops',
-		'+' => '', # inspircd bug, fixed in 1.2: an extra + may be added to the umode at each hop
-		'n', '', 's', '',
   },
   parse => {
 	NICK => sub {

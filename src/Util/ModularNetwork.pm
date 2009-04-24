@@ -23,7 +23,7 @@ sub module_add {
 	if ($mod->{cmode}) {
 		for my $cm (keys %{$mod->{cmode}}) {
 			my $ltxt = $mod->{cmode}{$cm};
-			my($t, $txt) = $ltxt =~ /^(.)_(.+)$/ or do {
+			my($t, $txt) = $ltxt =~ /^([vlnsrt]|t[12])_(.+)$/ or do {
 				warn "Use of ltxt=$ltxt for cm=$cm is deprecated in $name"; next;
 			};
 			if ($t eq 'r') {
@@ -35,6 +35,49 @@ sub module_add {
 				};
 				$mod->{cmode_out}{$txt} = sub {
 					($cm)
+				};
+			} elsif ($t eq 't') {
+				my $cm1 = substr $cm,0,1;
+				my $cm2 = substr $cm,1,1;
+				$mod->{cmode_in}{$cm1} = sub {
+					my(undef, $di, undef, $ai, $mo, $ao, $do) = @_;
+					push @$mo, $txt;
+					push @$ao, 1;
+					push @$do, $di;
+				};
+				$mod->{cmode_in}{$cm2} = sub {
+					my(undef, $di, undef, $ai, $mo, $ao, $do) = @_;
+					push @$mo, $txt;
+					push @$ao, 2;
+					push @$do, $di;
+				};
+				$mod->{cmode_out}{$txt} = sub {
+					my($net, $c, undef, $a, $d) = @_;
+					(($a & 1) ? $cm1 : '').(($a & 2) ? $cm2 : '');
+				};
+			} elsif ($t =~ m/t(.)/) {
+				my $v = $1;
+				$mod->{cmode_in}{$cm} = sub {
+					my(undef, $di, undef, $ai, $mo, $ao, $do) = @_;
+					push @$mo, $txt;
+					push @$ao, $v;
+					push @$do, $di;
+				};
+				$mod->{cmode_tri}{$txt} = $cm;
+				$mod->{cmode_out}{$txt} = sub {
+					my($net, $c, undef, $a, $d) = @_;
+					my @can = $net->hook(cmode_tri => $txt);
+					if (@can >= 2) {
+						Log::debug("cmode_out of $txt with a=$a v=$v cm=$cm");
+						return ($a & $v) ? $cm : '';
+					} elsif ($d eq '-' && $c->get_mode($txt)) {
+						Log::debug("cmode_out unset of $txt with a=$a v=$v cm=$cm");
+						# Unsetting only part of the tristate
+						return '';
+					} else {
+						Log::debug("cmode_out force of $txt with a=$a v=$v cm=$cm");
+						return $cm;
+					}
 				};
 			} elsif ($t eq 'v' || $t eq 'l') {
 				$mod->{cmode_in}{$cm} = sub {
@@ -120,14 +163,19 @@ sub hook {
 	@$hk;
 }
 
+sub reload_defs {
+	for my $net (values %Janus::nets) {
+		next unless $net->isa(__PACKAGE__);
+		$net->reload_moddef();
+	}
+}
+
+reload_defs;
 Event::hook_add(
 	MODRELOAD => 'act:1' => sub {
 		my $act = shift;
 		return unless $act->{module} =~ /^Server::/;
-		for my $net (values %Janus::nets) {
-			next unless $net->isa(__PACKAGE__);
-			$net->reload_moddef();
-		}
+		reload_defs;
 	}
 );
 

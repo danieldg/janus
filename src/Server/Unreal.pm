@@ -559,15 +559,13 @@ $moddef{CORE} = {
 		q n_owner
 
 		b l_ban
-		c t2_colorblock
 		e l_except
 		i r_invite
 		k v_key
 		l s_limit
 		m r_moderated
 		n r_mustjoin
-		p t1_chanhide
-		s t2_chanhide
+		ps t_chanhide
 		t r_topic
 		u r_auditorium
 		z r_sslonly
@@ -580,10 +578,8 @@ $moddef{CORE} = {
 		O r_oper
 		Q r_nokick
 		R r_reginvite
-		S t1_colorblock
+		Sc t_colorblock
 		V r_noinvite
-		A r_
-		r r_
 	/, },
   parse => {
 	NICK => sub {
