@@ -146,7 +146,7 @@ mdef 'm_chgname.so', parse => {
 	}
 };
 
-mdef 'm_cloaking.so', umode => { x => '' };
+mdef 'm_cloaking.so';
 mdef 'm_clones.so';
 mdef 'm_close.so';
 mdef 'm_conn_join.so';
@@ -212,7 +212,7 @@ mdef 'm_httpd.so';
 mdef 'm_httpd_stats.so';
 mdef 'm_ident.so';
 
-mdef 'm_invisible.so', umode => { Q => '' };
+mdef 'm_invisible.so';
 mdef 'm_inviteexception.so', cmode => { I => 'l_invex' };
 
 mdef 'm_janus.so', 'send' => {
@@ -371,11 +371,9 @@ mdef 'm_securelist.so';
 mdef 'm_seenicks.so';
 mdef 'm_serverban.so';
 mdef 1105, 'm_services.so', cmode => {
-	r => 'r_',
 	R => 'r_reginvite',
 	M => 'r_regmoderated'
 }, umode => {
-	r => '',
 	R => 'deaf_regpriv',
 };
 mdef 1105, 'm_services_account.so', cmode => { R => 'r_reginvite', M => 'r_regmoderated' },
@@ -394,11 +392,9 @@ mdef 1105, 'm_services_account.so', cmode => { R => 'r_reginvite', M => 'r_regmo
 	};
 
 mdef 12, 'm_services_account.so', cmode => {
-	r => 'r_',
 	R => 'r_reginvite',
 	M => 'r_regmoderated',
 }, umode => {
-	r => '',
 	R => 'deaf_regpriv',
 }, metadata => {
 	accountname => sub {

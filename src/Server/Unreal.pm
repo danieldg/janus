@@ -550,7 +550,7 @@ $moddef{CORE} = {
 
 		d deaf_chan
 		R deaf_regpriv
-	/, map { $_, '' } qw/r s x t g h V/ },
+	/, },
 	cmode => { qw/
 		v n_voice
 		h n_halfop

@@ -298,23 +298,16 @@ $moddef{CHARYBDIS} = {
 		q => 'l_quiet',
 		f => 's_forward',
 		j => 's_joinlimit',
-		F => 'r_', # can be +f target
-		L => 'r_', # large ban lists
+#		F => 'r_', # can be +f target
+#		L => 'r_', # large ban lists
 		P => 'r_permanent',
-		Q => 'r_', # ignore forwards
+#		Q => 'r_', # ignore forwards
 		c => 'r_colorblock',
 		g => 'r_allinvite',
 		z => 'r_survey',
 	},
 	umode => {
 		Z => 'ssl',
-		Q => '',
-		R => '',
-		h => '',
-		g => '',
-		l => '',
-		s => '',
-		z => '',
 	},
 	'send' => {
 		NICKINFO => sub {
