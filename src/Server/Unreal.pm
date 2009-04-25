@@ -529,9 +529,27 @@ $moddef{'CORE-2309'} = {
 	cmode => { qw/
 		f v_flood3.2
 		j s_joinlimit
-		I l_invex
 		T r_noticeblock
 	/ },
+	cmode_in => {
+		'I' => sub {
+			my($net, $di, $ci, $ai, $mo, $ao, $do) = @_;
+			my $ban = shift @$ai;
+			if ($ban =~ /^(.):(.*)/) {
+				my $expr = $2;
+				my @hook = $net->hook(cm_extban => $1);
+				$_->($net, $di, $ci, $expr, 'inv', $mo, $ao, $do) for @hook;
+				return if @hook;
+			}
+			push @$mo, 'invex';
+			push @$ao, $ban;
+			push @$do, $di;
+		},
+	}, cmode_out => {
+		invex => sub {
+			('I', $_[3]);
+		},
+	},
 };
 $moddef{CORE} = {
 	umode => { qw/
@@ -558,8 +576,6 @@ $moddef{CORE} = {
 		a n_admin
 		q n_owner
 
-		b l_ban
-		e l_except
 		i r_invite
 		k v_key
 		l s_limit
@@ -581,6 +597,86 @@ $moddef{CORE} = {
 		Sc t_colorblock
 		V r_noinvite
 	/, },
+	cmode_in => {
+		'b' => sub {
+			my($net, $di, $ci, $ai, $mo, $ao, $do) = @_;
+			my $ban = shift @$ai;
+			if ($ban =~ /^~(.):(.*)/) {
+				my $expr = $2;
+				my @hook = $net->hook(cm_extban => $1);
+				$_->($net, $di, $ci, $expr, 'ban', $mo, $ao, $do) for @hook;
+				return if @hook;
+			}
+			push @$mo, 'ban';
+			push @$ao, $ban;
+			push @$do, $di;
+		},
+		'e' => sub {
+			my($net, $di, $ci, $ai, $mo, $ao, $do) = @_;
+			my $ban = shift @$ai;
+			if ($ban =~ /^(.):(.*)/) {
+				my $expr = $2;
+				my @hook = $net->hook(cm_extban => $1);
+				$_->($net, $di, $ci, $expr, 'ex', $mo, $ao, $do) for @hook;
+				return if @hook;
+			}
+			push @$mo, 'except';
+			push @$ao, $ban;
+			push @$do, $di;
+		},
+	}, cmode_out => {
+		ban => sub {
+			('b', $_[3]);
+		},
+		except => sub {
+			('e', $_[3]);
+		},
+	},
+	cm_extban => {
+		'r' => sub {
+			my($net, $di, $ci, $ai, $ti, $mo, $ao, $do) = @_;
+			push @$mo, 'gecos_'.$ti;
+			push @$ao, $ai;
+			push @$do, $di;
+		},
+		'q' => sub {
+			my($net, $di, $ci, $ai, $ti, $mo, $ao, $do) = @_;
+			return if $ti eq 'inv';
+			push @$mo, 'quiet_'.$ti;
+			push @$ao, $ai;
+			push @$do, $di;
+		},
+		'N' => sub {
+			my($net, $di, $ci, $ai, $ti, $mo, $ao, $do) = @_;
+			return if $ti eq 'inv';
+			push @$mo, 'renick_'.$ti;
+			push @$ao, $ai;
+			push @$do, $di;
+		},
+	}, cmode_out => {
+		gecos_ban => sub {
+			('b', '~r:'.$_[3]);
+		},
+		gecos_ex => sub {
+			('e', '~r:'.$_[3]);
+		},
+		gecos_inv => sub {
+			return () unless $_[0]->protoctl >= 2309;
+			('I', '~r:'.$_[3]);
+		},
+		quiet_ban => sub {
+			('b', '~q:'.$_[3]);
+		},
+		quiet_ex => sub {
+			('e', '~q:'.$_[3]);
+		},
+		renick_ban => sub {
+			('b', '~n:'.$_[3]);
+		},
+		renick_ex => sub {
+			('e', '~n:'.$_[3]);
+		},
+	},
   parse => {
 	NICK => sub {
 		my $net = shift;

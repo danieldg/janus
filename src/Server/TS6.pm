@@ -295,7 +295,7 @@ $moddef{CAPAB_SAVE} = {
 
 $moddef{CHARYBDIS} = {
 	cmode => {
-		q => 'l_quiet',
+		q => 'l_quiet_ban',
 		f => 's_forward',
 		j => 's_joinlimit',
 #		F => 'r_', # can be +f target

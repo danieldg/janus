@@ -79,7 +79,27 @@ mdef 'm_antibear.so';
 mdef 'm_antibottler.so';
 
 mdef 'm_auditorium.so', cmode => { u => 'r_auditorium' };
-mdef 'm_banexception.so', cmode => { e => 'l_except' };
+mdef 'm_banexception.so',
+	cmode_in => {
+		'e' => sub {
+			my($net, $di, $ci, $ai, $mo, $ao, $do) = @_;
+			my $ban = shift @$ai;
+			if ($ban =~ /^(.):(.*)/) {
+				my $expr = $2;
+				my @hook = $net->hook(cm_extban => $1);
+				$_->($net, $di, $ci, $expr, 'ex', $mo, $ao, $do) for @hook;
+				return if @hook;
+			}
+			push @$mo, 'except';
+			push @$ao, $ban;
+			push @$do, $di;
+		},
+	}, cmode_out => {
+		except => sub {
+			('e', $_[3]);
+		},
+	};
+
 mdef 'm_banredirect.so'; # this just adds syntax to channel bans
 mdef 'm_blockamsg.so';
 mdef 1105, 'm_blockcaps.so', cmode => { P => 'r_blockcaps' };
@@ -197,7 +217,27 @@ mdef 'm_dnsbl.so';
 mdef 'm_filter.so', parse => { FILTER => \&ignore };
 mdef 'm_filter_pcre.so', parse => { FILTER => \&ignore };
 mdef 'm_foobar.so';
-mdef 'm_gecosban.so';
+mdef 'm_gecosban.so', cm_extban => {
+	'r' => sub {
+		my($net, $di, $ci, $ai, $ti, $mo, $ao, $do) = @_;
+		push @$mo, 'gecos_'.$ti;
+		push @$ao, $ai;
+		push @$do, $di;
+	},
+}, cmode_out => {
+	gecos_ban => sub {
+		('b', 'r:'.$_[3]);
+	},
+	gecos_ex => sub {
+		return () unless $_[0]->get_module('m_banexception.so');
+		('e', 'r:'.$_[3]);
+	},
+	gecos_inv => sub {
+		return () unless $_[0]->get_module('m_inviteexception.so');
+		('I', 'r:'.$_[3]);
+	},
+};
+
 # hack: G(UN)LOADMODULE cmds are in core so that m_globalload can be
 # loaded and used without needing to split janus
 mdef 'm_globalload.so', parse => { GRELOADMODULE => \&ignore };
@@ -213,16 +253,35 @@ mdef 'm_httpd_stats.so';
 mdef 'm_ident.so';
 
 mdef 'm_invisible.so';
-mdef 'm_inviteexception.so', cmode => { I => 'l_invex' };
+mdef 'm_inviteexception.so',
+	cmode_in => {
+		'I' => sub {
+			my($net, $di, $ci, $ai, $mo, $ao, $do) = @_;
+			my $ban = shift @$ai;
+			if ($ban =~ /^(.):(.*)/) {
+				my $expr = $2;
+				my @hook = $net->hook(cm_extban => $1);
+				$_->($net, $di, $ci, $expr, 'inv', $mo, $ao, $do) for @hook;
+				return if @hook;
+			}
+			push @$mo, 'invex';
+			push @$ao, $ban;
+			push @$do, $di;
+		},
+	}, cmode_out => {
+		invex => sub {
+			('I', $_[3]);
+		},
+	};
 
 mdef 'm_janus.so', 'send' => {
-	'CONNECT+' => sub {
+	'CONNECT' => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
 		return $net->ncmd(METADATA => $nick, 'jinfo', 'Home network: '.
 			$nick->homenet()->netname().'; Home nick: '.$nick->homenick());
 	},
-	'NICK+' => sub {
+	'NICK' => sub {
 		my($net,$act) = @_;
 		my $nick = $act->{dst};
 		return $net->ncmd(METADATA => $nick, 'jinfo', 'Home network: '.
@@ -238,7 +297,23 @@ mdef 'm_knock.so', cmode => { K => 'r_noknock' };
 mdef 'm_lockserv.so';
 mdef 'm_md5.so';
 mdef 'm_messageflood.so', cmode => { f => 's_flood' };
-mdef 'm_muteban.so';
+mdef 'm_muteban.so', cm_extban => {
+	'm' => sub {
+		my($net, $di, $ci, $ai, $ti, $mo, $ao, $do) = @_;
+		return if $ti eq 'inv';
+		push @$mo, 'quiet_'.$ti;
+		push @$ao, $ai;
+		push @$do, $di;
+	},
+}, cmode_out => {
+	quiet_ban => sub {
+		('b', 'm:'.$_[3]);
+	},
+	quiet_ex => sub {
+		return () unless $_[0]->get_module('m_banexception.so');
+		('e', 'm:'.$_[3]);
+	},
+};
 mdef 'm_namesx.so';
 mdef 'm_nationalchars.so';
 mdef 'm_nickflood.so', cmode => { F => 's_nickflood' };
@@ -295,7 +370,24 @@ mdef 12, 'm_nicklock.so', parse => {
 mdef 'm_noctcp.so', cmode => { C => 'r_ctcpblock' };
 mdef 'm_noinvite.so', cmode => { V => 'r_noinvite' };
 mdef 'm_nokicks.so', cmode => { Q => 'r_nokick' };
-mdef 'm_nonicks.so', cmode => { N => 'r_norenick' };
+mdef 'm_nonicks.so', cmode => { N => 'r_norenick' }, cm_extban => {
+	'N' => sub {
+		my($net, $di, $ci, $ai, $ti, $mo, $ao, $do) = @_;
+		return if $ti eq 'inv';
+		push @$mo, 'renick_'.$ti;
+		push @$ao, $ai;
+		push @$do, $di;
+	},
+}, cmode_out => {
+	renick_ban => sub {
+		('b', 'N:'.$_[3]);
+	},
+	renick_ex => sub {
+		return () unless $_[0]->get_module('m_banexception.so');
+		('e', 'N:'.$_[3]);
+	},
+};
+
 mdef 'm_nonotice.so', cmode => { T => 'r_noticeblock' };
 mdef 'm_nopartmsg.so';
 mdef 'm_oper_hash.so';
@@ -360,7 +452,7 @@ mdef 12, 'm_sanick.so', parse => {
 			return ();
 		}
 		# sorry, you did not change my nick
-		$net->send($net->cmd2($nick, NICK => $nick->str($net), $nick->ts));
+		$net->send($net->cmd2($nick, NICK => $nick->str($net), $nick->ts($net)));
 		();
 	},
 };

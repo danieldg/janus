@@ -135,8 +135,13 @@ sub module_remove {
 }
 
 sub all_modules {
-	my($net,$name) = @_;
+	my $net = $_[0];
 	keys %{$modules[$$net]};
+}
+
+sub get_module {
+	my($net,$name) = @_;
+	$modules[$$net]{$name};
 }
 
 sub reload_moddef {

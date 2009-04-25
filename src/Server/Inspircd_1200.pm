@@ -236,8 +236,7 @@ $moddef{CAPAB_HALFOP} = {
 	}
 };
 $moddef{CORE} = {
-  cmode => {
-		b => 'l_ban',
+	cmode => {
 		i => 'r_invite',
 		k => 'v_key',
 		l => 's_limit',
@@ -247,12 +246,31 @@ $moddef{CORE} = {
 		'ps' => 't_chanhide',
 		t => 'r_topic',
 		v => 'n_voice',
-  },
-  umode => {
+	},
+	umode => {
 		i => 'invisible',
 		o => 'oper',
 		w => 'wallops',
-  },
+	},
+	cmode_in => {
+		'b' => sub {
+			my($net, $di, $ci, $ai, $mo, $ao, $do) = @_;
+			my $ban = shift @$ai;
+			if ($ban =~ /^(.):(.*)/) {
+				my $expr = $2;
+				my @hook = $net->hook(cm_extban => $1);
+				$_->($net, $di, $ci, $expr, 'ban', $mo, $ao, $do) for @hook;
+				return if @hook;
+			}
+			push @$mo, 'ban';
+			push @$ao, $ban;
+			push @$do, $di;
+		},
+	}, cmode_out => {
+		ban => sub {
+			('b', $_[3]);
+		},
+	},
   parse => {
 	NICK => sub {
 		my $net = shift;

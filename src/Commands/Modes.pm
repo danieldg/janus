@@ -16,8 +16,8 @@ Event::command_add({
 		my($src,$dst,$chan,$net) = @_;
 		return Janus::jmsg($dst, 'That channel does not exist') unless $chan;
 		return unless Account::chan_access_chk($src, $chan, 'info', $dst);
-		if ($net->isa('LocalNetwork')) {
-			my @modes = Modes::to_multi($net, Modes::delta(undef, $chan), 0, 400);
+		if ($net->can('cmode_to_irc')) {
+			my @modes = $net->cmode_to_irc($chan, Modes::delta(undef, $chan), 0, 400);
 			Janus::jmsg($dst, join ' ', @$_) for @modes;
 		}
 
