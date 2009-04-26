@@ -26,6 +26,7 @@ sub module_add {
 			my($t, $txt) = $ltxt =~ /^([vlnsrt]|t[12])_(.+)$/ or do {
 				warn "Use of ltxt=$ltxt for cm=$cm is deprecated in $name"; next;
 			};
+			$mod->{cmode_txt}{$txt} = $cm;
 			if ($t eq 'r') {
 				$mod->{cmode_in}{$cm} = sub {
 					my(undef, $di, undef, $ai, $mo, $ao, $do) = @_;
@@ -63,10 +64,9 @@ sub module_add {
 					push @$ao, $v;
 					push @$do, $di;
 				};
-				$mod->{cmode_tri}{$txt} = $cm;
 				$mod->{cmode_out}{$txt} = sub {
 					my($net, $c, undef, $a, $d) = @_;
-					my @can = $net->hook(cmode_tri => $txt);
+					my @can = $net->hook(cmode_txt => $txt);
 					if (@can >= 2) {
 						Log::debug("cmode_out of $txt with a=$a v=$v cm=$cm");
 						return ($a & $v) ? $cm : '';

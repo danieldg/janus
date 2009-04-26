@@ -168,6 +168,7 @@ sub cmode_to_irc {
 				$len = length join ' ', $m, @a;
 				$mode = '';
 				@args = ();
+				$pm = '';
 			}
 			($pm,$mode) = ($dir, $mode.$dir) if $dir ne $pm && defined $m;
 			$mode .= $m;

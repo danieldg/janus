@@ -53,8 +53,8 @@ Event::hook_add(
 				}
 			}
 			Janus::jmsg($dst, "\002Modes:\002".$out);
-			if ($hn->isa('LocalNetwork')) {
-				my @modes = Modes::to_multi($hn, Modes::delta(undef, $c), 0, 400);
+			if ($hn->can('cmode_to_irc')) {
+				my @modes = $hn->cmode_to_irc($c, Modes::delta(undef, $c), 0, 400);
 				Janus::jmsg($dst, join ' ','', @$_) for @modes;
 			}
 		}

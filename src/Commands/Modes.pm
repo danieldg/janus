@@ -122,18 +122,18 @@ Event::command_add({
 		Interface::jmsg($dst, 'Nick modes:');
 		Interface::msgtable($dst, [
 			map {
-				my $netv = $net->can('txt2umode') ? $net->txt2umode($_) : '';
-				$netv = '' if ref $netv || !defined $netv;
-				[ $_, $netv ]
+				my $m = $_;
+				my $netv = $net->can('umode_to_irc') ? $net->umode_to_irc([ $m ]) : '';
+				[ $m, $netv ]
 			} @nmodes ], cols => $w, fmtfmt => [ '%%-'.$l.'s', '%%2s' ], pfx => ' ');
 		Interface::jmsg($dst, 'Channel modes:');
 		Interface::msgtable($dst, [
 			map {
 				my $m = $_;
-				my $type = Modes::mtype($m);
 				my $netv = '';
-				if ($net->can('txt2cmode')) {
-					$netv .= ($net->txt2cmode($_ . '_' . $m) || '') for qw/r t1 t2 v s n l/;
+				if ($net->can('hook')) {
+					$netv = join '', $net->hook(cmode_txt => $m);
+					$netv ||= '*' if $net->hook(cmode_out => $m);
 				}
 				[ $m, $netv ]
 			} @cmodes ], cols => $w, fmtfmt => [ '%%-'.$l.'s', '%%2s' ], pfx => ' ');

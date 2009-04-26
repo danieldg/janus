@@ -624,13 +624,6 @@ $moddef{CORE} = {
 			push @$ao, $ban;
 			push @$do, $di;
 		},
-	}, cmode_out => {
-		ban => sub {
-			('b', $_[3]);
-		},
-		except => sub {
-			('e', $_[3]);
-		},
 	},
 	cm_extban => {
 		'r' => sub {
@@ -654,6 +647,12 @@ $moddef{CORE} = {
 			push @$do, $di;
 		},
 	}, cmode_out => {
+		ban => sub {
+			('b', $_[3]);
+		},
+		except => sub {
+			('e', $_[3]);
+		},
 		gecos_ban => sub {
 			('b', '~r:'.$_[3]);
 		},
