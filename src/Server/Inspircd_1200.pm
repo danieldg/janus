@@ -823,7 +823,6 @@ $moddef{CORE} = {
 			} if $dst;
 		}
 	},
-	NOTICE => 'PRIVMSG',
 	MODENOTICE => \&ignore,
 	SNONOTICE => \&ignore,
 	WALLOPS => \&ignore,
@@ -1146,6 +1145,8 @@ $moddef{CORE} = {
 		$act->{msg};
 	},
 }};
+
+$moddef{CORE}{parse}{NOTICE} = $moddef{CORE}{parse}{PRIVMSG};
 
 Event::hook_add(
 	INFO => 'Network:1' => sub {

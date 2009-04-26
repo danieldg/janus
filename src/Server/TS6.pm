@@ -631,7 +631,6 @@ $moddef{CORE} = {
 		};
 		@out;
 	},
-	NOTICE => 'PRIVMSG',
 	OPERSPY => \&ignore,
 	OPERWALL => \&ignore,
 	PART => sub {
@@ -1080,6 +1079,7 @@ $moddef{CORE} = {
 	},
 }};
 
+$moddef{CORE}{parse}{NOTICE} = $moddef{CORE}{parse}{PRIVMSG};
 Event::hook_add(
 	INFO => 'Network:1' => sub {
 		my($dst, $net, $asker) = @_;
