@@ -380,7 +380,7 @@ sub umode_from_irc {
 	my @mode;
 	my $pm = '+';
 	my $vh_delta = 0; # 0,1,2 = nochange,host,chost
-	my $oper_pre = $nick->info('operlevel');
+	my $oper_pre = $nick->info('operlevel') || 0;
 	my $oper_post = $oper_pre;
 	for (split //, $mode) {
 		if (/[-+]/) {

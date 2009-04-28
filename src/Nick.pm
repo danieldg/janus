@@ -45,7 +45,7 @@ do {
 		oper ssl colorstrip
 		invisible wallops bot badword hide_chans
 		dcc_reject deaf_chan deaf_regpriv deaf_ctcp deaf_commonchan no_privmsg callerid
-		hideoper no_kick whois_notice
+		hideoper no_kick whois_notice service
 	/) {
 		next if $umodebit{$_};
 		$umodebit{$_} = $i;
