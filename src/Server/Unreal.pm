@@ -406,7 +406,7 @@ sub umode_from_irc {
 			$oper_post = $pm eq '+' ? $oper_post | $opermodes{$_} : $oper_post & ~$opermodes{$_};
 		} else {
 			my @hooks = $net->hook(umode_in => $_);
-			push @mode, map { $_->($pm, $nick, \@args, \@out) } @hooks;
+			push @mode, map { $_->($net, $pm, $nick, \@args, \@out) } @hooks;
 		}
 	}
 
@@ -872,12 +872,12 @@ $moddef{CORE} = {
 	}, UMODE2 => sub {
 		my $net = shift;
 		my $nick = $net->mynick($_[0]) or return ();
-		$net->umode_from_irc($_[2], $nick);
+		$net->umode_from_irc($_[2], $nick, @_[3..$#_]);
 	}, SVSMODE => sub {
 		my $net = shift;
 		my $nick = $net->nick($_[2]) or return ();
 		if ($nick->homenet() eq $net) {
-			return $net->umode_from_irc($_[3], $nick);
+			return $net->umode_from_irc($_[3], $nick, @_[4..$#_]);
 		} else {
 			my $mode = $_[3];
 			$mode =~ y/-+/+-/;
@@ -1042,7 +1042,7 @@ $moddef{CORE} = {
 		if ($chan->isa('Nick')) {
 			# umode change
 			return () unless $chan->homenet() eq $net;
-			return $net->umode_from_irc($_[3], $chan);
+			return $net->umode_from_irc($_[3], $chan, @_[4..$#_]);
 		}
 		my @out;
 		if ($src->isa('Network') && $_[-1] =~ /^(\d+)$/) {
