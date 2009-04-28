@@ -420,9 +420,10 @@ $moddef{CORE} = {
 	},
 	CONNECT => \&ignore,
 	ENCAP => sub {
-		my($net,$src,undef,$dst,@args) = @_;
-		# TODO check the dst mask
-		$net->from_irc($src, @args);
+		my($net,$src,$key,$dst,@args) = @_;
+		my @out = map { $_->($net, @_) } $net->hook('encap', $key);
+		push @out, map { $_->($net, $src, @args) } $net->hook('parse', $key);
+		@out;
 	},
 	ERROR => sub {
 		my $net = shift;
