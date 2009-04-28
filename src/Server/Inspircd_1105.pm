@@ -764,7 +764,8 @@ $moddef{CORE} = {
 	METADATA => sub {
 		my $net = shift;
 		my $key = $_[3];
-		$net->do_meta($key, @_);
+		my @hook = $net->hook('metadata', $key);
+		map { $_->($net, @_) } @hook;
 	},
 	IDLE => sub {
 		my $net = shift;
