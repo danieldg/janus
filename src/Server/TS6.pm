@@ -420,9 +420,9 @@ $moddef{CORE} = {
 	},
 	CONNECT => \&ignore,
 	ENCAP => sub {
-		my($net,$src,$key,$dst,@args) = @_;
-		my @out = map { $_->($net, @_) } $net->hook('encap', $key);
-		push @out, map { $_->($net, $src, @args) } $net->hook('parse', $key);
+		my($net,$src,undef,$dst,$key,@args) = @_;
+		my @out = map { $_->(@_) } $net->hook('encap', $key);
+		push @out, map { $_->($net, $src, $key, @args) } $net->hook('parse', $key);
 		@out;
 	},
 	ERROR => sub {
