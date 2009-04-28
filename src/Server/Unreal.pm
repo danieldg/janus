@@ -888,7 +888,6 @@ $moddef{CORE} = {
 			return ();
 		}
 	},
-	SVS2MODE => 'SVSMODE',
 	SETIDENT => \&nickact,
 	CHGIDENT => \&nickact,
 	SETHOST => \&nickact,
@@ -1586,6 +1585,7 @@ $moddef{CORE} = {
 	},
   }
 };
+$moddef{CORE}{parse}{SVS2MODE} = $moddef{CORE}{parse}{SVSMODE},
 
 Event::hook_add(
 	INFO => 'Network:1' => sub {
