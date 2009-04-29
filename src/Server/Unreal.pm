@@ -219,7 +219,7 @@ sub dump_reorder {
 sub _connect_ifo {
 	my ($net, $nick, $althost) = @_;
 
-	my $mode = $net->umode_to_irc([ $nick->umodes ], $nick);
+	my $mode = '+xt'.$net->umode_to_irc([ $nick->umodes ], $nick);
 	my $rhost = $nick->info('host');
 	my $vhost = $nick->info('vhost');
 	my $ip = $nick->info('ip') || '*';
