@@ -118,7 +118,7 @@ sub item {
 sub _out {
 	my($net,$itm) = @_;
 	return '' unless defined $itm;
-	return $itm =~ / / || $itm eq '' ? ':'.$itm : $itm unless ref $itm;
+	return $itm =~ / |^:|^$/ ? ':'.$itm : $itm unless ref $itm;
 	if ($itm->isa('Nick')) {
 		return $itm->str($net) if $itm->is_on($net);
 		return $itm->homenet()->jname();
