@@ -65,6 +65,11 @@ sub dump_sendq {
 	$q;
 }
 
+sub inner_send {
+	my($net, $lines) = @_;
+	/^:\S+ (PRIVMSG|NOTICE) / or Log::netout($net, $_) for @$lines;
+}
+
 sub _connect_ifo {
 	my ($net, $nick) = @_;
 

@@ -69,6 +69,11 @@ sub dump_sendq {
 	$q;
 }
 
+sub inner_send {
+	my($net, $lines) = @_;
+	/^:\S+ (PRIVMSG|NOTICE) / or Log::netout($net, $_) for @$lines;
+}
+
 sub dump_reorder {
 	my($net, $head, $txt) = @_;
 	$head ||= '';

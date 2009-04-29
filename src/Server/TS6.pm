@@ -100,6 +100,11 @@ sub no_parse_hand {
 	();
 }
 
+sub inner_send {
+	my($net, $lines) = @_;
+	/^:\S+ (PRIVMSG|NOTICE) / or Log::netout($net, $_) for @$lines;
+}
+
 my @letters = ('A' .. 'Z', 0 .. 9);
 my %txt2pfx = (qw/op @ halfop % voice +/);
 

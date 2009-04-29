@@ -174,7 +174,7 @@ sub inner_parse {
 	}
 	my $cmd = $args->[1];
 	$cmd = $args->[1] = $token2cmd{$cmd} if exists $token2cmd{$cmd};
-	Log::netin($net, $line); # unless $cmd eq 'PRIVMSG' || $cmd eq 'NOTICE';
+	Log::netin($net, $line) unless $cmd eq 'PRIVMSG' || $cmd eq 'NOTICE';
 	unless ($net->auth_ok || $cmd eq 'PASS' || $cmd eq 'SERVER' || $cmd eq 'PROTOCTL' || $cmd eq 'ERROR') {
 		return 0 if $cmd eq 'NOTICE'; # NOTICE AUTH ... annoying
 		$net->send('ERROR :Not authorized');
@@ -214,6 +214,11 @@ sub dump_reorder {
 		$sjmerge_txt[$$net] .= ' ' . $txt;
 	}
 	@out;
+}
+
+sub inner_send {
+	my($net, $lines) = @_;
+	/^:\S+ [!|B] / or Log::netout($net, $_) for @$lines;
 }
 
 sub _connect_ifo {
