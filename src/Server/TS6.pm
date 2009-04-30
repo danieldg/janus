@@ -386,7 +386,6 @@ $moddef{CORE} = {
   umode => {
 		D => 'deaf_chan',
 		S => 'service',
-		a => 'admin',
 		i => 'invisible',
 		o => 'oper',
 		w => 'wallops',

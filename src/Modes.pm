@@ -56,6 +56,7 @@ sub mtype {
 
 sub implements {
 	my($net,$txt) = @_;
+	return 0 unless $net->can('hook');
 	my @hooks = $net->hook(cmode_out => $txt);
 	scalar @hooks;
 }
