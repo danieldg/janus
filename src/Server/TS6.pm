@@ -700,6 +700,7 @@ $moddef{CORE} = {
 				msgtype => $_[1],
 			} if $dst;
 		}
+		();
 	},
 	QUIT => sub {
 		my $net = shift;
