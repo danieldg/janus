@@ -823,10 +823,14 @@ $moddef{CORE} = {
 	},
 	SQUIT => sub {
 		my $net = shift;
-		my $srv = $_[2];
-		my $splitfrom = $servers[$$net]{CORE::lc $srv};
+		my $srv = CORE::lc $_[2];
+		$srv = $servernum[$$net]{$srv} if $srv =~ /^\d/;
+		my $splitfrom = $servers[$$net]{CORE::lc $srv} or do {
+			Log::warn_in($net, "Splitting unknown server $_[2]");
+			return ();
+		};
 
-		my %sgone = (CORE::lc $srv => 1);
+		my %sgone = ($srv => 1);
 		my $k = 0;
 		while ($k != scalar keys %sgone) {
 			# loop to traverse each layer of the map
