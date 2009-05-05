@@ -715,16 +715,23 @@ $moddef{CORE} = {
 	RSFNC => \&ignore, # TODO nick change
 	SERVER => sub {
 		my $net = shift;
-		my $num = delete $servernum[$$net]{''};
-		$servernum[$$net]{$_[2]} = $num;
-		$serverdsc[$$net]{$_[2]} = $_[-1];
-		{
-			type => 'NETLINK',
-			net => $net,
-		}, {
-			type => 'LINKED',
-			net => $net,
-		};
+		if ($_[0]) {
+			Log::debug_in($net, "Introducing server $_[2] from $_[0] with no numeric");
+			$servers[$$net]{CORE::lc $_[2]} = CORE::lc $_[0];
+			$serverdsc[$$net]{CORE::lc $_[2]} = $_[-1];
+			return ();
+		} else {
+			my $num = delete $servernum[$$net]{''};
+			$servernum[$$net]{$_[2]} = $num;
+			$serverdsc[$$net]{$_[2]} = $_[-1];
+			return {
+				type => 'NETLINK',
+				net => $net,
+			}, {
+				type => 'LINKED',
+				net => $net,
+			};
+		}
 	},
 	SID => sub {
 		my $net = shift;
@@ -732,7 +739,6 @@ $moddef{CORE} = {
 		$servers[$$net]{CORE::lc $_[2]} = $_[0] =~ /^\d/ ? $servernum[$$net]{$_[0]} : CORE::lc $_[0];
 		$serverdsc[$$net]{CORE::lc $_[2]} = $_[-1];
 		$servernum[$$net]{$_[4]} = $_[2];
-		return ();
 		();
 	},
 	SIGNON => sub {
