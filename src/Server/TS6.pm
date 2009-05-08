@@ -387,8 +387,13 @@ $moddef{CORE} = {
 		D => 'deaf_chan',
 		S => 'service',
 		i => 'invisible',
-		o => 'oper',
 		w => 'wallops',
+  },
+  umode_in => {
+		o => \&Util::ModularNetwork::umode_o_in,
+  },
+  umode_out => {
+		oper => \&Util::ModularNetwork::umode_o_out,
   },
   parse => {
 	ADMIN => \&ignore,
@@ -459,8 +464,10 @@ $moddef{CORE} = {
 			$nick{info}{host} = $_[10];
 			$nick{info}{svsaccount} = $_[11] if $_[11] ne '*' && $_[11] ne '0';
 		}
-		my $modes = Util::BaseParser::umode_from_irc($net, $_[5]);
+		my $modes = $net->umode_from_irc($_[5]);
 		$nick{mode} = { map { /\+(.*)/ ? ($1 => 1) : () } @$modes };
+		$nick{info}{opertype} = 'IRC Operator' if $_[5] =~ /o/;
+		$nick{info}{opertype} = 'Server Administrator' if $_[5] =~ /a/;
 		my $nick = Nick->new(%nick);
 		$net->register_nick($nick, $_[9]);
 	},
@@ -584,24 +591,46 @@ $moddef{CORE} = {
 	MODE => sub {
 		my $net = shift;
 		my $src = $net->item($_[0]) or return ();
-		my $chan = $net->item($_[2]) or return ();
-		if ($chan->isa('Nick')) {
-			# umode change
-			return () unless $chan->homenet == $net;
+		my $dst = $net->item($_[2]) or return ();
+		if ($dst->isa('Nick')) {
+			# umode dstge
+			return () unless $dst->homenet == $net;
 			my $mode = $net->umode_from_irc($_[3]);
-			return {
+			my @out;
+			push @out, {
 				type => 'UMODE',
 				src => $src,
-				dst => $chan,
+				dst => $dst,
 				mode => $mode,
-			};
+			} if @$mode;
+			my $curr = $dst->info('opertype');
+			my $v_pre = $curr ? $curr eq 'Server Administrator' ? 2 : 1 : 0;
+			my $v_post = $v_pre;
+			if ($_[3] =~ /([-+])[^-+]*o/) {
+				$v_post = $1 eq '+' ? 1 : 0;
+			}
+			if ($_[3] =~ /([-+])[^-+]*a/) {
+				$v_post = $1 eq '+' ? 2 : $v_post ? 1 : 0;
+			}
+			if ($v_pre != $v_post) {
+				push @out, {
+					type => 'NICKINFO',
+					dst => $dst,
+					item => 'opertype',
+					value => (
+						$v_post == 2 ? 'Server Administrator' :
+						$v_post == 1 ? 'IRC Operator' : undef
+					),
+				};
+			}
+			return @out;
 		}
 		my $mode = $_[3];
-		my($modes,$args,$dirs) = $net->cmode_from_irc($chan, $mode, @_[4 .. $#_]);
+		my($modes,$args,$dirs) = $net->cmode_from_irc($dst, $mode, @_[4 .. $#_]);
 		return {
 			type => 'MODE',
 			src => $src,
-			dst => $chan,
+			dst => $dst,
 			mode => $modes,
 			args => $args,
 			dirs => $dirs,

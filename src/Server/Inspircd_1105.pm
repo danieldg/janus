@@ -187,8 +187,10 @@ $moddef{CORE} = {
   },
   umode => {
 		i => 'invisible',
-		o => 'oper',
 		w => 'wallops',
+  },
+  umode_in => {
+		o => \&Util::ModularNetwork::umode_o_in,
   },
   parse => {
 	NICK => sub {

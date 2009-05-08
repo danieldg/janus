@@ -124,7 +124,7 @@ sub umode_to_irc {
 		my($d, $txt) = $ltxt =~ /^([-+]?)(.+?)$/;
 		my @hooks = $net->hook(umode_out => $txt);
 		my $char = join '', map { $_->($net, $d || '+', @_) } @hooks;
-		if ($pm ne $d) {
+		if (length $char && $pm ne $d) {
 			$pm = $d;
 			$out .= $d;
 		}

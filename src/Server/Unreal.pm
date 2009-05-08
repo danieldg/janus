@@ -574,6 +574,12 @@ $moddef{CORE} = {
 		d deaf_chan
 		R deaf_regpriv
 	/, },
+	umode_in => {
+		o => \&Util::ModularNetwork::umode_o_in,
+	},
+	umode_out => {
+		oper => \&Util::ModularNetwork::umode_o_out,
+	},
 	cmode => { qw/
 		v n_voice
 		h n_halfop
