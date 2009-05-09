@@ -123,7 +123,8 @@ sub v_chan {
 		}
 	}
 
-	for my $net ($chan->nets) {
+	my @nets = $chan->nets;
+	for my $net (@nets) {
 		v_serv $net, "channel $$chan (netlist) <= $path";
 		my $name = $chan->str($net);
 		if ($net->isa('LocalNetwork') && $net->chan($name) != $chan) {
@@ -131,9 +132,21 @@ sub v_chan {
 		}
 	}
 
-	for my $nick ($chan->all_nicks) {
+	my @nicks = $chan->all_nicks;
+	for my $nick (@nicks) {
 		v_nick $nick, "channel $$chan (nicklist) <= $path";
 		$n_c{$$nick.'-'.$$chan} |= 2;
+	}
+	if (@nets > 1 && $n_c{'1-'.$$chan} < 2) {
+		push @err, "Channel $$chan shared but no janus interface bot inside; found in $path";
+	}
+
+	if (@nicks == 0) {
+		if (!$chan->get_mode('permanent')) {
+			push @err, "Channel $$chan empty but not permanent; found in $path";
+		} elsif (!Modes::implements($chan->homenet, 'permanent')) {
+			push @err, "Channel $$chan empty without permchan support; found in $path";
+		}
 	}
 }
 
@@ -142,9 +155,9 @@ sub verify {
 	my $ts = $Janus::time;
 	(@err, %cseen, %nseen, %sseen, %n_c) = ();
 
-	v_nick $_,'gnicks',1 for values %Janus::gnicks;
 	v_serv $_,'gnets',1 for values %Janus::gnets;
 	v_serv $_,'nets' for values %Janus::nets;
+	v_nick $_,'gnicks',1 for values %Janus::gnicks;
 	v_chan $_,'gchans' for values %Janus::gchans;
 
 	while (my($k,$v) = each %n_c) {
