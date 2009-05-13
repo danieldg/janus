@@ -859,7 +859,7 @@ $moddef{CORE} = {
 	SQUIT => sub {
 		my $net = shift;
 		my $srv = CORE::lc $_[2];
-		$srv = $servernum[$$net]{$srv} if $srv =~ /^\d/;
+		$srv = $servernum[$$net]{CORE::uc $srv} if $srv =~ /^\d/;
 		my $splitfrom = $servers[$$net]{CORE::lc $srv} or do {
 			Log::warn_in($net, "Splitting unknown server $_[2]");
 			return ();
