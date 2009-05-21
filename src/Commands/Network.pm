@@ -136,9 +136,10 @@ Event::command_add({
 	cmd => 'linked',
 	help => 'Shows a list of the linked networks and channels',
 	section => 'Info',
+	api => '=src =replyto localdefnet',
+	syntax => '[<network>]',
 	code => sub {
-		my($src,$dst) = @_;
-		my $hnet = $src->homenet();
+		my($src, $dst, $hnet) = @_;
 		my $hnetn = $hnet->name();
 		my %chans;
 		for my $chan ($hnet->all_chans()) {
