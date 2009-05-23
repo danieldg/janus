@@ -57,6 +57,7 @@ unless ($runmode) {
 if ($runmode =~ s/-daemon$//) {
 	open STDIN, '/dev/null' or die $!;
 	if (-t STDOUT) {
+		rename "daemon.log", "daemon.log.old";
 		open STDOUT, '>daemon.log' or die $!;
 		open STDERR, '>&', \*STDOUT or die $!;
 	}
