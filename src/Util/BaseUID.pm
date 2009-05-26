@@ -156,7 +156,7 @@ sub request_cnick {
 	$tagged ||= 0;
 	my $uid = $net->nick2uid($nick);
 	my $current = $net->lc($nick->str($net));
-	my $curr_uid = $nick2uid[$$net]{$current};
+	my $curr_uid = $nick2uid[$$net]{$current} || '';
 	if ($tagged != 2 && $curr_uid eq $uid) {
 		delete $nick2uid[$$net]{$current};
 	}
