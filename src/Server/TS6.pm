@@ -751,8 +751,8 @@ $moddef{CORE} = {
 			return ();
 		} else {
 			my $num = delete $servernum[$$net]{''};
-			$servernum[$$net]{$_[2]} = $num;
-			$serverdsc[$$net]{$_[2]} = $_[-1];
+			$servernum[$$net]{CORE::uc $num} = CORE::lc $_[2];
+			$serverdsc[$$net]{CORE::lc $_[2]} = $_[-1];
 			return {
 				type => 'NETLINK',
 				net => $net,
@@ -767,7 +767,7 @@ $moddef{CORE} = {
 		Log::debug_in($net, "Introducing server $_[2] from $_[0] with numeric $_[4]");
 		$servers[$$net]{CORE::lc $_[2]} = $_[0] =~ /^\d/ ? $servernum[$$net]{$_[0]} : CORE::lc $_[0];
 		$serverdsc[$$net]{CORE::lc $_[2]} = $_[-1];
-		$servernum[$$net]{$_[4]} = $_[2];
+		$servernum[$$net]{CORE::uc $_[4]} = CORE::lc $_[2];
 		();
 	},
 	SIGNON => sub {
@@ -861,8 +861,8 @@ $moddef{CORE} = {
 		my $srv = CORE::lc $_[2];
 		$srv = $servernum[$$net]{CORE::uc $srv} if $srv =~ /^\d/;
 		my $splitfrom = $servers[$$net]{CORE::lc $srv} or do {
-			Log::warn_in($net, "Splitting unknown server $_[2]");
-			return ();
+			Log::warn_in($net, "Splitting unknown server $_[2] ($srv)");
+			'*.server';
 		};
 
 		my %sgone = ($srv => 1);
