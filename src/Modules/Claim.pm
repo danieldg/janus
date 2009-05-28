@@ -113,16 +113,20 @@ Event::hook_add(
 		my $net = $act->{except};
 		my $chan = $act->{dst};
 		my $src = $act->{src};
-		return unless $src->isa('Nick');
-		Log::info('Bouncing kick by '.$src->netnick.' on '.$chan->str($src->homenet));
+		return undef unless $src->isa('Nick');
+		if (grep $_ == $chan, $src->all_chans) {
+			Log::info('Bouncing kick by '.$src->netnick.' on '.$chan->str($src->homenet));
 
-		Event::append({
-			type => 'KICK',
-			src => $Interface::janus,
-			dst => $chan,
-			kickee => $src,
-			msg => 'This channel is claimed. You should not kick people in it.',
-		});
+			Event::append({
+				type => 'KICK',
+				src => $Interface::janus,
+				dst => $chan,
+				kickee => $src,
+				msg => 'This channel is claimed. You should not kick people in it.',
+			});
+		} else {
+			Log::info('Cannot bounce kick by '.$src->netnick.' on '.$chan->str($src->homenet));
+		}
 	}, TOPIC => check => sub {
 		my $act = shift;
 		return undef if acl_ok($act);
