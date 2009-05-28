@@ -461,10 +461,9 @@ $moddef{CORE} = {
 			},
 		);
 		if ($_[1] eq 'EUID') {
-			$nick{info}{host} = $_[10];
+			$nick{info}{host} = $_[10] if $_[10] ne '*';
 			$nick{info}{svsaccount} = $_[11] if $_[11] ne '*' && $_[11] ne '0';
 		}
-		$nick{info}{host} = 'fake.host' if $nick{info}{host} eq '*';
 		my $modes = $net->umode_from_irc($_[5]);
 		$nick{mode} = { map { /\+(.*)/ ? ($1 => 1) : () } @$modes };
 		$nick{info}{opertype} = 'IRC Operator' if $_[5] =~ /o/;
