@@ -50,13 +50,12 @@ print "Multiplex process:\n";
 my @cflag = qw(-Wall -std=c99 -D_XOPEN_SOURCE=600);
 my @cfiles = qw(multiplex.c queue.c);
 
-my $gnutls = `libgnutls-config --version 2>/dev/null`;
+my $gnutls = `pkg-config gnutls --modversion 2>/dev/null`;
 if ($gnutls) {
 	chomp $gnutls;
 	print "      GnuTLS version $gnutls found\n";
 	push @cflag, '-DSSL_GNUTLS=1';
-	push @cflag, split /\s+/, `libgnutls-config --cflags`;
-	push @cflag, split /\s+/, `libgnutls-config --libs`;
+	push @cflag, grep length, split /\s+/, `pkg-config gnutls --cflags --libs`;
 	push @cfiles, 'ssl-gnutls.c';
 } else {
 	print "      GnuTLS not found, multiplex will have no SSL support\n";
