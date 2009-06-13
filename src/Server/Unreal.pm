@@ -1555,18 +1555,26 @@ $moddef{CORE} = {
 	}, NICKINFO => sub {
 		my($net,$act) = @_;
 		my $item = $act->{item};
-		if ($item =~ /^(vhost|ident|name)$/) {
-			$item =~ s/vhost/host/;
-			if ($act->{dst}->homenet() eq $net) {
-				my $src = $act->{src}->is_on($net) ? $act->{src} : $net->cparam('linkname');
-				return $net->cmd2($src, 'CHG'.uc($item), $act->{dst}, $act->{value});
+		my $value = $act->{value};
+		if ($item eq 'vhost') {
+			$value =~ s/[^-a-zA-Z0-9.:]/./g;
+			if ($act->{dst}->homenet() == $net) {
+				my $src = $act->{src}->is_on($net) ? $act->{src} : $Interface::janus;
+				return $net->cmd2($src, 'CHGHOST', $act->{dst}, $value);
 			} else {
-				return $net->cmd2($act->{dst}, 'SET'.uc($item), $act->{value});
+				return $net->cmd2($act->{dst}, 'SETHOST', $value);
+			}
+		} elsif ($item =~ /^(ident|name)$/) {
+			if ($act->{dst}->homenet() == $net) {
+				my $src = $act->{src}->is_on($net) ? $act->{src} : $Interface::janus;
+				return $net->cmd2($src, 'CHG'.uc($item), $act->{dst}, $value);
+			} else {
+				return $net->cmd2($act->{dst}, 'SET'.uc($item), $value);
 			}
 		} elsif ($item eq 'away') {
-			return $net->cmd2($act->{dst}, 'AWAY', defined $act->{value} ? $act->{value} : ());
+			return $net->cmd2($act->{dst}, 'AWAY', defined $value ? $value : ());
 		} elsif ($item eq 'swhois') {
-			return $net->cmd1(SWHOIS => $act->{dst}, $act->{value});
+			return $net->cmd1(SWHOIS => $act->{dst}, $value);
 		}
 		();
 	}, UMODE => sub {
