@@ -145,7 +145,7 @@ Event::hook_add(
 		my $schan = $act->{chan};
 		my $snet = $schan->homenet();
 		my $snetn = $snet->name;
-		my $sname = $schan->str($snet);
+		my $sname = $schan->lstr($snet);
 		my $dnet = $act->{dst};
 		my $dnetn = $dnet->name;
 		my $dname = $act->{dlink};
@@ -232,7 +232,8 @@ Event::hook_add(
 		my $net = $act->{net};
 		my $nname = $net->name();
 		my $chan = $act->{dst};
-		my $cname = $chan->str($net);
+		my $chan2 = $act->{split};
+		my $cname = $chan2 ? $chan2->lstr($net) : $chan->lstr($net);
 		my $hnet = $chan->homenet();
 		my $cause = $act->{cause};
 		if ($cause eq 'destroy') {
