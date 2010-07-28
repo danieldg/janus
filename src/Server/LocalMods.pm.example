@@ -1,0 +1,49 @@
+package Server::LocalMods;
+
+# Example module to add locally-authored modules
+#
+# The find_module hook is called when trying to resolve a module,
+# and passes the network, module name, and a reference to the module.
+#
+# To implement a module, simply replace the reference.
+
+sub ign { () }
+
+Event::hook_add(
+	Server => find_module => sub {
+		my($net, $name, $d) = @_;
+		if ($net->name eq 'tty2' && $name eq 'm_hideidlechan.so') {
+			$$d = { cmode => { U => '' } };
+		} elsif ($name eq 'CUSTOM-ca') {
+			$$d = {
+				umode => {
+					p => 'no_privmsg',
+					P => 'hide_chans',
+				},
+				cmode => {
+					f => 'v_flood',
+				},
+				parse => { SVSREDIR => \&ign, RELAY => \&ign },
+			};
+		} elsif ($name eq 'CUSTOM-oh') {
+			$$d = {
+				umode => {
+					p => 'no_privmsg',
+					P => 'hide_chans',
+				},
+				cmode => {
+					f => 'v_flood3.2',
+					D => 'r_noticeblock',
+				},
+				parse => { SVSREDIR => \&ign },
+			};
+		} elsif ($name eq 'CUSTOM-hts') {
+			$$d = {
+				parse => { UL => \&ign },
+			};
+		}
+	}
+);
+
+1;
+
