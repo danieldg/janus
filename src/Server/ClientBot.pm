@@ -656,11 +656,17 @@ $moddef{CORE} = {
 			$m = '';
 			$m = 'ns' if $net->param('nspass');
 			$m = 'Q' if $net->param('qauth');
+			$m = 'X3' if $net->param('x3acct');
 		}
 		if ($m eq 'Q') {
 			my $qpass = $net->param('qauth') || '';
 			Log::err_in($net, "Bad qauth syntax $qpass") unless $qpass && $qpass =~ /^\s*\S+\s+\S+\s*$/;
 			'PRIVMSG Q@CServe.quakenet.org :AUTH '.$qpass;
+		} elsif ($m eq 'X3') {
+			my $xacct = $net->param('x3acct') || '';
+			my $xpass = $net->param('x3pass') || '';
+			Log::err_in($net, "Bad X3 account: $xacct password: $xpass") unless $xacct;
+			"PRIVMSG AuthServ :AUTH $xaccount $xpass";
 		} elsif ($m eq 'ns') {
 			my $pass = $net->param('nspass') || '';
 			Log::err_in($net, "Bad nickserv password $pass") unless $pass;
