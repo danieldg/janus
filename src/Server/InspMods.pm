@@ -55,7 +55,7 @@ Event::hook_add(
 		}
 	},
 );
-
+mdef 1201, 'm_abbreviation.so';
 mdef 'm_alias.so';
 mdef 12, 'm_allowinvite.so', cmode => { A => 'r_allinvite' };
 mdef 'm_alltime.so', parse => {
@@ -79,6 +79,7 @@ mdef 'm_antibear.so';
 mdef 'm_antibottler.so';
 
 mdef 'm_auditorium.so', cmode => { u => 'r_auditorium' };
+mdef 1201, 'm_autoop.so', cmode => { w=> 'r_autoop ' };
 mdef 'm_banexception.so',
 	cmode_in => {
 		'e' => sub {
@@ -112,6 +113,7 @@ mdef 'm_cban.so', parse => { CBAN => \&ignore }; # janus needs localjoin to link
 mdef 'm_censor.so', cmode => { G => 'r_badword' }, umode => { G => 'badword' };
 mdef 'm_cgiirc.so';
 mdef 'm_chancreate.so';
+mdef 1201, 'm_chanhistory.so', umode => { H => 's_chanhistory'};
 mdef 'm_chanlog.so';
 mdef 'm_chanfilter.so', cmode => { g => 'l_badwords' };
 mdef 'm_channelban.so';
@@ -199,6 +201,7 @@ mdef 'm_cycle.so';
 mdef 'm_dccallow.so', parse => { DCCALLOW => \&ignore };
 mdef 'm_deaf.so', umode => { d => 'deaf_chan' };
 mdef 12, 'm_delayjoin.so', cmode => { D => 'r_delayjoin' };
+mdef 1201, 'm_delaymsg.so', cmode => { d => 'r_delaymsg' };
 mdef 'm_denychans.so';
 mdef 'm_devoice.so', parse => {
 	DEVOICE => sub {
@@ -240,9 +243,11 @@ mdef 'm_gecosban.so', cm_extban => {
 
 # hack: G(UN)LOADMODULE cmds are in core so that m_globalload can be
 # loaded and used without needing to split janus
+mdef 1201, 'm_geoip.so';
 mdef 'm_globalload.so', parse => { GRELOADMODULE => \&ignore };
 mdef 'm_globops.so',
 	parse => { GLOBOPS => \&ignore };
+mdef 1201, 'm_halfop.so', cmode => { h => 'n_halfop' };
 mdef 'm_helpop.so', umode => { h => 'helpop' }, parse => { HELPOP => \&ignore };
 mdef 'm_hidechans.so', umode => { I => 'hide_chans' };
 mdef 'm_hideoper.so', umode => { H => 'hideoper' };
