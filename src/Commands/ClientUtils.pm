@@ -28,7 +28,7 @@ Event::command_add({
 	code => sub {
 		my($dst, $net) = @_;
 		return Janus::jmsg($dst, "Network must be a ClientBot.") unless $net->isa('Server::ClientBot');
-		if ($net->param('nspass') || $net->param('qauth')) {
+		if ($net->param('nspass') || $net->param('qauth') || $net->param('x3acct')) {
 			Janus::jmsg($dst, 'Done');
 		} else {
 			Janus::jmsg($dst, "Network has no identify method configured");
