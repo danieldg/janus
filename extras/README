@@ -3,3 +3,6 @@ get-fp           Gets SSL certificate fingerprint from a server
 xchat-servertab  Send notices from the janus client to a server tab,
                  rather than to an arbitrary channel.
                  Known to work with xchat2 for linux.
+
+cs_jregister     Allow Atheme IRC Services to communicate with Janus if
+                 named "LinkServ", otherwise requires module modification.
