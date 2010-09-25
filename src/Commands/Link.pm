@@ -74,7 +74,7 @@ Event::command_add({
 	section => 'Channel',
 	syntax => '<channel> [<network>]',
 	details => [
-		"The home newtwork must specify a network to delink, or use \002DESTROY\002",
+		"The home network must specify a network to delink, or use \002DESTROY\002",
 		"Other networks can only delink themselves from the channel",
 	],
 	api => '=src =replyto chan localdefnet ?$',
