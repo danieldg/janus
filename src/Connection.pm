@@ -251,7 +251,7 @@ sub readable {
 sub _syswrite {
 	my $l = shift;
 	my ($sock, $sendq) = @$l[SOCK, SENDQ];
-	my $len = $sock->syswrite($sendq);
+	my $len = $sock->syswrite($sendq) or die "Some socket is undefined D:\n";
 	if (defined $len) {
 		$$l[SENDQ] = substr $sendq, $len;
 		# schedule a wakeup to write the rest if we were not able to write everything in the sendq

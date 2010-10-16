@@ -1118,7 +1118,18 @@ $moddef{CORE} = {
 			to => $chan,
 		};
 	},
-	KNOCK => \&todo,
+	KNOCK =>  sub {
+		my $net = shift;
+		my $src = $net->mynick($_[0]) or return();
+		my $dst = $net->nick($_[2]) or return ();
+		my $chan = $net->chan($_[3]) or return ();
+		return {
+			type => 'KNOCK',
+			src => $src,
+			dst => $dst,
+			to => $chan,
+		};
+	},
 
 # Server actions
 	SERVER => sub {
