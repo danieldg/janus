@@ -413,6 +413,10 @@ sub pm_not {
 			}
 		}
 		if ($_[1] eq 'PRIVMSG') {
+                        if ($_[1] =~ m/^\001/)
+                        {
+                          return; # CTCP, ignoring
+                        }
 			$net->send("NOTICE $_[0] :Error: user not found. To message a user, prefix your message with their nick");
 		} elsif ($_[1] eq 'NOTICE') {
 			if ($net->lc($_[0]) eq 'nickserv') {
@@ -552,7 +556,7 @@ $moddef{CORE} = {
 			"PART $chan :$act->{msg}";
 		} else {
 			return () unless $dst->get_mode('cb_showjoin');
-			$net->cmd1(NOTICE => $dst, 'Part: '.$src->str($net).' '.$act->{msg});
+			$net->cmd1(PRIVMSG => $dst, 'Part: '.$src->str($net).' '.$act->{msg});
 		}
 	},
 	QUIT => sub {
@@ -561,7 +565,7 @@ $moddef{CORE} = {
 		my @out;
 		for my $chan ($nick->all_chans()) {
 			next unless $chan->is_on($net) && $chan->get_mode('cb_showjoin');
-			push @out, $net->cmd1(NOTICE => $chan, 'Quit: '.$nick->str($net).' '.$act->{msg});
+			push @out, $net->cmd1(PRIVMSG => $chan, 'Quit: '.$nick->str($net).' '.$act->{msg});
 		}
 		@out;
 	},
@@ -573,7 +577,7 @@ $moddef{CORE} = {
 			$act->{to}->{$$net}.'!'.$nick->info('ident').'@'.$nick->info('vhost');
 		for my $chan ($nick->all_chans()) {
 			next unless $chan->is_on($net) && $chan->get_mode('cb_showjoin');
-			push @out, $net->cmd1(NOTICE => $chan, $msg);
+			push @out, $net->cmd1(PRIVMSG => $chan, $msg);
 		}
 		@out;
 	},
