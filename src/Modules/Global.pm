@@ -45,10 +45,9 @@ Event::command_add({
     {
       foreach (keys %Janus::gchans)
       {
-        my $chan = $Janus::gchans{$_};
         Event::insert_full({
           type => 'MSG',
-          dst => $chan,
+          dst => $Janus::gchans{$_},
           msgtype => 'PRIVMSG',
           src => $Interface::janus,
           msg => $msg
@@ -62,41 +61,4 @@ Event::command_add({
   }
 });
 
-sub gmsg {
-  return unless @_;
-  my ($type, $msg);
-  foreach (@_)
-  {
-    $type = $_->{type};
-    $msg = $_->{msg};
-  }
-  my @out;
-  if ($type eq 'notice')
-  {
-    $type = 'NOTICE';
-    foreach my $nick (keys %Janus::gnicks)
-    {
-      push @out, $nick; 
-    }
-  } elsif ($type eq 'chanmsg')
-  {
-    $type = 'PRIVMSG';
-    foreach my $chan (keys %Janus::gchans)
-    {
-      push @out, $chan;
-    }
-  } else {
-    return;
-  }
-
-  
-
-  Event::insert_full(map +{
-    type => 'MSG',
-    src => $Interface::janus,
-    dst => $_,
-    msgtype => $type,
-    msg => $msg
-  }, @out);
-}
 1;
