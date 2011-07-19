@@ -26,7 +26,7 @@ Event::command_add({
 			'linked networks without needing to share all channels and make all users visible',
 			'across both networks. If configured to allow it, users can also share their own',
 			'channels across any linked network.',
-			'The source code can be found at http://gitorious.com/janus-irc/janus',
+			'The source code can be found at http://gitorious.org/janus-irc/janus',
 		);
 	}
 }, {
